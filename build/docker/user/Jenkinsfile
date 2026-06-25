@@ -1,0 +1,37 @@
+pipeline {
+    agent any
+
+    environment {
+        // 您 Harbor 仓库的地址
+        REGISTRY = "47.99.50.241:30002"
+        SERVICE = "userserver"
+        SERVER_NAME = "user"
+    }
+
+    stages {
+        stage('docker login') {
+            steps {
+                echo "================== docker login =================="
+                sh """
+                    docker login -u admin -p Harbor12345 http://$REGISTRY
+                """
+            }
+        }
+        stage('docker build') {
+            steps {
+                echo "================== docker build =================="
+                sh """
+                    docker build -f build/docker/$SERVER_NAME/Dockerfile -t $REGISTRY/goshop/$SERVICE:\${version}.\${branch} .
+                """
+            }
+        }
+        stage('docker push') {
+            steps {
+                echo "================== docker push =================="
+                sh """
+                    docker push $REGISTRY/goshop/$SERVICE:\${version}.\${branch}
+                """
+            }
+        }
+    }
+}

@@ -1,0 +1,36 @@
+package srv
+
+import (
+	"fmt"
+	gpb "goshop/api/order/v1"
+	"goshop/app/order/srv/config"
+	"goshop/app/order/srv/internal/controller/order/v1"
+	db2 "goshop/app/order/srv/internal/data/v1/db"
+	v13 "goshop/app/order/srv/internal/service/v1"
+	"goshop/gmicro/core/trace"
+	"goshop/gmicro/server/rpcserver"
+
+	"goshop/pkg/log"
+)
+
+func NewOrderRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
+	//初始化open-telemetry的exporter
+	trace.InitAgent(trace.Options{
+		Name:     cfg.Telemetry.Name,
+		Endpoint: cfg.Telemetry.Endpoint,
+		Sampler:  cfg.Telemetry.Sampler,
+		Batcher:  cfg.Telemetry.Batcher,
+	})
+
+	dataFactory, err := db2.GetDataFactoryOr(cfg.MySQLOptions, cfg.Registry)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	orderSrvFactory := v13.NewService(dataFactory, cfg.Dtm)
+	orderServer := order.NewOrderServer(orderSrvFactory)
+	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+	grpcServer := rpcserver.NewServer(rpcserver.WithAddress(rpcAddr))
+	gpb.RegisterOrderServer(grpcServer.Server, orderServer)
+	return grpcServer, nil
+}
