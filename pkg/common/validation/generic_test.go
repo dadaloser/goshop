@@ -165,7 +165,6 @@ func TestIsValidIP(t *testing.T) {
 		"2001:4860:4860::8888",
 		"::fff:1.1.1.1",
 		"1.1.1.1",
-		"1.1.1.01",
 		"255.0.0.1",
 		"1.0.0.0",
 		"0.0.0.0",
@@ -182,6 +181,7 @@ func TestIsValidIP(t *testing.T) {
 		"-1.0.0.0",
 		"[2001:db8:0:1]",
 		"a",
+		"1.1.1.01",
 	}
 	for _, val := range badValues {
 		if msgs := IsValidIP(val); len(msgs) == 0 {
@@ -193,7 +193,6 @@ func TestIsValidIP(t *testing.T) {
 func TestIsValidIPv4Address(t *testing.T) {
 	goodValues := []string{
 		"1.1.1.1",
-		"1.1.1.01",
 		"255.0.0.1",
 		"1.0.0.0",
 		"0.0.0.0",
@@ -215,6 +214,7 @@ func TestIsValidIPv4Address(t *testing.T) {
 		"::1",
 		"2a00:79e0:2:0:f1c3:e797:93c1:df80",
 		"::",
+		"1.1.1.01",
 	}
 	for _, val := range badValues {
 		if msgs := IsValidIPv4Address(field.NewPath(""), val); len(msgs) == 0 {

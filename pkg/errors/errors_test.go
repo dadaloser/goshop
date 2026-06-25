@@ -125,7 +125,7 @@ func TestWrapf(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := Wrapf(tt.err, tt.message).Error()
+		got := Wrap(tt.err, tt.message).Error()
 		if got != tt.want {
 			t.Errorf("Wrapf(%v, %q): got: %v, want %v", tt.err, tt.message, got, tt.want)
 		}
@@ -217,7 +217,7 @@ func TestWithMessagef(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := WithMessagef(tt.err, tt.message).Error()
+		got := WithMessage(tt.err, tt.message).Error()
 		if got != tt.want {
 			t.Errorf("WithMessage(%v, %q): got: %q, want %q", tt.err, tt.message, got, tt.want)
 		}
@@ -260,7 +260,7 @@ func TestWithCodef(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := WithCode(tt.code, tt.format, tt.args)
+		got := WithCodeF(tt.code, tt.format, tt.args)
 		err, ok := got.(*withCode)
 		if !ok {
 			t.Errorf("WithCode(%v, %q %q): error type got: %T, want %s", tt.code, tt.format, tt.args, got, tt.wantType)
@@ -310,14 +310,14 @@ func TestParseCoder(t *testing.T) {
 		wantCode      int
 		wantReference string
 	}{
-		{fmt.Errorf("yes error"), 500, "An internal server error occurred", 1, "http://imooc/goshop/pkg/errors/README.md"},
-		{WithCode(unknownCoder.Code(), "internal error message"), 500, "An internal server error occurred", 1, "http://imooc/goshop/pkg/errors/README.md"},
+		{fmt.Errorf("yes error"), 500, "An internal server error occurred", 1, "http://goshop/pkg/errors/README.md"},
+		{WithCode(unknownCoder.Code(), "internal error message"), 500, "An internal server error occurred", 1, "http://goshop/pkg/errors/README.md"},
 	}
 
 	for i, tt := range tests {
 		coder := ParseCoder(tt.err)
 		if coder.HTTPStatus() != tt.wantHTTPCode {
-			t.Errorf("TestCodeParse(%d): got %q, want: %q", i, coder.HTTPStatus(), tt.wantHTTPCode)
+			t.Errorf("TestCodeParse(%d): got %d, want: %d", i, coder.HTTPStatus(), tt.wantHTTPCode)
 		}
 
 		if coder.String() != tt.wantString {
@@ -325,7 +325,7 @@ func TestParseCoder(t *testing.T) {
 		}
 
 		if coder.Code() != tt.wantCode {
-			t.Errorf("TestCodeParse(%d): got %q, want: %q", i, coder.Code(), tt.wantCode)
+			t.Errorf("TestCodeParse(%d): got %d, want: %d", i, coder.Code(), tt.wantCode)
 		}
 
 		if coder.Reference() != tt.wantReference {

@@ -119,7 +119,7 @@ var patterns = struct {
 var (
 	licenseTemplate = make(map[string]*template.Template)
 	usage           = func() {
-		fmt.Println(helpText)
+		fmt.Print(helpText)
 		pflag.PrintDefaults()
 	}
 )

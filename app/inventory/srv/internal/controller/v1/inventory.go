@@ -51,7 +51,7 @@ func (is *inventoryServer) Sell(ctx context.Context, info *invpb.SellInfo) (*emp
 	err := is.srv.Inventory().Sell(ctx, info.OrderSn, detail)
 	if err != nil {
 		if errors.IsCode(err, code.ErrInvNotEnough) {
-			return nil, status.Errorf(codes.Aborted, err.Error())
+			return nil, status.Error(codes.Aborted, err.Error())
 		}
 		return nil, err
 	}

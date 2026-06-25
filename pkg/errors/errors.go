@@ -93,6 +93,7 @@
 package errors
 
 import (
+	stderrors "errors"
 	"fmt"
 	"io"
 
@@ -235,7 +236,7 @@ func Wrap(err error, message string) error {
 	}
 	if e, ok := err.(*withCode); ok {
 		return &withCode{
-			err:   fmt.Errorf(message),
+			err:   stderrors.New(message),
 			code:  e.code,
 			cause: err,
 			stack: callers(),
@@ -343,13 +344,21 @@ func WithCode(code int, format string, args ...interface{}) error {
 	}
 }
 
+func WithCodeF(code int, format string, args ...interface{}) error {
+	return WithCode(code, fmt.Sprintf(format, args...))
+}
+
 func WrapC(err error, code int, format string, args ...interface{}) error {
 	if err == nil {
 		return nil
 	}
 
+	message := format
+	if len(args) > 0 {
+		message = fmt.Sprintf(format, args...)
+	}
 	return &withCode{
-		err:   fmt.Errorf(format, args...),
+		err:   stderrors.New(message),
 		code:  code,
 		cause: err,
 		stack: callers(),

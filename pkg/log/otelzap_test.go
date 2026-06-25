@@ -321,11 +321,11 @@ func TestOtelZap(t *testing.T) {
 func requireCodeAttrs(t *testing.T, m map[attribute.Key]attribute.Value) {
 	fn, ok := m[semconv.CodeFunctionKey]
 	require.True(t, ok)
-	require.Contains(t, fn.AsString(), "otelzap.TestOtelZap")
+	require.Contains(t, fn.AsString(), "TestOtelZap")
 
 	file, ok := m[semconv.CodeFilepathKey]
 	require.True(t, ok)
-	require.Contains(t, file.AsString(), "otelzap/otelzap_test.go")
+	require.Contains(t, file.AsString(), "log/otelzap_test.go")
 
 	_, ok = m[semconv.CodeLineNumberKey]
 	require.True(t, ok)

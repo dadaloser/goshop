@@ -296,7 +296,7 @@ func IsValidPassword(password string) error {
 	}
 
 	if len(errorString) != 0 {
-		return fmt.Errorf(errorString)
+		return fmt.Errorf("%s", errorString)
 	}
 
 	return nil

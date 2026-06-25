@@ -14,7 +14,7 @@ type MySQLOptions struct {
 	Database              string        `mapstructure:"database" json:"database"`
 	MaxIdleConnections    int           `mapstructure:"max-idle-connections" json:"max-idle-connections,omitempty"`
 	MaxOpenConnections    int           `mapstructure:"max-open-connections" json:"max-open-connections,omitempty"`
-	MaxConnectionLifetime time.Duration `mapstructure:"ax-connection-life-time" json:"max-connection-life-time,omitempty"`
+	MaxConnectionLifetime time.Duration `mapstructure:"max-connection-life-time" json:"max-connection-life-time,omitempty"`
 	LogLevel              int           `mapstructure:"log-level" json:"log-level"`
 }
 

@@ -92,7 +92,7 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 
 		if KeyExpired(secret.Expires) {
 			tm := time.Unix(secret.Expires, 0).Format("2006-01-02 15:04:05")
-			core.WriteResponse(c, errors.WithCode(code.ErrExpired, "expired at: %s", tm), nil)
+			core.WriteResponse(c, errors.WithCodeF(code.ErrExpired, "expired at: %s", tm), nil)
 			c.Abort()
 
 			return

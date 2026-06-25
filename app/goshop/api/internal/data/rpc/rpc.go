@@ -21,13 +21,11 @@ type grpcData struct {
 }
 
 func (g grpcData) Goods() gpb.GoodsClient {
-	//TODO implement me
-	panic("implement me")
+	return g.gc
 }
 
 func (g grpcData) Users() data.UserData {
-	//TODO implement me
-	panic("implement me")
+	return NewUsers(g.uc)
 }
 
 func NewDiscovery(opts *options.RegistryOptions) registry.Discovery {

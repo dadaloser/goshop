@@ -35,7 +35,7 @@ func NewUsers() *users {
 	return &users{}
 }
 
-func (u *users) List(ctx context.Context, opts metav1.ListMeta) (*dv1.UserDOList, error) {
+func (u *users) List(ctx context.Context, fields []string, opts metav1.ListMeta) (*dv1.UserDOList, error) {
 	var users []*dv1.UserDO
 	return &dv1.UserDOList{
 		TotalCount: 1,

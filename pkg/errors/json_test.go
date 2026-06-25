@@ -12,7 +12,7 @@ func TestFrameMarshalText(t *testing.T) {
 		want string
 	}{{
 		initpc,
-		`^imooc/goshop/pkg/errors\.init(\.ializers)? .+/imooc/goshop/pkg/errors/stack_test.go:\d+$`,
+		`^goshop/pkg/errors\.init(\.ializers)? .+/goshop/pkg/errors/stack_test.go:\d+$`,
 	}, {
 		0,
 		`^unknown$`,
@@ -34,7 +34,7 @@ func TestFrameMarshalJSON(t *testing.T) {
 		want string
 	}{{
 		initpc,
-		`^"imooc/goshop/pkg/errors\.init(\.ializers)? .+/imooc/goshop/pkg/errors/stack_test.go:\d+"$`,
+		`^"goshop/pkg/errors\.init(\.ializers)? .+/goshop/pkg/errors/stack_test.go:\d+"$`,
 	}, {
 		0,
 		`^"unknown"$`,

@@ -12,6 +12,16 @@ import (
 	"goshop/gmicro/registry"
 )
 
+func skipIfConsulUnavailable(t *testing.T) {
+	t.Helper()
+
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:8500", 200*time.Millisecond)
+	if err != nil {
+		t.Skipf("consul is not available at 127.0.0.1:8500: %v", err)
+	}
+	_ = conn.Close()
+}
+
 func tcpServer(t *testing.T, lis net.Listener) {
 	for {
 		conn, err := lis.Accept()
@@ -24,6 +34,8 @@ func tcpServer(t *testing.T, lis net.Listener) {
 }
 
 func TestRegistry_Register(t *testing.T) {
+	skipIfConsulUnavailable(t)
+
 	opts := []Option{
 		WithHealthCheck(false),
 	}
@@ -140,6 +152,8 @@ func TestRegistry_Register(t *testing.T) {
 }
 
 func TestRegistry_GetService(t *testing.T) {
+	skipIfConsulUnavailable(t)
+
 	addr := fmt.Sprintf("%s:9091", getIntranetIP())
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -266,6 +280,8 @@ func TestRegistry_GetService(t *testing.T) {
 }
 
 func TestRegistry_Watch(t *testing.T) {
+	skipIfConsulUnavailable(t)
+
 	addr := fmt.Sprintf("%s:9091", getIntranetIP())
 
 	time.Sleep(time.Millisecond * 100)
