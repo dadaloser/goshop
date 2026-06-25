@@ -336,16 +336,20 @@ type withCode struct {
 	*stack
 }
 
-func WithCode(code int, format string, args ...interface{}) error {
+func WithCode(code int, message string) error {
 	return &withCode{
-		err:   fmt.Errorf(format, args...),
+		err:   stderrors.New(message),
 		code:  code,
 		stack: callers(),
 	}
 }
 
 func WithCodeF(code int, format string, args ...interface{}) error {
-	return WithCode(code, fmt.Sprintf(format, args...))
+	return &withCode{
+		err:   stderrors.New(fmt.Sprintf(format, args...)),
+		code:  code,
+		stack: callers(),
+	}
 }
 
 func WrapC(err error, code int, format string, args ...interface{}) error {

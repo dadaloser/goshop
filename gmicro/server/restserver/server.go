@@ -3,7 +3,10 @@ package restserver
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"sync"
 	"time"
 
 	"github.com/penglongli/gin-metrics/ginmetrics"
@@ -12,6 +15,7 @@ import (
 	"goshop/gmicro/server/restserver/pprof"
 	"goshop/gmicro/server/restserver/validation"
 	"goshop/pkg/errors"
+	"goshop/pkg/host"
 	"goshop/pkg/log"
 
 	"github.com/gin-gonic/gin"
@@ -35,6 +39,9 @@ type Server struct {
 
 	//端口号， 默认值 8080
 	port int
+
+	//监听地址，默认空字符串表示监听所有网卡
+	host string
 
 	//开发模式， 默认值 debug
 	mode string
@@ -61,6 +68,10 @@ type Server struct {
 	server *http.Server
 
 	serviceName string
+
+	ready     chan struct{}
+	readyOnce sync.Once
+	endpoint  *url.URL
 }
 
 func NewServer(opts ...ServerOption) *Server {
@@ -78,6 +89,7 @@ func NewServer(opts ...ServerOption) *Server {
 		Engine:      gin.Default(),
 		transName:   "zh",
 		serviceName: "gmicro",
+		ready:       make(chan struct{}),
 	}
 
 	for _, o := range opts {
@@ -102,6 +114,18 @@ func NewServer(opts ...ServerOption) *Server {
 
 func (s *Server) Translator() ut.Translator {
 	return s.trans
+}
+
+func (s *Server) Endpoint() *url.URL {
+	return s.endpoint
+}
+
+func (s *Server) Address() string {
+	return net.JoinHostPort(s.host, fmt.Sprintf("%d", s.port))
+}
+
+func (s *Server) Ready() <-chan struct{} {
+	return s.ready
 }
 
 // Start  rest server
@@ -144,14 +168,27 @@ func (s *Server) Start(ctx context.Context) error {
 		m.Use(s)
 	}
 
-	log.Infof("rest server is running on port: %d", s.port)
-	address := fmt.Sprintf(":%d", s.port)
+	address := s.Address()
+	lis, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+	addr, err := host.Extract(address, lis)
+	if err != nil {
+		_ = lis.Close()
+		return err
+	}
+	s.endpoint = &url.URL{Scheme: "http", Host: addr}
+
+	log.Infof("rest server is running on: %s", lis.Addr().String())
 	s.server = &http.Server{
-		Addr:    address,
 		Handler: s.Engine,
 	}
 	_ = s.SetTrustedProxies(nil)
-	if err = s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	s.readyOnce.Do(func() {
+		close(s.ready)
+	})
+	if err = s.server.Serve(lis); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil
@@ -159,6 +196,10 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) Stop(ctx context.Context) error {
 	log.Infof("rest server is stopping")
+	if s.server == nil {
+		log.Info("rest server stopped")
+		return nil
+	}
 	if err := s.server.Shutdown(ctx); err != nil {
 		log.Errorf("rest server shutdown error: %s", err.Error())
 		return err

@@ -175,7 +175,17 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) Stop(ctx context.Context) error {
 	//设置服务的状态为not_serving，防止接收新的请求过来
 	s.health.Shutdown()
-	s.GracefulStop()
+	//GracefulStop() 现在会受 ctx 控制，超时后强制 Stop()，避免退出卡死
+	done := make(chan struct{})
+	go func() {
+		s.GracefulStop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		s.Server.Stop()
+	}
 	log.Infof("[grpc] server stopped")
 	return nil
 }

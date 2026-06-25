@@ -84,7 +84,7 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 			return []byte(secret.Key), nil
 		}, jwt.WithAudience(AuthzAudience))
 		if err != nil || !parsedT.Valid {
-			core.WriteResponse(c, errors.WithCode(code.ErrSignatureInvalid, err.Error()), nil)
+			core.WriteResponse(c, errors.WithCodeF(code.ErrSignatureInvalid, "%s", err.Error()), nil)
 			c.Abort()
 
 			return

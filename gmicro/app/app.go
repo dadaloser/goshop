@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"syscall"
 	"time"
@@ -26,6 +27,14 @@ type App struct {
 	cancel func()
 }
 
+type readyServer interface {
+	Ready() <-chan struct{}
+}
+
+type endpointServer interface {
+	Endpoint() *url.URL
+}
+
 func New(opts ...Option) *App {
 	o := options{
 		sigs:             []os.Signal{syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT},
@@ -48,17 +57,17 @@ func New(opts ...Option) *App {
 
 // 启动整个服务
 func (a *App) Run() error {
-	//注册的信息
-	instance, err := a.buildInstance()
-	if err != nil {
-		return err
-	}
+	/*	//注册的信息
+		instance, err := a.buildInstance()
+		if err != nil {
+			return err
+		}
 
-	//这个变量可能被其他的goroutine访问到
-	a.lk.Lock()
-	a.instance = instance
-	a.lk.Unlock()
-
+		//这个变量可能被其他的goroutine访问到
+		a.lk.Lock()
+		a.instance = instance
+		a.lk.Unlock()
+	*/
 	//if a.opts.rpcServer != nil {
 	//	// 启动rpc服务， 如果我想要给这个rpc服务设置port 我们想要给这个rpc服务register我们自定义的interceptor
 	//	a.opts.rpcServer.Serve()
@@ -99,7 +108,11 @@ func (a *App) Run() error {
 	a.cancel = cancel
 	eg, ctx := errgroup.WithContext(ctx)
 	wg := sync.WaitGroup{}
+	readyChans := make([]<-chan struct{}, 0, len(servers))
 	for _, srv := range servers {
+		if readySrv, ok := srv.(readyServer); ok {
+			readyChans = append(readyChans, readySrv.Ready())
+		}
 		//启动server
 		//在启动一个goroutine 去监听是否有err产生
 		srv := srv
@@ -120,6 +133,26 @@ func (a *App) Run() error {
 	}
 
 	wg.Wait()
+
+	//等实现了Ready()的server完成监听，再构建 service instance 并注册，避免服务还没起来就暴露到注册中心。
+	if err := waitReady(ctx, readyChans, a.opts.registrarTimeout); err != nil {
+		cancel()
+		_ = eg.Wait()
+		return err
+	}
+
+	//注册的信息
+	instance, err := a.buildInstance()
+	if err != nil {
+		cancel()
+		_ = eg.Wait()
+		return err
+	}
+
+	//这个变量可能被其他的goroutine访问到
+	a.lk.Lock()
+	a.instance = instance
+	a.lk.Unlock()
 
 	//注册服务
 	if a.opts.registrar != nil {
@@ -145,6 +178,23 @@ func (a *App) Run() error {
 	})
 	if err := eg.Wait(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func waitReady(ctx context.Context, readyChans []<-chan struct{}, timeout time.Duration) error {
+	if len(readyChans) == 0 {
+		return nil
+	}
+
+	tctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	for _, ready := range readyChans {
+		select {
+		case <-ready:
+		case <-tctx.Done():
+			return fmt.Errorf("server startup wait failed: %w", tctx.Err())
+		}
 	}
 	return nil
 }
@@ -194,6 +244,11 @@ func (a *App) buildInstance() (*registry.ServiceInstance, error) {
 				Host:   a.opts.rpcServer.Address(),
 			}
 			endpoints = append(endpoints, u.String())
+		}
+	}
+	if a.opts.restServer != nil {
+		if e := a.opts.restServer.Endpoint(); e != nil {
+			endpoints = append(endpoints, e.String())
 		}
 	}
 

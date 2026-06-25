@@ -173,7 +173,8 @@ func (r *Registry) Watch(ctx context.Context, name string) (registry.Watcher, er
 	w := &watcher{
 		event: make(chan struct{}, 1),
 	}
-	w.ctx, w.cancel = context.WithCancel(context.Background())
+	//防止裸 context.Background() 挂死,降低 goroutine 泄漏风险。
+	w.ctx, w.cancel = context.WithCancel(ctx)
 	w.set = set
 	set.lock.Lock()
 	set.watcher[w] = struct{}{}
@@ -186,16 +187,18 @@ func (r *Registry) Watch(ctx context.Context, name string) (registry.Watcher, er
 	}
 
 	if !ok {
-		err := r.resolve(set)
+		//resolve 长轮询也会响应取消，
+		err := r.resolve(w.ctx, set)
 		if err != nil {
+			_ = w.Stop()
 			return nil, err
 		}
 	}
 	return w, nil
 }
 
-func (r *Registry) resolve(ss *serviceSet) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+func (r *Registry) resolve(ctx context.Context, ss *serviceSet) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	services, idx, err := r.cli.Service(ctx, ss.serviceName, 0, true)
 	cancel()
 	if err != nil {
@@ -207,12 +210,20 @@ func (r *Registry) resolve(ss *serviceSet) error {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
-			<-ticker.C
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*120) //长轮询,
-			tmpService, tmpIdx, err := r.cli.Service(ctx, ss.serviceName, idx, true)
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+			pollCtx, cancel := context.WithTimeout(ctx, time.Second*120) //长轮询,
+			tmpService, tmpIdx, err := r.cli.Service(pollCtx, ss.serviceName, idx, true)
 			cancel()
 			if err != nil {
-				time.Sleep(time.Second)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(time.Second):
+				}
 				continue
 			}
 			if len(tmpService) != 0 && tmpIdx != idx {
