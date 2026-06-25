@@ -1,14 +1,21 @@
 package admin
 
 import (
-	"goshop/app/user/srv/config"
+	"goshop/app/goshop/admin/config"
 	"goshop/gmicro/server/restserver"
 )
 
 func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 	restServer := restserver.NewServer(restserver.WithPort(cfg.Server.HttpPort),
+		restserver.WithHost(cfg.Server.Host),
 		restserver.WithMiddlewares(cfg.Server.Middlewares),
-		restserver.WithMetrics(true),
+		restserver.WithHealthCheck(cfg.Server.EnableHealthCheck),
+		restserver.WithEnableProfiling(cfg.Server.EnableProfiling),
+		restserver.WithMetrics(cfg.Server.EnableMetrics),
+		restserver.WithReadHeaderTimeout(cfg.Server.ReadHeaderTimeout),
+		restserver.WithReadTimeout(cfg.Server.ReadTimeout),
+		restserver.WithWriteTimeout(cfg.Server.WriteTimeout),
+		restserver.WithIdleTimeout(cfg.Server.IdleTimeout),
 	)
 
 	//配置好路由

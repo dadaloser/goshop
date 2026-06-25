@@ -1,5 +1,7 @@
 package restserver
 
+import "time"
+
 type ServerOption func(*Server)
 
 func WithEnableProfiling(profiling bool) ServerOption {
@@ -59,5 +61,29 @@ func WithTransNames(transName string) ServerOption {
 func WithMetrics(enable bool) ServerOption {
 	return func(o *Server) {
 		o.enableMetrics = enable
+	}
+}
+
+func WithReadHeaderTimeout(timeout time.Duration) ServerOption {
+	return func(s *Server) {
+		s.readHeaderTimeout = timeout
+	}
+}
+
+func WithReadTimeout(timeout time.Duration) ServerOption {
+	return func(s *Server) {
+		s.readTimeout = timeout
+	}
+}
+
+func WithWriteTimeout(timeout time.Duration) ServerOption {
+	return func(s *Server) {
+		s.writeTimeout = timeout
+	}
+}
+
+func WithIdleTimeout(timeout time.Duration) ServerOption {
+	return func(s *Server) {
+		s.idleTimeout = timeout
 	}
 }

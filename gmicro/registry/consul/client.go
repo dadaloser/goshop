@@ -15,6 +15,9 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
+// 检查心跳失败次数
+const heartbeatFailureThreshold = 3
+
 // Client is consul client config
 type Client struct {
 	cli    *api.Client
@@ -150,20 +153,37 @@ func (c *Client) Register(_ context.Context, svc *registry.ServiceInstance, enab
 	}
 	if c.heartbeat {
 		go func() {
-			time.Sleep(time.Second)
-			err = c.cli.Agent().UpdateTTL("service:"+svc.ID, "pass", "pass")
-			if err != nil {
-				log.Errorf("[Consul]update ttl heartbeat to consul failed!err:=%v", err)
+			failures := 0
+			updateTTL := func() {
+				if heartbeatErr := c.cli.Agent().UpdateTTL("service:"+svc.ID, "pass", "pass"); heartbeatErr != nil {
+					failures++
+					log.Errorf("[Consul] update ttl heartbeat to consul failed: %v", heartbeatErr)
+					if failures >= heartbeatFailureThreshold {
+						//失败重新注册
+						if registerErr := c.cli.Agent().ServiceRegister(asr); registerErr != nil {
+							log.Errorf("[Consul] re-register service failed: %v", registerErr)
+							return
+						}
+						log.Infof("[Consul] re-register service success: %s", svc.ID)
+						failures = 0
+					}
+					return
+				}
+				failures = 0
+			}
+
+			select {
+			case <-time.After(time.Second):
+				updateTTL()
+			case <-c.ctx.Done():
+				return
 			}
 			ticker := time.NewTicker(time.Second * time.Duration(c.healthcheckInterval))
 			defer ticker.Stop()
 			for {
 				select {
 				case <-ticker.C:
-					err = c.cli.Agent().UpdateTTL("service:"+svc.ID, "pass", "pass")
-					if err != nil {
-						log.Errorf("[Consul]update ttl heartbeat to consul failed!err:=%v", err)
-					}
+					updateTTL()
 				case <-c.ctx.Done():
 					return
 				}

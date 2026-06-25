@@ -1,6 +1,10 @@
 package options
 
-import "github.com/spf13/pflag"
+import (
+	"time"
+
+	"github.com/spf13/pflag"
+)
 
 type ServerOptions struct {
 	//是否开启pprof
@@ -29,18 +33,27 @@ type ServerOptions struct {
 
 	//中间件
 	Middlewares []string `json:"middlewares,omitempty"                 mapstructure:"middlewares"`
+
+	ReadHeaderTimeout time.Duration `json:"read-header-timeout,omitempty" mapstructure:"read-header-timeout"`
+	ReadTimeout       time.Duration `json:"read-timeout,omitempty"        mapstructure:"read-timeout"`
+	WriteTimeout      time.Duration `json:"write-timeout,omitempty"       mapstructure:"write-timeout"`
+	IdleTimeout       time.Duration `json:"idle-timeout,omitempty"        mapstructure:"idle-timeout"`
 }
 
 // NewServerOptions create a `zero` value instance.
 func NewServerOptions() *ServerOptions {
 	return &ServerOptions{
 		EnableHealthCheck: true,
-		EnableProfiling:   true,
+		EnableProfiling:   false, //
 		EnableMetrics:     true,
 		Host:              "127.0.0.1",
 		Port:              8078,
 		HttpPort:          8079,
 		Name:              "goshop-user-srv",
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 }
 
@@ -53,7 +66,7 @@ func (so *ServerOptions) Validate() []error {
 // AddFlags adds flags related to server storage for a specific APIServer to the specified FlagSet.
 func (so *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&so.EnableProfiling, "server.enable-profiling", so.EnableProfiling,
-		"enable-profiling, if true, will add <host>:<port>/debug/pprof/, default is true")
+		"enable-profiling, if true, will add <host>:<port>/debug/pprof/, default is false")
 	fs.BoolVar(&so.EnableMetrics, "server.enable-metrics", so.EnableMetrics,
 		"enable-metrics, if true, will add /metrics, default is true")
 
@@ -67,4 +80,13 @@ func (so *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&so.HttpPort, "server.http-port", so.HttpPort, "server http port default is 8079")
 
 	fs.StringVar(&so.Name, "server.name", so.Name, "server name default is goshop-user-srv")
+
+	fs.DurationVar(&so.ReadHeaderTimeout, "server.read-header-timeout", so.ReadHeaderTimeout,
+		"maximum duration for reading request headers")
+	fs.DurationVar(&so.ReadTimeout, "server.read-timeout", so.ReadTimeout,
+		"maximum duration for reading the entire request")
+	fs.DurationVar(&so.WriteTimeout, "server.write-timeout", so.WriteTimeout,
+		"maximum duration before timing out writes of the response")
+	fs.DurationVar(&so.IdleTimeout, "server.idle-timeout", so.IdleTimeout,
+		"maximum amount of time to wait for the next request when keep-alives are enabled")
 }

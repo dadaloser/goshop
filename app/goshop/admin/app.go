@@ -1,8 +1,8 @@
 package admin
 
 import (
+	"goshop/app/goshop/admin/config"
 	"goshop/app/pkg/options"
-	"goshop/app/user/srv/config"
 	gapp "goshop/gmicro/app"
 	"goshop/pkg/app"
 	"goshop/pkg/log"

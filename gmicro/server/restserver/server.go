@@ -55,6 +55,11 @@ type Server struct {
 	//是否开启metrics接口， 默认开启， 如果开启会自动添加 /metrics 接口
 	enableMetrics bool
 
+	readHeaderTimeout time.Duration
+	readTimeout       time.Duration
+	writeTimeout      time.Duration
+	idleTimeout       time.Duration
+
 	//中间件
 	middlewares []string
 
@@ -76,10 +81,14 @@ type Server struct {
 
 func NewServer(opts ...ServerOption) *Server {
 	srv := &Server{
-		port:            8080,
-		mode:            "debug",
-		healthCheck:     true,
-		enableProfiling: true,
+		port:              8080,
+		mode:              "debug",
+		healthCheck:       true,
+		enableProfiling:   false,
+		readHeaderTimeout: 5 * time.Second,
+		readTimeout:       15 * time.Second,
+		writeTimeout:      30 * time.Second,
+		idleTimeout:       60 * time.Second,
 		jwt: &JwtInfo{
 			"JWT",
 			"mwGDMGtSpdwXaiihF5WnEgRajSFpdZj8",
@@ -151,6 +160,11 @@ func (s *Server) Start(ctx context.Context) error {
 	//注册mobile验证码
 	validation.RegisterMobile(s.trans)
 
+	//健康检查
+	if s.healthCheck {
+		s.registerHealthRoutes()
+	}
+
 	//根据配置初始化pprof路由
 	if s.enableProfiling {
 		pprof.Register(s.Engine)
@@ -182,7 +196,11 @@ func (s *Server) Start(ctx context.Context) error {
 
 	log.Infof("rest server is running on: %s", lis.Addr().String())
 	s.server = &http.Server{
-		Handler: s.Engine,
+		Handler:           s.Engine,
+		ReadHeaderTimeout: s.readHeaderTimeout,
+		ReadTimeout:       s.readTimeout,
+		WriteTimeout:      s.writeTimeout,
+		IdleTimeout:       s.idleTimeout,
 	}
 	_ = s.SetTrustedProxies(nil)
 	s.readyOnce.Do(func() {
@@ -206,4 +224,22 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 	log.Info("rest server stopped")
 	return nil
+}
+
+func (s *Server) registerHealthRoutes() {
+	livez := func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	}
+	readyz := func(c *gin.Context) {
+		select {
+		case <-s.ready:
+			c.JSON(http.StatusOK, gin.H{"status": "ready"})
+		default:
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})
+		}
+	}
+
+	s.GET("/livez", livez)
+	s.GET("/readyz", readyz)
+	s.GET("/healthz", readyz)
 }
