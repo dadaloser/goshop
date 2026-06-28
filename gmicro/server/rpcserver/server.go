@@ -47,6 +47,14 @@ func (s *Server) Address() string {
 }
 
 func NewServer(opts ...ServerOption) *Server {
+	srv, err := NewServerE(opts...)
+	if err != nil {
+		panic(err)
+	}
+	return srv
+}
+
+func NewServerE(opts ...ServerOption) (*Server, error) {
 	srv := &Server{
 		address: ":0",
 		health:  health.NewServer(),
@@ -93,7 +101,7 @@ func NewServer(opts ...ServerOption) *Server {
 	//解析address
 	err := srv.listenAndEndpoint()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	//注册health
@@ -102,7 +110,7 @@ func NewServer(opts ...ServerOption) *Server {
 	reflection.Register(srv.Server)
 	//可以支持用户直接通过grpc的一个接口查看当前支持的所有的rpc服务
 
-	return srv
+	return srv, nil
 }
 
 func WithAddress(address string) ServerOption {

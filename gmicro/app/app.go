@@ -35,6 +35,17 @@ type endpointServer interface {
 	Endpoint() *url.URL
 }
 
+var collectServers = func(a *App) []gs.Server {
+	var servers []gs.Server
+	if a.opts.restServer != nil {
+		servers = append(servers, a.opts.restServer)
+	}
+	if a.opts.rpcServer != nil {
+		servers = append(servers, a.opts.rpcServer)
+	}
+	return servers
+}
+
 func New(opts ...Option) *App {
 	o := options{
 		sigs:             []os.Signal{syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT},
@@ -96,13 +107,7 @@ func (a *App) Run() error {
 		如果我们的服务启动了然后这个时候用户立马进行了访问
 	*/
 
-	var servers []gs.Server
-	if a.opts.restServer != nil {
-		servers = append(servers, a.opts.restServer)
-	}
-	if a.opts.rpcServer != nil {
-		servers = append(servers, a.opts.rpcServer)
-	}
+	servers := collectServers(a)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancel = cancel
@@ -161,6 +166,8 @@ func (a *App) Run() error {
 		err := a.opts.registrar.Register(rctx, instance)
 		if err != nil {
 			log.Errorf("register service error: %s", err)
+			cancel()
+			_ = eg.Wait()
 			return err
 		}
 	}

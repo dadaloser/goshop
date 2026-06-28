@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/penglongli/gin-metrics/ginmetrics"
@@ -76,6 +77,7 @@ type Server struct {
 
 	ready     chan struct{}
 	readyOnce sync.Once
+	draining  atomic.Bool
 	endpoint  *url.URL
 }
 
@@ -139,6 +141,7 @@ func (s *Server) Ready() <-chan struct{} {
 
 // Start  rest server
 func (s *Server) Start(ctx context.Context) error {
+	s.draining.Store(false)
 	//设置开发模式，打印路由信息
 	if s.mode != gin.DebugMode && s.mode != gin.ReleaseMode && s.mode != gin.TestMode {
 		return errors.New("mode must be one of debug/release/test")
@@ -214,6 +217,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) Stop(ctx context.Context) error {
 	log.Infof("rest server is stopping")
+	s.draining.Store(true)
 	if s.server == nil {
 		log.Info("rest server stopped")
 		return nil
@@ -233,6 +237,10 @@ func (s *Server) registerHealthRoutes() {
 	readyz := func(c *gin.Context) {
 		select {
 		case <-s.ready:
+			if s.draining.Load() {
+				c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})
+				return
+			}
 			c.JSON(http.StatusOK, gin.H{"status": "ready"})
 		default:
 			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})

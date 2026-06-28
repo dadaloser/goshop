@@ -30,8 +30,9 @@ const (
 
 var (
 	//set ,struct 空结构体不占内存， zerobase
-	agents = make(map[string]struct{})
-	lock   sync.Mutex
+	agents    = make(map[string]struct{})
+	providers []*trace.TracerProvider
+	lock      sync.Mutex
 )
 
 func InitAgent(o Options) error {
@@ -81,6 +82,7 @@ func startAgent(o Options) error {
 	}
 
 	tp := trace.NewTracerProvider(opts...)
+	providers = append(providers, tp)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
@@ -110,4 +112,19 @@ func validateEndpoint(endpoint string) error {
 		return nil
 	}
 	return fmt.Errorf("invalid trace endpoint %q: missing host", endpoint)
+}
+
+func Shutdown(ctx context.Context) error {
+	lock.Lock()
+	defer lock.Unlock()
+
+	var err error
+	for _, provider := range providers {
+		if shutdownErr := provider.Shutdown(ctx); shutdownErr != nil && err == nil {
+			err = shutdownErr
+		}
+	}
+	providers = nil
+	agents = make(map[string]struct{})
+	return err
 }
