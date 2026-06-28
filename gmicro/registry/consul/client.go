@@ -111,9 +111,11 @@ func (c *Client) Register(_ context.Context, svc *registry.ServiceInstance, enab
 		if err != nil {
 			return err
 		}
-		addr := raw.Hostname()
-		port, _ := strconv.ParseUint(raw.Port(), 10, 16)
-		checkAddress := net.JoinHostPort(addr, strconv.FormatUint(port, 10))
+		addr, port, err := parseEndpointAddress(raw)
+		if err != nil {
+			return err
+		}
+		checkAddress := net.JoinHostPort(addr, strconv.FormatUint(uint64(port), 10))
 
 		checkAddresses = append(checkAddresses, checkAddress)
 		addresses[raw.Scheme] = api.ServiceAddress{Address: endpoint, Port: int(port)}
@@ -203,6 +205,25 @@ func (c *Client) Register(_ context.Context, svc *registry.ServiceInstance, enab
 		}()
 	}
 	return nil
+}
+
+func parseEndpointAddress(endpoint *url.URL) (string, uint16, error) {
+	if endpoint.Scheme == "" {
+		return "", 0, fmt.Errorf("invalid endpoint %q: missing scheme", endpoint.String())
+	}
+	addr := endpoint.Hostname()
+	if addr == "" {
+		return "", 0, fmt.Errorf("invalid endpoint %q: missing host", endpoint.String())
+	}
+	portRaw := endpoint.Port()
+	if portRaw == "" {
+		return "", 0, fmt.Errorf("invalid endpoint %q: missing port", endpoint.String())
+	}
+	port, err := strconv.ParseUint(portRaw, 10, 16)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid endpoint %q: invalid port: %w", endpoint.String(), err)
+	}
+	return addr, uint16(port), nil
 }
 
 func (c *Client) healthCheckURL(endpoint *url.URL) string {

@@ -207,8 +207,8 @@ func (r *Registry) Watch(ctx context.Context, name string) (registry.Watcher, er
 }
 
 func (r *Registry) resolve(ctx context.Context, ss *serviceSet) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-	services, idx, err := r.cli.Service(ctx, ss.serviceName, 0, true)
+	initCtx, cancel := context.WithTimeout(ctx, time.Second*10)
+	services, idx, err := r.cli.Service(initCtx, ss.serviceName, 0, true)
 	cancel()
 	if err != nil {
 		return err

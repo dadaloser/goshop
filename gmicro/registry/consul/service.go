@@ -15,6 +15,9 @@ type serviceSet struct {
 }
 
 func (s *serviceSet) broadcast(ss []*registry.ServiceInstance) {
+	if ss == nil {
+		ss = []*registry.ServiceInstance{}
+	}
 	//原子操作， 保证线程安全， 我们平时写struct的时候
 	s.services.Store(ss)
 	s.lock.RLock()

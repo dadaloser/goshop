@@ -70,3 +70,19 @@ func WithSigs(sigs []os.Signal) Option {
 		o.sigs = sigs
 	}
 }
+
+func WithRegistrarTimeout(timeout time.Duration) Option {
+	return func(o *options) {
+		if timeout > 0 {
+			o.registrarTimeout = timeout
+		}
+	}
+}
+
+func WithStopTimeout(timeout time.Duration) Option {
+	return func(o *options) {
+		if timeout > 0 {
+			o.stopTimeout = timeout
+		}
+	}
+}

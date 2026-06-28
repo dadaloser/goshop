@@ -2,9 +2,13 @@ package consul
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -398,4 +402,103 @@ func getIntranetIP() string {
 		}
 	}
 	return "127.0.0.1"
+}
+
+func TestServiceSetBroadcastsEmptyServiceList(t *testing.T) {
+	set := &serviceSet{
+		watcher:  make(map[*watcher]struct{}),
+		services: &atomic.Value{},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	w := &watcher{
+		event:  make(chan struct{}, 1),
+		set:    set,
+		ctx:    ctx,
+		cancel: cancel,
+	}
+	set.watcher[w] = struct{}{}
+
+	set.broadcast([]*registry.ServiceInstance{{ID: "1", Name: "server-1"}})
+	got, err := w.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("Next() services = %v, want one service", got)
+	}
+
+	set.broadcast(nil)
+	got, err = w.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v, want nil", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("Next() services = %v, want empty service list", got)
+	}
+}
+
+func TestRegistryWatchContinuesAfterInitialResolve(t *testing.T) {
+	var calls int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/health/service/server-1" {
+			t.Fatalf("request path = %s, want /v1/health/service/server-1", r.URL.Path)
+		}
+		call := atomic.AddInt64(&calls, 1)
+		if call == 1 {
+			w.Header().Set("X-Consul-Index", "1")
+			_ = json.NewEncoder(w).Encode([]*api.ServiceEntry{
+				{
+					Service: &api.AgentService{
+						ID:      "1",
+						Service: "server-1",
+						Tags:    []string{"version=v1"},
+						TaggedAddresses: map[string]api.ServiceAddress{
+							"grpc": {
+								Address: "grpc://127.0.0.1:9000",
+								Port:    9000,
+							},
+						},
+					},
+				},
+			})
+			return
+		}
+
+		w.Header().Set("X-Consul-Index", "2")
+		_ = json.NewEncoder(w).Encode([]*api.ServiceEntry{})
+	}))
+	t.Cleanup(server.Close)
+
+	cli, err := api.NewClient(&api.Config{Address: server.URL})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	r := New(cli)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	watch, err := r.Watch(ctx, "server-1")
+	if err != nil {
+		t.Fatalf("Watch() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		_ = watch.Stop()
+	})
+
+	got, err := watch.Next()
+	if err != nil {
+		t.Fatalf("Next() initial error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("Next() initial services = %v, want one service", got)
+	}
+
+	got, err = watch.Next()
+	if err != nil {
+		t.Fatalf("Next() update error = %v, want nil", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("Next() update services = %v, want empty service list", got)
+	}
 }
