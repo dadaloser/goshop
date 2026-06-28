@@ -2,6 +2,7 @@ package rpcserver
 
 import (
 	"context"
+	"fmt"
 	"goshop/gmicro/server/rpcserver/clientinterceptors"
 	"goshop/gmicro/server/rpcserver/resolver/discovery"
 
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 )
 
 type ClientOption func(o *clientOptions)
@@ -22,19 +24,36 @@ type clientOptions struct {
 	endpoint string
 	timeout  time.Duration
 	// discovery接口
-	discovery     registry.Discovery
-	unaryInts     []grpc.UnaryClientInterceptor
-	streamInts    []grpc.StreamClientInterceptor
-	rpcOpts       []grpc.DialOption
-	balancerName  string
-	log           log.LogHelper
-	enableTracing bool
-	enableMetrics bool
+	discovery      registry.Discovery
+	unaryInts      []grpc.UnaryClientInterceptor
+	streamInts     []grpc.StreamClientInterceptor
+	rpcOpts        []grpc.DialOption
+	balancerName   string
+	log            log.LogHelper
+	enableTracing  bool
+	enableMetrics  bool
+	connectProbe   bool
+	connectTimeout time.Duration
 }
 
 func WithEnableTracing(enable bool) ClientOption {
 	return func(o *clientOptions) {
 		o.enableTracing = enable
+	}
+}
+
+// WithConnectProbe enables startup connectivity probing. When enabled, Dial
+// returns only after the connection reaches READY or the probe timeout expires.
+func WithConnectProbe(enable bool) ClientOption {
+	return func(o *clientOptions) {
+		o.connectProbe = enable
+	}
+}
+
+// WithConnectTimeout sets the startup connectivity probe timeout.
+func WithConnectTimeout(timeout time.Duration) ClientOption {
+	return func(o *clientOptions) {
+		o.connectTimeout = timeout
 	}
 }
 
@@ -97,9 +116,10 @@ func Dial(ctx context.Context, opts ...ClientOption) (*grpc.ClientConn, error) {
 
 func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.ClientConn, error) {
 	options := clientOptions{
-		timeout:       2000 * time.Millisecond,
-		balancerName:  "round_robin",
-		enableTracing: true,
+		timeout:        2000 * time.Millisecond,
+		connectTimeout: 5 * time.Second,
+		balancerName:   "round_robin",
+		enableTracing:  true,
 	}
 
 	for _, o := range opts {
@@ -153,6 +173,42 @@ func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.Clien
 		grpcOpts = append(grpcOpts, options.rpcOpts...)
 	}
 
-	return grpc.NewClient(options.endpoint, grpcOpts...)
+	conn, err := grpc.NewClient(options.endpoint, grpcOpts...)
+	if err != nil {
+		return nil, err
+	}
+	if options.connectProbe {
+		if err := waitForReady(ctx, conn, options.connectTimeout); err != nil {
+			_ = conn.Close()
+			return nil, err
+		}
+	}
+	return conn, nil
 	//return grpc.DialContext(ctx, options.endpoint, grpcOpts...)
+}
+
+func waitForReady(ctx context.Context, conn *grpc.ClientConn, timeout time.Duration) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	probeCtx := ctx
+	cancel := func() {}
+	if timeout > 0 {
+		probeCtx, cancel = context.WithTimeout(ctx, timeout)
+	}
+	defer cancel()
+
+	conn.Connect()
+	for {
+		state := conn.GetState()
+		if state == connectivity.Ready {
+			return nil
+		}
+		if state == connectivity.Shutdown {
+			return fmt.Errorf("grpc client connection shutdown before ready")
+		}
+		if !conn.WaitForStateChange(probeCtx, state) {
+			return fmt.Errorf("grpc client connection not ready before startup probe timeout: %w", probeCtx.Err())
+		}
+	}
 }

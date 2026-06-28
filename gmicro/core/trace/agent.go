@@ -2,6 +2,10 @@ package trace
 
 import (
 	"context"
+	"fmt"
+	"net"
+	"net/url"
+	"strings"
 	"sync"
 
 	"go.opentelemetry.io/otel"
@@ -30,20 +34,21 @@ var (
 	lock   sync.Mutex
 )
 
-func InitAgent(o Options) {
+func InitAgent(o Options) error {
 	//防止反复调用
 	lock.Lock()
 	defer lock.Unlock()
 
 	_, ok := agents[o.Endpoint]
 	if ok {
-		return
+		return nil
 	}
 	err := startAgent(o)
 	if err != nil {
-		return
+		return err
 	}
 	agents[o.Endpoint] = struct{}{}
+	return nil
 }
 
 func startAgent(o Options) error {
@@ -57,6 +62,9 @@ func startAgent(o Options) error {
 
 	//todo:注意检查zipkin和jaeger的endpoint格式，是否需要协议头，是否需要指定URL路径等
 	if len(o.Endpoint) > 0 {
+		if err := validateEndpoint(o.Endpoint); err != nil {
+			return err
+		}
 		//sexp, err = jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(o.Endpoint)))
 		// 3. 替换 Jaeger 导出器为 OTLP HTTP 导出器
 		// 注意：OTLP 默认端口通常是 4318 (HTTP)
@@ -79,4 +87,27 @@ func startAgent(o Options) error {
 		log.Errorf("[otel] error: %v", err)
 	}))
 	return nil
+}
+
+// 验证endpoint
+func validateEndpoint(endpoint string) error {
+	if !strings.Contains(endpoint, "://") {
+		host, _, err := net.SplitHostPort(endpoint)
+		if err != nil {
+			return fmt.Errorf("invalid trace endpoint %q: missing host", endpoint)
+		}
+		if host == "" {
+			return fmt.Errorf("invalid trace endpoint %q: missing host", endpoint)
+		}
+		return nil
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return fmt.Errorf("invalid trace endpoint %q: %w", endpoint, err)
+	}
+	if u.Host != "" {
+		return nil
+	}
+	return fmt.Errorf("invalid trace endpoint %q: missing host", endpoint)
 }

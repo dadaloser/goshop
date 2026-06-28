@@ -29,6 +29,7 @@ func NewUserServiceClient(r registry.Discovery) upbv1.UserClient {
 		context.Background(),
 		rpcserver.WithEndpoint(serviceName),
 		rpcserver.WithDiscovery(r),
+		rpcserver.WithConnectProbe(true),
 		rpcserver.WithClientUnaryInterceptor(clientinterceptors.UnaryTracingInterceptor),
 	)
 	if err != nil {

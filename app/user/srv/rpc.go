@@ -51,12 +51,14 @@ func NewNacosDataSource(opts *options.NacosOptions) (*nacos.NacosDataSource, err
 
 func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.ServerOptions, uServer upb.UserServer, dataNacos *nacos.NacosDataSource) (*rpcserver.Server, error) {
 	//初始化open-telemetry的exporter
-	trace.InitAgent(trace.Options{
+	if err := trace.InitAgent(trace.Options{
 		Name:     telemetry.Name,
 		Endpoint: telemetry.Endpoint,
 		Sampler:  telemetry.Sampler,
 		Batcher:  telemetry.Batcher,
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	rpcAddr := fmt.Sprintf("%s:%d", serverOpts.Host, serverOpts.Port)
 

@@ -33,6 +33,7 @@ func main() {
 		rpc.WithBalancerName("selector"),
 		rpc.WithDiscovery(r),
 		rpc.WithClientTimeout(time.Second*5000),
+		rpc.WithConnectProbe(true),
 		rpc.WithEndpoint("discovery:///goshop-user-srv"),
 	)
 	if err != nil {

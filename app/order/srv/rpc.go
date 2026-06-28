@@ -15,12 +15,14 @@ import (
 
 func NewOrderRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	//初始化open-telemetry的exporter
-	trace.InitAgent(trace.Options{
+	if err := trace.InitAgent(trace.Options{
 		Name:     cfg.Telemetry.Name,
 		Endpoint: cfg.Telemetry.Endpoint,
 		Sampler:  cfg.Telemetry.Sampler,
 		Batcher:  cfg.Telemetry.Batcher,
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	dataFactory, err := db2.GetDataFactoryOr(cfg.MySQLOptions, cfg.Registry)
 	if err != nil {

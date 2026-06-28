@@ -34,6 +34,8 @@ type Client struct {
 	deregisterCriticalServiceAfter int
 	// serviceChecks  user custom checks
 	serviceChecks api.AgentServiceChecks
+	// httpHealthCheckPath is used for http/https endpoint checks.
+	httpHealthCheckPath string
 }
 
 // NewClient creates consul client
@@ -44,6 +46,7 @@ func NewClient(cli *api.Client) *Client {
 		healthcheckInterval:            10,
 		heartbeat:                      true,
 		deregisterCriticalServiceAfter: 600,
+		httpHealthCheckPath:            "/readyz",
 	}
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	return c
@@ -102,6 +105,7 @@ func (c *Client) Service(ctx context.Context, service string, index uint64, pass
 func (c *Client) Register(_ context.Context, svc *registry.ServiceInstance, enableHealthCheck bool) error {
 	addresses := make(map[string]api.ServiceAddress, len(svc.Endpoints))
 	checkAddresses := make([]string, 0, len(svc.Endpoints))
+	checks := make(api.AgentServiceChecks, 0, len(svc.Endpoints))
 	for _, endpoint := range svc.Endpoints {
 		raw, err := url.Parse(endpoint)
 		if err != nil {
@@ -109,9 +113,24 @@ func (c *Client) Register(_ context.Context, svc *registry.ServiceInstance, enab
 		}
 		addr := raw.Hostname()
 		port, _ := strconv.ParseUint(raw.Port(), 10, 16)
+		checkAddress := net.JoinHostPort(addr, strconv.FormatUint(port, 10))
 
-		checkAddresses = append(checkAddresses, net.JoinHostPort(addr, strconv.FormatUint(port, 10)))
+		checkAddresses = append(checkAddresses, checkAddress)
 		addresses[raw.Scheme] = api.ServiceAddress{Address: endpoint, Port: int(port)}
+		if enableHealthCheck {
+			check := &api.AgentServiceCheck{
+				Interval:                       fmt.Sprintf("%ds", c.healthcheckInterval),
+				DeregisterCriticalServiceAfter: fmt.Sprintf("%ds", c.deregisterCriticalServiceAfter),
+				Timeout:                        "5s",
+			}
+			switch raw.Scheme {
+			case "http", "https":
+				check.HTTP = c.healthCheckURL(raw)
+			default:
+				check.TCP = checkAddress
+			}
+			checks = append(checks, check)
+		}
 	}
 	asr := &api.AgentServiceRegistration{
 		ID:              svc.ID,
@@ -127,14 +146,7 @@ func (c *Client) Register(_ context.Context, svc *registry.ServiceInstance, enab
 		asr.Port = int(port)
 	}
 	if enableHealthCheck {
-		for _, address := range checkAddresses {
-			asr.Checks = append(asr.Checks, &api.AgentServiceCheck{
-				TCP:                            address,
-				Interval:                       fmt.Sprintf("%ds", c.healthcheckInterval),
-				DeregisterCriticalServiceAfter: fmt.Sprintf("%ds", c.deregisterCriticalServiceAfter),
-				Timeout:                        "5s",
-			})
-		}
+		asr.Checks = append(asr.Checks, checks...)
 	}
 	if c.heartbeat {
 		asr.Checks = append(asr.Checks, &api.AgentServiceCheck{
@@ -191,6 +203,25 @@ func (c *Client) Register(_ context.Context, svc *registry.ServiceInstance, enab
 		}()
 	}
 	return nil
+}
+
+func (c *Client) healthCheckURL(endpoint *url.URL) string {
+	healthURL := *endpoint
+	healthURL.Path = normalizeHTTPHealthCheckPath(c.httpHealthCheckPath)
+	healthURL.RawPath = ""
+	healthURL.RawQuery = ""
+	healthURL.Fragment = ""
+	return healthURL.String()
+}
+
+func normalizeHTTPHealthCheckPath(path string) string {
+	if path == "" {
+		return "/readyz"
+	}
+	if !strings.HasPrefix(path, "/") {
+		return "/" + path
+	}
+	return path
 }
 
 // Deregister deregister service by service ID

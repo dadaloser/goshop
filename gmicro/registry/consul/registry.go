@@ -54,6 +54,15 @@ func WithHealthCheckInterval(interval int) Option {
 	}
 }
 
+// WithHTTPHealthCheckPath sets the path used for Consul HTTP/HTTPS endpoint checks.
+func WithHTTPHealthCheckPath(path string) Option {
+	return func(o *Registry) {
+		if o.cli != nil {
+			o.cli.httpHealthCheckPath = normalizeHTTPHealthCheckPath(path)
+		}
+	}
+}
+
 // WithDeregisterCriticalServiceAfter with deregister-critical-service-after in seconds.
 func WithDeregisterCriticalServiceAfter(interval int) Option {
 	return func(o *Registry) {

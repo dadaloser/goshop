@@ -16,6 +16,7 @@ func NewGoodsServiceClient(r registry.Discovery) gpbv1.GoodsClient {
 		context.Background(),
 		rpcserver.WithEndpoint(goodsserviceName),
 		rpcserver.WithDiscovery(r),
+		rpcserver.WithConnectProbe(true),
 		rpcserver.WithClientUnaryInterceptor(clientinterceptors.UnaryTracingInterceptor),
 	)
 	if err != nil {
