@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/penglongli/gin-metrics/ginmetrics"
+	"golang.org/x/time/rate"
 
 	mws "goshop/gmicro/server/restserver/middlewares"
 	"goshop/gmicro/server/restserver/pprof"
@@ -34,6 +35,9 @@ type JwtInfo struct {
 	// defaults to 7 days
 	MaxRefresh time.Duration
 }
+
+// StartupValidator validates server configuration before the listener starts.
+type StartupValidator func(*Server) error
 
 // wrapper for gin.Engine
 type Server struct {
@@ -61,6 +65,11 @@ type Server struct {
 	readTimeout       time.Duration
 	writeTimeout      time.Duration
 	idleTimeout       time.Duration
+	startupValidators []StartupValidator
+	rateLimit         rate.Limit
+	rateLimitBurst    int
+	maxConcurrentReqs int
+	profilingToken    string
 
 	//中间件
 	middlewares []string
@@ -111,6 +120,12 @@ func NewServer(opts ...ServerOption) *Server {
 	}
 
 	srv.Use(mws.TracingHandler(srv.serviceName))
+	if srv.maxConcurrentReqs > 0 {
+		srv.Use(maxConcurrentRequestsMiddleware(srv.maxConcurrentReqs))
+	}
+	if srv.rateLimit > 0 && srv.rateLimitBurst > 0 {
+		srv.Use(rateLimitMiddleware(rate.NewLimiter(srv.rateLimit, srv.rateLimitBurst)))
+	}
 	for _, m := range srv.middlewares {
 		mw, ok := srv.middleware(m)
 		if !ok {
@@ -133,9 +148,38 @@ func (s *Server) middleware(name string) (gin.HandlerFunc, bool) {
 	return mw, ok
 }
 
+// ValidateStartupConfig validates server configuration before startup.
+func (s *Server) ValidateStartupConfig() error {
+	if s.mode != gin.DebugMode && s.mode != gin.ReleaseMode && s.mode != gin.TestMode {
+		return errors.New("mode must be one of debug/release/test")
+	}
+	if s.mode == gin.ReleaseMode {
+		if err := s.validateProductionConfig(); err != nil {
+			return err
+		}
+	}
+	for _, validate := range s.startupValidators {
+		if validate == nil {
+			continue
+		}
+		if err := validate(s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Server) validateProductionConfig() error {
 	if s.mode == gin.DebugMode {
 		return errors.New("production rest server must not run in debug mode")
+	}
+	if s.enableProfiling {
+		if s.profilingToken == "" {
+			return errors.New("production rest server profiling requires explicit bearer token")
+		}
+	}
+	if s.readHeaderTimeout <= 0 || s.readTimeout <= 0 || s.writeTimeout <= 0 || s.idleTimeout <= 0 {
+		return errors.New("production rest server requires positive http timeouts")
 	}
 	if s.requireJWTKey && (s.jwt == nil || s.jwt.Key == "") {
 		return errors.New("production rest server requires explicit jwt key")
@@ -177,14 +221,8 @@ func (s *Server) Ready() <-chan struct{} {
 // Start  rest server
 func (s *Server) Start(ctx context.Context) error {
 	s.draining.Store(false)
-	//设置开发模式，打印路由信息
-	if s.mode != gin.DebugMode && s.mode != gin.ReleaseMode && s.mode != gin.TestMode {
-		return errors.New("mode must be one of debug/release/test")
-	}
-	if s.mode == gin.ReleaseMode {
-		if err := s.validateProductionConfig(); err != nil {
-			return err
-		}
+	if err := s.ValidateStartupConfig(); err != nil {
+		return err
 	}
 
 	//设置开发模式，打印路由信息
@@ -210,7 +248,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	//根据配置初始化pprof路由
 	if s.enableProfiling {
-		pprof.Register(s.Engine)
+		s.registerProfilingRoutes()
 	}
 
 	if s.enableMetrics {
@@ -255,6 +293,14 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
+func (s *Server) registerProfilingRoutes() {
+	if s.profilingToken == "" {
+		pprof.Register(s.Engine)
+		return
+	}
+	pprof.RegisterWithMiddleware(s.Engine, bearerTokenMiddleware(s.profilingToken))
+}
+
 func (s *Server) Stop(ctx context.Context) error {
 	log.Infof("rest server is stopping")
 	s.draining.Store(true)
@@ -268,6 +314,39 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 	log.Info("rest server stopped")
 	return nil
+}
+
+func bearerTokenMiddleware(token string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetHeader("Authorization") != "Bearer "+token {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		c.Next()
+	}
+}
+
+func rateLimitMiddleware(limiter *rate.Limiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !limiter.Allow() {
+			c.AbortWithStatus(http.StatusTooManyRequests)
+			return
+		}
+		c.Next()
+	}
+}
+
+func maxConcurrentRequestsMiddleware(limit int) gin.HandlerFunc {
+	sem := make(chan struct{}, limit)
+	return func(c *gin.Context) {
+		select {
+		case sem <- struct{}{}:
+			defer func() { <-sem }()
+			c.Next()
+		default:
+			c.AbortWithStatus(http.StatusServiceUnavailable)
+		}
+	}
 }
 
 func (s *Server) registerHealthRoutes() {

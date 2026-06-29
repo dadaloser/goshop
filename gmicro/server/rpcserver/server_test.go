@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	reflectionv1 "google.golang.org/grpc/reflection/grpc_reflection_v1"
 )
 
@@ -143,5 +144,32 @@ func TestNewServerEEnablesReflectionWhenConfigured(t *testing.T) {
 	}
 	if resp.GetListServicesResponse() == nil {
 		t.Fatalf("reflection response = %T, want list services response", resp.GetMessageResponse())
+	}
+}
+
+func TestNewServerEAddsProductionGRPCOptions(t *testing.T) {
+	srv, err := NewServerE(
+		WithAddress("127.0.0.1:0"),
+		WithMaxConcurrentStreams(128),
+		WithKeepaliveParams(keepalive.ServerParameters{
+			Time:    30 * time.Second,
+			Timeout: 10 * time.Second,
+		}),
+		WithKeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	})
+
+	if len(srv.grpcOpts) < 5 {
+		t.Fatalf("grpc options = %d, want production options included", len(srv.grpcOpts))
 	}
 }

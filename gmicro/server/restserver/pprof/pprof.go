@@ -26,13 +26,25 @@ func Register(r *gin.Engine, prefixOptions ...string) {
 	RouteRegister(&(r.RouterGroup), prefixOptions...)
 }
 
+func RegisterWithMiddleware(r *gin.Engine, middleware gin.HandlerFunc, prefixOptions ...string) {
+	RouteRegisterWithMiddleware(&(r.RouterGroup), middleware, prefixOptions...)
+}
+
 // RouteRegister the standard HandlerFuncs from the net/http/pprof package with
 // the provided gin.GrouterGroup. prefixOptions is a optional. If not prefixOptions,
 // the default path prefix is used, otherwise first prefixOptions will be path prefix.
 func RouteRegister(rg *gin.RouterGroup, prefixOptions ...string) {
+	RouteRegisterWithMiddleware(rg, nil, prefixOptions...)
+}
+
+func RouteRegisterWithMiddleware(rg *gin.RouterGroup, middleware gin.HandlerFunc, prefixOptions ...string) {
 	prefix := getPrefix(prefixOptions...)
 
-	prefixRouter := rg.Group(prefix)
+	handlers := []gin.HandlerFunc{}
+	if middleware != nil {
+		handlers = append(handlers, middleware)
+	}
+	prefixRouter := rg.Group(prefix, handlers...)
 	{
 		prefixRouter.GET("/", gin.WrapF(pprof.Index))
 		prefixRouter.GET("/cmdline", gin.WrapF(pprof.Cmdline))

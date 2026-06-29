@@ -1,6 +1,7 @@
 package options
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -10,8 +11,14 @@ type ServerOptions struct {
 	//是否开启pprof
 	EnableProfiling bool `json:"profiling"      mapstructure:"profiling"`
 
+	ProfilingToken string `json:"profiling-token,omitempty" mapstructure:"profiling-token"`
+
 	//限流器
 	EnableLimit bool `json:"limit"      mapstructure:"limit"`
+
+	RateLimitRPS          float64 `json:"rate-limit-rps,omitempty"             mapstructure:"rate-limit-rps"`
+	RateLimitBurst        int     `json:"rate-limit-burst,omitempty"           mapstructure:"rate-limit-burst"`
+	MaxConcurrentRequests int     `json:"max-concurrent-requests,omitempty"    mapstructure:"max-concurrent-requests"`
 
 	//是否开启metrics
 	EnableMetrics bool `json:"enable-metrics" mapstructure:"enable-metrics"`
@@ -45,23 +52,42 @@ type ServerOptions struct {
 // NewServerOptions create a `zero` value instance.
 func NewServerOptions() *ServerOptions {
 	return &ServerOptions{
-		EnableHealthCheck: true,
-		EnableProfiling:   false, //
-		EnableMetrics:     true,
-		Host:              "127.0.0.1",
-		Port:              8078,
-		HttpPort:          8079,
-		Name:              "goshop-user-srv",
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		EnableHealthCheck:     true,
+		EnableProfiling:       false, //
+		ProfilingToken:        "",
+		EnableLimit:           false,
+		RateLimitRPS:          100,
+		RateLimitBurst:        200,
+		MaxConcurrentRequests: 200,
+		EnableMetrics:         true,
+		Host:                  "127.0.0.1",
+		Port:                  8078,
+		HttpPort:              8079,
+		Name:                  "goshop-user-srv",
+		ReadHeaderTimeout:     5 * time.Second,
+		ReadTimeout:           15 * time.Second,
+		WriteTimeout:          30 * time.Second,
+		IdleTimeout:           60 * time.Second,
 	}
 }
 
 // Validate verifies flags passed to ServerOptions.
 func (so *ServerOptions) Validate() []error {
 	errs := []error{}
+	if so.EnableProfiling && so.ProfilingToken == "" {
+		errs = append(errs, fmt.Errorf("server.profiling-token is required when profiling is enabled"))
+	}
+	if so.EnableLimit {
+		if so.RateLimitRPS <= 0 {
+			errs = append(errs, fmt.Errorf("server.rate-limit-rps must be positive when limit is enabled"))
+		}
+		if so.RateLimitBurst <= 0 {
+			errs = append(errs, fmt.Errorf("server.rate-limit-burst must be positive when limit is enabled"))
+		}
+		if so.MaxConcurrentRequests <= 0 {
+			errs = append(errs, fmt.Errorf("server.max-concurrent-requests must be positive when limit is enabled"))
+		}
+	}
 	return errs
 }
 
@@ -69,6 +95,16 @@ func (so *ServerOptions) Validate() []error {
 func (so *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&so.EnableProfiling, "server.enable-profiling", so.EnableProfiling,
 		"enable-profiling, if true, will add <host>:<port>/debug/pprof/, default is false")
+	fs.StringVar(&so.ProfilingToken, "server.profiling-token", so.ProfilingToken,
+		"bearer token required to access /debug/pprof when profiling is enabled")
+	fs.BoolVar(&so.EnableLimit, "server.enable-limit", so.EnableLimit,
+		"enable server overload protection with rate and concurrency limiters")
+	fs.Float64Var(&so.RateLimitRPS, "server.rate-limit-rps", so.RateLimitRPS,
+		"maximum accepted REST requests per second when limit is enabled")
+	fs.IntVar(&so.RateLimitBurst, "server.rate-limit-burst", so.RateLimitBurst,
+		"maximum REST rate limiter burst when limit is enabled")
+	fs.IntVar(&so.MaxConcurrentRequests, "server.max-concurrent-requests", so.MaxConcurrentRequests,
+		"maximum concurrent REST requests when limit is enabled")
 	fs.BoolVar(&so.EnableMetrics, "server.enable-metrics", so.EnableMetrics,
 		"enable-metrics, if true, will add /metrics, default is true")
 

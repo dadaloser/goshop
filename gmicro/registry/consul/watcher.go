@@ -32,8 +32,6 @@ func (w *watcher) Next() (services []*registry.ServiceInstance, err error) {
 
 func (w *watcher) Stop() error {
 	w.cancel()
-	w.set.lock.Lock()
-	defer w.set.lock.Unlock()
-	delete(w.set.watcher, w)
+	w.set.removeWatcher(w)
 	return nil
 }

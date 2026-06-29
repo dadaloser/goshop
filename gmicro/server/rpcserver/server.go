@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
 	apimd "goshop/api/metadata"
@@ -165,6 +166,42 @@ func WithStreamInterceptor(in ...grpc.StreamServerInterceptor) ServerOption {
 func WithOptions(opts ...grpc.ServerOption) ServerOption {
 	return func(s *Server) {
 		s.grpcOpts = opts
+	}
+}
+
+func WithMaxConcurrentStreams(max uint32) ServerOption {
+	return func(s *Server) {
+		if max > 0 {
+			s.grpcOpts = append(s.grpcOpts, grpc.MaxConcurrentStreams(max))
+		}
+	}
+}
+
+func WithKeepaliveParams(params keepalive.ServerParameters) ServerOption {
+	return func(s *Server) {
+		s.grpcOpts = append(s.grpcOpts, grpc.KeepaliveParams(params))
+	}
+}
+
+func WithKeepaliveEnforcementPolicy(policy keepalive.EnforcementPolicy) ServerOption {
+	return func(s *Server) {
+		s.grpcOpts = append(s.grpcOpts, grpc.KeepaliveEnforcementPolicy(policy))
+	}
+}
+
+func WithProductionDefaults() ServerOption {
+	return func(s *Server) {
+		s.grpcOpts = append(s.grpcOpts,
+			grpc.MaxConcurrentStreams(1024),
+			grpc.KeepaliveParams(keepalive.ServerParameters{
+				Time:    30 * time.Second,
+				Timeout: 10 * time.Second,
+			}),
+			grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+				MinTime:             10 * time.Second,
+				PermitWithoutStream: true,
+			}),
+		)
 	}
 }
 

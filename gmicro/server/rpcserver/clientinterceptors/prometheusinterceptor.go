@@ -22,7 +22,7 @@ var (
 	metricServerReqDur = metric.NewHistogramVec(&metric.HistogramVecOpts{
 		Namespace: serverNamespace,
 		Subsystem: "requests",
-		Name:      "mxshop_duration_ms",
+		Name:      "goshop_duration_ms",
 		Help:      "rpc server requests duration(ms).",
 		Labels:    []string{"method"},
 		Buckets:   []float64{5, 10, 25, 50, 100, 250, 500, 1000},
@@ -31,9 +31,17 @@ var (
 	metricServerReqCodeTotal = metric.NewCounterVec(&metric.CounterVecOpts{
 		Namespace: serverNamespace,
 		Subsystem: "requests",
-		Name:      "mxshop_code_total",
+		Name:      "goshop_code_total",
 		Help:      "rpc server requests code count.",
 		Labels:    []string{"method", "code"},
+	})
+
+	metricServerReqInflight = metric.NewGaugeVec(&metric.GaugeVecOpts{
+		Namespace: serverNamespace,
+		Subsystem: "requests",
+		Name:      "goshop_inflight",
+		Help:      "rpc client inflight requests.",
+		Labels:    []string{"method"},
 	})
 )
 
@@ -42,6 +50,8 @@ func PrometheusInterceptor() grpc.UnaryClientInterceptor {
 		invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 
 		startTime := time.Now()
+		metricServerReqInflight.Inc(method)
+		defer metricServerReqInflight.Add(-1, method)
 		err := invoker(ctx, method, req, reply, cc, opts...)
 		//记录了耗时
 		metricServerReqDur.Observe(int64(time.Since(startTime)/time.Millisecond), method)

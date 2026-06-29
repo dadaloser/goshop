@@ -7,11 +7,13 @@ import (
 )
 
 func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
-	restServer := restserver.NewServer(restserver.WithPort(cfg.Server.HttpPort),
+	opts := []restserver.ServerOption{
+		restserver.WithPort(cfg.Server.HttpPort),
 		restserver.WithHost(cfg.Server.Host),
 		restserver.WithMiddlewares(cfg.Server.Middlewares),
 		restserver.WithHealthCheck(cfg.Server.EnableHealthCheck),
 		restserver.WithEnableProfiling(cfg.Server.EnableProfiling),
+		restserver.WithProfilingToken(cfg.Server.ProfilingToken),
 		restserver.WithMetrics(cfg.Server.EnableMetrics),
 		restserver.WithReadHeaderTimeout(cfg.Server.ReadHeaderTimeout),
 		restserver.WithReadTimeout(cfg.Server.ReadTimeout),
@@ -20,7 +22,14 @@ func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 		restserver.WithCorsOptions(middlewares.CorsOptions{
 			AllowOrigins: cfg.Server.CorsAllowOrigins,
 		}),
-	)
+	}
+	if cfg.Server.EnableLimit {
+		opts = append(opts,
+			restserver.WithRateLimit(cfg.Server.RateLimitRPS, cfg.Server.RateLimitBurst),
+			restserver.WithMaxConcurrentRequests(cfg.Server.MaxConcurrentRequests),
+		)
+	}
+	restServer := restserver.NewServer(opts...)
 
 	//配置好路由
 	initRouter(restServer)

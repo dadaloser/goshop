@@ -3,6 +3,7 @@ package restserver
 import (
 	"time"
 
+	"golang.org/x/time/rate"
 	mws "goshop/gmicro/server/restserver/middlewares"
 )
 
@@ -11,6 +12,12 @@ type ServerOption func(*Server)
 func WithEnableProfiling(profiling bool) ServerOption {
 	return func(s *Server) {
 		s.enableProfiling = profiling
+	}
+}
+
+func WithProfilingToken(token string) ServerOption {
+	return func(s *Server) {
+		s.profilingToken = token
 	}
 }
 
@@ -96,5 +103,30 @@ func WithWriteTimeout(timeout time.Duration) ServerOption {
 func WithIdleTimeout(timeout time.Duration) ServerOption {
 	return func(s *Server) {
 		s.idleTimeout = timeout
+	}
+}
+
+func WithRateLimit(rps float64, burst int) ServerOption {
+	return func(s *Server) {
+		if rps > 0 && burst > 0 {
+			s.rateLimit = rate.Limit(rps)
+			s.rateLimitBurst = burst
+		}
+	}
+}
+
+func WithMaxConcurrentRequests(limit int) ServerOption {
+	return func(s *Server) {
+		if limit > 0 {
+			s.maxConcurrentReqs = limit
+		}
+	}
+}
+
+func WithStartupValidator(validate StartupValidator) ServerOption {
+	return func(s *Server) {
+		if validate != nil {
+			s.startupValidators = append(s.startupValidators, validate)
+		}
 	}
 }

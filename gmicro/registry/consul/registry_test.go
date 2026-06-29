@@ -502,3 +502,128 @@ func TestRegistryWatchContinuesAfterInitialResolve(t *testing.T) {
 		t.Fatalf("Next() update services = %v, want empty service list", got)
 	}
 }
+
+func TestRegistryWatchRestartsResolverAfterFirstWatcherStops(t *testing.T) {
+	var calls int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		call := atomic.AddInt64(&calls, 1)
+		w.Header().Set("X-Consul-Index", fmt.Sprintf("%d", call))
+		_ = json.NewEncoder(w).Encode([]*api.ServiceEntry{
+			{
+				Service: &api.AgentService{
+					ID:      fmt.Sprintf("%d", call),
+					Service: "server-1",
+					Tags:    []string{"version=v1"},
+					TaggedAddresses: map[string]api.ServiceAddress{
+						"grpc": {
+							Address: fmt.Sprintf("grpc://127.0.0.1:%d", 9000+call),
+							Port:    int(9000 + call),
+						},
+					},
+				},
+			},
+		})
+	}))
+	t.Cleanup(server.Close)
+
+	cli, err := api.NewClient(&api.Config{Address: server.URL})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	r := New(cli)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	first, err := r.Watch(ctx, "server-1")
+	if err != nil {
+		t.Fatalf("first Watch() error = %v, want nil", err)
+	}
+	if _, err := first.Next(); err != nil {
+		t.Fatalf("first Next() error = %v, want nil", err)
+	}
+	if err := first.Stop(); err != nil {
+		t.Fatalf("first Stop() error = %v, want nil", err)
+	}
+
+	second, err := r.Watch(ctx, "server-1")
+	if err != nil {
+		t.Fatalf("second Watch() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		_ = second.Stop()
+	})
+	got, err := second.Next()
+	if err != nil {
+		t.Fatalf("second Next() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("second Next() services = %v, want one service", got)
+	}
+	if atomic.LoadInt64(&calls) < 2 {
+		t.Fatalf("consul service calls = %d, want resolver restarted for second watcher", calls)
+	}
+}
+
+func TestWatcherStopCancelsResolverAfterLastWatcher(t *testing.T) {
+	enteredLongPoll := make(chan struct{})
+	requestDone := make(chan struct{})
+	var longPollStarted atomic.Bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !longPollStarted.CompareAndSwap(false, true) {
+			close(enteredLongPoll)
+			<-r.Context().Done()
+			close(requestDone)
+			return
+		}
+
+		w.Header().Set("X-Consul-Index", "1")
+		_ = json.NewEncoder(w).Encode([]*api.ServiceEntry{
+			{
+				Service: &api.AgentService{
+					ID:      "1",
+					Service: "server-1",
+					Tags:    []string{"version=v1"},
+					TaggedAddresses: map[string]api.ServiceAddress{
+						"grpc": {
+							Address: "grpc://127.0.0.1:9000",
+							Port:    9000,
+						},
+					},
+				},
+			},
+		})
+	}))
+	t.Cleanup(server.Close)
+
+	cli, err := api.NewClient(&api.Config{Address: server.URL})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	r := New(cli)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	watch, err := r.Watch(ctx, "server-1")
+	if err != nil {
+		t.Fatalf("Watch() error = %v, want nil", err)
+	}
+	if _, err := watch.Next(); err != nil {
+		t.Fatalf("Next() error = %v, want nil", err)
+	}
+
+	select {
+	case <-enteredLongPoll:
+	case <-time.After(time.Second):
+		t.Fatal("resolver did not enter long poll")
+	}
+	if err := watch.Stop(); err != nil {
+		t.Fatalf("Stop() error = %v, want nil", err)
+	}
+	select {
+	case <-requestDone:
+	case <-time.After(time.Second):
+		t.Fatal("resolver long poll was not canceled after last watcher stopped")
+	}
+}

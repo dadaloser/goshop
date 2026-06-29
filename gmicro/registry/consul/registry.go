@@ -194,9 +194,7 @@ func (r *Registry) Watch(ctx context.Context, name string) (registry.Watcher, er
 	//防止裸 context.Background() 挂死,降低 goroutine 泄漏风险。
 	w.ctx, w.cancel = context.WithCancel(ctx)
 	w.set = set
-	set.lock.Lock()
-	set.watcher[w] = struct{}{}
-	set.lock.Unlock()
+	set.addWatcher(w)
 	ss, _ := set.services.Load().([]*registry.ServiceInstance) //原子操作
 	if len(ss) > 0 {
 		// If the service has a value, it needs to be pushed to the watcher,
@@ -204,13 +202,9 @@ func (r *Registry) Watch(ctx context.Context, name string) (registry.Watcher, er
 		w.event <- struct{}{}
 	}
 
-	if !ok {
-		//resolve 长轮询也会响应取消，
-		err := r.resolve(w.ctx, set)
-		if err != nil {
-			_ = w.Stop()
-			return nil, err
-		}
+	if err := set.startResolver(ctx, r.resolve); err != nil {
+		_ = w.Stop()
+		return nil, err
 	}
 	return w, nil
 }
@@ -220,19 +214,16 @@ func (r *Registry) resolve(ctx context.Context, ss *serviceSet) error {
 	services, idx, err := r.cli.Service(initCtx, ss.serviceName, 0, true)
 	cancel()
 	if err != nil {
+		metricConsulWatchErrors.Inc(ss.serviceName, "initial")
 		return err
 	} else if len(services) > 0 {
 		ss.broadcast(services)
 	}
 	go func() {
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
+		metricConsulResolverLifecycle.Inc(ss.serviceName, "start")
+		defer ss.resolverStopped(ctx)
+		defer metricConsulResolverLifecycle.Inc(ss.serviceName, "stop")
 		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-			}
 			pollCtx, cancel := context.WithTimeout(ctx, time.Second*120) //长轮询,
 			tmpService, tmpIdx, err := r.cli.Service(pollCtx, ss.serviceName, idx, true)
 			cancel()
@@ -242,6 +233,7 @@ func (r *Registry) resolve(ctx context.Context, ss *serviceSet) error {
 					return
 				case <-time.After(time.Second):
 				}
+				metricConsulWatchErrors.Inc(ss.serviceName, "poll")
 				continue
 			}
 			if tmpIdx != idx {

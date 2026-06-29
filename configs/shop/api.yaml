@@ -22,7 +22,12 @@ server:
   http-port: 8051
   healthz: true # 是否开启健康检查，如果开启会安装 /healthz 路由，默认 true
   enable-metrics: true # 开启 metrics, router:  /metrics
-  profiling: true # 开启性能分析, 可以通过 <host>:<port>/debug/pprof/地址查看程序栈、线程等系统信息，默认值为 true
+  profiling: false # 开启性能分析时必须同时配置 profiling-token
+  profiling-token: ""
+  limit: true
+  rate-limit-rps: 100
+  rate-limit-burst: 200
+  max-concurrent-requests: 200
   middlewares:
     - recovery
     - cors

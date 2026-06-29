@@ -2,6 +2,7 @@ package serverinterceptors
 
 import (
 	"context"
+	"goshop/gmicro/core/metric"
 	"runtime/debug"
 
 	"google.golang.org/grpc"
@@ -11,9 +12,18 @@ import (
 	"goshop/pkg/log"
 )
 
-func StreamCrashInterceptor(svr interface{}, stream grpc.ServerStream, _ *grpc.StreamServerInfo,
+var metricServerPanicTotal = metric.NewCounterVec(&metric.CounterVecOpts{
+	Namespace: serverNamespace,
+	Subsystem: "requests",
+	Name:      "goshop_panic_total",
+	Help:      "rpc server panic count recovered by crash interceptor.",
+	Labels:    []string{"method"},
+})
+
+func StreamCrashInterceptor(svr interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler) (err error) {
 	defer handleCrash(func(r interface{}) {
+		metricServerPanicTotal.Inc(info.FullMethod)
 		log.Errorf("%+v\n \n %s", r, debug.Stack())
 		err = status.Error(codes.Internal, "internal server error")
 	})
@@ -25,6 +35,7 @@ func StreamCrashInterceptor(svr interface{}, stream grpc.ServerStream, _ *grpc.S
 func UnaryCrashInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler) (resp interface{}, err error) {
 	defer handleCrash(func(r interface{}) {
+		metricServerPanicTotal.Inc(info.FullMethod)
 		log.Errorf("%+v\n \n %s", r, debug.Stack())
 		resp = nil
 		err = status.Error(codes.Internal, "internal server error")
