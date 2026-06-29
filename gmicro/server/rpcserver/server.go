@@ -35,7 +35,8 @@ type Server struct {
 	metadata *apimd.Server
 	endpoint *url.URL
 
-	enableMetrics bool
+	enableMetrics    bool
+	enableReflection bool
 }
 
 func (s *Server) Endpoint() *url.URL {
@@ -107,7 +108,9 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 	//注册health
 	grpc_health_v1.RegisterHealthServer(srv.Server, srv.health)
 	apimd.RegisterMetadataServer(srv.Server, srv.metadata)
-	reflection.Register(srv.Server)
+	if srv.enableReflection {
+		reflection.Register(srv.Server)
+	}
 	//可以支持用户直接通过grpc的一个接口查看当前支持的所有的rpc服务
 
 	return srv, nil
@@ -122,6 +125,12 @@ func WithAddress(address string) ServerOption {
 func WithMetrics(metric bool) ServerOption {
 	return func(s *Server) {
 		s.enableMetrics = metric
+	}
+}
+
+func WithReflection(enable bool) ServerOption {
+	return func(s *Server) {
+		s.enableReflection = enable
 	}
 }
 

@@ -102,7 +102,10 @@ func (c *Client) Service(ctx context.Context, service string, index uint64, pass
 }
 
 // Register register service instance to consul
-func (c *Client) Register(_ context.Context, svc *registry.ServiceInstance, enableHealthCheck bool) error {
+func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, enableHealthCheck bool) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	addresses := make(map[string]api.ServiceAddress, len(svc.Endpoints))
 	checkAddresses := make([]string, 0, len(svc.Endpoints))
 	checks := make(api.AgentServiceChecks, 0, len(svc.Endpoints))
@@ -161,7 +164,7 @@ func (c *Client) Register(_ context.Context, svc *registry.ServiceInstance, enab
 	// custom checks
 	asr.Checks = append(asr.Checks, c.serviceChecks...)
 
-	err := c.cli.Agent().ServiceRegister(asr)
+	err := c.cli.Agent().ServiceRegisterOpts(asr, api.ServiceRegisterOpts{}.WithContext(ctx))
 	if err != nil {
 		return err
 	}
@@ -246,7 +249,10 @@ func normalizeHTTPHealthCheckPath(path string) string {
 }
 
 // Deregister deregister service by service ID
-func (c *Client) Deregister(_ context.Context, serviceID string) error {
+func (c *Client) Deregister(ctx context.Context, serviceID string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	c.cancel()
-	return c.cli.Agent().ServiceDeregister(serviceID)
+	return c.cli.Agent().ServiceDeregisterOpts(serviceID, new(api.QueryOptions).WithContext(ctx))
 }

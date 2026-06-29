@@ -2,6 +2,7 @@ package selector
 
 import (
 	"context"
+	"strings"
 	"sync/atomic"
 )
 
@@ -40,12 +41,25 @@ func (d *Default) Select(ctx context.Context) (selected Node, done DoneFunc, err
 
 // Apply update nodes info.
 func (d *Default) Apply(nodes []Node) {
+	oldNodes, _ := d.nodes.Load().([]WeightedNode)
+	oldByKey := make(map[string]WeightedNode, len(oldNodes))
+	for _, n := range oldNodes {
+		oldByKey[nodeKey(n)] = n
+	}
+
 	weightedNodes := make([]WeightedNode, 0, len(nodes))
 	for _, n := range nodes {
+		if wn, ok := oldByKey[nodeKey(n)]; ok {
+			weightedNodes = append(weightedNodes, wn)
+			continue
+		}
 		weightedNodes = append(weightedNodes, d.NodeBuilder.Build(n))
 	}
-	// TODO: Do not delete unchanged nodes
 	d.nodes.Store(weightedNodes)
+}
+
+func nodeKey(n Node) string {
+	return strings.Join([]string{n.Scheme(), n.ServiceName(), n.Address()}, "\x00")
 }
 
 // DefaultBuilder is de

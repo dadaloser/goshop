@@ -3,10 +3,12 @@ package consul
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/consul/api"
 	"goshop/gmicro/registry"
@@ -65,6 +67,61 @@ func TestRegisterUsesHTTPHealthCheckForHTTPEndpoints(t *testing.T) {
 	}
 	if hasHTTPAsTCP {
 		t.Fatalf("registered checks = %+v, HTTP endpoint should not use TCP check", got.Checks)
+	}
+}
+
+func TestRegisterUsesContext(t *testing.T) {
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(func() {
+		close(release)
+		server.Close()
+	})
+
+	apiClient, err := api.NewClient(&api.Config{Address: server.URL})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	client := NewClient(apiClient)
+	client.heartbeat = false
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	err = client.Register(ctx, &registry.ServiceInstance{
+		ID:        "goods-1",
+		Name:      "goods",
+		Endpoints: []string{"grpc://127.0.0.1:9000"},
+	}, true)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Register() error = %v, want context deadline exceeded", err)
+	}
+}
+
+func TestDeregisterUsesContext(t *testing.T) {
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(func() {
+		close(release)
+		server.Close()
+	})
+
+	apiClient, err := api.NewClient(&api.Config{Address: server.URL})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	client := NewClient(apiClient)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	err = client.Deregister(ctx, "goods-1")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Deregister() error = %v, want context deadline exceeded", err)
 	}
 }
 

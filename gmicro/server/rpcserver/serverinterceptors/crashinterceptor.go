@@ -5,6 +5,8 @@ import (
 	"runtime/debug"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"goshop/pkg/log"
 )
@@ -13,6 +15,7 @@ func StreamCrashInterceptor(svr interface{}, stream grpc.ServerStream, _ *grpc.S
 	handler grpc.StreamHandler) (err error) {
 	defer handleCrash(func(r interface{}) {
 		log.Errorf("%+v\n \n %s", r, debug.Stack())
+		err = status.Error(codes.Internal, "internal server error")
 	})
 
 	return handler(svr, stream)
@@ -23,6 +26,8 @@ func UnaryCrashInterceptor(ctx context.Context, req interface{}, info *grpc.Unar
 	handler grpc.UnaryHandler) (resp interface{}, err error) {
 	defer handleCrash(func(r interface{}) {
 		log.Errorf("%+v\n \n %s", r, debug.Stack())
+		resp = nil
+		err = status.Error(codes.Internal, "internal server error")
 	})
 
 	return handler(ctx, req)
