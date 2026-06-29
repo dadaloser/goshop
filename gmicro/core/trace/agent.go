@@ -128,3 +128,9 @@ func Shutdown(ctx context.Context) error {
 	agents = make(map[string]struct{})
 	return err
 }
+
+func ProviderCount() int {
+	lock.Lock()
+	defer lock.Unlock()
+	return len(providers)
+}

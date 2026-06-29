@@ -72,7 +72,10 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 			return nil, err
 		}
 	}
-	uRpcServer := rpcserver.NewServer(opts...)
+	uRpcServer, err := rpcserver.NewServerE(opts...)
+	if err != nil {
+		return nil, err
+	}
 
 	upb.RegisterUserServer(uRpcServer.Server, uServer)
 

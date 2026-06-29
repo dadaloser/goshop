@@ -93,7 +93,7 @@ func NewServer(opts ...ServerOption) *Server {
 		idleTimeout:       60 * time.Second,
 		jwt: &JwtInfo{
 			"JWT",
-			"mwGDMGtSpdwXaiihF5WnEgRajSFpdZj8",
+			"",
 			7 * 24 * time.Hour,
 			7 * 24 * time.Hour,
 		},

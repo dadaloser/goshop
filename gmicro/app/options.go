@@ -2,6 +2,7 @@ package app
 
 import (
 	"goshop/gmicro/registry"
+	gs "goshop/gmicro/server"
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/rpcserver"
 	"net/url"
@@ -27,6 +28,7 @@ type options struct {
 
 	restServer *restserver.Server
 	rpcServer  *rpcserver.Server
+	servers    []gs.Server
 }
 
 func WithRegistrar(registrar registry.Registrar) Option {
@@ -44,6 +46,14 @@ func WithEndpoints(endpoints []*url.URL) Option {
 func WithRPCServer(server *rpcserver.Server) Option {
 	return func(o *options) {
 		o.rpcServer = server
+	}
+}
+
+func WithServer(server gs.Server) Option {
+	return func(o *options) {
+		if server != nil {
+			o.servers = append(o.servers, server)
+		}
 	}
 }
 

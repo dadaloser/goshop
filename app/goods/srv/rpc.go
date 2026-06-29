@@ -40,7 +40,10 @@ func NewGoodsRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	srvFactory := v1.NewService(dataFactory, searchFactory)
 	goodsServer := v12.NewGoodsServer(srvFactory)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	grpcServer := rpcserver.NewServer(rpcserver.WithAddress(rpcAddr))
+	grpcServer, err := rpcserver.NewServerE(rpcserver.WithAddress(rpcAddr))
+	if err != nil {
+		return nil, err
+	}
 
 	gpb.RegisterGoodsServer(grpcServer.Server, goodsServer)
 

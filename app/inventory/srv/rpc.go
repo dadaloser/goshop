@@ -32,7 +32,10 @@ func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	invService := v13.NewService(dataFactory, cfg.RedisOptions)
 	invServer := v12.NewInventoryServer(invService)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	grpcServer := rpcserver.NewServer(rpcserver.WithAddress(rpcAddr))
+	grpcServer, err := rpcserver.NewServerE(rpcserver.WithAddress(rpcAddr))
+	if err != nil {
+		return nil, err
+	}
 	gpb.RegisterInventoryServer(grpcServer.Server, invServer)
 	//r := gin.Default()
 	//upb.RegisterUserServerHTTPServer(userver, r)

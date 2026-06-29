@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 
+	"goshop/gmicro/core/trace"
 	"goshop/gmicro/registry"
 	gs "goshop/gmicro/server"
 	"goshop/pkg/log"
@@ -35,8 +36,9 @@ type endpointServer interface {
 	Endpoint() *url.URL
 }
 
-var collectServers = func(a *App) []gs.Server {
-	var servers []gs.Server
+func (a *App) servers() []gs.Server {
+	servers := make([]gs.Server, 0, len(a.opts.servers)+2)
+	servers = append(servers, a.opts.servers...)
 	if a.opts.restServer != nil {
 		servers = append(servers, a.opts.restServer)
 	}
@@ -68,46 +70,7 @@ func New(opts ...Option) *App {
 
 // 启动整个服务
 func (a *App) Run() error {
-	/*	//注册的信息
-		instance, err := a.buildInstance()
-		if err != nil {
-			return err
-		}
-
-		//这个变量可能被其他的goroutine访问到
-		a.lk.Lock()
-		a.instance = instance
-		a.lk.Unlock()
-	*/
-	//if a.opts.rpcServer != nil {
-	//	// 启动rpc服务， 如果我想要给这个rpc服务设置port 我们想要给这个rpc服务register我们自定义的interceptor
-	//	a.opts.rpcServer.Serve()
-	//}
-
-	//重点， 写的很简单， http服务要启动
-	//if a.opts.rpcServer != nil {
-	//	err := a.opts.rpcServer.Start()
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
-
-	//现在启动了两个server，一个是restserver，一个是rpcserver
-	/*
-		这两个server是否必须同时启动成功？
-		如果有一个启动失败，那么我们就要停止另外一个server
-		如果启动了多个， 如果其中一个启动失败，其他的应该被取消
-			如果剩余的server的状态：
-				1. 还没有开始调用start
-					stop
-				2. start进行中
-					调用进行中的cancel
-				3. start已经完成
-					调用stop
-		如果我们的服务启动了然后这个时候用户立马进行了访问
-	*/
-
-	servers := collectServers(a)
+	servers := a.servers()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancel = cancel
@@ -217,21 +180,27 @@ func (a *App) Stop() error {
 	instance := a.instance
 	a.lk.Unlock()
 
+	var stopErr error
 	log.Info("start deregister service")
 	if a.opts.registrar != nil && instance != nil {
 		rctx, rcancel := context.WithTimeout(context.Background(), a.opts.stopTimeout)
-		defer rcancel()
 		if err := a.opts.registrar.Deregister(rctx, instance); err != nil {
 			log.Errorf("deregister service error: %s", err)
-			return err
+			stopErr = err
 		}
+		rcancel()
 	}
 
 	if a.cancel != nil {
 		a.cancel()
 	}
 
-	return nil
+	tctx, tcancel := context.WithTimeout(context.Background(), a.opts.stopTimeout)
+	defer tcancel()
+	if err := trace.Shutdown(tctx); err != nil && stopErr == nil {
+		stopErr = err
+	}
+	return stopErr
 }
 
 // 创建服务注册结构体

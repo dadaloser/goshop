@@ -32,7 +32,10 @@ func NewOrderRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	orderSrvFactory := v13.NewService(dataFactory, cfg.Dtm)
 	orderServer := order.NewOrderServer(orderSrvFactory)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	grpcServer := rpcserver.NewServer(rpcserver.WithAddress(rpcAddr))
+	grpcServer, err := rpcserver.NewServerE(rpcserver.WithAddress(rpcAddr))
+	if err != nil {
+		return nil, err
+	}
 	gpb.RegisterOrderServer(grpcServer.Server, orderServer)
 	return grpcServer, nil
 }
