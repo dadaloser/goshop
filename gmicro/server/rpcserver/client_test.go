@@ -3,8 +3,11 @@ package rpcserver
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 	"time"
+
+	"goshop/gmicro/registry"
 
 	"google.golang.org/grpc"
 )
@@ -50,4 +53,54 @@ func TestDialInsecureWithConnectProbeSucceedsWhenEndpointReady(t *testing.T) {
 	t.Cleanup(func() {
 		_ = conn.Close()
 	})
+}
+
+func TestDialDiscoveryInsecureRequiresDiscovery(t *testing.T) {
+	conn, err := DialDiscoveryInsecure(
+		context.Background(),
+		WithEndpoint("discovery:///missing"),
+		WithConnectProbe(false),
+	)
+	if err == nil {
+		_ = conn.Close()
+		t.Fatal("DialDiscoveryInsecure() error = nil, want missing discovery error")
+	}
+	if !strings.Contains(err.Error(), "discovery is required") {
+		t.Fatalf("DialDiscoveryInsecure() error = %v, want discovery is required", err)
+	}
+}
+
+func TestDialDiscoveryInsecureUsesDiscoveryDefaults(t *testing.T) {
+	conn, err := DialDiscoveryInsecure(
+		context.Background(),
+		WithEndpoint("discovery:///missing"),
+		WithDiscovery(fakeDiscovery{}),
+		WithConnectProbe(false),
+	)
+	if err != nil {
+		t.Fatalf("DialDiscoveryInsecure() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		_ = conn.Close()
+	})
+}
+
+type fakeDiscovery struct{}
+
+func (fakeDiscovery) GetService(context.Context, string) ([]*registry.ServiceInstance, error) {
+	return nil, nil
+}
+
+func (fakeDiscovery) Watch(context.Context, string) (registry.Watcher, error) {
+	return fakeWatcher{}, nil
+}
+
+type fakeWatcher struct{}
+
+func (fakeWatcher) Next() ([]*registry.ServiceInstance, error) {
+	return nil, context.Canceled
+}
+
+func (fakeWatcher) Stop() error {
+	return nil
 }

@@ -88,11 +88,15 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 		grpc.ChainUnaryInterceptor(unaryInts...),
 		//注意:链路追踪拦截器需要独立出来
 		grpc.StatsHandler(otelgrpc.NewServerHandler())}
+	if len(srv.streamInts) > 0 {
+		grpcOpts = append(grpcOpts, grpc.ChainStreamInterceptor(srv.streamInts...))
+	}
 
 	//把用户自己传入的grpc.ServerOption放在一起
 	if len(srv.grpcOpts) > 0 {
 		grpcOpts = append(grpcOpts, srv.grpcOpts...)
 	}
+	srv.grpcOpts = grpcOpts
 
 	srv.Server = grpc.NewServer(grpcOpts...)
 

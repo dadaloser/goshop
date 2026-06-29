@@ -27,6 +27,9 @@ server:
     - recovery
     - cors
     - context
+  cors-allow-origins:
+    - http://localhost:8080
+    - http://127.0.0.1:8080
 
 redis:
   host: "127.0.0.1"
@@ -44,4 +47,3 @@ jwt:
   key: nf6C74WZ0OReB0K1QpKhcee9lmBohGSq # 服务端密钥
   timeout: 2400h # token 过期时间(小时)
   max-refresh: 240h # token 更新时间(小时)
-

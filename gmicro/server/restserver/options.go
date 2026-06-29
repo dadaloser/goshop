@@ -1,6 +1,10 @@
 package restserver
 
-import "time"
+import (
+	"time"
+
+	mws "goshop/gmicro/server/restserver/middlewares"
+)
 
 type ServerOption func(*Server)
 
@@ -40,6 +44,12 @@ func WithMiddlewares(middlewares []string) ServerOption {
 	}
 }
 
+func WithCorsOptions(opts mws.CorsOptions) ServerOption {
+	return func(s *Server) {
+		s.corsOptions = &opts
+	}
+}
+
 func WithHealthCheck(health bool) ServerOption {
 	return func(s *Server) {
 		s.healthCheck = health
@@ -49,6 +59,7 @@ func WithHealthCheck(health bool) ServerOption {
 func WithJwt(jwt *JwtInfo) ServerOption {
 	return func(s *Server) {
 		s.jwt = jwt
+		s.requireJWTKey = true
 	}
 }
 

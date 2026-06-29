@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
 	reflectionv1 "google.golang.org/grpc/reflection/grpc_reflection_v1"
 )
 
@@ -14,6 +15,37 @@ func TestNewServerEReturnsListenError(t *testing.T) {
 	_, err := NewServerE(WithAddress("127.0.0.1:-1"))
 	if err == nil {
 		t.Fatal("NewServerE() error = nil, want listen error")
+	}
+}
+
+func TestNewServerEAddsStreamInterceptors(t *testing.T) {
+	streamInterceptor := func(
+		srv interface{},
+		stream grpc.ServerStream,
+		info *grpc.StreamServerInfo,
+		handler grpc.StreamHandler,
+	) error {
+		return handler(srv, stream)
+	}
+
+	srv, err := NewServerE(
+		WithAddress("127.0.0.1:0"),
+		WithStreamInterceptor(streamInterceptor),
+	)
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	})
+
+	if len(srv.streamInts) != 1 {
+		t.Fatalf("stream interceptors = %d, want 1", len(srv.streamInts))
+	}
+	if len(srv.grpcOpts) == 0 {
+		t.Fatal("grpc options are empty, want stream interceptor option included")
 	}
 }
 

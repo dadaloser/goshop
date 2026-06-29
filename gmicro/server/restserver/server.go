@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -63,9 +64,11 @@ type Server struct {
 
 	//中间件
 	middlewares []string
+	corsOptions *mws.CorsOptions
 
 	//jwt配置信息
-	jwt *JwtInfo
+	jwt           *JwtInfo
+	requireJWTKey bool
 
 	//翻译器, 默认值 zh
 	transName string
@@ -84,7 +87,7 @@ type Server struct {
 func NewServer(opts ...ServerOption) *Server {
 	srv := &Server{
 		port:              8080,
-		mode:              "debug",
+		mode:              gin.ReleaseMode,
 		healthCheck:       true,
 		enableProfiling:   false,
 		readHeaderTimeout: 5 * time.Second,
@@ -109,11 +112,10 @@ func NewServer(opts ...ServerOption) *Server {
 
 	srv.Use(mws.TracingHandler(srv.serviceName))
 	for _, m := range srv.middlewares {
-		mw, ok := mws.Middlewares[m]
+		mw, ok := srv.middleware(m)
 		if !ok {
 			log.Warnf("can not find middleware: %s", m)
 			continue
-			//panic(errors.Errorf("can not find middleware: %s", m))
 		}
 
 		log.Infof("intall middleware: %s", m)
@@ -121,6 +123,39 @@ func NewServer(opts ...ServerOption) *Server {
 	}
 
 	return srv
+}
+
+func (s *Server) middleware(name string) (gin.HandlerFunc, bool) {
+	if name == "cors" && s.corsOptions != nil {
+		return mws.CorsWithOptions(*s.corsOptions), true
+	}
+	mw, ok := mws.Middlewares[name]
+	return mw, ok
+}
+
+func (s *Server) validateProductionConfig() error {
+	if s.mode == gin.DebugMode {
+		return errors.New("production rest server must not run in debug mode")
+	}
+	if s.requireJWTKey && (s.jwt == nil || s.jwt.Key == "") {
+		return errors.New("production rest server requires explicit jwt key")
+	}
+	if slices.Contains(s.middlewares, "cors") && !hasProductionCorsOrigins(s.corsOptions) {
+		return errors.New("production rest server requires explicit cors allow origins")
+	}
+	return nil
+}
+
+func hasProductionCorsOrigins(opts *mws.CorsOptions) bool {
+	if opts == nil || len(opts.AllowOrigins) == 0 {
+		return false
+	}
+	for _, origin := range opts.AllowOrigins {
+		if origin == "*" || origin == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) Translator() ut.Translator {
@@ -145,6 +180,11 @@ func (s *Server) Start(ctx context.Context) error {
 	//设置开发模式，打印路由信息
 	if s.mode != gin.DebugMode && s.mode != gin.ReleaseMode && s.mode != gin.TestMode {
 		return errors.New("mode must be one of debug/release/test")
+	}
+	if s.mode == gin.ReleaseMode {
+		if err := s.validateProductionConfig(); err != nil {
+			return err
+		}
 	}
 
 	//设置开发模式，打印路由信息

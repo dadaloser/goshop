@@ -30,6 +30,8 @@ type Client struct {
 	healthcheckInterval int
 	// heartbeat enable heartbeat
 	heartbeat bool
+	// heartbeatTimeout limits each TTL update request.
+	heartbeatTimeout time.Duration
 	// deregisterCriticalServiceAfter time interval in seconds
 	deregisterCriticalServiceAfter int
 	// serviceChecks  user custom checks
@@ -45,6 +47,7 @@ func NewClient(cli *api.Client) *Client {
 		resolver:                       defaultResolver,
 		healthcheckInterval:            10,
 		heartbeat:                      true,
+		heartbeatTimeout:               5 * time.Second,
 		deregisterCriticalServiceAfter: 600,
 		httpHealthCheckPath:            "/readyz",
 	}
@@ -172,12 +175,26 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 		go func() {
 			failures := 0
 			updateTTL := func() {
-				if heartbeatErr := c.cli.Agent().UpdateTTL("service:"+svc.ID, "pass", "pass"); heartbeatErr != nil {
+				heartbeatCtx, cancel := context.WithTimeout(c.ctx, c.heartbeatTimeout)
+				heartbeatErr := c.cli.Agent().UpdateTTLOpts(
+					"service:"+svc.ID,
+					"pass",
+					"pass",
+					new(api.QueryOptions).WithContext(heartbeatCtx),
+				)
+				cancel()
+				if heartbeatErr != nil {
 					failures++
 					log.Errorf("[Consul] update ttl heartbeat to consul failed: %v", heartbeatErr)
 					if failures >= heartbeatFailureThreshold {
 						//失败重新注册
-						if registerErr := c.cli.Agent().ServiceRegister(asr); registerErr != nil {
+						registerCtx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
+						registerErr := c.cli.Agent().ServiceRegisterOpts(
+							asr,
+							api.ServiceRegisterOpts{}.WithContext(registerCtx),
+						)
+						cancel()
+						if registerErr != nil {
 							log.Errorf("[Consul] re-register service failed: %v", registerErr)
 							return
 						}
@@ -189,13 +206,23 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 				failures = 0
 			}
 
+			initialDelay := time.Second
+			if c.healthcheckInterval < 1 {
+				initialDelay = 0
+			}
+			timer := time.NewTimer(initialDelay)
+			defer timer.Stop()
 			select {
-			case <-time.After(time.Second):
+			case <-timer.C:
 				updateTTL()
 			case <-c.ctx.Done():
 				return
 			}
-			ticker := time.NewTicker(time.Second * time.Duration(c.healthcheckInterval))
+			tickerInterval := time.Second * time.Duration(c.healthcheckInterval)
+			if tickerInterval <= 0 {
+				tickerInterval = time.Second
+			}
+			ticker := time.NewTicker(tickerInterval)
 			defer ticker.Stop()
 			for {
 				select {

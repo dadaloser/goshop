@@ -18,6 +18,8 @@ import (
 	"google.golang.org/grpc/connectivity"
 )
 
+const selectorBalancerName = "selector"
+
 type ClientOption func(o *clientOptions)
 
 type clientOptions struct {
@@ -112,6 +114,39 @@ func DialInsecure(ctx context.Context, opts ...ClientOption) (*grpc.ClientConn, 
 
 func Dial(ctx context.Context, opts ...ClientOption) (*grpc.ClientConn, error) {
 	return dial(ctx, false, opts...)
+}
+
+// DialDiscoveryInsecure dials a registry-discovered service with production defaults:
+// startup probing enabled and the framework selector balancer registered.
+func DialDiscoveryInsecure(ctx context.Context, opts ...ClientOption) (*grpc.ClientConn, error) {
+	return dialDiscovery(ctx, true, opts...)
+}
+
+// DialDiscovery dials a registry-discovered service with production defaults.
+func DialDiscovery(ctx context.Context, opts ...ClientOption) (*grpc.ClientConn, error) {
+	return dialDiscovery(ctx, false, opts...)
+}
+
+func dialDiscovery(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.ClientConn, error) {
+	options := clientOptions{
+		connectProbe: true,
+		balancerName: selectorBalancerName,
+	}
+	for _, opt := range opts {
+		opt(&options)
+	}
+	if options.discovery == nil {
+		return nil, fmt.Errorf("rpc discovery is required")
+	}
+	InitBuilder()
+
+	discoveryOpts := []ClientOption{
+		WithDiscovery(options.discovery),
+		WithBalancerName(options.balancerName),
+		WithConnectProbe(options.connectProbe),
+	}
+	opts = append(discoveryOpts, opts...)
+	return dial(ctx, insecure, opts...)
 }
 
 func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.ClientConn, error) {

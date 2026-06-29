@@ -48,8 +48,17 @@ func WithServiceResolver(fn ServiceResolver) Option {
 // WithHealthCheckInterval with healthcheck interval in seconds.
 func WithHealthCheckInterval(interval int) Option {
 	return func(o *Registry) {
-		if o.cli != nil {
+		if o.cli != nil && interval > 0 {
 			o.cli.healthcheckInterval = interval
+		}
+	}
+}
+
+// WithHeartbeatTimeout sets the timeout for each Consul TTL heartbeat update.
+func WithHeartbeatTimeout(timeout time.Duration) Option {
+	return func(o *Registry) {
+		if o.cli != nil && timeout > 0 {
+			o.cli.heartbeatTimeout = timeout
 		}
 	}
 }

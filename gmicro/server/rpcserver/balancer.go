@@ -1,9 +1,12 @@
 package rpcserver
 
 import (
+	"sync"
+
 	"goshop/gmicro/registry"
 
 	"goshop/gmicro/server/rpcserver/selector"
+	"goshop/gmicro/server/rpcserver/selector/random"
 
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
@@ -17,17 +20,24 @@ const (
 var (
 	_ base.PickerBuilder = &balancerBuilder{}
 	_ balancer.Picker    = &balancerPicker{}
+
+	registerBalancerOnce sync.Once
 )
 
 func InitBuilder() {
-	b := base.NewBalancerBuilder(
-		balancerName,
-		&balancerBuilder{
-			builder: selector.GlobalSelector(),
-		},
-		base.Config{HealthCheck: true},
-	)
-	balancer.Register(b)
+	registerBalancerOnce.Do(func() {
+		if selector.GlobalSelector() == nil {
+			selector.SetGlobalSelector(random.NewBuilder())
+		}
+		b := base.NewBalancerBuilder(
+			balancerName,
+			&balancerBuilder{
+				builder: selector.GlobalSelector(),
+			},
+			base.Config{HealthCheck: true},
+		)
+		balancer.Register(b)
+	})
 }
 
 type balancerBuilder struct {

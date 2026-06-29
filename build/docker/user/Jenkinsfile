@@ -12,9 +12,11 @@ pipeline {
         stage('docker login') {
             steps {
                 echo "================== docker login =================="
-                sh """
-                    docker login -u admin -p Harbor12345 http://$REGISTRY
-                """
+                withCredentials([usernamePassword(credentialsId: 'harbor-goshop', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASSWORD')]) {
+                    sh """
+                        echo "\$HARBOR_PASSWORD" | docker login -u "\$HARBOR_USER" --password-stdin http://$REGISTRY
+                    """
+                }
             }
         }
         stage('docker build') {

@@ -34,6 +34,8 @@ type ServerOptions struct {
 	//中间件
 	Middlewares []string `json:"middlewares,omitempty"                 mapstructure:"middlewares"`
 
+	CorsAllowOrigins []string `json:"cors-allow-origins,omitempty" mapstructure:"cors-allow-origins"`
+
 	ReadHeaderTimeout time.Duration `json:"read-header-timeout,omitempty" mapstructure:"read-header-timeout"`
 	ReadTimeout       time.Duration `json:"read-timeout,omitempty"        mapstructure:"read-timeout"`
 	WriteTimeout      time.Duration `json:"write-timeout,omitempty"       mapstructure:"write-timeout"`
@@ -80,6 +82,8 @@ func (so *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&so.HttpPort, "server.http-port", so.HttpPort, "server http port default is 8079")
 
 	fs.StringVar(&so.Name, "server.name", so.Name, "server name default is goshop-user-srv")
+	fs.StringSliceVar(&so.CorsAllowOrigins, "server.cors-allow-origins", so.CorsAllowOrigins,
+		"allowed CORS origins for production when cors middleware is enabled")
 
 	fs.DurationVar(&so.ReadHeaderTimeout, "server.read-header-timeout", so.ReadHeaderTimeout,
 		"maximum duration for reading request headers")

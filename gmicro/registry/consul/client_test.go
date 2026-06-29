@@ -1,9 +1,11 @@
 package consul
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -182,5 +184,71 @@ func TestRegisterAllowsCustomHTTPHealthCheckPath(t *testing.T) {
 
 	if len(got.Checks) != 1 || got.Checks[0].HTTP != "http://127.0.0.1:8000/healthz" {
 		t.Fatalf("registered checks = %+v, want custom HTTP health check path", got.Checks)
+	}
+}
+
+func TestRegisterHeartbeatUpdateUsesTimeout(t *testing.T) {
+	updateDeadline := make(chan time.Time, 1)
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch {
+		case req.Method == http.MethodPut && req.URL.Path == "/v1/agent/service/register":
+			return consulOKResponse(), nil
+		case req.Method == http.MethodPut && strings.HasPrefix(req.URL.Path, "/v1/agent/check/update/"):
+			deadline, ok := req.Context().Deadline()
+			if !ok {
+				t.Fatal("heartbeat update request has no context deadline")
+			}
+			updateDeadline <- deadline
+			return consulOKResponse(), nil
+		default:
+			t.Fatalf("unexpected request = %s %s", req.Method, req.URL.Path)
+			return nil, nil
+		}
+	})
+
+	apiClient, err := api.NewClient(&api.Config{
+		Address:    "http://consul.local",
+		HttpClient: &http.Client{Transport: transport},
+	})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	client := NewClient(apiClient)
+	client.healthcheckInterval = 0
+	client.heartbeatTimeout = 20 * time.Millisecond
+	t.Cleanup(client.cancel)
+
+	err = client.Register(context.Background(), &registry.ServiceInstance{
+		ID:        "goods-1",
+		Name:      "goods",
+		Version:   "v1",
+		Endpoints: []string{"grpc://127.0.0.1:9000"},
+	}, false)
+	if err != nil {
+		t.Fatalf("Register() error = %v, want nil", err)
+	}
+
+	select {
+	case deadline := <-updateDeadline:
+		remaining := time.Until(deadline)
+		if remaining <= 0 || remaining > client.heartbeatTimeout {
+			t.Fatalf("heartbeat deadline remaining = %v, want within %v", remaining, client.heartbeatTimeout)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("heartbeat update request was not sent")
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
+
+func consulOKResponse() *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(nil)),
+		Header:     make(http.Header),
 	}
 }

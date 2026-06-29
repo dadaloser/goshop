@@ -1,18 +1,19 @@
+version: "2"
+
 linters:
   enable:
     - govet
     - errcheck
     - staticcheck
     - goconst
-  disable:
-    - golint  # 已弃用，建议禁用
 run:
   timeout: 2m
-  skip-dirs:
+linters-settings:
+  staticcheck:
+    checks:
+      - all
+      - "-SA1019"
+exclusions:
+  paths:
     - vendor
     - testdata
-issues:
-  exclude-rules:
-    - linters:
-        - staticcheck
-      text: "SA1019:.*is deprecated"
