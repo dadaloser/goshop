@@ -76,7 +76,7 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (v12.DataFactory, error) {
 	})
 
 	if dbFactory == nil || err != nil {
-		return nil, errors.WithCode(code.ErrConnectDB, "failed to get mysql store factory")
+		return nil, errors.WrapC(err, code.ErrConnectDB, "failed to get mysql store factory")
 	}
 	return dbFactory, nil
 }

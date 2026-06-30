@@ -5,6 +5,7 @@ import (
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	errors2 "goshop/pkg/errors"
+	"goshop/pkg/log"
 	"sync"
 
 	"gorm.io/gorm"
@@ -33,6 +34,8 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 			mysqlOpts.Host,
 			mysqlOpts.Port,
 			mysqlOpts.Database)
+		log.Infof("connecting mysql: host=%s port=%s database=%s user=%s",
+			mysqlOpts.Host, mysqlOpts.Port, mysqlOpts.Database, mysqlOpts.Username)
 		dbFactory, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 		if err != nil {
 			return
@@ -43,10 +46,11 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 		sqlDB.SetMaxOpenConns(mysqlOpts.MaxOpenConnections)
 		sqlDB.SetMaxIdleConns(mysqlOpts.MaxIdleConnections)
 		sqlDB.SetConnMaxLifetime(mysqlOpts.MaxConnectionLifetime)
+		log.Infof("mysql connected: host=%s port=%s database=%s", mysqlOpts.Host, mysqlOpts.Port, mysqlOpts.Database)
 	})
 
 	if dbFactory == nil || err != nil {
-		return nil, errors2.WithCode(code.ErrConnectDB, "failed to get mysql store factory")
+		return nil, errors2.WrapC(err, code.ErrConnectDB, "failed to get mysql store factory")
 	}
 	return dbFactory, nil
 }

@@ -414,6 +414,7 @@ func TestPollForever(t *testing.T) {
 	ch := make(chan struct{})
 	done := make(chan struct{}, 1)
 	complete := make(chan struct{})
+	errCh := make(chan error, 2)
 	go func() {
 		f := ConditionFunc(func() (bool, error) {
 			ch <- struct{}{}
@@ -426,7 +427,8 @@ func TestPollForever(t *testing.T) {
 		})
 
 		if err := PollInfinite(time.Microsecond, f); err != nil {
-			t.Fatalf("unexpected error %v", err)
+			errCh <- fmt.Errorf("unexpected error %v", err)
+			return
 		}
 
 		close(ch)
@@ -457,9 +459,15 @@ func TestPollForever(t *testing.T) {
 				return
 			}
 		}
-		t.Fatalf("expected closed channel after two iterations")
+		errCh <- errors.New("expected closed channel after two iterations")
 	}()
 	<-complete
+
+	select {
+	case err := <-errCh:
+		t.Fatal(err)
+	default:
+	}
 }
 
 func TestWaitFor(t *testing.T) {

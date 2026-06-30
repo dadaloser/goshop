@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"goshop/app/pkg/options"
+	"goshop/pkg/app"
 	cliflag "goshop/pkg/common/cli/flag"
 	"goshop/pkg/log"
 )
@@ -44,6 +45,32 @@ func (o *Config) String() string {
 	data, _ := json.Marshal(o)
 
 	return string(data)
+}
+
+func (o *Config) SafeString() string {
+	return app.RedactJSON(o.String())
+}
+
+func (o *Config) ValidateStartup() error {
+	if o.Log != nil && o.Log.Development {
+		return nil
+	}
+	if o.Server != nil {
+		if err := o.Server.ValidateStartup(); err != nil {
+			return err
+		}
+	}
+	if o.MySQLOptions != nil {
+		if err := o.MySQLOptions.ValidateStartup(); err != nil {
+			return err
+		}
+	}
+	if o.RedisOptions != nil {
+		if err := o.RedisOptions.ValidateStartup(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (o *Config) Validate() []error {

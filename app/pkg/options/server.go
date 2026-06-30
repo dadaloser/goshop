@@ -1,7 +1,9 @@
 package options
 
 import (
+	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -89,6 +91,36 @@ func (so *ServerOptions) Validate() []error {
 		}
 	}
 	return errs
+}
+
+func (so *ServerOptions) ValidateStartup() error {
+	if so.Host == "" {
+		return errors.New("server.host is required")
+	}
+	if so.Port <= 0 || so.Port > 65535 {
+		return fmt.Errorf("server.port must be between 1 and 65535, got %d", so.Port)
+	}
+	if so.HttpPort < 0 || so.HttpPort > 65535 {
+		return fmt.Errorf("server.http-port must be between 0 and 65535, got %d", so.HttpPort)
+	}
+	if so.EnableProfiling && so.ProfilingToken == "" {
+		return errors.New("server.profiling-token is required when profiling is enabled")
+	}
+	if so.ReadHeaderTimeout <= 0 || so.ReadTimeout <= 0 || so.WriteTimeout <= 0 || so.IdleTimeout <= 0 {
+		return errors.New("server timeouts must be positive")
+	}
+	if slices.Contains(so.Middlewares, "cors") {
+		if len(so.CorsAllowOrigins) == 0 {
+			return errors.New("server.cors-allow-origins is required when cors middleware is enabled")
+		}
+		for _, origin := range so.CorsAllowOrigins {
+			if origin == "" || origin == "*" {
+				return errors.New("server.cors-allow-origins must not contain empty or wildcard origins")
+			}
+		}
+	}
+
+	return nil
 }
 
 // AddFlags adds flags related to server storage for a specific APIServer to the specified FlagSet.

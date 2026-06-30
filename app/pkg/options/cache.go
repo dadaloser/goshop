@@ -1,6 +1,11 @@
 package options
 
-import "github.com/spf13/pflag"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/spf13/pflag"
+)
 
 type RedisOptions struct {
 	Host                  string   `mapstructure:"host" json:"host"`
@@ -41,7 +46,28 @@ func NewRedisOptions() *RedisOptions {
 func (o *RedisOptions) Validate() []error {
 	errs := []error{}
 
+	if o.EnableCluster && o.Database != 0 {
+		errs = append(errs, errors.New("redis.database must be 0 when redis.enable-cluster is true"))
+	}
+
 	return errs
+}
+
+func (o *RedisOptions) ValidateStartup() error {
+	if o.SSLInsecureSkipVerify {
+		return errors.New("redis.ssl-insecure-skip-verify must be false for production startup")
+	}
+	if o.UseSSL {
+		return nil
+	}
+	if len(o.Addrs) == 0 && o.Host == "" {
+		return errors.New("redis host or addrs is required")
+	}
+	if o.Port < 0 || o.Port > 65535 {
+		return fmt.Errorf("redis.port must be between 0 and 65535, got %d", o.Port)
+	}
+
+	return nil
 }
 
 // AddFlags adds flags related to redis storage for a specific APIServer to the specified FlagSet.

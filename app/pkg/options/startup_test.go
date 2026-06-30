@@ -1,0 +1,55 @@
+package options
+
+import (
+	"testing"
+	"time"
+)
+
+func TestRedisOptionsValidateStartupRejectsInsecureTLS(t *testing.T) {
+	opts := NewRedisOptions()
+	opts.SSLInsecureSkipVerify = true
+
+	if err := opts.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want insecure TLS error")
+	}
+}
+
+func TestJwtOptionsValidateStartupRejectsDefaultKey(t *testing.T) {
+	opts := NewJwtOptions()
+
+	if err := opts.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want default key error")
+	}
+}
+
+func TestMySQLOptionsValidateStartup(t *testing.T) {
+	opts := NewMySQLOptions()
+	opts.Username = "user"
+	opts.Password = "password"
+	opts.Database = "goshop"
+
+	if err := opts.ValidateStartup(); err != nil {
+		t.Fatalf("ValidateStartup() error = %v", err)
+	}
+}
+
+func TestEsOptionsValidateStartup(t *testing.T) {
+	opts := NewEsOptions()
+	opts.Scheme = "https"
+	opts.UseSSL = true
+	opts.Timeout = 3 * time.Second
+
+	if err := opts.ValidateStartup(); err != nil {
+		t.Fatalf("ValidateStartup() error = %v", err)
+	}
+}
+
+func TestServerOptionsValidateStartupRejectsWildcardCORS(t *testing.T) {
+	opts := NewServerOptions()
+	opts.Middlewares = []string{"cors"}
+	opts.CorsAllowOrigins = []string{"*"}
+
+	if err := opts.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want wildcard CORS error")
+	}
+}

@@ -18,7 +18,7 @@ const configFlagName = "config"
 
 var cfgFile string
 
-// nolint: gochecknoinits
+// nolint: go check no inits
 func init() {
 	pflag.StringVarP(&cfgFile, "config", "c", cfgFile, "Read configuration from specified `FILE`, "+
 		"support JSON, TOML, YAML, HCL, or Java properties formats.")
@@ -66,7 +66,11 @@ func printConfig() {
 		table.MaxColWidth = 80
 		table.RightAlign(0)
 		for _, k := range keys {
-			table.AddRow(fmt.Sprintf("%s:", k), viper.Get(k))
+			value := viper.Get(k)
+			if isSensitiveKey(k) {
+				value = redactedValue
+			}
+			table.AddRow(fmt.Sprintf("%s:", k), value)
 		}
 		fmt.Printf("%v", table)
 	}

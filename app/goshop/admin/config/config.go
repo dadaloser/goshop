@@ -1,7 +1,10 @@
 package config
 
 import (
+	"encoding/json"
+
 	"goshop/app/pkg/options"
+	"goshop/pkg/app"
 	cliflag "goshop/pkg/common/cli/flag"
 	"goshop/pkg/log"
 )
@@ -19,6 +22,28 @@ func (c *Config) Validate() []error {
 	errors = append(errors, c.Server.Validate()...)
 	errors = append(errors, c.Registry.Validate()...)
 	return errors
+}
+
+func (c *Config) ValidateStartup() error {
+	if c.Log != nil && c.Log.Development {
+		return nil
+	}
+	if c.Server != nil {
+		if err := c.Server.ValidateStartup(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Config) String() string {
+	data, _ := json.Marshal(c)
+
+	return string(data)
+}
+
+func (c *Config) SafeString() string {
+	return app.RedactJSON(c.String())
 }
 
 func (c *Config) Flags() (fss cliflag.NamedFlagSets) {

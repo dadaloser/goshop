@@ -6,6 +6,7 @@ import (
 	"goshop/app/pkg/options"
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
+	"goshop/pkg/log"
 
 	"github.com/alibaba/sentinel-golang/ext/datasource"
 	"github.com/nacos-group/nacos-sdk-go/clients"
@@ -29,8 +30,12 @@ func NewNacosDataSource(opts *options.NacosOptions) (*nacos.NacosDataSource, err
 	cc := constant.ClientConfig{
 		NamespaceId: opts.Namespace,
 		TimeoutMs:   5000,
+		Username:    opts.User,
+		Password:    opts.Password,
 	}
 
+	log.Infof("creating nacos data source: host=%s port=%d namespace=%s group=%s dataid=%s",
+		opts.Host, opts.Port, opts.Namespace, opts.Group, opts.DataId)
 	client, err := clients.CreateConfigClient(map[string]interface{}{
 		"serverConfigs": sc,
 		"clientConfig":  cc,
@@ -49,8 +54,9 @@ func NewNacosDataSource(opts *options.NacosOptions) (*nacos.NacosDataSource, err
 	return nds, nil
 }
 
-func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.ServerOptions, uServer upb.UserServer, dataNacos *nacos.NacosDataSource) (*rpcserver.Server, error) {
+func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.ServerOptions, nacosOpts *options.NacosOptions, uServer upb.UserServer) (*rpcserver.Server, error) {
 	//初始化open-telemetry的exporter
+	log.Infof("initializing telemetry: name=%s endpoint=%s batcher=%s", telemetry.Name, telemetry.Endpoint, telemetry.Batcher)
 	if err := trace.InitAgent(trace.Options{
 		Name:     telemetry.Name,
 		Endpoint: telemetry.Endpoint,
@@ -65,13 +71,20 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 	var opts []rpcserver.ServerOption
 	opts = append(opts, rpcserver.WithAddress(rpcAddr))
 	if serverOpts.EnableLimit {
-		opts = append(opts, rpcserver.WithUnaryInterceptor(grpc.NewUnaryServerInterceptor())) //添加限流拦截器
-		//我去初始化nacos
-		err := dataNacos.Initialize()
+		log.Infof("initializing sentinel limit rules from nacos")
+		dataNacos, err := NewNacosDataSource(nacosOpts)
 		if err != nil {
 			return nil, err
 		}
+		opts = append(opts, rpcserver.WithUnaryInterceptor(grpc.NewUnaryServerInterceptor())) //添加限流拦截器
+		if err := dataNacos.Initialize(); err != nil {
+			return nil, err
+		}
+		log.Infof("sentinel limit rules initialized from nacos")
+	} else {
+		log.Infof("sentinel limit disabled; skip nacos data source initialization")
 	}
+	log.Infof("creating user rpc server: address=%s", rpcAddr)
 	uRpcServer, err := rpcserver.NewServerE(opts...)
 	if err != nil {
 		return nil, err

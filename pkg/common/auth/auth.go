@@ -19,8 +19,8 @@ func Compare(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
-// Sign issue a jwt token based on secretID, secretKey, iss and aud.
-func Sign(secretID string, secretKey string, iss, aud string) string {
+// Sign issues a jwt token based on secretID, secretKey, iss and aud.
+func Sign(secretID string, secretKey string, iss, aud string) (string, error) {
 	claims := jwt.MapClaims{
 		"exp": time.Now().Add(time.Minute).Unix(),
 		"iat": time.Now().Unix(),
@@ -34,7 +34,5 @@ func Sign(secretID string, secretKey string, iss, aud string) string {
 	token.Header["kid"] = secretID
 
 	// Sign the token with the specified secret.
-	tokenString, _ := token.SignedString([]byte(secretKey))
-
-	return tokenString
+	return token.SignedString([]byte(secretKey))
 }

@@ -134,6 +134,9 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 			switch raw.Scheme {
 			case "http", "https":
 				check.HTTP = c.healthCheckURL(raw)
+			case "grpc":
+				check.GRPC = checkAddress
+				check.GRPCUseTLS = endpointIsSecure(raw)
 			default:
 				check.TCP = checkAddress
 			}
@@ -254,6 +257,14 @@ func parseEndpointAddress(endpoint *url.URL) (string, uint16, error) {
 		return "", 0, fmt.Errorf("invalid endpoint %q: invalid port: %w", endpoint.String(), err)
 	}
 	return addr, uint16(port), nil
+}
+
+func endpointIsSecure(endpoint *url.URL) bool {
+	ok, err := strconv.ParseBool(endpoint.Query().Get("isSecure"))
+	if err != nil {
+		return false
+	}
+	return ok
 }
 
 func (c *Client) healthCheckURL(endpoint *url.URL) string {

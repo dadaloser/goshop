@@ -30,3 +30,14 @@ type CompletableOptions interface {
 type PrintableOptions interface {
 	String() string
 }
+
+// SecurePrintableOptions abstracts options that can print a redacted version of
+// their configuration.
+type SecurePrintableOptions interface {
+	SafeString() string
+}
+
+// StartupValidatableOptions abstracts options that need strict startup checks.
+type StartupValidatableOptions interface {
+	ValidateStartup() error
+}

@@ -30,8 +30,15 @@ func GetSearchFactoryOr(opts *options.EsOptions) (v1.SearchFactory, error) {
 
 	once.Do(func() {
 		esOpt := db.EsOptions{
-			Host: opts.Host,
-			Port: opts.Port,
+			Host:                  opts.Host,
+			Port:                  opts.Port,
+			Scheme:                opts.Scheme,
+			Username:              opts.Username,
+			Password:              opts.Password,
+			Timeout:               opts.Timeout,
+			UseSSL:                opts.UseSSL,
+			SSLInsecureSkipVerify: opts.SSLInsecureSkipVerify,
+			DisableHealthcheck:    opts.DisableHealthcheck,
 		}
 		esClient, err := db.NewEsClient(&esOpt)
 		if err != nil {

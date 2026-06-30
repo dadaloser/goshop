@@ -100,7 +100,7 @@ func GetDataFactoryOr(mysqlOpts *options.MySQLOptions, registry *options.Registr
 	})
 
 	if data == nil || err != nil {
-		return nil, errors2.WithCode(code.ErrConnectDB, "failed to get data store factory")
+		return nil, errors2.WrapC(err, code.ErrConnectDB, "failed to get data store factory")
 	}
 	return data, nil
 }

@@ -15,7 +15,7 @@ import (
 	"goshop/gmicro/registry/consul"
 )
 
-var ProviderSet = wire.NewSet(NewUserApp, NewRegistrar, NewUserRPCServer, NewNacosDataSource)
+var ProviderSet = wire.NewSet(NewUserApp, NewRegistrar, NewUserRPCServer)
 
 func NewApp(basename string) *app.App {
 	cfg := config.New()
@@ -29,6 +29,7 @@ func NewApp(basename string) *app.App {
 }
 
 func NewRegistrar(registry *options.RegistryOptions) registry.Registrar {
+	log.Infof("initializing consul registrar: address=%s scheme=%s", registry.Address, registry.Scheme)
 	c := api.DefaultConfig()
 	c.Address = registry.Address
 	c.Scheme = registry.Scheme
@@ -40,12 +41,9 @@ func NewRegistrar(registry *options.RegistryOptions) registry.Registrar {
 	return r
 }
 
-func NewUserApp(logOpts *log.Options, register registry.Registrar,
+func NewUserApp(register registry.Registrar,
 	serverOpts *options.ServerOptions, rpcServer *rpcserver.Server) (*gapp.App, error) {
-	//初始化log
-	log.Init(logOpts)
-	defer log.Flush()
-
+	log.Infof("creating user application: name=%s", serverOpts.Name)
 	return gapp.New(
 		gapp.WithName(serverOpts.Name),
 		gapp.WithRPCServer(rpcServer),
@@ -55,14 +53,19 @@ func NewUserApp(logOpts *log.Options, register registry.Registrar,
 
 func run(cfg *config.Config) app.RunFunc {
 	return func(baseName string) error {
-		userApp, err := initApp(cfg.Nacos, cfg.Log, cfg.Server, cfg.Registry, cfg.Telemetry, cfg.MySQLOptions)
+		log.Init(cfg.Log)
+		defer log.Flush()
+
+		log.Infof("initializing user service dependencies")
+		userApp, err := initApp(cfg.Nacos, cfg.Server, cfg.Registry, cfg.Telemetry, cfg.MySQLOptions)
 		if err != nil {
 			return err
 		}
 
 		//启动
+		log.Infof("starting user service")
 		if err := userApp.Run(); err != nil {
-			log.Errorf("run user app error: %s", err)
+			log.Errorf("run user app error: %+v", err)
 			return err
 		}
 		return nil

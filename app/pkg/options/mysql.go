@@ -1,6 +1,9 @@
 package options
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -38,6 +41,42 @@ func (o *MySQLOptions) Validate() []error {
 	var errs []error
 
 	return errs
+}
+
+func (o *MySQLOptions) ValidateStartup() error {
+	if o.Host == "" {
+		return errors.New("mysql.host is required")
+	}
+	port, err := strconv.Atoi(o.Port)
+	if err != nil {
+		return fmt.Errorf("mysql.port must be numeric: %w", err)
+	}
+	if port <= 0 || port > 65535 {
+		return fmt.Errorf("mysql.port must be between 1 and 65535, got %d", port)
+	}
+	if o.Username == "" {
+		return errors.New("mysql.username is required")
+	}
+	if o.Password == "" {
+		return errors.New("mysql.password is required")
+	}
+	if o.Database == "" {
+		return errors.New("mysql.database is required")
+	}
+	if o.MaxIdleConnections < 0 {
+		return errors.New("mysql.max-idle-connections must not be negative")
+	}
+	if o.MaxOpenConnections <= 0 {
+		return errors.New("mysql.max-open-connections must be positive")
+	}
+	if o.MaxIdleConnections > o.MaxOpenConnections {
+		return errors.New("mysql.max-idle-connections must not exceed mysql.max-open-connections")
+	}
+	if o.MaxConnectionLifetime <= 0 {
+		return errors.New("mysql.max-connection-life-time must be positive")
+	}
+
+	return nil
 }
 
 // AddFlags adds flags related to mysql storage for a specific APIServer to the specified FlagSet.

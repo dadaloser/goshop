@@ -236,7 +236,7 @@ func (a *App) Run() {
 
 	err := a.cmd.Execute()
 	if err != nil {
-		fmt.Printf("%v %v\n", color.RedString("Error:"), err)
+		fmt.Printf("%v %+v\n", color.RedString("Error:"), err)
 		os.Exit(1)
 	}
 }
@@ -297,8 +297,20 @@ func (a *App) applyOptionRules() error {
 		return errors.NewAggregate(errs)
 	}
 
+	if startupOptions, ok := a.options.(StartupValidatableOptions); ok {
+		if err := startupOptions.ValidateStartup(); err != nil {
+			return err
+		}
+	}
+
 	if printableOptions, ok := a.options.(PrintableOptions); ok && !a.silence {
-		log.Infof("%v Config: `%s`", progressMessage, printableOptions.String())
+		configText := printableOptions.String()
+		if secureOptions, ok := a.options.(SecurePrintableOptions); ok {
+			configText = secureOptions.SafeString()
+		} else {
+			configText = RedactJSON(configText)
+		}
+		log.Infof("%v Config: `%s`", progressMessage, configText)
 	}
 
 	return nil
