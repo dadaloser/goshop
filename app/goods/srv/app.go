@@ -24,25 +24,24 @@ func NewApp(basename string) *app.App {
 	return appl
 }
 
-func NewRegistrar(registry *options.RegistryOptions) registry.Registrar {
+func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error) {
 	c := api.DefaultConfig()
 	c.Address = registry.Address
 	c.Scheme = registry.Scheme
 	cli, err := api.NewClient(c)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	r := consul.New(cli, consul.WithHealthCheck(true))
-	return r
+	return r, nil
 }
 
 func NewGoodsApp(cfg *config.Config) (*gapp.App, error) {
-	//初始化log
-	log.Init(cfg.Log)
-	defer log.Flush()
-
 	//服务注册
-	register := NewRegistrar(cfg.Registry)
+	register, err := NewRegistrar(cfg.Registry)
+	if err != nil {
+		return nil, err
+	}
 
 	//生成rpc服务
 	rpcServer, err := NewGoodsRPCServer(cfg)
@@ -59,6 +58,9 @@ func NewGoodsApp(cfg *config.Config) (*gapp.App, error) {
 
 func run(cfg *config.Config) app.RunFunc {
 	return func(baseName string) error {
+		log.Init(cfg.Log)
+		defer log.Flush()
+
 		goodsApp, err := NewGoodsApp(cfg)
 		if err != nil {
 			return err
@@ -66,7 +68,7 @@ func run(cfg *config.Config) app.RunFunc {
 
 		//启动
 		if err := goodsApp.Run(); err != nil {
-			log.Errorf("run user app error: %s", err)
+			log.Errorf("run goods app error: %s", err)
 			return err
 		}
 		return nil

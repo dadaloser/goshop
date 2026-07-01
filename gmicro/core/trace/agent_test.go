@@ -31,6 +31,20 @@ func TestInitAgentAcceptsOTLPHostPortEndpoint(t *testing.T) {
 	}
 }
 
+func TestInitAgentAcceptsFullHTTPEndpoint(t *testing.T) {
+	agents = make(map[string]struct{})
+	providers = nil
+
+	err := InitAgent(Options{
+		Name:     "test-service",
+		Endpoint: "http://127.0.0.1:14268/api/traces",
+		Sampler:  1,
+	})
+	if err != nil {
+		t.Fatalf("InitAgent() error = %v, want nil", err)
+	}
+}
+
 func TestShutdownFlushesAgents(t *testing.T) {
 	agents = make(map[string]struct{})
 	providers = nil

@@ -35,8 +35,12 @@ func (sc *SmsController) SendSms(c *gin.Context) {
 		gin2.HandleValidatorError(c, err, sc.trans)
 	}
 
-	smsCode := v1.GenerateSmsCode(6)
-	err := sc.sf.Sms().SendSms(c, sendSmsForm.Mobile, "SMS_181850725", "{\"code\":"+smsCode+"}")
+	smsCode, err := v1.GenerateSmsCode(6)
+	if err != nil {
+		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, err.Error()), nil)
+		return
+	}
+	err = sc.sf.Sms().SendSms(c, sendSmsForm.Mobile, "SMS_181850725", "{\"code\":"+smsCode+"}")
 	if err != nil {
 		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, err.Error()), nil)
 		return

@@ -28,17 +28,17 @@ func NewApp(basename string) *app.App {
 	return a
 }
 
-func NewRegistrar(registry *options.RegistryOptions) registry.Registrar {
+func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error) {
 	log.Infof("initializing consul registrar: address=%s scheme=%s", registry.Address, registry.Scheme)
 	c := api.DefaultConfig()
 	c.Address = registry.Address
 	c.Scheme = registry.Scheme
 	cli, err := api.NewClient(c)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	r := consul.New(cli, consul.WithHealthCheck(true))
-	return r
+	return r, nil
 }
 
 func NewUserApp(register registry.Registrar,

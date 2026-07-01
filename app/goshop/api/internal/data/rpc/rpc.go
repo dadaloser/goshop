@@ -1,23 +1,27 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
 	gpb "goshop/api/goods/v1"
+	invpb "goshop/api/inventory/v1"
 	upb "goshop/api/user/v1"
 	"goshop/app/goshop/api/internal/data"
+	appclient "goshop/app/pkg/client"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
-	"goshop/gmicro/registry"
-	"goshop/gmicro/registry/consul"
 	errors2 "goshop/pkg/errors"
 	"sync"
-
-	cosulAPI "github.com/hashicorp/consul/api"
 )
 
 type grpcData struct {
-	gc gpb.GoodsClient
-	uc upb.UserClient
+	gc   gpb.GoodsClient
+	uc   upb.UserClient
+	invc invpb.InventoryClient
+}
+
+func (g grpcData) Inventory() invpb.InventoryClient {
+	return g.invc
 }
 
 func (g grpcData) Goods() gpb.GoodsClient {
@@ -28,42 +32,45 @@ func (g grpcData) Users() data.UserData {
 	return NewUsers(g.uc)
 }
 
-func NewDiscovery(opts *options.RegistryOptions) registry.Discovery {
-	c := cosulAPI.DefaultConfig()
-	c.Address = opts.Address
-	c.Scheme = opts.Scheme
-	cli, err := cosulAPI.NewClient(c)
-	if err != nil {
-		panic(err)
-	}
-	r := consul.New(cli, consul.WithHealthCheck(true))
-	return r
-}
-
 var (
 	dbFactory data.DataFactory
+	initErr   error
 	once      sync.Once
 )
 
 // rpc的连接， 基于服务发现
 func GetDataFactoryOr(options *options.RegistryOptions) (data.DataFactory, error) {
 	if options == nil && dbFactory == nil {
-		return nil, fmt.Errorf("failed to get grpc store fatory")
+		return nil, fmt.Errorf("failed to get grpc store factory")
 	}
 
 	//这里负责依赖的所有的rpc连接
 	once.Do(func() {
-		discovery := NewDiscovery(options)
-		userClient := NewUserServiceClient(discovery)
-		goodsClient := NewGoodsServiceClient(discovery)
+		userClient, _, err := appclient.NewUserClient(context.Background(), options)
+		if err != nil {
+			initErr = err
+			return
+		}
+		goodsClient, _, err := appclient.NewGoodsClient(context.Background(), options)
+		if err != nil {
+			initErr = err
+			return
+		}
+		inventoryClient, _, err := appclient.NewInventoryClient(context.Background(), options)
+		if err != nil {
+			initErr = err
+			return
+		}
+
 		dbFactory = &grpcData{
-			gc: goodsClient,
-			uc: userClient,
+			gc:   goodsClient,
+			uc:   userClient,
+			invc: inventoryClient,
 		}
 	})
 
-	if dbFactory == nil {
-		return nil, errors2.WithCode(code.ErrConnectGRPC, "failed to get grpc store factory")
+	if initErr != nil || dbFactory == nil {
+		return nil, errors2.WrapC(initErr, code.ErrConnectGRPC, "failed to get grpc store factory")
 	}
 	return dbFactory, nil
 }

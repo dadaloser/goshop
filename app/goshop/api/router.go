@@ -1,4 +1,4 @@
-package admin
+package api
 
 import (
 	"goshop/app/goshop/api/config"
@@ -10,13 +10,13 @@ import (
 	"goshop/gmicro/server/restserver"
 )
 
-func initRouter(g *restserver.Server, cfg *config.Config) {
+func initRouter(g *restserver.Server, cfg *config.Config) error {
 	v1 := g.Group("/v1")
 	uGroup := v1.Group("/user")
 
 	data, err := rpc.GetDataFactoryOr(cfg.Registry)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	//原来的过程其实很复杂
@@ -44,4 +44,6 @@ func initRouter(g *restserver.Server, cfg *config.Config) {
 		goodsController := goods.NewGoodsController(serviceFactory, g.Translator())
 		goodsRouter.GET("", goodsController.List)
 	}
+
+	return nil
 }

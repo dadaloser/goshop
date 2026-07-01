@@ -4,13 +4,12 @@ import (
 	"fmt"
 	gpb "goshop/api/order/v1"
 	"goshop/app/order/srv/config"
+	"goshop/app/order/srv/internal/boundary"
 	"goshop/app/order/srv/internal/controller/order/v1"
 	db2 "goshop/app/order/srv/internal/data/v1/db"
 	v13 "goshop/app/order/srv/internal/service/v1"
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
-
-	"goshop/pkg/log"
 )
 
 func NewOrderRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
@@ -24,12 +23,17 @@ func NewOrderRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 		return nil, err
 	}
 
-	dataFactory, err := db2.GetDataFactoryOr(cfg.MySQLOptions, cfg.Registry)
+	dataFactory, err := db2.GetDataFactoryOr(cfg.MySQLOptions)
 	if err != nil {
-		log.Fatal(err.Error())
+		return nil, err
 	}
 
-	orderSrvFactory := v13.NewService(dataFactory, cfg.Dtm)
+	goodsGateway, err := boundary.NewGoodsRPCGateway(cfg.Registry)
+	if err != nil {
+		return nil, err
+	}
+
+	orderSrvFactory := v13.NewService(dataFactory, cfg.Dtm, goodsGateway)
 	orderServer := order.NewOrderServer(orderSrvFactory)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	grpcServer, err := rpcserver.NewServerE(rpcserver.WithAddress(rpcAddr))

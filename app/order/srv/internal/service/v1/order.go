@@ -2,12 +2,13 @@ package service
 
 import (
 	"context"
-	proto2 "goshop/api/goods/v1"
+	"fmt"
 	proto "goshop/api/inventory/v1"
 	proto3 "goshop/api/order/v1"
 	v12 "goshop/app/order/srv/internal/data/v1"
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
+	"goshop/app/pkg/client"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	v1 "goshop/pkg/common/meta/v1"
@@ -17,9 +18,9 @@ import (
 	"github.com/dtm-labs/client/dtmgrpc"
 )
 
-const (
-	inventory_busi = "discovery:///goshop-inventory-srv"
-	order_busi     = "discovery:///goshop-order-srv"
+var (
+	inventory_busi = client.ServiceEndpoint(client.ServiceInventory)
+	order_busi     = client.ServiceEndpoint(client.ServiceOrder)
 )
 
 type OrderSrv interface {
@@ -32,8 +33,9 @@ type OrderSrv interface {
 }
 
 type orderService struct {
-	data    v12.DataFactory
-	dtmOpts *options.DtmOptions
+	data     v12.DataFactory
+	dtmOpts  *options.DtmOptions
+	upstream upstream
 }
 
 func (os *orderService) CreateCom(ctx context.Context, order *dto.OrderDTO) error {
@@ -47,7 +49,7 @@ func (os *orderService) CreateCom(ctx context.Context, order *dto.OrderDTO) erro
 	return nil
 }
 
-func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) error {
+func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err error) {
 	/*
 		1. 生成order_info表
 		2. 生成order_goods表
@@ -60,55 +62,56 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) error {
 	}
 
 	//获取goods信息
-	goods, err := os.data.Goods().BatchGetGoods(context.Background(), &proto2.BatchGoodsIdInfo{Id: goodsIds})
+	goodsMap, err := os.upstream.goods.BatchGetGoods(ctx, goodsIds)
 	if err != nil {
 		log.Errorf("批量获取商品信息失败，goodids: %v, err:%v", goodsIds, err)
 		return err
 	}
-	if len(goods.Data) != len(goodsIds) {
-		log.Errorf("批量获取商品信息失败，goodids: %v, 返回值：%v, err:%v", goodsIds, goods.Data, err)
+	if len(goodsMap) != len(goodsIds) {
+		log.Errorf("批量获取商品信息失败，goodids: %v, 返回值：%v, err:%v", goodsIds, goodsMap, err)
 		return errors.WithCode(code.ErrGoodsNotFound, "商品不存在或者部分不存在")
-	}
-
-	var goodsMap = make(map[int32]*proto2.GoodsInfoResponse)
-	for _, value := range goods.Data {
-		goodsMap[value.Id] = value
 	}
 
 	//生成订单总金额
 	var orderAmount float32
 	for _, value := range order.OrderGoods {
-		orderAmount += goodsMap[value.Goods].ShopPrice * float32(value.Nums)
-		value.GoodsName = goodsMap[value.Goods].Name
-		value.GoodsPrice = goodsMap[value.Goods].ShopPrice
-		value.GoodsImage = goodsMap[value.Goods].GoodsFrontImage
+		goodsInfo := goodsMap[value.Goods]
+		orderAmount += goodsInfo.ShopPrice * float32(value.Nums)
+		value.GoodsName = goodsInfo.Name
+		value.GoodsPrice = goodsInfo.ShopPrice
+		value.GoodsImage = goodsInfo.GoodsFrontImage
 	}
+	order.OrderMount = orderAmount
 
 	txn := os.data.Begin() //开启事务
+	if txn.Error != nil {
+		return fmt.Errorf("begin order transaction: %w", txn.Error)
+	}
+	rollback := func(cause error) error {
+		if rbErr := txn.Rollback().Error; rbErr != nil {
+			return fmt.Errorf("%w; rollback order transaction: %v", cause, rbErr)
+		}
+		return cause
+	}
 	defer func() {
-		if err := recover(); err != nil {
-			_ = txn.Rollback()
-			log.Error("新建订单事务进行中出现异常，回滚")
-			return
+		if panicValue := recover(); panicValue != nil {
+			err = rollback(fmt.Errorf("create order transaction panic: %v", panicValue))
 		}
 	}()
 
 	err = os.data.Orders().Create(ctx, txn, &order.OrderInfoDO)
 	if err != nil {
-		txn.Rollback()
-		log.Errorf("创建订单失败，err:%v", err)
-		return err //这个不是abort 也就是说会不停的重试
+		return rollback(fmt.Errorf("create order: %w", err))
 	}
 
 	err = os.data.ShopCarts().DeleteByGoodsIDs(ctx, txn, uint64(order.User), goodsIds)
 	if err != nil {
-		txn.Rollback()
-		log.Errorf("删除购物车失败，goodids:%v, err:%v", goodsIds, err)
-		return err
+		return rollback(fmt.Errorf("delete selected shop carts: %w", err))
 	}
 
-	txn.Commit()
-	//这里有逻辑
+	if err := txn.Commit().Error; err != nil {
+		return fmt.Errorf("commit order transaction: %w", err)
+	}
 	return nil
 }
 
@@ -201,8 +204,9 @@ func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 
 func newOrderService(sv *service) *orderService {
 	return &orderService{
-		data:    sv.data,
-		dtmOpts: sv.dtmopts,
+		data:     sv.data,
+		dtmOpts:  sv.dtmopts,
+		upstream: sv.upstream,
 	}
 }
 

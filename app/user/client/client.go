@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"goshop/api/user/v1"
+	appclient "goshop/app/pkg/client"
 	"goshop/gmicro/registry/consul"
 	rpc "goshop/gmicro/server/rpcserver"
 	_ "goshop/gmicro/server/rpcserver/resolver/direct"
@@ -34,7 +35,7 @@ func main() {
 		rpc.WithDiscovery(r),
 		rpc.WithClientTimeout(time.Second*5000),
 		rpc.WithConnectProbe(true),
-		rpc.WithEndpoint("discovery:///goshop-user-srv"),
+		rpc.WithEndpoint(appclient.ServiceEndpoint(appclient.ServiceUser)),
 	)
 	if err != nil {
 		panic(err)

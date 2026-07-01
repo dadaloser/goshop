@@ -3,8 +3,6 @@ package db
 import (
 	"errors"
 	"fmt"
-	proto "goshop/api/goods/v1"
-	proto2 "goshop/api/inventory/v1"
 	v1 "goshop/app/order/srv/internal/data/v1"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
@@ -21,9 +19,6 @@ import (
 
 type dataFactory struct {
 	db *gorm.DB
-
-	goodsClient proto.GoodsClient
-	invClient   proto2.InventoryClient
 }
 
 func (df *dataFactory) Orders() v1.OrderStore {
@@ -32,14 +27,6 @@ func (df *dataFactory) Orders() v1.OrderStore {
 
 func (df *dataFactory) ShopCarts() v1.ShopCartStore {
 	return newShopCarts(df)
-}
-
-func (df *dataFactory) Goods() proto.GoodsClient {
-	return df.goodsClient
-}
-
-func (df *dataFactory) Inventories() proto2.InventoryClient {
-	return df.invClient
 }
 
 func (df *dataFactory) Begin() *gorm.DB {
@@ -53,8 +40,8 @@ var (
 	once sync.Once
 )
 
-func GetDataFactoryOr(mysqlOpts *options.MySQLOptions, registry *options.RegistryOptions) (v1.DataFactory, error) {
-	if (mysqlOpts == nil && registry == nil) && data == nil {
+func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
+	if mysqlOpts == nil && data == nil {
 		return nil, errors.New("failed to get data store factory")
 	}
 	var err error
@@ -88,14 +75,8 @@ func GetDataFactoryOr(mysqlOpts *options.MySQLOptions, registry *options.Registr
 		sqlDB.SetMaxIdleConns(mysqlOpts.MaxIdleConnections)
 		sqlDB.SetConnMaxLifetime(mysqlOpts.MaxConnectionLifetime)
 
-		//服务发现
-		goodsClient := GetGoodsClient(registry)
-		invClient := GetInventoryClient(registry)
-
 		data = &dataFactory{
-			db:          db,
-			goodsClient: goodsClient,
-			invClient:   invClient,
+			db: db,
 		}
 	})
 

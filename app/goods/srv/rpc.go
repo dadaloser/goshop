@@ -10,8 +10,6 @@ import (
 	v1 "goshop/app/goods/srv/internal/service/v1"
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
-
-	"goshop/pkg/log"
 )
 
 func NewGoodsRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
@@ -28,13 +26,13 @@ func NewGoodsRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	//有点繁琐，wire， ioc-golang
 	dataFactory, err := db2.GetDBFactoryOr(cfg.MySQLOptions)
 	if err != nil {
-		log.Fatal(err.Error())
+		return nil, err
 	}
 
 	//构建，繁琐 - 工厂模式
 	searchFactory, err := es.GetSearchFactoryOr(cfg.EsOptions)
 	if err != nil {
-		log.Fatal(err.Error())
+		return nil, err
 	}
 
 	srvFactory := v1.NewService(dataFactory, searchFactory)

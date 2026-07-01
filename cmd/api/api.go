@@ -8,10 +8,11 @@ import (
 	"time"
 )
 
+// 程序实参: --config=./configs/api/api.yaml
 func main() {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
-	admin.NewApp("api-server").Run()
+	api.NewApp("api-server").Run()
 }

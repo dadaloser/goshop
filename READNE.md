@@ -42,6 +42,9 @@
 │ ├─registry
 │ │ └─consul 服务注册中心相关逻辑，参考 kratos
 │ └─server
+│   ├─restserver http 服务的初始化配置
+│   └─rpcserver rpc 服务的初始化配置
+
 │ ├─restserver http 服务的初始化配置
 │ │ ├─middlewares http 服务的中间件
 │ │ │ ├─auth 认证相关中间件，包括 jwt，cache，basic 这里是校验认证的中间件
@@ -124,8 +127,7 @@
    user rpc 服务的客户端，srv 服务相关的实现，config 服务的配置项，Log error 等子服务的相关逻辑全部注册到配置中，controller
    表示层，user user 模块的表示层，data 数据访问层：数据库，缓存，消息队列等，无业务逻辑，v1 数据库相关的操作，mock 数据库的
    mock 用于测试，service 业务逻辑层，v1 业务逻辑层的实现，app.go user 服务生成逻辑，rpc.go user 模块的 rpc 服务 初始化逻辑
-3. cmd 服务启动入口，admin 启动示例 admin 服务，user 启动示例 user 服务
-4. configs 配置文件，admin admin 服务的配置文件，user user 服务的配置文件
+
 5. gmicro 微服务相关包，app 服务启动相关的结构体，app.go 这个 app 是 GRPC，服务名称，注册中心等的集合，code 有一些公用的错误码，core
    底层共通核心的包，metric 服务监控相关的逻辑 使用了 prometheus，trace 链路追踪，采用 opentemlemetry，registry
    服务注册中心相关逻辑，consul 基于 consul 的服务注册中心相关逻辑，server rpc 服务的初始化配置，restserver http
@@ -153,3 +155,12 @@ cmd启动添加配置文件路径:
         "statIntervalInMs":1000         #统计时间窗口，单位毫秒
     }
 ]
+
+
+
+
+运行启动流程:
+cmd开始启动服务
+    1.读取configs下的配置文件,在Edit Configurations 中的 Program arguments 写入 --config=./configs/user/srv.yaml
+
+    

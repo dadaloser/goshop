@@ -9,8 +9,6 @@ import (
 	v13 "goshop/app/inventory/srv/internal/service/v1"
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
-
-	"goshop/pkg/log"
 )
 
 func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
@@ -27,7 +25,7 @@ func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	//有点繁琐，wire， ioc-golang
 	dataFactory, err := db2.GetDBFactoryOr(cfg.MySQLOptions)
 	if err != nil {
-		log.Fatal(err.Error())
+		return nil, err
 	}
 	invService := v13.NewService(dataFactory, cfg.RedisOptions)
 	invServer := v12.NewInventoryServer(invService)

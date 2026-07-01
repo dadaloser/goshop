@@ -1,4 +1,4 @@
-package admin
+package api
 
 import (
 	"goshop/app/goshop/api/config"
@@ -38,7 +38,9 @@ func NewAPIHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 	aRestServer := restserver.NewServer(opts...)
 
 	//配置好路由
-	initRouter(aRestServer, cfg)
+	if err := initRouter(aRestServer, cfg); err != nil {
+		return nil, err
+	}
 
 	return aRestServer, nil
 }

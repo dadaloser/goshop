@@ -17,7 +17,10 @@ import (
 // Injectors from wire.go:
 
 func initApp(nacosOptions *options.NacosOptions, serverOptions *options.ServerOptions, registryOptions *options.RegistryOptions, telemetryOptions *options.TelemetryOptions, mySQLOptions *options.MySQLOptions) (*app.App, error) {
-	registrar := NewRegistrar(registryOptions)
+	registrar, err := NewRegistrar(registryOptions)
+	if err != nil {
+		return nil, err
+	}
 	gormDB, err := db.GetDBFactoryOr(mySQLOptions)
 	if err != nil {
 		return nil, err

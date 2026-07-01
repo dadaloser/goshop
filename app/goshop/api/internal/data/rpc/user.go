@@ -24,7 +24,7 @@ func NewUsers(uc upbv1.UserClient) *users {
 	return &users{uc}
 }
 
-func NewUserServiceClient(r registry.Discovery) upbv1.UserClient {
+func NewUserServiceClient(r registry.Discovery) (upbv1.UserClient, error) {
 	conn, err := rpcserver.DialInsecure(
 		context.Background(),
 		rpcserver.WithEndpoint(serviceName),
@@ -33,10 +33,10 @@ func NewUserServiceClient(r registry.Discovery) upbv1.UserClient {
 		rpcserver.WithClientUnaryInterceptor(clientinterceptors.UnaryTracingInterceptor),
 	)
 	if err != nil {
-		panic(err) //还处于项目启动阶段的
+		return nil, err
 	}
 	c := upbv1.NewUserClient(conn)
-	return c
+	return c, nil
 }
 
 func (u *users) CheckPassWord(ctx context.Context, password, encryptedPwd string) error {

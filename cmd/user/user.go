@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// 程序实参: --config=./configs/user/srv.yaml
 func main() {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
