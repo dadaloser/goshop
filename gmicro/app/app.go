@@ -22,7 +22,7 @@ import (
 type App struct {
 	opts options
 
-	lk       sync.Mutex
+	mutex    sync.Mutex
 	instance *registry.ServiceInstance
 
 	cancel func()
@@ -30,10 +30,6 @@ type App struct {
 
 type readyServer interface {
 	Ready() <-chan struct{}
-}
-
-type endpointServer interface {
-	Endpoint() *url.URL
 }
 
 func (a *App) servers() []gs.Server {
@@ -118,9 +114,9 @@ func (a *App) Run() error {
 	}
 
 	//这个变量可能被其他的goroutine访问到
-	a.lk.Lock()
+	a.mutex.Lock()
 	a.instance = instance
-	a.lk.Unlock()
+	a.mutex.Unlock()
 
 	//注册服务
 	if a.opts.registrar != nil {
@@ -176,9 +172,9 @@ jwt
 */
 // 停止服务
 func (a *App) Stop() error {
-	a.lk.Lock()
+	a.mutex.Lock()
 	instance := a.instance
-	a.lk.Unlock()
+	a.mutex.Unlock()
 
 	var stopErr error
 	log.Info("start deregister service")

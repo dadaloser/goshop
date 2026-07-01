@@ -97,6 +97,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
+	"net/http"
 
 	gCode "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -174,10 +175,36 @@ func ToGrpcError(e error) error {
 
 	var perr *withCode
 	if As(e, &perr) {
-		err := status.Error(gCode.Code(perr.code), perr.err.Error())
-		return err
+		coder := ParseCoder(perr)
+		return status.Error(httpStatusToGRPCCode(coder.HTTPStatus()), coder.String())
 	}
 	return status.Error(gCode.Unknown, e.Error())
+}
+
+func httpStatusToGRPCCode(statusCode int) gCode.Code {
+	switch statusCode {
+	case http.StatusBadRequest:
+		return gCode.InvalidArgument
+	case http.StatusUnauthorized:
+		return gCode.Unauthenticated
+	case http.StatusForbidden:
+		return gCode.PermissionDenied
+	case http.StatusNotFound:
+		return gCode.NotFound
+	case http.StatusConflict:
+		return gCode.AlreadyExists
+	case http.StatusTooManyRequests:
+		return gCode.ResourceExhausted
+	case http.StatusServiceUnavailable, http.StatusBadGateway, http.StatusGatewayTimeout:
+		return gCode.Unavailable
+	case http.StatusRequestTimeout:
+		return gCode.DeadlineExceeded
+	default:
+		if statusCode >= http.StatusInternalServerError {
+			return gCode.Internal
+		}
+		return gCode.Unknown
+	}
 }
 
 // WithStack annotates err with a stack trace at the point WithStack was called.

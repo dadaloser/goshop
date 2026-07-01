@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	goodspb "goshop/api/goods/v1"
 	inventorypb "goshop/api/inventory/v1"
 	userpb "goshop/api/user/v1"
@@ -20,7 +21,7 @@ func DialServiceInsecure(
 ) (*grpc.ClientConn, error) {
 	discovery, err := NewConsulDiscovery(registry)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create discovery for %s: %w", service, err)
 	}
 
 	dialOpts := []rpcserver.ClientOption{
@@ -29,7 +30,11 @@ func DialServiceInsecure(
 		rpcserver.WithClientUnaryInterceptor(clientinterceptors.UnaryTracingInterceptor),
 	}
 	dialOpts = append(dialOpts, opts...)
-	return rpcserver.DialDiscoveryInsecure(ctx, dialOpts...)
+	conn, err := rpcserver.DialDiscoveryInsecure(ctx, dialOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("dial %s (%s): %w", service, ServiceEndpoint(service), err)
+	}
+	return conn, nil
 }
 
 func NewGoodsClient(ctx context.Context, registry *options.RegistryOptions) (goodspb.GoodsClient, *grpc.ClientConn, error) {

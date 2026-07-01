@@ -5,6 +5,7 @@ import (
 	"goshop/gmicro/server/restserver"
 )
 
+// 初始化路由
 func initRouter(g *restserver.Server) {
 	v1 := g.Group("/v1")
 	ugroup := v1.Group("/user")
