@@ -93,6 +93,7 @@
 package errors
 
 import (
+	"context"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -163,6 +164,12 @@ func FromGrpcError(e error) error {
 func ToGrpcError(e error) error {
 	if e == nil {
 		return e
+	}
+	if stderrors.Is(e, context.Canceled) {
+		return status.Error(gCode.Canceled, context.Canceled.Error())
+	}
+	if stderrors.Is(e, context.DeadlineExceeded) {
+		return status.Error(gCode.DeadlineExceeded, context.DeadlineExceeded.Error())
 	}
 
 	var perr *withCode

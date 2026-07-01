@@ -1,4 +1,4 @@
-package v1
+package sms
 
 import (
 	"goshop/app/goshop/api/internal/service"

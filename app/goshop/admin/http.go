@@ -10,6 +10,7 @@ func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 	opts := []restserver.ServerOption{
 		restserver.WithPort(cfg.Server.HttpPort),
 		restserver.WithHost(cfg.Server.Host),
+		restserver.WithServiceName(cfg.Server.Name),
 		restserver.WithMiddlewares(cfg.Server.Middlewares),
 		restserver.WithHealthCheck(cfg.Server.EnableHealthCheck),
 		restserver.WithEnableProfiling(cfg.Server.EnableProfiling),

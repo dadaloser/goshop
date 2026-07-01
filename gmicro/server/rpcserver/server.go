@@ -70,6 +70,11 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 	//TODO 我们现在希望用户不设置拦截器的情况下，我们会自动默认加上一些必须的拦截器， crash，tracing
 	unaryInts := []grpc.UnaryServerInterceptor{
 		srvintc.UnaryCrashInterceptor,
+		srvintc.UnaryErrorInterceptor,
+	}
+	streamInts := []grpc.StreamServerInterceptor{
+		srvintc.StreamCrashInterceptor,
+		srvintc.StreamErrorInterceptor,
 	}
 
 	if srv.enableMetrics {
@@ -83,15 +88,16 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 	if len(srv.unaryInts) > 0 {
 		unaryInts = append(unaryInts, srv.unaryInts...)
 	}
+	if len(srv.streamInts) > 0 {
+		streamInts = append(streamInts, srv.streamInts...)
+	}
 
 	//把我们传入的拦截器转换成grpc的ServerOption
 	grpcOpts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(unaryInts...),
+		grpc.ChainStreamInterceptor(streamInts...),
 		//注意:链路追踪拦截器需要独立出来
 		grpc.StatsHandler(otelgrpc.NewServerHandler())}
-	if len(srv.streamInts) > 0 {
-		grpcOpts = append(grpcOpts, grpc.ChainStreamInterceptor(srv.streamInts...))
-	}
 
 	//把用户自己传入的grpc.ServerOption放在一起
 	if len(srv.grpcOpts) > 0 {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
+	dv1 "goshop/app/user/srv/internal/data/v1"
 	errors2 "goshop/pkg/errors"
 	"goshop/pkg/log"
 	"sync"
@@ -41,11 +42,20 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 			return
 		}
 
-		sqlDB, _ := dbFactory.DB()
+		sqlDB, dbErr := dbFactory.DB()
+		if dbErr != nil {
+			err = dbErr
+			return
+		}
 
 		sqlDB.SetMaxOpenConns(mysqlOpts.MaxOpenConnections)
 		sqlDB.SetMaxIdleConns(mysqlOpts.MaxIdleConnections)
 		sqlDB.SetConnMaxLifetime(mysqlOpts.MaxConnectionLifetime)
+		if err = validateUserSchema(dbFactory); err != nil {
+			_ = sqlDB.Close()
+			dbFactory = nil
+			return
+		}
 		log.Infof("mysql connected: host=%s port=%s database=%s", mysqlOpts.Host, mysqlOpts.Port, mysqlOpts.Database)
 	})
 
@@ -53,4 +63,33 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 		return nil, errors2.WrapC(err, code.ErrConnectDB, "failed to get mysql store factory")
 	}
 	return dbFactory, nil
+}
+
+func validateUserSchema(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("user schema validation failed: nil db")
+	}
+	if !db.Migrator().HasTable(&dv1.UserDO{}) {
+		return fmt.Errorf("user schema validation failed: required table %q does not exist", (&dv1.UserDO{}).TableName())
+	}
+
+	requiredColumns := []string{
+		"id",
+		"add_time",
+		"update_time",
+		"deleted_at",
+		"is_deleted",
+		"mobile",
+		"password",
+		"nick_name",
+		"birthday",
+		"gender",
+		"role",
+	}
+	for _, column := range requiredColumns {
+		if !db.Migrator().HasColumn(&dv1.UserDO{}, column) {
+			return fmt.Errorf("user schema validation failed: required column %q.%q does not exist", (&dv1.UserDO{}).TableName(), column)
+		}
+	}
+	return nil
 }

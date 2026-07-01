@@ -22,7 +22,24 @@ func ExtractHostPort(addr string) (host string, port uint64, err error) {
 
 func isValidIP(addr string) bool {
 	ip := net.ParseIP(addr)
-	return ip.IsGlobalUnicast() && !ip.IsInterfaceLocalMulticast()
+	return ip != nil &&
+		ip.IsGlobalUnicast() &&
+		!ip.IsInterfaceLocalMulticast() &&
+		!ip.IsLinkLocalUnicast() &&
+		!ip.IsLoopback()
+}
+
+func chooseAdvertiseIP(current, candidate net.IP) net.IP {
+	if candidate == nil {
+		return current
+	}
+	if current == nil {
+		return candidate
+	}
+	if current.To4() == nil && candidate.To4() != nil {
+		return candidate
+	}
+	return current
 }
 
 // Port return a real port.
@@ -53,15 +70,9 @@ func Extract(hostPort string, lis net.Listener) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	lowest := int(^uint(0) >> 1)
 	var result net.IP
 	for _, iface := range ifaces {
 		if (iface.Flags & net.FlagUp) == 0 {
-			continue
-		}
-		if iface.Index < lowest || result == nil {
-			lowest = iface.Index
-		} else if result != nil {
 			continue
 		}
 		addrs, err := iface.Addrs()
@@ -79,8 +90,11 @@ func Extract(hostPort string, lis net.Listener) (string, error) {
 				continue
 			}
 			if isValidIP(ip.String()) {
-				result = ip
+				result = chooseAdvertiseIP(result, ip)
 			}
+		}
+		if result != nil && result.To4() != nil {
+			break
 		}
 	}
 	if result != nil {

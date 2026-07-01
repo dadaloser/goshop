@@ -19,7 +19,7 @@ import (
 
 const (
 	inventory_busi = "discovery:///goshop-inventory-srv"
-	goods_busi     = "discovery:///goshop-order-srv"
+	order_busi     = "discovery:///goshop-order-srv"
 )
 
 type OrderSrv interface {
@@ -187,7 +187,7 @@ func (os *orderService) Submit(ctx context.Context, order *dto.OrderDTO) error {
 
 	saga := dtmgrpc.NewSagaGrpc(os.dtmOpts.GrpcServer, order.OrderSn).
 		Add(inventory_busi+"/Inventory/Sell", inventory_busi+"/Inventory/Reback", req).
-		Add(goods_busi+"/Order/CreateOrder", goods_busi+"/Order/CreateOrderCom", oReq)
+		Add(order_busi+"/Order/CreateOrder", order_busi+"/Order/CreateOrderCom", oReq)
 	saga.WaitResult = true
 	err = saga.Submit()
 	//通过OrderSn查询一下， 当前的状态如何状态一直是Submitted那么就你一直不要给前端返回， 如果是failed那么你提示给前端说下单失败，重新下单

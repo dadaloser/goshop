@@ -70,7 +70,7 @@ func startAgent(o Options) error {
 		// 3. 替换 Jaeger 导出器为 OTLP HTTP 导出器
 		// 注意：OTLP 默认端口通常是 4318 (HTTP)
 		//注意context的传递是否需要tracing信息，是否需要携带traceparent等header
-		sexp, err = otlptracehttp.New(context.Background(), otlptracehttp.WithEndpoint(o.Endpoint))
+		sexp, err = otlptracehttp.New(context.Background(), exporterOptions(o.Endpoint)...)
 		// 如果是 HTTP，通常需要指定 URL 路径，或者确保 Endpoint 包含协议头
 		// otlptracehttp.WithURLPath("/v1/traces"),
 		// otlptracehttp.WithInsecure(), // 如果不使用 TLS
@@ -89,6 +89,23 @@ func startAgent(o Options) error {
 		log.Errorf("[otel] error: %v", err)
 	}))
 	return nil
+}
+
+func exporterOptions(endpoint string) []otlptracehttp.Option {
+	options := []otlptracehttp.Option{}
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Scheme == "" {
+		return append(options, otlptracehttp.WithEndpoint(endpoint))
+	}
+
+	options = append(options, otlptracehttp.WithEndpoint(u.Host))
+	if u.Path != "" {
+		options = append(options, otlptracehttp.WithURLPath(u.Path))
+	}
+	if u.Scheme == "http" {
+		options = append(options, otlptracehttp.WithInsecure())
+	}
+	return options
 }
 
 // 验证endpoint
