@@ -60,12 +60,12 @@ func (o *Options) Validate() []error {
 
 	var zapLevel zapcore.Level
 	if err := zapLevel.UnmarshalText([]byte(o.Level)); err != nil {
-		errs = append(errs, err)
+		errs = append(errs, fmt.Errorf("log.level must be a valid zap level: %w", err))
 	}
 
 	format := strings.ToLower(o.Format)
 	if format != consoleFormat && format != jsonFormat {
-		errs = append(errs, fmt.Errorf("not a valid log format: %q", o.Format))
+		errs = append(errs, fmt.Errorf("log.format must be console or json, got %q", o.Format))
 	}
 
 	return errs

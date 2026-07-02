@@ -1,6 +1,9 @@
 package options
 
 import (
+	"fmt"
+	"net"
+
 	"goshop/pkg/errors"
 
 	"github.com/spf13/pflag"
@@ -20,16 +23,23 @@ func NewRegistryOptions() *RegistryOptions {
 
 func (o *RegistryOptions) Validate() []error {
 	errs := []error{}
-	if o.Address == "" || o.Scheme == "" {
-		errs = append(errs, errors.New("address an scheme is empty"))
+	if o.Address == "" {
+		errs = append(errs, errors.New("registry.address is required"))
+	} else if _, _, err := net.SplitHostPort(o.Address); err != nil {
+		errs = append(errs, fmt.Errorf("registry.address must be host:port, got %q: %w", o.Address, err))
+	}
+	if o.Scheme == "" {
+		errs = append(errs, errors.New("registry.scheme is required"))
+	} else if o.Scheme != "http" && o.Scheme != "https" {
+		errs = append(errs, fmt.Errorf("registry.scheme must be http or https, got %q", o.Scheme))
 	}
 	return errs
 }
 
 func (o *RegistryOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.Address, "consul.address", o.Address, ""+
-		"consul address, if left , default is 127.0.0.1:8500")
+	fs.StringVar(&o.Address, "registry.address", o.Address, ""+
+		"registry address, default is 127.0.0.1:8500")
 
-	fs.StringVar(&o.Scheme, "consul.scheme", o.Scheme, ""+
-		"registry schema, if left , default is http")
+	fs.StringVar(&o.Scheme, "registry.scheme", o.Scheme, ""+
+		"registry scheme, default is http")
 }

@@ -14,7 +14,7 @@ type Config struct {
 	Log          *log.Options              `json:"log"     mapstructure:"log"`
 	Server       *options.ServerOptions    `json:"server"     mapstructure:"server"`
 	Telemetry    *options.TelemetryOptions `json:"telemetry" mapstructure:"telemetry"`
-	Registry     *options.RegistryOptions  `json:"consul" mapstructure:"consul"`
+	Registry     *options.RegistryOptions  `json:"registry" mapstructure:"registry"`
 	Dtm          *options.DtmOptions       `json:"dtm" mapstructure:"dtm"`
 }
 
@@ -26,6 +26,7 @@ func New() *Config {
 		Server:       options.NewServerOptions(),
 		Telemetry:    options.NewTelemetryOptions(),
 		Registry:     options.NewRegistryOptions(),
+		Dtm:          options.NewDtmOptions(),
 	}
 }
 
@@ -36,6 +37,7 @@ func (o *Config) Flags() (fss cliflag.NamedFlagSets) {
 	o.Telemetry.AddFlags(fss.FlagSet("telemetry"))
 	o.Registry.AddFlags(fss.FlagSet("registry"))
 	o.MySQLOptions.AddFlags(fss.FlagSet("mysql"))
+	o.Dtm.AddFlags(fss.FlagSet("dtm"))
 	return fss
 }
 
@@ -74,5 +76,6 @@ func (o *Config) Validate() []error {
 	errs = append(errs, o.Server.Validate()...)
 	errs = append(errs, o.Telemetry.Validate()...)
 	errs = append(errs, o.Registry.Validate()...)
+	errs = append(errs, o.Dtm.Validate()...)
 	return errs
 }

@@ -36,9 +36,38 @@ func NewMySQLOptions() *MySQLOptions {
 	}
 }
 
-// todo 需要添加校验
 func (o *MySQLOptions) Validate() []error {
 	var errs []error
+	if o.Host == "" {
+		errs = append(errs, errors.New("mysql.host is required"))
+	}
+	port, err := strconv.Atoi(o.Port)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("mysql.port must be numeric: %w", err))
+	} else if port <= 0 || port > 65535 {
+		errs = append(errs, fmt.Errorf("mysql.port must be between 1 and 65535, got %d", port))
+	}
+	if o.Username == "" {
+		errs = append(errs, errors.New("mysql.username is required"))
+	}
+	if o.Password == "" {
+		errs = append(errs, errors.New("mysql.password is required"))
+	}
+	if o.Database == "" {
+		errs = append(errs, errors.New("mysql.database is required"))
+	}
+	if o.MaxIdleConnections < 0 {
+		errs = append(errs, errors.New("mysql.max-idle-connections must not be negative"))
+	}
+	if o.MaxOpenConnections <= 0 {
+		errs = append(errs, errors.New("mysql.max-open-connections must be positive"))
+	}
+	if o.MaxIdleConnections > o.MaxOpenConnections {
+		errs = append(errs, errors.New("mysql.max-idle-connections must not exceed mysql.max-open-connections"))
+	}
+	if o.MaxConnectionLifetime <= 0 {
+		errs = append(errs, errors.New("mysql.max-connection-life-time must be positive"))
+	}
 
 	return errs
 }

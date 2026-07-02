@@ -13,7 +13,7 @@ type Config struct {
 	Log          *log.Options              `json:"log"     mapstructure:"log"`
 	Server       *options.ServerOptions    `json:"server"     mapstructure:"server"`
 	Telemetry    *options.TelemetryOptions `json:"telemetry" mapstructure:"telemetry"`
-	Registry     *options.RegistryOptions  `json:"consul" mapstructure:"consul"`
+	Registry     *options.RegistryOptions  `json:"registry" mapstructure:"registry"`
 	RedisOptions *options.RedisOptions     `json:"redis" mapstructure:"redis"` //涉及到分布式锁功能，后续会用到redis
 }
 

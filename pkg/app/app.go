@@ -262,6 +262,9 @@ func (a *App) runCommand(cmd *cobra.Command, args []string) error {
 		if err := viper.Unmarshal(a.options); err != nil {
 			return err
 		}
+		if err := a.applyOptionRules(); err != nil {
+			return fmt.Errorf("configuration validation failed: %w", err)
+		}
 	}
 
 	if !a.silence {
@@ -271,11 +274,6 @@ func (a *App) runCommand(cmd *cobra.Command, args []string) error {
 		}
 		if !a.noConfig {
 			log.Infof("%v Config file used: `%s`", progressMessage, viper.ConfigFileUsed())
-		}
-	}
-	if a.options != nil {
-		if err := a.applyOptionRules(); err != nil {
-			return err
 		}
 	}
 	// run application

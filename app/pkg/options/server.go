@@ -76,6 +76,18 @@ func NewServerOptions() *ServerOptions {
 // Validate verifies flags passed to ServerOptions.
 func (so *ServerOptions) Validate() []error {
 	errs := []error{}
+	if so.Name == "" {
+		errs = append(errs, fmt.Errorf("server.name is required"))
+	}
+	if so.Host == "" {
+		errs = append(errs, fmt.Errorf("server.host is required"))
+	}
+	if so.Port <= 0 || so.Port > 65535 {
+		errs = append(errs, fmt.Errorf("server.port must be between 1 and 65535, got %d", so.Port))
+	}
+	if so.HttpPort < 0 || so.HttpPort > 65535 {
+		errs = append(errs, fmt.Errorf("server.http-port must be between 0 and 65535, got %d", so.HttpPort))
+	}
 	if so.EnableProfiling && so.ProfilingToken == "" {
 		errs = append(errs, fmt.Errorf("server.profiling-token is required when profiling is enabled"))
 	}
@@ -107,7 +119,7 @@ func (so *ServerOptions) ValidateStartup() error {
 		return errors.New("server.profiling-token is required when profiling is enabled")
 	}
 	if so.ReadHeaderTimeout <= 0 || so.ReadTimeout <= 0 || so.WriteTimeout <= 0 || so.IdleTimeout <= 0 {
-		return errors.New("server timeouts must be positive")
+		return errors.New("server.read-header-timeout, server.read-timeout, server.write-timeout and server.idle-timeout must be positive")
 	}
 	if slices.Contains(so.Middlewares, "cors") {
 		if len(so.CorsAllowOrigins) == 0 {

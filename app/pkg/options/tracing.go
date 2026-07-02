@@ -1,6 +1,8 @@
 package options
 
 import (
+	"fmt"
+
 	"goshop/pkg/errors"
 
 	"github.com/spf13/pflag"
@@ -27,7 +29,10 @@ func NewTelemetryOptions() *TelemetryOptions {
 func (to *TelemetryOptions) Validate() []error {
 	var errs []error
 	if to.Batcher != "jaeger" && to.Batcher != "zipkin" {
-		errs = append(errs, errors.New("opentelemetry batcher only support jaeger or zipkin"))
+		errs = append(errs, errors.New("telemetry.batcher must be jaeger or zipkin"))
+	}
+	if to.Sampler < 0 || to.Sampler > 1 {
+		errs = append(errs, fmt.Errorf("telemetry.sampler must be between 0 and 1, got %v", to.Sampler))
 	}
 	return errs
 }

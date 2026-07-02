@@ -1,6 +1,11 @@
 package options
 
-import "github.com/spf13/pflag"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/spf13/pflag"
+)
 
 type NacosOptions struct {
 	Host      string `mapstructure:"host" json:"host"`
@@ -27,6 +32,21 @@ func NewNacosOptions() *NacosOptions {
 
 func (n *NacosOptions) Validate() []error {
 	var errs []error
+	if n.Host == "" {
+		errs = append(errs, errors.New("nacos.host is required"))
+	}
+	if n.Port == 0 || n.Port > 65535 {
+		errs = append(errs, fmt.Errorf("nacos.port must be between 1 and 65535, got %d", n.Port))
+	}
+	if n.Namespace == "" {
+		errs = append(errs, errors.New("nacos.namespace is required"))
+	}
+	if n.DataId == "" {
+		errs = append(errs, errors.New("nacos.dataid is required"))
+	}
+	if n.Group == "" {
+		errs = append(errs, errors.New("nacos.group is required"))
+	}
 
 	return errs
 }
