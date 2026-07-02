@@ -7,6 +7,8 @@ FROM golang:${GO_VERSION}-alpine AS builder
 
 ARG CMD_PATH
 ARG GOPROXY=https://goproxy.cn,direct
+ARG VERSION=dev
+ARG VCS_REF=unknown
 
 WORKDIR /src
 
@@ -24,9 +26,12 @@ RUN test -n "${CMD_PATH}" \
 
 FROM alpine:${ALPINE_VERSION}
 
+ARG SERVICE_NAME=goshop
 ARG CONFIG_PATH
 ARG GRPC_PORT
 ARG HTTP_PORT
+ARG VERSION=dev
+ARG VCS_REF=unknown
 
 ENV TZ=Asia/Shanghai \
     GIN_MODE=release \
@@ -34,8 +39,10 @@ ENV TZ=Asia/Shanghai \
 
 WORKDIR /app
 
-LABEL org.opencontainers.image.title="goshop" \
-      org.opencontainers.image.description="goshop service image built from a shared Dockerfile"
+LABEL org.opencontainers.image.title="${SERVICE_NAME}" \
+      org.opencontainers.image.description="goshop service image built from a shared Dockerfile" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}"
 
 RUN apk add --no-cache ca-certificates tzdata \
     && addgroup -S goshop \
@@ -44,7 +51,7 @@ RUN apk add --no-cache ca-certificates tzdata \
     && chown -R goshop:goshop /app
 
 COPY --from=builder /out/goshop /app/goshop
-COPY --from=builder /src/configs /app/configs
+COPY --from=builder /src/${CONFIG_PATH} /app/${CONFIG_PATH}
 
 RUN test -n "${CONFIG_PATH}" \
     && test -f "/app/${CONFIG_PATH}" \

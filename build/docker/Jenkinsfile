@@ -5,6 +5,8 @@ pipeline {
         choice(name: 'SERVICE', choices: ['admin', 'api', 'goods', 'inventory', 'order', 'user'], description: 'Service to build')
         string(name: 'version', defaultValue: 'dev', description: 'Image version tag prefix')
         string(name: 'branch', defaultValue: 'local', description: 'Image version tag suffix')
+        booleanParam(name: 'RUN_TESTS', defaultValue: true, description: 'Run Go tests before building image')
+        booleanParam(name: 'PUSH_IMAGE', defaultValue: true, description: 'Push image to registry after build')
     }
 
     environment {
@@ -75,15 +77,22 @@ pipeline {
                     env.HTTP_PORT = cfg.httpPort
                     env.TEST_PACKAGES = cfg.tests
                     env.IMAGE_TAG = "${env.REGISTRY}/${env.IMAGE_NAMESPACE}/${env.IMAGE_NAME}:${params.version}.${params.branch}"
+                    env.VCS_REF = sh(script: 'git rev-parse --short=12 HEAD', returnStdout: true).trim()
                 }
             }
         }
         stage('test') {
+            when {
+                expression { return params.RUN_TESTS }
+            }
             steps {
                 sh 'env GOCACHE=$GO_CACHE_DIR go test $TEST_PACKAGES'
             }
         }
         stage('docker login') {
+            when {
+                expression { return params.PUSH_IMAGE }
+            }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'harbor-goshop', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASSWORD')]) {
                     sh 'echo "$HARBOR_PASSWORD" | docker login -u "$HARBOR_USER" --password-stdin http://$REGISTRY'
@@ -95,18 +104,30 @@ pipeline {
                 sh '''
                     docker build \
                       -f build/docker/Dockerfile \
+                      --pull \
+                      --build-arg SERVICE_NAME=$IMAGE_NAME \
                       --build-arg CMD_PATH=$CMD_PATH \
                       --build-arg CONFIG_PATH=$CONFIG_PATH \
                       --build-arg GRPC_PORT=$GRPC_PORT \
                       --build-arg HTTP_PORT=$HTTP_PORT \
+                      --build-arg VERSION=${version}.${branch} \
+                      --build-arg VCS_REF=$VCS_REF \
                       -t $IMAGE_TAG .
                 '''
             }
         }
         stage('docker push') {
+            when {
+                expression { return params.PUSH_IMAGE }
+            }
             steps {
                 sh 'docker push $IMAGE_TAG'
             }
+        }
+    }
+    post {
+        always {
+            sh 'docker logout http://$REGISTRY || true'
         }
     }
 }
