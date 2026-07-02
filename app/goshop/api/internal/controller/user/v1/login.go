@@ -1,9 +1,10 @@
 package user
 
 import (
+	"goshop/app/pkg/code"
 	gin2 "goshop/app/pkg/translator/gin"
-	"goshop/pkg/log"
-	"net/http"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,8 +17,6 @@ type PassWordLoginForm struct {
 }
 
 func (us *userServer) Login(ctx *gin.Context) {
-	log.Info("login is called")
-
 	//表单验证
 	passwordLoginForm := PassWordLoginForm{}
 	if err := ctx.ShouldBind(&passwordLoginForm); err != nil {
@@ -27,23 +26,16 @@ func (us *userServer) Login(ctx *gin.Context) {
 
 	//验证码验证
 	if !store.Verify(passwordLoginForm.CaptchaId, passwordLoginForm.Captcha, true) {
-		//可选一
-		//core.WriteResponse(ctx, errors.WithCode(http.StatusBadRequest, "验证码错误"),  nil)
-		//可选二
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"captcha": "验证码错误",
-		})
+		core.WriteResponse(ctx, errors.WithCode(code.ErrCodeInCorrect, "验证码错误"), nil)
 		return
 	}
 
 	userDTO, err := us.sf.Users().MobileLogin(ctx, passwordLoginForm.Mobile, passwordLoginForm.PassWord)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"msg": "登录失败",
-		})
+		core.WriteResponse(ctx, err, nil)
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"id":         userDTO.ID,
 		"nick_name":  userDTO.NickName,
 		"token":      userDTO.Token,

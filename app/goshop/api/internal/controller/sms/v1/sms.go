@@ -3,12 +3,11 @@ package sms
 import (
 	"goshop/app/goshop/api/internal/service"
 	v1 "goshop/app/goshop/api/internal/service/sms/v1"
+	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/pkg/code"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
-	"goshop/pkg/storage"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	ut "github.com/go-playground/universal-translator"
@@ -21,18 +20,20 @@ type SendSmsForm struct {
 }
 
 type SmsController struct {
-	sf    service.ServiceFactory
-	trans ut.Translator
+	sf        service.ServiceFactory
+	trans     ut.Translator
+	codeStore smscode.Store
 }
 
-func NewSmsController(sf service.ServiceFactory, trans ut.Translator) *SmsController {
-	return &SmsController{sf, trans}
+func NewSmsController(sf service.ServiceFactory, trans ut.Translator, codeStore smscode.Store) *SmsController {
+	return &SmsController{sf: sf, trans: trans, codeStore: codeStore}
 }
 
 func (sc *SmsController) SendSms(c *gin.Context) {
 	sendSmsForm := SendSmsForm{}
 	if err := c.ShouldBind(&sendSmsForm); err != nil {
 		gin2.HandleValidatorError(c, err, sc.trans)
+		return
 	}
 
 	smsCode, err := v1.GenerateSmsCode(6)
@@ -47,9 +48,8 @@ func (sc *SmsController) SendSms(c *gin.Context) {
 	}
 
 	//将验证码保存起来 - redis
-	rstore := storage.RedisCluster{}
-	err = rstore.SetKey(c, sendSmsForm.Mobile, smsCode, 5*time.Minute)
-	if err != nil {
+	key := smscode.Key(sendSmsForm.Mobile, sendSmsForm.Type)
+	if err := sc.codeStore.Set(c, key, smsCode, smscode.DefaultTTL); err != nil {
 		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, err.Error()), nil)
 		return
 	}

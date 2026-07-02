@@ -8,6 +8,8 @@ import (
 	"goshop/pkg/errors"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/api/internal/data"
 	"goshop/gmicro/registry"
@@ -61,7 +63,7 @@ func (u *users) Create(ctx context.Context, user *data.User) error {
 	}
 	userRsp, err := u.uc.CreateUser(ctx, protoUser)
 	if err != nil {
-		return err
+		return userRPCError(err, code.ErrUserAlreadyExists)
 	}
 	user.ID = uint64(userRsp.Id)
 	return err
@@ -86,7 +88,7 @@ func (u *users) Get(ctx context.Context, userID uint64) (data.User, error) {
 		Id: int32(userID),
 	})
 	if err != nil {
-		return data.User{}, err
+		return data.User{}, userRPCError(err, code.ErrUserNotFound)
 	}
 
 	return data.User{
@@ -105,7 +107,7 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (data.User, erro
 		Mobile: mobile,
 	})
 	if err != nil {
-		return data.User{}, err
+		return data.User{}, userRPCError(err, code.ErrUserNotFound)
 	}
 
 	return data.User{
@@ -120,3 +122,16 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (data.User, erro
 }
 
 var _ data.UserData = &users{}
+
+func userRPCError(err error, invalidArgumentCode int) error {
+	switch status.Code(err) {
+	case codes.NotFound:
+		return errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	case codes.AlreadyExists:
+		return errors.WithCode(code.ErrUserAlreadyExists, "用户已经存在")
+	case codes.InvalidArgument:
+		return errors.WithCode(invalidArgumentCode, status.Convert(err).Message())
+	default:
+		return err
+	}
+}

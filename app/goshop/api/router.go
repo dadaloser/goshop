@@ -7,6 +7,7 @@ import (
 	"goshop/app/goshop/api/internal/controller/user/v1"
 	"goshop/app/goshop/api/internal/data/rpc"
 	"goshop/app/goshop/api/internal/service"
+	"goshop/app/goshop/api/internal/smscode"
 	"goshop/gmicro/server/restserver"
 )
 
@@ -20,8 +21,9 @@ func initRouter(g *restserver.Server, cfg *config.Config) error {
 		return err
 	}
 
+	codeStore := smscode.NewRedisStore()
 	//原来的过程其实很复杂
-	serviceFactory := service.NewService(data, cfg.Sms, cfg.Jwt)
+	serviceFactory := service.NewService(data, cfg.Sms, cfg.Jwt, codeStore)
 	uController := user.NewUserController(g.Translator(), serviceFactory)
 	{
 		uGroup.POST("pwd_login", uController.Login)
@@ -34,7 +36,7 @@ func initRouter(g *restserver.Server, cfg *config.Config) error {
 
 	baseRouter := v1.Group("base")
 	{
-		smsCtl := v12.NewSmsController(serviceFactory, g.Translator())
+		smsCtl := v12.NewSmsController(serviceFactory, g.Translator(), codeStore)
 		baseRouter.POST("send_sms", smsCtl.SendSms)
 		baseRouter.GET("captcha", user.GetCaptcha)
 	}

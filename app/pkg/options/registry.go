@@ -13,7 +13,7 @@ type RegistryOptions struct {
 
 func NewRegistryOptions() *RegistryOptions {
 	return &RegistryOptions{
-		Address: "127.0.0.1:8500",
+		Address: "192.168.1.92:8500",
 		Scheme:  "http",
 	}
 }

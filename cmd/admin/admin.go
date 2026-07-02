@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+//--config=./configs/api/api.yaml
 func main() {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 	if len(os.Getenv("GOMAXPROCS")) == 0 {

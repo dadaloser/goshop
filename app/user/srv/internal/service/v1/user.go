@@ -4,6 +4,8 @@ import (
 	"context"
 	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
+	code2 "goshop/gmicro/code"
+	"goshop/pkg/common/auth"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 )
@@ -29,6 +31,11 @@ func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 	//先判断用户是否存在
 	_, err := u.userStore.GetByMobile(ctx, user.Mobile)
 	if err != nil && errors.IsCode(err, code.ErrUserNotFound) {
+		encryptedPassword, err := auth.Encrypt(user.Password)
+		if err != nil {
+			return errors.WithCode(code2.ErrEncrypt, "加密密码失败")
+		}
+		user.Password = encryptedPassword
 		return u.userStore.Create(ctx, &user.UserDO)
 	}
 

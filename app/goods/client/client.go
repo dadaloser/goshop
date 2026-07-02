@@ -21,7 +21,7 @@ func main() {
 	rpc.InitBuilder()
 
 	conf := api.DefaultConfig()
-	conf.Address = "127.0.0.1:8500"
+	conf.Address = "192.168.1.92:8500"
 	conf.Scheme = "http"
 	cli, err := api.NewClient(conf)
 	if err != nil {
