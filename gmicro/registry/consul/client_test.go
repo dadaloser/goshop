@@ -88,6 +88,17 @@ func TestRegisterUsesHTTPHealthCheckForHTTPEndpoints(t *testing.T) {
 	}
 }
 
+func TestNewClientDisablesTTLHeartbeatByDefault(t *testing.T) {
+	apiClient, err := api.NewClient(&api.Config{Address: "http://127.0.0.1:1"})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	client := NewClient(apiClient)
+	if client.heartbeat {
+		t.Fatal("NewClient() heartbeat = true, want false so gRPC/HTTP checks are the single source of health")
+	}
+}
+
 func TestRegisterUsesTLSGRPCHealthCheckForSecureGRPCEndpoints(t *testing.T) {
 	var got struct {
 		Checks []struct {
@@ -275,6 +286,7 @@ func TestRegisterHeartbeatUpdateUsesTimeout(t *testing.T) {
 		t.Fatalf("create consul client failed: %v", err)
 	}
 	client := NewClient(apiClient)
+	client.heartbeat = true
 	client.healthcheckInterval = 0
 	client.heartbeatTimeout = 20 * time.Millisecond
 	t.Cleanup(client.cancel)

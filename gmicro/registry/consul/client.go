@@ -46,7 +46,7 @@ func NewClient(cli *api.Client) *Client {
 		cli:                            cli,
 		resolver:                       defaultResolver,
 		healthcheckInterval:            10,
-		heartbeat:                      true,
+		heartbeat:                      false,
 		heartbeatTimeout:               5 * time.Second,
 		deregisterCriticalServiceAfter: 600,
 		httpHealthCheckPath:            "/readyz",
