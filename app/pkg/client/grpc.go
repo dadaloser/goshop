@@ -37,24 +37,36 @@ func DialServiceInsecure(
 	return conn, nil
 }
 
-func NewGoodsClient(ctx context.Context, registry *options.RegistryOptions) (goodspb.GoodsClient, *grpc.ClientConn, error) {
-	conn, err := DialServiceInsecure(ctx, registry, ServiceGoods)
+func NewGoodsClient(
+	ctx context.Context,
+	registry *options.RegistryOptions,
+	opts ...rpcserver.ClientOption,
+) (goodspb.GoodsClient, *grpc.ClientConn, error) {
+	conn, err := DialServiceInsecure(ctx, registry, ServiceGoods, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
 	return goodspb.NewGoodsClient(conn), conn, nil
 }
 
-func NewInventoryClient(ctx context.Context, registry *options.RegistryOptions) (inventorypb.InventoryClient, *grpc.ClientConn, error) {
-	conn, err := DialServiceInsecure(ctx, registry, ServiceInventory)
+func NewInventoryClient(
+	ctx context.Context,
+	registry *options.RegistryOptions,
+	opts ...rpcserver.ClientOption,
+) (inventorypb.InventoryClient, *grpc.ClientConn, error) {
+	conn, err := DialServiceInsecure(ctx, registry, ServiceInventory, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
 	return inventorypb.NewInventoryClient(conn), conn, nil
 }
 
-func NewUserClient(ctx context.Context, registry *options.RegistryOptions) (userpb.UserClient, *grpc.ClientConn, error) {
-	conn, err := DialServiceInsecure(ctx, registry, ServiceUser)
+func NewUserClient(
+	ctx context.Context,
+	registry *options.RegistryOptions,
+	opts ...rpcserver.ClientOption,
+) (userpb.UserClient, *grpc.ClientConn, error) {
+	conn, err := DialServiceInsecure(ctx, registry, ServiceUser, opts...)
 	if err != nil {
 		return nil, nil, err
 	}

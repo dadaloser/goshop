@@ -9,6 +9,7 @@ import (
 	appclient "goshop/app/pkg/client"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
+	"goshop/gmicro/server/rpcserver"
 	errors2 "goshop/pkg/errors"
 	"sync"
 )
@@ -40,12 +41,16 @@ func GetDataFactoryOr(options *options.RegistryOptions) (data.DataFactory, error
 
 	//这里负责依赖的所有的rpc连接
 	once.Do(func() {
-		userClient, _, err := appclient.NewUserClient(context.Background(), options)
+		dialOpts := []rpcserver.ClientOption{
+			rpcserver.WithConnectProbe(false),
+		}
+
+		userClient, _, err := appclient.NewUserClient(context.Background(), options, dialOpts...)
 		if err != nil {
 			initErr = err
 			return
 		}
-		goodsClient, _, err := appclient.NewGoodsClient(context.Background(), options)
+		goodsClient, _, err := appclient.NewGoodsClient(context.Background(), options, dialOpts...)
 		if err != nil {
 			initErr = err
 			return

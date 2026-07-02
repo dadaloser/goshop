@@ -9,12 +9,12 @@ pipeline {
     environment {
         REGISTRY = "47.99.50.241:30002"
         IMAGE_NAMESPACE = "goshop"
-        IMAGE_NAME = "goshop-user-srv"
-        CMD_PATH = "./cmd/user"
-        CONFIG_PATH = "configs/user/srv.yaml"
-        GRPC_PORT = "8014"
-        HTTP_PORT = "8054"
-        TEST_PACKAGES = "./cmd/user ./app/user/..."
+        IMAGE_NAME = "goshop-api"
+        CMD_PATH = "./cmd/api"
+        CONFIG_PATH = "configs/api/api.yaml"
+        GRPC_PORT = "8009"
+        HTTP_PORT = "8049"
+        TEST_PACKAGES = "./cmd/api ./app/goshop/api/..."
     }
 
     stages {
