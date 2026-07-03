@@ -9,6 +9,7 @@ import (
 type User struct {
 	ID       uint64    `json:"id"`
 	Mobile   string    `json:"mobile"`
+	Email    string    `json:"email"`
 	NickName string    `json:"nick_name"`
 	Birthday time.Time `gorm:"type:datetime"`
 	Gender   string    `json:"gender"`
@@ -26,5 +27,6 @@ type UserData interface {
 	Update(ctx context.Context, user *User) error
 	Get(ctx context.Context, userID uint64) (User, error)
 	GetByMobile(ctx context.Context, mobile string) (User, error)
+	GetByUsername(ctx context.Context, username string) (User, error)
 	CheckPassWord(ctx context.Context, password, encryptedPwd string) error
 }

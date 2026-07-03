@@ -23,12 +23,12 @@ type UserDTO struct {
 }
 
 type UserSrv interface {
-	MobileLogin(ctx context.Context, mobile, password string) (*UserDTO, error)
-	Register(ctx context.Context, mobile, password, code string) (*UserDTO, error)
+	PasswordLogin(ctx context.Context, username, password string) (*UserDTO, error)
+	SmsLogin(ctx context.Context, mobile, smsCode string) (*UserDTO, error)
+	Register(ctx context.Context, mobile, email, password, nickName, code string) (*UserDTO, error)
 	Update(ctx context.Context, userDTO *UserDTO) error
 	Get(ctx context.Context, userID uint64) (*UserDTO, error)
-	GetByMobile(ctx context.Context, mobile string) (*UserDTO, error)
-	CheckPassWord(ctx context.Context, password, EncryptedPassword string) (bool, error)
+	GetByUsername(ctx context.Context, username string) (*UserDTO, error)
 }
 
 type userService struct {
@@ -44,8 +44,8 @@ func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStor
 	return &userService{data: data, jwtOpts: jwtOpts, codeStore: codeStore}
 }
 
-func (us *userService) MobileLogin(ctx context.Context, mobile, password string) (*UserDTO, error) {
-	user, err := us.data.Users().GetByMobile(ctx, mobile)
+func (us *userService) PasswordLogin(ctx context.Context, username, password string) (*UserDTO, error) {
+	user, err := us.data.Users().GetByUsername(ctx, username)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserNotFound) {
 			return nil, errors.WithCode(code.ErrUserPasswordIncorrect, "手机号或密码错误")
@@ -74,7 +74,37 @@ func (us *userService) MobileLogin(ctx context.Context, mobile, password string)
 	}, nil
 }
 
-func (us *userService) Register(ctx context.Context, mobile, password, codes string) (*UserDTO, error) {
+func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*UserDTO, error) {
+	key := smscode.LoginKey(mobile)
+	value, err := us.codeStore.Get(ctx, key)
+	if err != nil {
+		return nil, errors.WithCode(code.ErrCodeNotExist, "验证码不存在")
+	}
+	if value != smsCode {
+		return nil, errors.WithCode(code.ErrCodeInCorrect, "验证码错误")
+	}
+
+	user, err := us.data.Users().GetByUsername(ctx, mobile)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok := us.codeStore.Delete(ctx, key); !ok {
+		log.Warn("delete sms login code failed")
+	}
+
+	token, expiresAt, err := us.createToken(user)
+	if err != nil {
+		return nil, err
+	}
+	return &UserDTO{
+		User:      user,
+		Token:     token,
+		ExpiresAt: expiresAt,
+	}, nil
+}
+
+func (us *userService) Register(ctx context.Context, mobile, email, password, nickName, codes string) (*UserDTO, error) {
 	key := smscode.RegisterKey(mobile)
 	value, err := us.codeStore.Get(ctx, key)
 	if err != nil {
@@ -87,6 +117,8 @@ func (us *userService) Register(ctx context.Context, mobile, password, codes str
 
 	var user = &data.User{
 		Mobile:   mobile,
+		Email:    email,
+		NickName: nickName,
 		PassWord: password,
 	}
 	err = us.data.Users().Create(ctx, user)
@@ -132,8 +164,7 @@ func (us *userService) createToken(user data.User) (string, int64, error) {
 }
 
 func (u *userService) Update(ctx context.Context, userDTO *UserDTO) error {
-	//TODO implement me
-	panic("implement me")
+	return u.data.Users().Update(ctx, &userDTO.User)
 }
 
 func (us *userService) Get(ctx context.Context, userID uint64) (*UserDTO, error) {
@@ -144,14 +175,12 @@ func (us *userService) Get(ctx context.Context, userID uint64) (*UserDTO, error)
 	return &UserDTO{User: userDO}, nil
 }
 
-func (u *userService) GetByMobile(ctx context.Context, mobile string) (*UserDTO, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (u *userService) CheckPassWord(ctx context.Context, password, EncryptedPassword string) (bool, error) {
-	//TODO implement me
-	panic("implement me")
+func (u *userService) GetByUsername(ctx context.Context, username string) (*UserDTO, error) {
+	userDO, err := u.data.Users().GetByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	return &UserDTO{User: userDO}, nil
 }
 
 var _ UserSrv = &userService{}

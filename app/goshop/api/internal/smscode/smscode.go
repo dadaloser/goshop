@@ -10,6 +10,7 @@ import (
 
 const (
 	TypeRegister uint = 1
+	TypeLogin    uint = 2
 
 	DefaultTTL = 5 * time.Minute
 )
@@ -30,6 +31,10 @@ func NewRedisStore() *RedisStore {
 
 func RegisterKey(mobile string) string {
 	return Key(mobile, TypeRegister)
+}
+
+func LoginKey(mobile string) string {
+	return Key(mobile, TypeLogin)
 }
 
 func Key(mobile string, codeType uint) string {

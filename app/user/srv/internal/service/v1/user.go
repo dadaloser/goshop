@@ -21,6 +21,7 @@ type UserSrv interface {
 	Update(ctx context.Context, user *UserDTO) error
 	GetByID(ctx context.Context, ID uint64) (*UserDTO, error)
 	GetByMobile(ctx context.Context, mobile string) (*UserDTO, error)
+	GetByUsername(ctx context.Context, username string) (*UserDTO, error)
 }
 
 type userService struct {
@@ -29,18 +30,26 @@ type userService struct {
 
 func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 	//先判断用户是否存在
-	_, err := u.userStore.GetByMobile(ctx, user.Mobile)
-	if err != nil && errors.IsCode(err, code.ErrUserNotFound) {
-		encryptedPassword, err := auth.Encrypt(user.Password)
-		if err != nil {
-			return errors.WithCode(code2.ErrEncrypt, "加密密码失败")
-		}
-		user.Password = encryptedPassword
-		return u.userStore.Create(ctx, &user.UserDO)
+	if _, err := u.userStore.GetByMobile(ctx, user.Mobile); err == nil {
+		return errors.WithCode(code.ErrUserAlreadyExists, "用户已经存在")
+	} else if !errors.IsCode(err, code.ErrUserNotFound) {
+		return err
 	}
 
-	//这里应该区别到底是什么错误，用户已经存在？ 数据访问错误？
-	return errors.WithCode(code.ErrUserAlreadyExists, "用户已经存在")
+	if user.Email != "" {
+		if _, err := u.userStore.GetByUsername(ctx, user.Email); err == nil {
+			return errors.WithCode(code.ErrUserAlreadyExists, "邮箱已经存在")
+		} else if !errors.IsCode(err, code.ErrUserNotFound) {
+			return err
+		}
+	}
+
+	encryptedPassword, err := auth.Encrypt(user.Password)
+	if err != nil {
+		return errors.WithCode(code2.ErrEncrypt, "加密密码失败")
+	}
+	user.Password = encryptedPassword
+	return u.userStore.Create(ctx, &user.UserDO)
 }
 
 func (u *userService) Update(ctx context.Context, user *UserDTO) error {
@@ -64,6 +73,15 @@ func (u *userService) GetByID(ctx context.Context, ID uint64) (*UserDTO, error) 
 
 func (u *userService) GetByMobile(ctx context.Context, mobile string) (*UserDTO, error) {
 	userDO, err := u.userStore.GetByMobile(ctx, mobile)
+	if err != nil {
+		return nil, err
+	}
+
+	return &UserDTO{*userDO}, nil
+}
+
+func (u *userService) GetByUsername(ctx context.Context, username string) (*UserDTO, error) {
+	userDO, err := u.userStore.GetByUsername(ctx, username)
 	if err != nil {
 		return nil, err
 	}

@@ -22,5 +22,6 @@ func (us *userServer) GetUserDetail(ctx *gin.Context) {
 		"birthday": userDTO.Birthday.Format("2006-01-02"),
 		"gender":   userDTO.Gender,
 		"mobile":   userDTO.Mobile,
+		"email":    userDTO.Email,
 	})
 }

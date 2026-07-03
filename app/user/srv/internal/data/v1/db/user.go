@@ -41,6 +41,20 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, er
 	return &user, nil
 }
 
+func (u *users) GetByUsername(ctx context.Context, username string) (*dv1.UserDO, error) {
+	user := dv1.UserDO{}
+	err := u.db.WithContext(ctx).
+		Where("mobile = ? OR email = ?", username, username).
+		First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.WithCode(code.ErrUserNotFound, err.Error())
+		}
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return &user, nil
+}
+
 // GetByID
 //
 //	@Description: 根据id获取用户信息
@@ -69,7 +83,7 @@ func (u *users) GetByID(ctx context.Context, id uint64) (*dv1.UserDO, error) {
 //	@param user: 用户DO
 //	@return error
 func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
-	tx := u.db.Create(user)
+	tx := u.db.WithContext(ctx).Create(user)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
@@ -84,7 +98,14 @@ func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
 //	@param user
 //	@return error
 func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
-	tx := u.db.Save(user)
+	tx := u.db.WithContext(ctx).Model(&dv1.UserDO{}).
+		Where("id = ?", user.ID).
+		Updates(map[string]interface{}{
+			"nick_name": user.NickName,
+			"gender":    user.Gender,
+			"birthday":  user.Birthday,
+			"email":     user.Email,
+		})
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}

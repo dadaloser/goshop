@@ -80,6 +80,7 @@ func validateUserSchema(db *gorm.DB) error {
 		"deleted_at",
 		"is_deleted",
 		"mobile",
+		"email",
 		"password",
 		"nick_name",
 		"birthday",

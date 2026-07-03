@@ -1,6 +1,7 @@
 package sms
 
 import (
+	"goshop/app/goshop/api/internal/captcha"
 	"goshop/app/goshop/api/internal/service"
 	v1 "goshop/app/goshop/api/internal/service/sms/v1"
 	"goshop/app/goshop/api/internal/smscode"
@@ -14,8 +15,10 @@ import (
 )
 
 type SendSmsForm struct {
-	Mobile string `form:"mobile" json:"mobile" binding:"required,mobile"` //手机号码格式有规范可寻， 自定义validator
-	Type   uint   `form:"type" json:"type" binding:"required,oneof=1 2"`
+	Mobile    string `form:"mobile" json:"mobile" binding:"required,mobile"` //手机号码格式有规范可寻， 自定义validator
+	Type      uint   `form:"type" json:"type" binding:"required,oneof=1 2"`
+	Captcha   string `form:"captcha" json:"captcha" binding:"required,min=5,max=5"`
+	CaptchaId string `form:"captcha_id" json:"captcha_id" binding:"required"`
 	//1. 注册发送短信验证码和动态验证码登录发送验证码
 }
 
@@ -33,6 +36,11 @@ func (sc *SmsController) SendSms(c *gin.Context) {
 	sendSmsForm := SendSmsForm{}
 	if err := c.ShouldBind(&sendSmsForm); err != nil {
 		gin2.HandleValidatorError(c, err, sc.trans)
+		return
+	}
+
+	if !captcha.Verify(sendSmsForm.CaptchaId, sendSmsForm.Captcha, true) {
+		core.WriteResponse(c, errors.WithCode(code.ErrCodeInCorrect, "验证码错误"), nil)
 		return
 	}
 

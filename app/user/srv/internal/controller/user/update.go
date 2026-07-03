@@ -20,6 +20,7 @@ func (u *userServer) UpdateUser(ctx context.Context, request *upbv1.UpdateUserIn
 			ID: request.Id,
 		},
 		NickName: request.NickName,
+		Email:    request.Email,
 		Gender:   request.Gender,
 		Birthday: &birthDay,
 	}

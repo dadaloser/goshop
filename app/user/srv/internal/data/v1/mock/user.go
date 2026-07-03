@@ -16,6 +16,11 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, er
 	panic("implement me")
 }
 
+func (u *users) GetByUsername(ctx context.Context, username string) (*dv1.UserDO, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (u *users) GetByID(ctx context.Context, id uint64) (*dv1.UserDO, error) {
 	//TODO implement me
 	panic("implement me")

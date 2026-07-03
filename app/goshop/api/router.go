@@ -29,6 +29,7 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	uController := user.NewUserController(g.Translator(), serviceFactory)
 	{
 		uGroup.POST("pwd_login", uController.Login)
+		uGroup.POST("sms_login", uController.SmsLogin)
 		uGroup.POST("register", uController.Register)
 
 		jwtAuth, err := newJWTAuth(cfg.Jwt)
@@ -37,6 +38,7 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 		}
 		uGroup.GET("detail", jwtAuth.AuthFunc(), uController.GetUserDetail)
 		uGroup.PATCH("update", jwtAuth.AuthFunc(), uController.UpdateUser)
+		uGroup.POST("logout", jwtAuth.AuthFunc(), uController.Logout)
 	}
 
 	baseRouter := v1.Group("base")

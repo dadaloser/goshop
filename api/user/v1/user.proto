@@ -71,6 +71,7 @@ message CreateUserInfo {
     string nickName = 1;
     string passWord = 2;
     string mobile = 3;
+    string email = 4;
 }
 
 message UpdateUserInfo {
@@ -78,6 +79,7 @@ message UpdateUserInfo {
     string nickName = 2;
     string gender = 3;
     uint64 birthDay = 4;
+    string email = 5;
 }
 
 message UserInfoResponse {
@@ -88,6 +90,7 @@ message UserInfoResponse {
     uint64 birthDay = 5;
     string gender = 6;
     int32 role = 7;
+    string email = 8;
 }
 
 message UserListResponse {

@@ -18,6 +18,7 @@ type UpdateUserForm struct {
 	Name     string `form:"name" json:"name" binding:"required,min=3,max=10"`
 	Gender   string `form:"gender" json:"gender" binding:"required,oneof=female male"`
 	Birthday string `form:"birthday" json:"birthday" binding:"required,datetime=2006-01-02"`
+	Email    string `form:"email" json:"email" binding:"omitempty,email"`
 }
 
 func (us *userServer) UpdateUser(ctx *gin.Context) {
@@ -53,6 +54,7 @@ func (us *userServer) UpdateUser(ctx *gin.Context) {
 	userDTO.NickName = updateForm.Name
 	userDTO.Birthday = jtime.Time{birthDay}
 	userDTO.Gender = updateForm.Gender
+	userDTO.Email = updateForm.Email
 	err = us.sf.Users().Update(ctx, userDTO)
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)

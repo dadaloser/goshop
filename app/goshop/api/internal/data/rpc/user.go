@@ -63,6 +63,7 @@ func (u *users) CheckPassWord(ctx context.Context, password, encryptedPwd string
 func (u *users) Create(ctx context.Context, user *data.User) error {
 	protoUser := &upbv1.CreateUserInfo{
 		Mobile:   user.Mobile,
+		Email:    user.Email,
 		NickName: user.NickName,
 		PassWord: user.PassWord,
 	}
@@ -80,6 +81,7 @@ func (u *users) Update(ctx context.Context, user *data.User) error {
 		NickName: user.NickName,
 		Gender:   user.Gender,
 		BirthDay: uint64(user.Birthday.Unix()),
+		Email:    user.Email,
 	}
 	_, err := u.uc.UpdateUser(ctx, protoUser)
 	if err != nil {
@@ -99,6 +101,7 @@ func (u *users) Get(ctx context.Context, userID uint64) (data.User, error) {
 	return data.User{
 		ID:       uint64(user.Id),
 		Mobile:   user.Mobile,
+		Email:    user.Email,
 		NickName: user.NickName,
 		Birthday: itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
 		Gender:   user.Gender,
@@ -108,8 +111,12 @@ func (u *users) Get(ctx context.Context, userID uint64) (data.User, error) {
 }
 
 func (u *users) GetByMobile(ctx context.Context, mobile string) (data.User, error) {
+	return u.GetByUsername(ctx, mobile)
+}
+
+func (u *users) GetByUsername(ctx context.Context, username string) (data.User, error) {
 	user, err := u.uc.GetUserByMobile(ctx, &upbv1.MobileRequest{
-		Mobile: mobile,
+		Mobile: username,
 	})
 	if err != nil {
 		return data.User{}, userRPCError(err, code.ErrUserNotFound)
@@ -118,6 +125,7 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (data.User, erro
 	return data.User{
 		ID:       uint64(user.Id),
 		Mobile:   user.Mobile,
+		Email:    user.Email,
 		NickName: user.NickName,
 		Birthday: itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
 		Gender:   user.Gender,

@@ -18,6 +18,7 @@ func DTOToResponse(userDTO srvv1.UserDTO) *upbv1.UserInfoResponse {
 		Gender:   userDTO.Gender,
 		Role:     int32(userDTO.Role),
 		Mobile:   userDTO.Mobile,
+		Email:    userDTO.Email,
 	}
 	if userDTO.Birthday != nil {
 		userInfoRsp.BirthDay = uint64(userDTO.Birthday.Unix())
