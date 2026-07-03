@@ -503,6 +503,62 @@ func TestRegistryWatchContinuesAfterInitialResolve(t *testing.T) {
 	}
 }
 
+func TestRegistryWatchRetriesAfterInitialResolveError(t *testing.T) {
+	var calls int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		call := atomic.AddInt64(&calls, 1)
+		if call == 1 {
+			http.Error(w, "consul unavailable", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("X-Consul-Index", fmt.Sprintf("%d", call))
+		_ = json.NewEncoder(w).Encode([]*api.ServiceEntry{
+			{
+				Service: &api.AgentService{
+					ID:      "1",
+					Service: "server-1",
+					Tags:    []string{"version=v1"},
+					TaggedAddresses: map[string]api.ServiceAddress{
+						"grpc": {
+							Address: "grpc://127.0.0.1:9000",
+							Port:    9000,
+						},
+					},
+				},
+			},
+		})
+	}))
+	t.Cleanup(server.Close)
+
+	cli, err := api.NewClient(&api.Config{Address: server.URL})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	r := New(cli)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	watch, err := r.Watch(ctx, "server-1")
+	if err != nil {
+		t.Fatalf("Watch() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		_ = watch.Stop()
+	})
+
+	got, err := watch.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v, want nil after retry", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("Next() services = %v, want one service after retry", got)
+	}
+	if atomic.LoadInt64(&calls) < 2 {
+		t.Fatalf("consul service calls = %d, want retry", calls)
+	}
+}
+
 func TestRegistryWatchRestartsResolverAfterFirstWatcherStops(t *testing.T) {
 	var calls int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -560,8 +616,14 @@ func TestRegistryWatchRestartsResolverAfterFirstWatcherStops(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("second Next() services = %v, want one service", got)
 	}
-	if atomic.LoadInt64(&calls) < 2 {
-		t.Fatalf("consul service calls = %d, want resolver restarted for second watcher", calls)
+	deadline := time.After(time.Second)
+	for atomic.LoadInt64(&calls) < 2 {
+		select {
+		case <-deadline:
+			t.Fatalf("consul service calls = %d, want resolver restarted for second watcher", calls)
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package rpcserver
 
 import (
 	"context"
+	"sync"
 
 	srvintc "goshop/gmicro/server/rpcserver/serverinterceptors"
 	"goshop/pkg/host"
@@ -32,9 +33,11 @@ type Server struct {
 	lis        net.Listener
 	timeout    time.Duration
 
-	health   *health.Server
-	metadata *apimd.Server
-	endpoint *url.URL
+	health    *health.Server
+	metadata  *apimd.Server
+	endpoint  *url.URL
+	ready     chan struct{}
+	readyOnce sync.Once
 
 	enableMetrics    bool
 	enableReflection bool
@@ -46,6 +49,10 @@ func (s *Server) Endpoint() *url.URL {
 
 func (s *Server) Address() string {
 	return s.address
+}
+
+func (s *Server) Ready() <-chan struct{} {
+	return s.ready
 }
 
 func NewServer(opts ...ServerOption) *Server {
@@ -60,6 +67,7 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 	srv := &Server{
 		address: ":0",
 		health:  health.NewServer(),
+		ready:   make(chan struct{}),
 		//timeout: 1 * time.Second,
 	}
 
@@ -233,6 +241,9 @@ func (s *Server) listenAndEndpoint() error {
 func (s *Server) Start(ctx context.Context) error {
 	log.Infof("[grpc] server listening on: %s", s.lis.Addr().String())
 	s.health.Resume()
+	s.readyOnce.Do(func() {
+		close(s.ready)
+	})
 	return s.Serve(s.lis)
 }
 

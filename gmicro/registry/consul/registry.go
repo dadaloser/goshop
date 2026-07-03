@@ -210,16 +210,8 @@ func (r *Registry) Watch(ctx context.Context, name string) (registry.Watcher, er
 }
 
 func (r *Registry) resolve(ctx context.Context, ss *serviceSet) error {
-	initCtx, cancel := context.WithTimeout(ctx, time.Second*10)
-	services, idx, err := r.cli.Service(initCtx, ss.serviceName, 0, true)
-	cancel()
-	if err != nil {
-		metricConsulWatchErrors.Inc(ss.serviceName, "initial")
-		return err
-	} else if len(services) > 0 {
-		ss.broadcast(services)
-	}
 	go func() {
+		var idx uint64
 		metricConsulResolverLifecycle.Inc(ss.serviceName, "start")
 		defer ss.resolverStopped(ctx)
 		defer metricConsulResolverLifecycle.Inc(ss.serviceName, "stop")
@@ -228,21 +220,30 @@ func (r *Registry) resolve(ctx context.Context, ss *serviceSet) error {
 			tmpService, tmpIdx, err := r.cli.Service(pollCtx, ss.serviceName, idx, true)
 			cancel()
 			if err != nil {
-				select {
-				case <-ctx.Done():
+				if !sleepContext(ctx, time.Second) {
 					return
-				case <-time.After(time.Second):
 				}
 				metricConsulWatchErrors.Inc(ss.serviceName, "poll")
 				continue
 			}
-			if tmpIdx != idx {
-				services = tmpService
-				ss.broadcast(services)
+			if tmpIdx != idx || (idx == 0 && len(tmpService) > 0) {
+				ss.broadcast(tmpService)
 			}
 			idx = tmpIdx
 		}
 	}()
 
 	return nil
+}
+
+func sleepContext(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }

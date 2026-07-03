@@ -50,6 +50,27 @@ func TestNewServerEAddsStreamInterceptors(t *testing.T) {
 	}
 }
 
+func TestServerReadyClosesAfterStart(t *testing.T) {
+	srv, err := NewServerE(WithAddress("127.0.0.1:0"))
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	go func() {
+		_ = srv.Start(context.Background())
+	}()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	})
+
+	select {
+	case <-srv.Ready():
+	case <-time.After(time.Second):
+		t.Fatal("Ready() was not closed after Start")
+	}
+}
+
 func TestNewServerEDisablesReflectionByDefault(t *testing.T) {
 	srv, err := NewServerE(WithAddress("127.0.0.1:0"))
 	if err != nil {

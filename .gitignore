@@ -6,3 +6,4 @@
 !/docs/rules/
 !/docs/rules/*.md
 /cache/
+/docs/rules/api-contracts.md

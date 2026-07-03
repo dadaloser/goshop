@@ -51,6 +51,11 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 		sqlDB.SetMaxOpenConns(mysqlOpts.MaxOpenConnections)
 		sqlDB.SetMaxIdleConns(mysqlOpts.MaxIdleConnections)
 		sqlDB.SetConnMaxLifetime(mysqlOpts.MaxConnectionLifetime)
+		if err = migrateUserSchema(dbFactory); err != nil {
+			_ = sqlDB.Close()
+			dbFactory = nil
+			return
+		}
 		if err = validateUserSchema(dbFactory); err != nil {
 			_ = sqlDB.Close()
 			dbFactory = nil
@@ -63,6 +68,16 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 		return nil, errors2.WrapC(err, code.ErrConnectDB, "failed to get mysql store factory")
 	}
 	return dbFactory, nil
+}
+
+func migrateUserSchema(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("user schema migration failed: nil db")
+	}
+	if err := db.AutoMigrate(&dv1.UserDO{}); err != nil {
+		return fmt.Errorf("user schema migration failed: %w", err)
+	}
+	return nil
 }
 
 func validateUserSchema(db *gorm.DB) error {

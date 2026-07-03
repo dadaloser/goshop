@@ -24,8 +24,7 @@ type App struct {
 
 	mutex    sync.Mutex
 	instance *registry.ServiceInstance
-
-	cancel func()
+	cancel   context.CancelFunc
 }
 
 type readyServer interface {
@@ -73,7 +72,7 @@ func (a *App) RunContext(ctx context.Context) error {
 	servers := a.servers()
 
 	ctx, cancel := context.WithCancel(ctx)
-	a.cancel = cancel
+	a.setRunCancel(cancel)
 	eg, ctx := errgroup.WithContext(ctx)
 	wg := sync.WaitGroup{}
 	readyChans := make([]<-chan struct{}, 0, len(servers))
@@ -118,9 +117,7 @@ func (a *App) RunContext(ctx context.Context) error {
 	}
 
 	//这个变量可能被其他的goroutine访问到
-	a.mutex.Lock()
-	a.instance = instance
-	a.mutex.Unlock()
+	a.setInstance(instance)
 
 	//注册服务
 	if a.opts.registrar != nil {
@@ -187,9 +184,7 @@ func (a *App) StopContext(ctx context.Context) error {
 	}
 	ctx = context.WithoutCancel(ctx)
 
-	a.mutex.Lock()
-	instance := a.instance
-	a.mutex.Unlock()
+	instance, cancelRun := a.takeStopState()
 
 	var stopErr error
 	log.Info("start deregister service")
@@ -202,8 +197,8 @@ func (a *App) StopContext(ctx context.Context) error {
 		rcancel()
 	}
 
-	if a.cancel != nil {
-		a.cancel()
+	if cancelRun != nil {
+		cancelRun()
 	}
 
 	tctx, tcancel := context.WithTimeout(ctx, a.opts.stopTimeout)
@@ -212,6 +207,29 @@ func (a *App) StopContext(ctx context.Context) error {
 		stopErr = err
 	}
 	return stopErr
+}
+
+func (a *App) setRunCancel(cancel context.CancelFunc) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	a.cancel = cancel
+}
+
+func (a *App) setInstance(instance *registry.ServiceInstance) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	a.instance = instance
+}
+
+func (a *App) takeStopState() (*registry.ServiceInstance, context.CancelFunc) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	instance := a.instance
+	cancel := a.cancel
+	a.instance = nil
+	a.cancel = nil
+	return instance, cancel
 }
 
 // 创建服务注册结构体

@@ -76,6 +76,19 @@ func (failingRegistrar) Deregister(context.Context, *registry.ServiceInstance) e
 	return nil
 }
 
+type countingRegistrar struct {
+	deregisterCalls int32
+}
+
+func (r *countingRegistrar) Register(context.Context, *registry.ServiceInstance) error {
+	return nil
+}
+
+func (r *countingRegistrar) Deregister(context.Context, *registry.ServiceInstance) error {
+	atomic.AddInt32(&r.deregisterCalls, 1)
+	return nil
+}
+
 func TestRunStopsStartedServersWhenRegisterFails(t *testing.T) {
 	base := newFakeServer()
 	srv := &endpointFakeServer{
@@ -97,6 +110,32 @@ func TestRunStopsStartedServersWhenRegisterFails(t *testing.T) {
 	}
 	if atomic.LoadInt32(&srv.stopped) != 1 {
 		t.Fatal("server was not stopped after register failure")
+	}
+}
+
+func TestStopContextIsIdempotent(t *testing.T) {
+	var cancelCalls int32
+	registrar := &countingRegistrar{}
+	app := New(
+		WithRegistrar(registrar),
+		WithStopTimeout(time.Second),
+	)
+	app.setInstance(&registry.ServiceInstance{ID: "server-1", Name: "server"})
+	app.setRunCancel(func() {
+		atomic.AddInt32(&cancelCalls, 1)
+	})
+
+	if err := app.StopContext(context.Background()); err != nil {
+		t.Fatalf("first StopContext() error = %v, want nil", err)
+	}
+	if err := app.StopContext(context.Background()); err != nil {
+		t.Fatalf("second StopContext() error = %v, want nil", err)
+	}
+	if got := atomic.LoadInt32(&registrar.deregisterCalls); got != 1 {
+		t.Fatalf("Deregister calls = %d, want 1", got)
+	}
+	if got := atomic.LoadInt32(&cancelCalls); got != 1 {
+		t.Fatalf("cancel calls = %d, want 1", got)
 	}
 }
 

@@ -50,27 +50,30 @@ func NewBuilder(d registry.Discovery, opts ...Option) resolver.Builder {
 }
 
 func (b *builder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
-	var (
-		err error
+	type watchResult struct {
 		w   registry.Watcher
-	)
-	done := make(chan struct{}, 1)
+		err error
+	}
+
+	result := make(chan watchResult, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		w, err = b.discoverer.Watch(ctx, strings.TrimPrefix(target.URL.Path, "/"))
-		close(done)
+		w, err := b.discoverer.Watch(ctx, strings.TrimPrefix(target.URL.Path, "/"))
+		result <- watchResult{w: w, err: err}
 	}()
+
+	var res watchResult
 	select {
-	case <-done:
+	case res = <-result:
 	case <-time.After(b.timeout):
-		err = errors.New("discovery create watcher overtime")
+		res.err = errors.New("discovery create watcher overtime")
 	}
-	if err != nil {
+	if res.err != nil {
 		cancel()
-		return nil, err
+		return nil, res.err
 	}
 	r := &discoveryResolver{
-		w:        w,
+		w:        res.w,
 		cc:       cc,
 		ctx:      ctx,
 		cancel:   cancel,
