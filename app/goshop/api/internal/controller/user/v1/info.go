@@ -1,15 +1,18 @@
 package user
 
 import (
-	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/common/core"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (us *userServer) GetUserDetail(ctx *gin.Context) {
-	userID, _ := ctx.Get(middlewares.KeyUserID)
-	userDTO, err := us.sf.Users().Get(ctx, uint64(userID.(float64)))
+	userID, err := userIDFromContext(ctx)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	userDTO, err := us.sf.Users().Get(ctx, userID)
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
 		return

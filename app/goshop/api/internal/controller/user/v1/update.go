@@ -1,12 +1,15 @@
 package user
 
 import (
+	"fmt"
 	"time"
 
 	gin2 "goshop/app/pkg/translator/gin"
+	gcode "goshop/gmicro/code"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/common/core"
 	jtime "goshop/pkg/common/time"
+	"goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,8 +27,11 @@ func (us *userServer) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	userID, _ := ctx.Get(middlewares.KeyUserID)
-	userIDInt := uint64(userID.(float64))
+	userIDInt, err := userIDFromContext(ctx)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
 	userDTO, err := us.sf.Users().Get(ctx, userIDInt)
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
@@ -34,8 +40,16 @@ func (us *userServer) UpdateUser(ctx *gin.Context) {
 	userDTO.NickName = updateForm.Name
 
 	//将前端传递过来的日期格式转换成int
-	loc, _ := time.LoadLocation("Local") //local的L必须大写
-	birthDay, _ := time.ParseInLocation("2006-01-02", updateForm.Birthday, loc)
+	loc, err := time.LoadLocation("Local") //local的L必须大写
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	birthDay, err := time.ParseInLocation("2006-01-02", updateForm.Birthday, loc)
+	if err != nil {
+		core.WriteResponse(ctx, fmt.Errorf("parse birthday: %w", err), nil)
+		return
+	}
 	userDTO.NickName = updateForm.Name
 	userDTO.Birthday = jtime.Time{birthDay}
 	userDTO.Gender = updateForm.Gender
@@ -45,4 +59,16 @@ func (us *userServer) UpdateUser(ctx *gin.Context) {
 		return
 	}
 	core.WriteResponse(ctx, nil, nil)
+}
+
+func userIDFromContext(ctx *gin.Context) (uint64, error) {
+	userID, ok := ctx.Get(middlewares.KeyUserID)
+	if !ok {
+		return 0, errors.WithCode(gcode.ErrInvalidAuthHeader, "user id is missing")
+	}
+	userIDFloat, ok := userID.(float64)
+	if !ok {
+		return 0, errors.WithCode(gcode.ErrInvalidAuthHeader, "user id has invalid type")
+	}
+	return uint64(userIDFloat), nil
 }

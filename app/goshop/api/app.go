@@ -65,7 +65,7 @@ func NewAPIApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	go storage.ConnectToRedis(ctx, redisConfig)
 
 	//生成http服务
-	rpcServer, err := NewAPIHTTPServer(cfg)
+	rpcServer, err := NewAPIHTTPServer(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}

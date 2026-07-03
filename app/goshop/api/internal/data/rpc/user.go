@@ -26,9 +26,14 @@ func NewUsers(uc upbv1.UserClient) *users {
 	return &users{uc}
 }
 
-func NewUserServiceClient(r registry.Discovery) (upbv1.UserClient, error) {
+// NewUserServiceClientContext creates a user client using ctx for the initial
+// gRPC dial and discovery probe.
+func NewUserServiceClientContext(ctx context.Context, r registry.Discovery) (upbv1.UserClient, error) {
+	if ctx == nil {
+		ctx = context.TODO()
+	}
 	conn, err := rpcserver.DialInsecure(
-		context.Background(),
+		ctx,
 		rpcserver.WithEndpoint(serviceName),
 		rpcserver.WithDiscovery(r),
 		rpcserver.WithConnectProbe(true),

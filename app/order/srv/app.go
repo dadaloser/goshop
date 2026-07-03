@@ -37,7 +37,7 @@ func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error)
 	return r, nil
 }
 
-func NeworderApp(cfg *config.Config) (*gapp.App, error) {
+func NeworderApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	//服务注册
 	register, err := NewRegistrar(cfg.Registry)
 	if err != nil {
@@ -45,7 +45,7 @@ func NeworderApp(cfg *config.Config) (*gapp.App, error) {
 	}
 
 	//生成rpc服务
-	rpcServer, err := NewOrderRPCServer(cfg)
+	rpcServer, err := NewOrderRPCServer(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func run(cfg *config.Config) app.RunFunc {
 		log.Init(cfg.Log)
 		defer log.Flush()
 
-		orderApp, err := NeworderApp(cfg)
+		orderApp, err := NeworderApp(ctx, cfg)
 		if err != nil {
 			return err
 		}

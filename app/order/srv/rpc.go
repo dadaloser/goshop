@@ -1,6 +1,7 @@
 package srv
 
 import (
+	"context"
 	"fmt"
 	gpb "goshop/api/order/v1"
 	"goshop/app/order/srv/config"
@@ -12,7 +13,7 @@ import (
 	"goshop/gmicro/server/rpcserver"
 )
 
-func NewOrderRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
+func NewOrderRPCServer(ctx context.Context, cfg *config.Config) (*rpcserver.Server, error) {
 	//初始化open-telemetry的exporter
 	if err := trace.InitAgent(trace.Options{
 		Name:     cfg.Telemetry.Name,
@@ -28,7 +29,7 @@ func NewOrderRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 		return nil, err
 	}
 
-	goodsGateway, err := boundary.NewGoodsRPCGateway(cfg.Registry)
+	goodsGateway, err := boundary.NewGoodsRPCGatewayContext(ctx, cfg.Registry)
 	if err != nil {
 		return nil, err
 	}

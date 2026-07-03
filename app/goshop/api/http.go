@@ -1,12 +1,14 @@
 package api
 
 import (
+	"context"
+
 	"goshop/app/goshop/api/config"
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/restserver/middlewares"
 )
 
-func NewAPIHTTPServer(cfg *config.Config) (*restserver.Server, error) {
+func NewAPIHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Server, error) {
 	opts := []restserver.ServerOption{
 		restserver.WithPort(cfg.Server.HttpPort),
 		restserver.WithHost(cfg.Server.Host),
@@ -38,7 +40,7 @@ func NewAPIHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 	aRestServer := restserver.NewServer(opts...)
 
 	//配置好路由
-	if err := initRouter(aRestServer, cfg); err != nil {
+	if err := initRouter(ctx, aRestServer, cfg); err != nil {
 		return nil, err
 	}
 

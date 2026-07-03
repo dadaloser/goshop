@@ -34,7 +34,10 @@ var (
 )
 
 // rpc的连接， 基于服务发现
-func GetDataFactoryOr(options *options.RegistryOptions) (data.DataFactory, error) {
+func GetDataFactoryOr(ctx context.Context, options *options.RegistryOptions) (data.DataFactory, error) {
+	if ctx == nil {
+		ctx = context.TODO()
+	}
 	if options == nil && dbFactory == nil {
 		return nil, fmt.Errorf("failed to get grpc store factory")
 	}
@@ -45,12 +48,12 @@ func GetDataFactoryOr(options *options.RegistryOptions) (data.DataFactory, error
 			rpcserver.WithConnectProbe(false),
 		}
 
-		userClient, _, err := appclient.NewUserClient(context.Background(), options, dialOpts...)
+		userClient, _, err := appclient.NewUserClient(ctx, options, dialOpts...)
 		if err != nil {
 			initErr = err
 			return
 		}
-		goodsClient, _, err := appclient.NewGoodsClient(context.Background(), options, dialOpts...)
+		goodsClient, _, err := appclient.NewGoodsClient(ctx, options, dialOpts...)
 		if err != nil {
 			initErr = err
 			return

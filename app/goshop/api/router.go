@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+
 	"goshop/app/goshop/api/config"
 	"goshop/app/goshop/api/internal/controller/goods/v1"
 	v12 "goshop/app/goshop/api/internal/controller/sms/v1"
@@ -12,11 +14,11 @@ import (
 )
 
 // 初始化路由
-func initRouter(g *restserver.Server, cfg *config.Config) error {
+func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) error {
 	v1 := g.Group("/v1")
 	uGroup := v1.Group("/user")
 
-	data, err := rpc.GetDataFactoryOr(cfg.Registry)
+	data, err := rpc.GetDataFactoryOr(ctx, cfg.Registry)
 	if err != nil {
 		return err
 	}
@@ -29,9 +31,12 @@ func initRouter(g *restserver.Server, cfg *config.Config) error {
 		uGroup.POST("pwd_login", uController.Login)
 		uGroup.POST("register", uController.Register)
 
-		jwtAuth := newJWTAuth(cfg.Jwt)
+		jwtAuth, err := newJWTAuth(cfg.Jwt)
+		if err != nil {
+			return err
+		}
 		uGroup.GET("detail", jwtAuth.AuthFunc(), uController.GetUserDetail)
-		uGroup.PATCH("update", jwtAuth.AuthFunc(), uController.GetUserDetail)
+		uGroup.PATCH("update", jwtAuth.AuthFunc(), uController.UpdateUser)
 	}
 
 	baseRouter := v1.Group("base")

@@ -1,6 +1,8 @@
 package api
 
 import (
+	"fmt"
+
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/gmicro/server/restserver/middlewares/auth"
@@ -11,8 +13,11 @@ import (
 )
 
 // 可以在此处使用别的中间件来实现认证授权
-func newJWTAuth(opts *options.JwtOptions) middlewares.AuthStrategy {
-	gjwt, _ := ginjwt.New(&ginjwt.GinJWTMiddleware{
+func newJWTAuth(opts *options.JwtOptions) (middlewares.AuthStrategy, error) {
+	if opts == nil {
+		return nil, fmt.Errorf("jwt options are required")
+	}
+	gjwt, err := ginjwt.New(&ginjwt.GinJWTMiddleware{
 		Realm:            opts.Realm,
 		SigningAlgorithm: "HS256",
 		Key:              []byte(opts.Key),
@@ -26,7 +31,10 @@ func newJWTAuth(opts *options.JwtOptions) middlewares.AuthStrategy {
 		TokenLookup:     "header: Authorization:, query: token, cookie: jwt",
 		TokenHeadName:   "Bearer",
 	})
-	return auth.NewJWTStrategy(*gjwt)
+	if err != nil {
+		return nil, fmt.Errorf("create jwt middleware: %w", err)
+	}
+	return auth.NewJWTStrategy(*gjwt), nil
 }
 
 func claimHandlerFun(c *gin.Context) interface{} {

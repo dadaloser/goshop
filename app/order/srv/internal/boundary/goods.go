@@ -22,8 +22,13 @@ type goodsRPCGateway struct {
 	client goodspb.GoodsClient
 }
 
-func NewGoodsRPCGateway(registry *options.RegistryOptions) (GoodsGateway, error) {
-	goodsClient, _, err := client.NewGoodsClient(context.Background(), registry)
+// NewGoodsRPCGatewayContext creates a goods gateway using ctx for the initial
+// gRPC dial and discovery probe.
+func NewGoodsRPCGatewayContext(ctx context.Context, registry *options.RegistryOptions) (GoodsGateway, error) {
+	if ctx == nil {
+		ctx = context.TODO()
+	}
+	goodsClient, _, err := client.NewGoodsClient(ctx, registry)
 	if err != nil {
 		return nil, err
 	}

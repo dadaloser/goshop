@@ -2,5 +2,7 @@
 /log/
 /logs/
 .DS_Store
-/docs/
+/docs/*
+!/docs/rules/
+!/docs/rules/*.md
 /cache/
