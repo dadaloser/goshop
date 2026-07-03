@@ -1,6 +1,8 @@
 package srv
 
 import (
+	"context"
+
 	"goshop/app/goods/srv/config"
 	"goshop/app/pkg/options"
 	gapp "goshop/gmicro/app"
@@ -57,7 +59,7 @@ func NewGoodsApp(cfg *config.Config) (*gapp.App, error) {
 }
 
 func run(cfg *config.Config) app.RunFunc {
-	return func(baseName string) error {
+	return func(ctx context.Context, baseName string) error {
 		log.Init(cfg.Log)
 		defer log.Flush()
 
@@ -67,10 +69,6 @@ func run(cfg *config.Config) app.RunFunc {
 		}
 
 		//启动
-		if err := goodsApp.Run(); err != nil {
-			log.Errorf("run goods app error: %s", err)
-			return err
-		}
-		return nil
+		return goodsApp.RunContext(ctx)
 	}
 }

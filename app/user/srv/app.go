@@ -1,6 +1,8 @@
 package srv
 
 import (
+	"context"
+
 	"goshop/app/pkg/options"
 	"goshop/app/user/srv/config"
 	gapp "goshop/gmicro/app"
@@ -52,7 +54,7 @@ func NewUserApp(register registry.Registrar,
 }
 
 func run(cfg *config.Config) app.RunFunc {
-	return func(baseName string) error {
+	return func(ctx context.Context, baseName string) error {
 		log.Init(cfg.Log)
 		defer log.Flush()
 
@@ -64,10 +66,6 @@ func run(cfg *config.Config) app.RunFunc {
 
 		//启动
 		log.Infof("starting user service")
-		if err := userApp.Run(); err != nil {
-			log.Errorf("run user app error: %+v", err)
-			return err
-		}
-		return nil
+		return userApp.RunContext(ctx)
 	}
 }

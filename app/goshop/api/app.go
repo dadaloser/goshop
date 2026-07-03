@@ -38,7 +38,7 @@ func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error)
 	return r, nil
 }
 
-func NewAPIApp(cfg *config.Config) (*gapp.App, error) {
+func NewAPIApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	//服务注册
 	register, err := NewRegistrar(cfg.Registry)
 	if err != nil {
@@ -62,7 +62,7 @@ func NewAPIApp(cfg *config.Config) (*gapp.App, error) {
 		SSLInsecureSkipVerify: cfg.Redis.SSLInsecureSkipVerify,
 		EnableTracing:         cfg.Redis.EnableTracing,
 	}
-	go storage.ConnectToRedis(context.Background(), redisConfig)
+	go storage.ConnectToRedis(ctx, redisConfig)
 
 	//生成http服务
 	rpcServer, err := NewAPIHTTPServer(cfg)
@@ -78,20 +78,16 @@ func NewAPIApp(cfg *config.Config) (*gapp.App, error) {
 }
 
 func run(cfg *config.Config) app.RunFunc {
-	return func(baseName string) error {
+	return func(ctx context.Context, baseName string) error {
 		log.Init(cfg.Log)
 		defer log.Flush()
 
-		apiApp, err := NewAPIApp(cfg)
+		apiApp, err := NewAPIApp(ctx, cfg)
 		if err != nil {
 			return err
 		}
 
 		//启动
-		if err := apiApp.Run(); err != nil {
-			log.Errorf("run api app error: %s", err)
-			return err
-		}
-		return nil
+		return apiApp.RunContext(ctx)
 	}
 }

@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"context"
+
 	"goshop/app/goshop/admin/config"
 	"goshop/app/pkg/options"
 	gapp "goshop/gmicro/app"
@@ -56,7 +58,7 @@ func NewUserApp(cfg *config.Config) (*gapp.App, error) {
 }
 
 func run(cfg *config.Config) app.RunFunc {
-	return func(baseName string) error {
+	return func(ctx context.Context, baseName string) error {
 		log.Init(cfg.Log)
 		defer log.Flush()
 
@@ -66,10 +68,6 @@ func run(cfg *config.Config) app.RunFunc {
 		}
 
 		//启动
-		if err := userApp.Run(); err != nil {
-			log.Errorf("run user app error: %s", err)
-			return err
-		}
-		return nil
+		return userApp.RunContext(ctx)
 	}
 }

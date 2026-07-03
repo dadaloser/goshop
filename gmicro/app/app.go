@@ -64,11 +64,15 @@ func New(opts ...Option) *App {
 	}
 }
 
-// 启动整个服务
-func (a *App) Run() error {
+// RunContext starts the app and propagates ctx through startup and server
+// lifecycles.
+func (a *App) RunContext(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	servers := a.servers()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	a.cancel = cancel
 	eg, ctx := errgroup.WithContext(ctx)
 	wg := sync.WaitGroup{}
@@ -83,7 +87,7 @@ func (a *App) Run() error {
 		eg.Go(func() error {
 			<-ctx.Done() //wait for stop signal
 			//不可能无休止的等待stop
-			sctx, cancel := context.WithTimeout(context.Background(), a.opts.stopTimeout)
+			sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), a.opts.stopTimeout)
 			defer cancel()
 			return srv.Stop(sctx)
 		})
@@ -120,26 +124,26 @@ func (a *App) Run() error {
 
 	//注册服务
 	if a.opts.registrar != nil {
-		rctx, rcancel := context.WithTimeout(context.Background(), a.opts.registrarTimeout)
+		rctx, rcancel := context.WithTimeout(ctx, a.opts.registrarTimeout)
 		defer rcancel()
 		err := a.opts.registrar.Register(rctx, instance)
 		if err != nil {
-			log.Errorf("register service error: %s", err)
 			cancel()
 			_ = eg.Wait()
-			return err
+			return fmt.Errorf("register service: %w", err)
 		}
 	}
 
 	//监听退出信息
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, a.opts.sigs...)
+	defer signal.Stop(c)
 	eg.Go(func() error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-c:
-			return a.Stop()
+			return a.StopContext(context.WithoutCancel(ctx))
 		}
 	})
 	if err := eg.Wait(); err != nil {
@@ -172,6 +176,17 @@ jwt
 */
 // 停止服务
 func (a *App) Stop() error {
+	return a.StopContext(context.Background())
+}
+
+// StopContext deregisters the app and shuts down tracing with bounded cleanup
+// contexts derived from ctx.
+func (a *App) StopContext(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx = context.WithoutCancel(ctx)
+
 	a.mutex.Lock()
 	instance := a.instance
 	a.mutex.Unlock()
@@ -179,7 +194,7 @@ func (a *App) Stop() error {
 	var stopErr error
 	log.Info("start deregister service")
 	if a.opts.registrar != nil && instance != nil {
-		rctx, rcancel := context.WithTimeout(context.Background(), a.opts.stopTimeout)
+		rctx, rcancel := context.WithTimeout(ctx, a.opts.stopTimeout)
 		if err := a.opts.registrar.Deregister(rctx, instance); err != nil {
 			log.Errorf("deregister service error: %s", err)
 			stopErr = err
@@ -191,7 +206,7 @@ func (a *App) Stop() error {
 		a.cancel()
 	}
 
-	tctx, tcancel := context.WithTimeout(context.Background(), a.opts.stopTimeout)
+	tctx, tcancel := context.WithTimeout(ctx, a.opts.stopTimeout)
 	defer tcancel()
 	if err := trace.Shutdown(tctx); err != nil && stopErr == nil {
 		stopErr = err

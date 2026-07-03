@@ -91,7 +91,7 @@ func TestRunStopsStartedServersWhenRegisterFails(t *testing.T) {
 		WithEndpoints([]*url.URL{srv.Endpoint()}),
 	)
 
-	err := app.Run()
+	err := app.RunContext(context.Background())
 	if err == nil {
 		t.Fatal("Run() error = nil, want register error")
 	}
