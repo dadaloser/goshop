@@ -87,10 +87,11 @@ type Server struct {
 
 	serviceName string
 
-	ready     chan struct{}
-	readyOnce sync.Once
-	draining  atomic.Bool
-	endpoint  *url.URL
+	ready      chan struct{}
+	readyOnce  sync.Once
+	routesOnce sync.Once
+	draining   atomic.Bool
+	endpoint   *url.URL
 }
 
 func NewServer(opts ...ServerOption) *Server {
@@ -241,27 +242,7 @@ func (s *Server) Start(ctx context.Context) error {
 	//注册mobile验证码
 	validation.RegisterMobile(s.trans)
 
-	//健康检查
-	if s.healthCheck {
-		s.registerHealthRoutes()
-	}
-
-	//根据配置初始化pprof路由
-	if s.enableProfiling {
-		s.registerProfilingRoutes()
-	}
-
-	if s.enableMetrics {
-		// get global Monitor object
-		m := ginmetrics.GetMonitor()
-		// +optional set metric path, default /debug/metrics
-		m.SetMetricPath("/metrics")
-		// +optional set slow time, default 5s
-		// +optional set request duration, default {0.1, 0.3, 1.2, 5, 10}
-		// used to p95, p99
-		m.SetDuration([]float64{0.1, 0.3, 1.2, 5, 10})
-		m.Use(s)
-	}
+	s.registerBuiltInRoutes()
 
 	address := s.Address()
 	lis, err := net.Listen("tcp", address)
@@ -291,6 +272,32 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Server) registerBuiltInRoutes() {
+	s.routesOnce.Do(func() {
+		//健康检查
+		if s.healthCheck {
+			s.registerHealthRoutes()
+		}
+
+		//根据配置初始化pprof路由
+		if s.enableProfiling {
+			s.registerProfilingRoutes()
+		}
+
+		if s.enableMetrics {
+			// get global Monitor object
+			m := ginmetrics.GetMonitor()
+			// +optional set metric path, default /debug/metrics
+			m.SetMetricPath("/metrics")
+			// +optional set slow time, default 5s
+			// +optional set request duration, default {0.1, 0.3, 1.2, 5, 10}
+			// used to p95, p99
+			m.SetDuration([]float64{0.1, 0.3, 1.2, 5, 10})
+			m.Use(s)
+		}
+	})
 }
 
 func (s *Server) registerProfilingRoutes() {

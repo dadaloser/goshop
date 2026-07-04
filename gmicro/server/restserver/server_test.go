@@ -40,6 +40,34 @@ func TestReadyzReturnsUnavailableAfterStop(t *testing.T) {
 	}
 }
 
+func TestRegisterBuiltInRoutesIsIdempotent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	srv := NewServer(
+		WithMode(gin.TestMode),
+		WithHealthCheck(true),
+		WithEnableProfiling(true),
+		WithProfilingToken("secret-token"),
+	)
+
+	srv.registerBuiltInRoutes()
+	srv.registerBuiltInRoutes()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/livez", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("livez status = %d, want 200", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	req.Header.Set("Authorization", "Bearer secret-token")
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("pprof status = %d, want 200", rec.Code)
+	}
+}
+
 func TestDefaultJWTKeyIsEmpty(t *testing.T) {
 	srv := NewServer()
 	if srv.jwt.Key != "" {
