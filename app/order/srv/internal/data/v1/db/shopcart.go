@@ -67,7 +67,7 @@ func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta
 }
 
 func (sc *shopCarts) Create(ctx context.Context, cartItem *do.ShoppingCartDO) error {
-	tx := sc.db.Create(cartItem)
+	tx := sc.db.WithContext(ctx).Create(cartItem)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
@@ -87,21 +87,39 @@ func (sc *shopCarts) Get(ctx context.Context, userID, goodsID uint64) (*do.Shopp
 }
 
 func (sc *shopCarts) UpdateNum(ctx context.Context, cartItem *do.ShoppingCartDO) error {
-	return sc.db.Model(&do.ShoppingCartDO{}).
+	tx := sc.db.WithContext(ctx).Model(&do.ShoppingCartDO{}).
 		Where("user = ? AND goods = ?", cartItem.User, cartItem.Goods).
 		Update("nums", cartItem.Nums).
-		Update("checked", cartItem.Checked).
-		Error
+		Update("checked", cartItem.Checked)
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+	}
+	return nil
 }
 
 func (sc *shopCarts) Delete(ctx context.Context, ID uint64) error {
-	return sc.db.Where("id = ?", ID).Delete(&do.ShoppingCartDO{}).Error
+	tx := sc.db.WithContext(ctx).Where("id = ?", ID).Delete(&do.ShoppingCartDO{})
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+	}
+	return nil
 }
 
 // 清空check状态
 func (sc *shopCarts) ClearCheck(ctx context.Context, userID uint64) error {
-	//TODO implement me
-	panic("implement me")
+	tx := sc.db.WithContext(ctx).Model(&do.ShoppingCartDO{}).
+		Where("user = ? AND checked = ?", userID, true).
+		Update("checked", false)
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	return nil
 }
 
 // todo : 删除选中商品的购物车记录， 下订单了

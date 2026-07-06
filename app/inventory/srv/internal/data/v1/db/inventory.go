@@ -60,7 +60,18 @@ func (i *inventorys) Reduce(ctx context.Context, txn *gorm.DB, goodsID uint64, n
 	if txn != nil {
 		db = txn
 	}
-	return db.Model(&do.InventoryDO{}).Where("goods=?", goodsID).Where("stocks >= ?", num).UpdateColumn("stocks", gorm.Expr("stocks - ?", num)).Error
+	tx := db.WithContext(ctx).
+		Model(&do.InventoryDO{}).
+		Where("goods = ?", goodsID).
+		Where("stocks >= ?", num).
+		UpdateColumn("stocks", gorm.Expr("stocks - ?", num))
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrInvNotEnough, "库存不足")
+	}
+	return nil
 }
 
 func (i *inventorys) Increase(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {
@@ -68,8 +79,17 @@ func (i *inventorys) Increase(ctx context.Context, txn *gorm.DB, goodsID uint64,
 	if txn != nil {
 		db = txn
 	}
-	err := db.Model(&do.InventoryDO{}).Where("goods=?", goodsID).UpdateColumn("stocks", gorm.Expr("stocks + ?", num)).Error
-	return err
+	tx := db.WithContext(ctx).
+		Model(&do.InventoryDO{}).
+		Where("goods = ?", goodsID).
+		UpdateColumn("stocks", gorm.Expr("stocks + ?", num))
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+	}
+	return nil
 }
 
 func (i *inventorys) CreateStockSellDetail(ctx context.Context, txn *gorm.DB, detail *do.StockSellDetailDO) error {

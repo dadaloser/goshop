@@ -1,4 +1,4 @@
-.PHONY: help proto proto-check proto-tools
+.PHONY: help proto proto-check proto-tools panic-check
 
 # Fixed protobuf workflow.
 #
@@ -22,6 +22,7 @@ help:
 	@echo "  make proto        Generate api/**/*.pb.go from api/**/*.proto"
 	@echo "  make proto-check  Regenerate proto files and fail if git diff changes api/"
 	@echo "  make proto-tools  Install pinned protoc Go plugins"
+	@echo "  make panic-check  Fail if business code contains implement-me panics"
 
 proto:
 	go generate ./api
@@ -31,3 +32,6 @@ proto-check:
 
 proto-tools:
 	./scripts/proto-install-tools.sh
+
+panic-check:
+	! rg 'panic\("implement me"\)' app api gmicro

@@ -48,8 +48,7 @@ func (mf *mysqlFactory) Banners() v1.BannerStore {
 }
 
 func (m *mysqlFactory) CategoryBrands() v1.GoodsCategoryBrandStore {
-	//TODO implement me
-	panic("implement me")
+	return newCategoryBrands(m)
 }
 
 var _ v1.DataFactory = &mysqlFactory{}

@@ -41,6 +41,12 @@ cmd启动添加配置文件路径:
 
 
 
+准备
+nacos
+consul
+mysql
+redis
+es
 
 
 运行启动流程:

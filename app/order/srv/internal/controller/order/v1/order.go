@@ -6,6 +6,7 @@ import (
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
 	"goshop/app/order/srv/internal/service/v1"
+	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/log"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -22,23 +23,52 @@ func NewOrderServer(srv service.ServiceFactory) *orderServer {
 }
 
 func (os *orderServer) CartItemList(ctx context.Context, info *pb.UserInfo) (*pb.CartItemListResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	list, err := os.srv.Orders().CartItemList(ctx, uint64(info.Id), metav1.ListMeta{}, []string{})
+	if err != nil {
+		return nil, err
+	}
+	ret := &pb.CartItemListResponse{Total: int32(list.TotalCount)}
+	for _, item := range list.Items {
+		ret.Data = append(ret.Data, shopCartToResponse(item))
+	}
+	return ret, nil
 }
 
 func (os *orderServer) CreateCartItem(ctx context.Context, request *pb.CartItemRequest) (*pb.ShopCartInfoResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	cart, err := os.srv.Orders().CreateCartItem(ctx, &dto.ShopCartDTO{
+		ShoppingCartDO: do.ShoppingCartDO{
+			User:    request.UserId,
+			Goods:   request.GoodsId,
+			Nums:    request.Nums,
+			Checked: request.Checked,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return shopCartToResponse(cart), nil
 }
 
 func (os *orderServer) UpdateCartItem(ctx context.Context, request *pb.CartItemRequest) (*emptypb.Empty, error) {
-	//TODO implement me
-	panic("implement me")
+	err := os.srv.Orders().UpdateCartItem(ctx, &dto.ShopCartDTO{
+		ShoppingCartDO: do.ShoppingCartDO{
+			User:    request.UserId,
+			Goods:   request.GoodsId,
+			Nums:    request.Nums,
+			Checked: request.Checked,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
 func (os *orderServer) DeleteCartItem(ctx context.Context, request *pb.CartItemRequest) (*emptypb.Empty, error) {
-	//TODO implement me
-	panic("implement me")
+	if err := os.srv.Orders().DeleteCartItem(ctx, uint64(request.Id)); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
 // 这个是给分布式事务saga调用的，目前没为api提供的目的
@@ -113,18 +143,87 @@ func (os *orderServer) SubmitOrder(ctx context.Context, request *pb.OrderRequest
 }
 
 func (os *orderServer) OrderList(ctx context.Context, request *pb.OrderFilterRequest) (*pb.OrderListResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	list, err := os.srv.Orders().List(ctx, uint64(request.UserId), metav1.ListMeta{
+		Page:     int(request.Pages),
+		PageSize: int(request.PagePerNums),
+	}, []string{"add_time desc"})
+	if err != nil {
+		return nil, err
+	}
+	ret := &pb.OrderListResponse{Total: int32(list.TotalCount)}
+	for _, item := range list.Items {
+		ret.Data = append(ret.Data, orderToResponse(item))
+	}
+	return ret, nil
 }
 
 func (os *orderServer) OrderDetail(ctx context.Context, request *pb.OrderRequest) (*pb.OrderInfoDetailResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	order, err := os.srv.Orders().Get(ctx, request.OrderSn)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.OrderInfoDetailResponse{
+		OrderInfo: orderToResponse(order),
+		Goods:     orderGoodsToResponse(order.OrderGoods),
+	}, nil
 }
 
 func (os *orderServer) UpdateOrderStatus(ctx context.Context, status *pb.OrderStatus) (*emptypb.Empty, error) {
-	//TODO implement me
-	panic("implement me")
+	orderDTO := &dto.OrderDTO{
+		OrderInfoDO: do.OrderInfoDO{
+			OrderSn: status.OrderSn,
+			Status:  status.Status,
+		},
+	}
+	if status.Id > 0 {
+		orderDTO.ID = status.Id
+	}
+	if err := os.srv.Orders().Update(ctx, orderDTO); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
 }
 
 var _ pb.OrderServer = &orderServer{}
+
+func shopCartToResponse(cart *dto.ShopCartDTO) *pb.ShopCartInfoResponse {
+	return &pb.ShopCartInfoResponse{
+		Id:      cart.ID,
+		UserId:  cart.User,
+		GoodsId: cart.Goods,
+		Nums:    cart.Nums,
+		Checked: cart.Checked,
+	}
+}
+
+func orderToResponse(order *dto.OrderDTO) *pb.OrderInfoResponse {
+	return &pb.OrderInfoResponse{
+		Id:      order.ID,
+		UserId:  order.User,
+		OrderSn: order.OrderSn,
+		PayType: order.PayType,
+		Status:  order.Status,
+		Post:    order.Post,
+		Total:   order.OrderMount,
+		Address: order.Address,
+		Name:    order.SignerName,
+		Mobile:  order.SingerMobile,
+		AddTime: order.CreatedAt.Format("2006-01-02 15:04:05"),
+	}
+}
+
+func orderGoodsToResponse(goods []*do.OrderGoods) []*pb.OrderItemResponse {
+	ret := make([]*pb.OrderItemResponse, 0, len(goods))
+	for _, item := range goods {
+		ret = append(ret, &pb.OrderItemResponse{
+			Id:         item.ID,
+			OrderId:    item.Order,
+			GoodsId:    item.Goods,
+			GoodsName:  item.GoodsName,
+			GoodsImage: item.GoodsImage,
+			GoodsPrice: item.GoodsPrice,
+			Nums:       item.Nums,
+		})
+	}
+	return ret
+}

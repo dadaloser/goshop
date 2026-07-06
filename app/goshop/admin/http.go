@@ -33,7 +33,7 @@ func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 	restServer := restserver.NewServer(opts...)
 
 	//配置好路由
-	initRouter(restServer)
+	initRouter(restServer, cfg)
 
 	return restServer, nil
 }

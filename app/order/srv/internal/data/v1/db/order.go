@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"goshop/app/pkg/code"
 	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
 
@@ -28,7 +29,10 @@ func (o *orders) Get(ctx context.Context, orderSn string) (*do.OrderInfoDO, erro
 	//加链路
 	err := o.db.WithContext(ctx).Preload("OrderGoods").Where("order_sn = ?", orderSn).First(&order).Error
 	if err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.WithCode(code.ErrOrderNotFound, err.Error())
+		}
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 	return &order, nil
 }
@@ -48,7 +52,10 @@ func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, 
 	}
 
 	//排序
-	query := o.db.Preload("OrderGoods")
+	query := o.db.WithContext(ctx).Preload("OrderGoods")
+	if userID > 0 {
+		query = query.Where("user = ?", userID)
+	}
 	for _, value := range orderBy {
 		query = query.Order(value)
 	}
@@ -74,7 +81,22 @@ func (o *orders) Update(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO
 	if txn != nil {
 		db = txn
 	}
-	return db.Model(order).Save(order).Error
+	query := db.WithContext(ctx).Model(&do.OrderInfoDO{})
+	if order.ID > 0 {
+		query = query.Where("id = ?", order.ID)
+	} else {
+		query = query.Where("order_sn = ?", order.OrderSn)
+	}
+	tx := query.Updates(map[string]interface{}{
+		"status": order.Status,
+	})
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrOrderNotFound, "order not found")
+	}
+	return nil
 }
 
 var _ v1.OrderStore = &orders{}

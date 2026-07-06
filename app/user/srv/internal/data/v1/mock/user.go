@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"errors"
 	dv1 "goshop/app/user/srv/internal/data/v1"
 
 	metav1 "goshop/pkg/common/meta/v1"
@@ -12,28 +13,23 @@ type users struct {
 }
 
 func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, errors.New("mock users GetByMobile not implemented")
 }
 
 func (u *users) GetByUsername(ctx context.Context, username string) (*dv1.UserDO, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, errors.New("mock users GetByUsername not implemented")
 }
 
 func (u *users) GetByID(ctx context.Context, id uint64) (*dv1.UserDO, error) {
-	//TODO implement me
-	panic("implement me")
+	return nil, errors.New("mock users GetByID not implemented")
 }
 
 func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
-	//TODO implement me
-	panic("implement me")
+	return errors.New("mock users Create not implemented")
 }
 
 func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
-	//TODO implement me
-	panic("implement me")
+	return errors.New("mock users Update not implemented")
 }
 
 func NewUsers() *users {

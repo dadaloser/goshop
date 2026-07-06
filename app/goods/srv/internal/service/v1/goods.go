@@ -121,6 +121,25 @@ func (gs *goodsService) Get(ctx context.Context, ID uint64) (*dto.GoodsDTO, erro
 	}, nil
 }
 
+func goodsSearchFromDTO(goods *dto.GoodsDTO) do.GoodsSearchDO {
+	return do.GoodsSearchDO{
+		ID:          goods.ID,
+		CategoryID:  goods.CategoryID,
+		BrandsID:    goods.BrandsID,
+		OnSale:      goods.OnSale,
+		ShipFree:    goods.ShipFree,
+		IsNew:       goods.IsNew,
+		IsHot:       goods.IsHot,
+		Name:        goods.Name,
+		ClickNum:    goods.ClickNum,
+		SoldNum:     goods.SoldNum,
+		FavNum:      goods.FavNum,
+		MarketPrice: goods.MarketPrice,
+		GoodsBrief:  goods.GoodsBrief,
+		ShopPrice:   goods.ShopPrice,
+	}
+}
+
 // 可以引入mysql+binlog+canal+kafka来实现最终一致性可靠方案
 func (gs *goodsService) Create(ctx context.Context, goods *dto.GoodsDTO) error {
 	/*
@@ -155,22 +174,7 @@ func (gs *goodsService) Create(ctx context.Context, goods *dto.GoodsDTO) error {
 		txn.Rollback()
 		return err
 	}
-	searchDO := do.GoodsSearchDO{
-		ID:          goods.ID,
-		CategoryID:  goods.CategoryID,
-		BrandsID:    goods.BrandsID,
-		OnSale:      goods.OnSale,
-		ShipFree:    goods.ShipFree,
-		IsNew:       goods.IsNew,
-		IsHot:       goods.IsHot,
-		Name:        goods.Name,
-		ClickNum:    goods.ClickNum,
-		SoldNum:     goods.SoldNum,
-		FavNum:      goods.FavNum,
-		MarketPrice: goods.MarketPrice,
-		GoodsBrief:  goods.GoodsBrief,
-		ShopPrice:   goods.ShopPrice,
-	}
+	searchDO := goodsSearchFromDTO(goods)
 
 	err = gs.searchData.Goods().Create(ctx, &searchDO) //这个接口如果超时了就会出问题
 	if err != nil {
@@ -182,13 +186,46 @@ func (gs *goodsService) Create(ctx context.Context, goods *dto.GoodsDTO) error {
 }
 
 func (gs *goodsService) Update(ctx context.Context, goods *dto.GoodsDTO) error {
-	//TODO implement me
-	panic("implement me")
+	_, err := gs.data.Brands().Get(ctx, uint64(goods.BrandsID))
+	if err != nil {
+		return err
+	}
+
+	_, err = gs.data.Categories().Get(ctx, uint64(goods.CategoryID))
+	if err != nil {
+		return err
+	}
+
+	txn := gs.data.Begin()
+	if txn.Error != nil {
+		return txn.Error
+	}
+	if err := gs.data.Goods().UpdateInTxn(ctx, txn, &goods.GoodsDO); err != nil {
+		txn.Rollback()
+		return err
+	}
+	searchDO := goodsSearchFromDTO(goods)
+	if err := gs.searchData.Goods().Update(ctx, &searchDO); err != nil {
+		txn.Rollback()
+		return err
+	}
+	return txn.Commit().Error
 }
 
 func (gs *goodsService) Delete(ctx context.Context, ID uint64) error {
-	//TODO implement me
-	panic("implement me")
+	txn := gs.data.Begin()
+	if txn.Error != nil {
+		return txn.Error
+	}
+	if err := gs.data.Goods().DeleteInTxn(ctx, txn, ID); err != nil {
+		txn.Rollback()
+		return err
+	}
+	if err := gs.searchData.Goods().Delete(ctx, ID); err != nil {
+		txn.Rollback()
+		return err
+	}
+	return txn.Commit().Error
 }
 
 func (gs *goodsService) BatchGet(ctx context.Context, ids []uint64) ([]*dto.GoodsDTO, error) {

@@ -2,18 +2,56 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
+	"os"
 
 	"goshop/app/pkg/options"
 	"goshop/pkg/app"
 	cliflag "goshop/pkg/common/cli/flag"
 	"goshop/pkg/log"
+
+	"github.com/spf13/pflag"
 )
 
 type Config struct {
 	Log *log.Options `json:"log" mapstructure:"log"`
 
-	Server   *options.ServerOptions   `json:"server" mapstructure:"server"`
-	Registry *options.RegistryOptions `json:"registry" mapstructure:"registry"`
+	Server    *options.ServerOptions   `json:"server" mapstructure:"server"`
+	Registry  *options.RegistryOptions `json:"registry" mapstructure:"registry"`
+	AdminAuth *AdminAuthOptions        `json:"admin-auth" mapstructure:"admin-auth"`
+}
+
+type AdminAuthOptions struct {
+	Token string `json:"token" mapstructure:"token"`
+}
+
+func NewAdminAuthOptions() *AdminAuthOptions {
+	return &AdminAuthOptions{}
+}
+
+func (o *AdminAuthOptions) EffectiveToken() string {
+	if o != nil && o.Token != "" {
+		return o.Token
+	}
+	return os.Getenv("GOSHOP_ADMIN_TOKEN")
+}
+
+func (o *AdminAuthOptions) Validate() []error {
+	return nil
+}
+
+func (o *AdminAuthOptions) ValidateStartup() error {
+	if o.EffectiveToken() == "" {
+		return errors.New("admin-auth.token or GOSHOP_ADMIN_TOKEN is required")
+	}
+	return nil
+}
+
+func (o *AdminAuthOptions) AddFlags(fs *pflag.FlagSet) {
+	if fs == nil {
+		return
+	}
+	fs.StringVar(&o.Token, "admin-auth.token", o.Token, "shared token required for admin routes until full RBAC is enabled")
 }
 
 func (c *Config) Validate() []error {
@@ -21,6 +59,7 @@ func (c *Config) Validate() []error {
 	errors = append(errors, c.Log.Validate()...)
 	errors = append(errors, c.Server.Validate()...)
 	errors = append(errors, c.Registry.Validate()...)
+	errors = append(errors, c.AdminAuth.Validate()...)
 	return errors
 }
 
@@ -30,6 +69,11 @@ func (c *Config) ValidateStartup() error {
 	}
 	if c.Server != nil {
 		if err := c.Server.ValidateStartup(); err != nil {
+			return err
+		}
+	}
+	if c.AdminAuth != nil {
+		if err := c.AdminAuth.ValidateStartup(); err != nil {
 			return err
 		}
 	}
@@ -50,14 +94,16 @@ func (c *Config) Flags() (fss cliflag.NamedFlagSets) {
 	c.Log.AddFlags(fss.FlagSet("logs"))
 	c.Server.AddFlags(fss.FlagSet("server"))
 	c.Registry.AddFlags(fss.FlagSet("registry"))
+	c.AdminAuth.AddFlags(fss.FlagSet("admin-auth"))
 	return fss
 }
 
 func New() *Config {
 	//配置默认初始化
 	return &Config{
-		Log:      log.NewOptions(),
-		Server:   options.NewServerOptions(),
-		Registry: options.NewRegistryOptions(),
+		Log:       log.NewOptions(),
+		Server:    options.NewServerOptions(),
+		Registry:  options.NewRegistryOptions(),
+		AdminAuth: NewAdminAuthOptions(),
 	}
 }
