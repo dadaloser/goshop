@@ -15,23 +15,28 @@ func TestRequireAdminToken(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		configured string
+		opts       *config.AdminAuthOptions
 		header     string
 		wantStatus int
 	}{
 		{
+			name:       "nil options rejects",
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
 			name:       "missing configured token rejects",
+			opts:       &config.AdminAuthOptions{},
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "wrong token rejects",
-			configured: "secret",
+			opts:       &config.AdminAuthOptions{Token: "secret"},
 			header:     "wrong",
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "valid token passes",
-			configured: "secret",
+			opts:       &config.AdminAuthOptions{Token: "secret"},
 			header:     "secret",
 			wantStatus: http.StatusOK,
 		},
@@ -40,9 +45,121 @@ func TestRequireAdminToken(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := gin.New()
-			router.GET("/admin", requireAdminToken(&config.AdminAuthOptions{Token: tt.configured}), func(c *gin.Context) {
+			router.GET("/admin", requireAdminToken(tt.opts), func(c *gin.Context) {
 				c.Status(http.StatusOK)
 			})
+
+			req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+			if tt.header != "" {
+				req.Header.Set("X-Admin-Token", tt.header)
+			}
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestRequireAdminPermission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name       string
+		opts       *config.AdminAuthOptions
+		permission string
+		wantStatus int
+	}{
+		{
+			name:       "nil options rejects",
+			permission: "user:list",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "missing permission rejects",
+			opts:       &config.AdminAuthOptions{Permissions: []string{"goods:list"}},
+			permission: "user:list",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "exact permission passes",
+			opts:       &config.AdminAuthOptions{Permissions: []string{"user:list"}},
+			permission: "user:list",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "global wildcard passes",
+			opts:       &config.AdminAuthOptions{Permissions: []string{"*"}},
+			permission: "user:list",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "resource wildcard passes",
+			opts:       &config.AdminAuthOptions{Permissions: []string{"user:*"}},
+			permission: "user:list",
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.GET("/admin", requireAdminPermission(tt.opts, tt.permission), func(c *gin.Context) {
+				c.Status(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestAdminAuthChain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name       string
+		opts       *config.AdminAuthOptions
+		header     string
+		wantStatus int
+	}{
+		{
+			name:       "valid token without permission rejects",
+			opts:       &config.AdminAuthOptions{Token: "secret"},
+			header:     "secret",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "wrong token with permission rejects",
+			opts:       &config.AdminAuthOptions{Token: "secret", Permissions: []string{"user:list"}},
+			header:     "wrong",
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "valid token and permission passes",
+			opts:       &config.AdminAuthOptions{Token: "secret", Permissions: []string{"user:list"}},
+			header:     "secret",
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.GET("/admin",
+				requireAdminToken(tt.opts),
+				requireAdminPermission(tt.opts, "user:list"),
+				func(c *gin.Context) {
+					c.Status(http.StatusOK)
+				},
+			)
 
 			req := httptest.NewRequest(http.MethodGet, "/admin", nil)
 			if tt.header != "" {

@@ -1,11 +1,12 @@
 server:
   name: goshop-order-srv #服务名，注册到consul使用的名称
-  host: "127.0.0.1" #host, 默认使用 0.0.0.0
-  port: 8020 # grpc 安全模式的端口号，默认 8081
+  host: "0.0.0.0" #host, 默认使用 0.0.0.0
+  port: 8013 # grpc 安全模式的端口号，默认 8081
   http-port: 8053
   healthz: true # 是否开启健康检查，如果开启会安装 /healthz 路由，默认 true
   enable-metrics: true # 开启 metrics, router:  /metrics
-  profiling: true # 开启性能分析, 可以通过 <host>:<port>/debug/pprof/地址查看程序栈、线程等系统信息，默认值为 true
+  profiling: false # 开启性能分析, 可以通过 <host>:<port>/debug/pprof/地址查看程序栈、线程等系统信息，默认值为 true
+  profiling-token: ""
 
 log:
   name: goshop-order-srv #logger的名称
@@ -19,26 +20,27 @@ log:
   error-output-paths: logs/goshop-order-srv.error.log # zap内部(非业务)错误日志输出路径，多个输出，逗号分开
 
 registry:
-  address: 127.0.0.1:8500
+  address: 192.168.1.92:8500
   scheme: http
 
 telemetry:
-  Name: goshop-inventory-srv
+  Name: goshop-order-srv
   Endpoint: http://127.0.0.1:14268/api/traces
   Sampler: 1.0
   Bathcer: jaeger
 
 # MySQL 数据库相关配置
 mysql:
-  host: "127.0.0.1" # MySQL 机器 ip，默认 127.0.0.1
+  host: "103.119.16.145" # MySQL 机器 ip，默认 127.0.0.1
   port: "3306"
-  password: "root" # MySQL 用户密码
-  username: "root" # MySQL 用户名(建议授权最小权限集)
-  database: "mxshop_order_srv" # iam 系统所用的数据库名
+  username: "" # use ORDER_MYSQL_USERNAME or secret manager in production
+  password: "" # use ORDER_MYSQL_PASSWORD or secret manager in production
+  database: "goshop_order_srv" # iam 系统所用的数据库名
   max-idle-connections: 100 # MySQL 最大空闲连接数，默认 100
   max-open-connections: 100 # MySQL 最大打开的连接数，默认 100
   max-connection-life-time: 10s # 空闲连接最大存活时间，默认 10s
   log-level: 4 # GORM log level, 1: silent, 2:error, 3:warn, 4:info
+  auto-migrate: false # 生产环境禁止应用启动时自动改表，使用 migration 工具
 
 dtm:
   grpc: "127.0.0.1:36790"

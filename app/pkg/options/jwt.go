@@ -28,7 +28,7 @@ func NewJwtOptions() *JwtOptions {
 func (s *JwtOptions) Validate() []error {
 	var errs []error
 
-	if !govalidator.StringLength(s.Key, "6", "64") {
+	if s.Key != "" && !govalidator.StringLength(s.Key, "6", "64") {
 		errs = append(errs, fmt.Errorf("--secret-key must larger than 5 and little than 65"))
 	}
 

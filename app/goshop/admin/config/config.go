@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 
 	"goshop/app/pkg/options"
 	"goshop/pkg/app"
@@ -22,7 +23,8 @@ type Config struct {
 }
 
 type AdminAuthOptions struct {
-	Token string `json:"token" mapstructure:"token"`
+	Token       string   `json:"token" mapstructure:"token"`
+	Permissions []string `json:"permissions" mapstructure:"permissions"`
 }
 
 func NewAdminAuthOptions() *AdminAuthOptions {
@@ -36,6 +38,49 @@ func (o *AdminAuthOptions) EffectiveToken() string {
 	return os.Getenv("GOSHOP_ADMIN_TOKEN")
 }
 
+func (o *AdminAuthOptions) EffectivePermissions() []string {
+	if o != nil && len(o.Permissions) > 0 {
+		return normalizePermissions(o.Permissions)
+	}
+	return normalizePermissions(strings.Split(os.Getenv("GOSHOP_ADMIN_PERMISSIONS"), ","))
+}
+
+func (o *AdminAuthOptions) HasPermission(permission string) bool {
+	permission = strings.TrimSpace(permission)
+	if permission == "" {
+		return true
+	}
+	for _, candidate := range o.EffectivePermissions() {
+		if candidate == "*" || candidate == permission {
+			return true
+		}
+		if strings.HasSuffix(candidate, ":*") {
+			prefix := strings.TrimSuffix(candidate, "*")
+			if strings.HasPrefix(permission, prefix) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func normalizePermissions(values []string) []string {
+	permissions := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		permission := strings.TrimSpace(value)
+		if permission == "" {
+			continue
+		}
+		if _, ok := seen[permission]; ok {
+			continue
+		}
+		seen[permission] = struct{}{}
+		permissions = append(permissions, permission)
+	}
+	return permissions
+}
+
 func (o *AdminAuthOptions) Validate() []error {
 	return nil
 }
@@ -43,6 +88,9 @@ func (o *AdminAuthOptions) Validate() []error {
 func (o *AdminAuthOptions) ValidateStartup() error {
 	if o.EffectiveToken() == "" {
 		return errors.New("admin-auth.token or GOSHOP_ADMIN_TOKEN is required")
+	}
+	if len(o.EffectivePermissions()) == 0 {
+		return errors.New("admin-auth.permissions or GOSHOP_ADMIN_PERMISSIONS is required")
 	}
 	return nil
 }
@@ -52,6 +100,7 @@ func (o *AdminAuthOptions) AddFlags(fs *pflag.FlagSet) {
 		return
 	}
 	fs.StringVar(&o.Token, "admin-auth.token", o.Token, "shared token required for admin routes until full RBAC is enabled")
+	fs.StringSliceVar(&o.Permissions, "admin-auth.permissions", o.Permissions, "permissions granted to the bootstrap admin token, for example user:list or user:*")
 }
 
 func (c *Config) Validate() []error {
@@ -72,10 +121,11 @@ func (c *Config) ValidateStartup() error {
 			return err
 		}
 	}
-	if c.AdminAuth != nil {
-		if err := c.AdminAuth.ValidateStartup(); err != nil {
-			return err
-		}
+	if c.AdminAuth == nil {
+		return errors.New("admin-auth config is required")
+	}
+	if err := c.AdminAuth.ValidateStartup(); err != nil {
+		return err
 	}
 	return nil
 }

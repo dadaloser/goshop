@@ -22,6 +22,15 @@ func TestJwtOptionsValidateStartupRejectsDefaultKey(t *testing.T) {
 	}
 }
 
+func TestJwtOptionsValidateAllowsExternalSecretInjection(t *testing.T) {
+	opts := NewJwtOptions()
+	opts.Key = ""
+
+	if errs := opts.Validate(); len(errs) != 0 {
+		t.Fatalf("Validate() errors = %v, want none", errs)
+	}
+}
+
 func TestMySQLOptionsValidateStartup(t *testing.T) {
 	opts := NewMySQLOptions()
 	opts.Username = "user"
@@ -30,6 +39,25 @@ func TestMySQLOptionsValidateStartup(t *testing.T) {
 
 	if err := opts.ValidateStartup(); err != nil {
 		t.Fatalf("ValidateStartup() error = %v", err)
+	}
+}
+
+func TestMySQLOptionsValidateAllowsExternalSecretInjection(t *testing.T) {
+	opts := NewMySQLOptions()
+	opts.Username = ""
+	opts.Password = ""
+	opts.Database = ""
+
+	if errs := opts.Validate(); len(errs) != 0 {
+		t.Fatalf("Validate() errors = %v, want none", errs)
+	}
+}
+
+func TestNewMySQLOptionsDisablesAutoMigrateByDefault(t *testing.T) {
+	opts := NewMySQLOptions()
+
+	if opts.AutoMigrate {
+		t.Fatal("NewMySQLOptions().AutoMigrate = true, want false")
 	}
 }
 

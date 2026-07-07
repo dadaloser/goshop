@@ -19,6 +19,7 @@ type MySQLOptions struct {
 	MaxOpenConnections    int           `mapstructure:"max-open-connections" json:"max-open-connections,omitempty"`
 	MaxConnectionLifetime time.Duration `mapstructure:"max-connection-life-time" json:"max-connection-life-time,omitempty"`
 	LogLevel              int           `mapstructure:"log-level" json:"log-level"`
+	AutoMigrate           bool          `mapstructure:"auto-migrate" json:"auto-migrate,omitempty"`
 }
 
 // NewMySQLOptions create a `zero` value instance.
@@ -46,15 +47,6 @@ func (o *MySQLOptions) Validate() []error {
 		errs = append(errs, fmt.Errorf("mysql.port must be numeric: %w", err))
 	} else if port <= 0 || port > 65535 {
 		errs = append(errs, fmt.Errorf("mysql.port must be between 1 and 65535, got %d", port))
-	}
-	if o.Username == "" {
-		errs = append(errs, errors.New("mysql.username is required"))
-	}
-	if o.Password == "" {
-		errs = append(errs, errors.New("mysql.password is required"))
-	}
-	if o.Database == "" {
-		errs = append(errs, errors.New("mysql.database is required"))
 	}
 	if o.MaxIdleConnections < 0 {
 		errs = append(errs, errors.New("mysql.max-idle-connections must not be negative"))
@@ -136,4 +128,7 @@ func (mo *MySQLOptions) AddFlags(fs *pflag.FlagSet) {
 
 	fs.IntVar(&mo.LogLevel, "mysql.log-mode", mo.LogLevel, ""+
 		"Specify gorm log level.")
+
+	fs.BoolVar(&mo.AutoMigrate, "mysql.auto-migrate", mo.AutoMigrate, ""+
+		"Run GORM AutoMigrate on startup. Keep disabled in production and use reviewed SQL migrations instead.")
 }

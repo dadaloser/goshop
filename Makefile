@@ -1,4 +1,4 @@
-.PHONY: help proto proto-check proto-tools panic-check
+.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check
 
 # Fixed protobuf workflow.
 #
@@ -23,6 +23,8 @@ help:
 	@echo "  make proto-check  Regenerate proto files and fail if git diff changes api/"
 	@echo "  make proto-tools  Install pinned protoc Go plugins"
 	@echo "  make panic-check  Fail if business code contains implement-me panics"
+	@echo "  make migration-check  Fail on unsafe application-managed schema migration"
+	@echo "  make config-secret-check  Fail if configs contain known secrets or unsafe defaults"
 
 proto:
 	go generate ./api
@@ -35,3 +37,9 @@ proto-tools:
 
 panic-check:
 	! rg 'panic\("implement me"\)' app api gmicro
+
+migration-check:
+	bash ./scripts/migration-check.sh
+
+config-secret-check:
+	bash ./scripts/config-secret-check.sh

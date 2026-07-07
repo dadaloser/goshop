@@ -43,6 +43,12 @@ jobs:
       - name: Check unfinished panic placeholders
         run: make panic-check
 
+      - name: Check database migration policy
+        run: make migration-check
+
+      - name: Check config secrets
+        run: make config-secret-check
+
       - name: Check protobuf drift
         run: make proto-check
 

@@ -51,10 +51,12 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 		sqlDB.SetMaxOpenConns(mysqlOpts.MaxOpenConnections)
 		sqlDB.SetMaxIdleConns(mysqlOpts.MaxIdleConnections)
 		sqlDB.SetConnMaxLifetime(mysqlOpts.MaxConnectionLifetime)
-		if err = migrateUserSchema(dbFactory); err != nil {
-			_ = sqlDB.Close()
-			dbFactory = nil
-			return
+		if mysqlOpts.AutoMigrate {
+			if err = migrateUserSchema(dbFactory); err != nil {
+				_ = sqlDB.Close()
+				dbFactory = nil
+				return
+			}
 		}
 		if err = validateUserSchema(dbFactory); err != nil {
 			_ = sqlDB.Close()

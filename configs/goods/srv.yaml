@@ -1,13 +1,12 @@
-
-
 server:
   name: goshop-goods-srv #服务名，注册到consul使用的名称
-  host: "127.0.0.1" #host, 默认使用 0.0.0.0
-  port: 8018 # grpc 安全模式的端口号，默认 8081
+  host: "192.168.1.2" #host, 使用可被 Consul 和其他服务访问的本机局域网 IP
+  port: 8010 # grpc 安全模式的端口号，默认 8081
   http-port: 8051
   healthz: true # 是否开启健康检查，如果开启会安装 /healthz 路由，默认 true
   enable-metrics: true # 开启 metrics, router:  /metrics
-  profiling: true # 开启性能分析, 可以通过 <host>:<port>/debug/pprof/地址查看程序栈、线程等系统信息，默认值为 true
+  profiling: false # 本地单独启动默认关闭 pprof；需要开启时必须同时配置 profiling-token
+  profiling-token: ""
 
 log:
   name: goshop-goods-srv #logger的名称
@@ -21,27 +20,28 @@ log:
   error-output-paths: logs/goshop-goods-srv.error.log # zap内部(非业务)错误日志输出路径，多个输出，逗号分开
 
 registry:
-  address: 127.0.0.1:8500
+  address: 192.168.1.92:8500
   scheme: http
 
 telemetry:
-  Name: goshop-goods-srv
-  Endpoint: http://127.0.0.1:14268/api/traces
-  Sampler: 1.0
-  Bathcer: jaeger
+  name: goshop-goods-srv
+  endpoint: "" # 本地单独启动默认关闭 trace 导出；需要链路追踪时改为 collector 地址
+  sampler: 1.0
+  batcher: jaeger
 
 # MySQL 数据库相关配置
 mysql:
-  host: "127.0.0.1" # MySQL 机器 ip，默认 127.0.0.1
+  host: "103.119.16.145" # MySQL 机器 ip，默认 127.0.0.1
   port: "3306"
-  username: "admin" # MySQL 用户名(建议授权最小权限集)
-  password: "admin@123" # MySQL 用户密码
-  database: "mxshop_goods_srv" # iam 系统所用的数据库名
+  username: "" # use GOODS_MYSQL_USERNAME or secret manager in production
+  password: "" # use GOODS_MYSQL_PASSWORD or secret manager in production
+  database: "goshop_goods_srv" # iam 系统所用的数据库名
   max-idle-connections: 100 # MySQL 最大空闲连接数，默认 100
   max-open-connections: 100 # MySQL 最大打开的连接数，默认 100
   max-connection-life-time: 10s # 空闲连接最大存活时间，默认 10s
   log-level: 4 # GORM log level, 1: silent, 2:error, 3:warn, 4:info
+  auto-migrate: false # 生产环境禁止应用启动时自动改表，使用 migration 工具
 
 es:
-  host: "127.0.0.1" # redis 地址，默认 127.0.0.1:9200
+  host: "192.168.1.119" # redis 地址，默认 127.0.0.1:9200
   port: 9200 # es 端口，默认 9200

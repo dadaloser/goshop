@@ -2,7 +2,6 @@ package mysql
 
 import (
 	"fmt"
-	"goshop/app/inventory/srv/internal/domain/do"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	"log"
@@ -79,21 +78,6 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (v12.DataFactory, error) {
 		return nil, errors.WrapC(err, code.ErrConnectDB, "failed to get mysql store factory")
 	}
 	return dbFactory, nil
-}
-
-// migrateDatabase run auto migration for given models, will only add missing fields,
-// won't delete/change current data.
-// nolint:unused // may be reused in the feature, or just show a migrate usage.
-func MigrateDatabase(db *gorm.DB) error {
-	//if err := db.AutoMigrate(&v12.Inventory{}); err != nil {
-	//	return errors.Wrap(err, "migrate inventory model failed")
-	//}
-
-	if err := db.AutoMigrate(&do.StockSellDetailDO{}); err != nil {
-		return errors.Wrap(err, "migrate brand model failed")
-	}
-
-	return nil
 }
 
 func (ds *mysqlStore) Begin() *gorm.DB {

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"crypto/subtle"
 	"net/http"
 
 	"goshop/app/goshop/admin/config"
@@ -16,14 +17,17 @@ func initRouter(g *restserver.Server, cfg *config.Config) {
 	adminAuth := requireAdminToken(cfg.AdminAuth)
 	ugroup := v1.Group("/user", adminAuth)
 	ucontroller := controller.NewUserController()
-	ugroup.GET("list", ucontroller.List)
+	ugroup.GET("list", requireAdminPermission(cfg.AdminAuth, "user:list"), ucontroller.List)
 }
 
 func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {
 	const headerName = "X-Admin-Token"
 
 	return func(c *gin.Context) {
-		expected := opts.EffectiveToken()
+		expected := ""
+		if opts != nil {
+			expected = opts.EffectiveToken()
+		}
 		if expected == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":   http.StatusUnauthorized,
@@ -33,7 +37,7 @@ func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {
 			return
 		}
 
-		if c.GetHeader(headerName) != expected {
+		if !adminTokenEqual(expected, c.GetHeader(headerName)) {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code": http.StatusUnauthorized,
 				"msg":  "invalid admin token",
@@ -42,4 +46,25 @@ func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func requireAdminPermission(opts *config.AdminAuthOptions, permission string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if opts == nil || !opts.HasPermission(permission) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code":       http.StatusForbidden,
+				"msg":        "admin permission denied",
+				"permission": permission,
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+func adminTokenEqual(expected, got string) bool {
+	if expected == "" || got == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(got)) == 1
 }
