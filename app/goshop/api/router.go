@@ -11,6 +11,7 @@ import (
 	"goshop/app/goshop/api/internal/loginattempt"
 	"goshop/app/goshop/api/internal/service"
 	"goshop/app/goshop/api/internal/smscode"
+	"goshop/app/goshop/api/internal/smslimit"
 	"goshop/app/goshop/api/internal/tokenrevocation"
 	"goshop/gmicro/server/restserver"
 )
@@ -27,6 +28,7 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 
 	codeStore := smscode.NewRedisStore()
 	loginAttempts := loginattempt.NewRedisStore()
+	smsLimiter := smslimit.NewRedisStore()
 	revokedTokens := tokenrevocation.NewRedisStore()
 	//原来的过程其实很复杂
 	serviceFactory := service.NewService(data, cfg.Sms, cfg.Jwt, codeStore, loginAttempts)
@@ -47,7 +49,7 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 
 	baseRouter := v1.Group("base")
 	{
-		smsCtl := v12.NewSmsController(serviceFactory, g.Translator(), codeStore)
+		smsCtl := v12.NewSmsController(serviceFactory, g.Translator(), codeStore, smsLimiter)
 		baseRouter.POST("send_sms", smsCtl.SendSms)
 		baseRouter.GET("captcha", user.GetCaptcha)
 	}

@@ -5,6 +5,7 @@ import (
 	"goshop/app/goshop/api/internal/service"
 	v1 "goshop/app/goshop/api/internal/service/sms/v1"
 	"goshop/app/goshop/api/internal/smscode"
+	"goshop/app/goshop/api/internal/smslimit"
 	"goshop/app/pkg/code"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
@@ -26,10 +27,11 @@ type SmsController struct {
 	sf        service.ServiceFactory
 	trans     ut.Translator
 	codeStore smscode.Store
+	limiter   smslimit.Store
 }
 
-func NewSmsController(sf service.ServiceFactory, trans ut.Translator, codeStore smscode.Store) *SmsController {
-	return &SmsController{sf: sf, trans: trans, codeStore: codeStore}
+func NewSmsController(sf service.ServiceFactory, trans ut.Translator, codeStore smscode.Store, limiter smslimit.Store) *SmsController {
+	return &SmsController{sf: sf, trans: trans, codeStore: codeStore, limiter: limiter}
 }
 
 func (sc *SmsController) SendSms(c *gin.Context) {
@@ -42,6 +44,18 @@ func (sc *SmsController) SendSms(c *gin.Context) {
 	if !captcha.Verify(sendSmsForm.CaptchaId, sendSmsForm.Captcha, true) {
 		core.WriteResponse(c, errors.WithCode(code.ErrCodeInCorrect, "验证码错误"), nil)
 		return
+	}
+
+	if sc.limiter != nil {
+		allowed, err := sc.limiter.Take(c.Request.Context(), sendSmsForm.Mobile, sendSmsForm.Type)
+		if err != nil {
+			core.WriteResponse(c, errors.WithCode(code.ErrSmsRateLimited, "短信发送暂时不可用，请稍后重试"), nil)
+			return
+		}
+		if !allowed {
+			core.WriteResponse(c, errors.WithCode(code.ErrSmsRateLimited, "短信发送过于频繁，请稍后重试"), nil)
+			return
+		}
 	}
 
 	smsCode, err := v1.GenerateSmsCode(6)

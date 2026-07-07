@@ -21,4 +21,7 @@ const (
 
 	// ErrUserLoginLocked - 403: User login is temporarily locked.
 	ErrUserLoginLocked
+
+	// ErrSmsRateLimited - 403: Sms send is temporarily rate limited.
+	ErrSmsRateLimited
 )
