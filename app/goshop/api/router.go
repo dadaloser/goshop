@@ -10,6 +10,7 @@ import (
 	"goshop/app/goshop/api/internal/data/rpc"
 	"goshop/app/goshop/api/internal/service"
 	"goshop/app/goshop/api/internal/smscode"
+	"goshop/app/goshop/api/internal/tokenrevocation"
 	"goshop/gmicro/server/restserver"
 )
 
@@ -24,15 +25,16 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	}
 
 	codeStore := smscode.NewRedisStore()
+	revokedTokens := tokenrevocation.NewRedisStore()
 	//原来的过程其实很复杂
 	serviceFactory := service.NewService(data, cfg.Sms, cfg.Jwt, codeStore)
-	uController := user.NewUserController(g.Translator(), serviceFactory)
+	uController := user.NewUserController(g.Translator(), serviceFactory, revokedTokens)
 	{
 		uGroup.POST("pwd_login", uController.Login)
 		uGroup.POST("sms_login", uController.SmsLogin)
 		uGroup.POST("register", uController.Register)
 
-		jwtAuth, err := newJWTAuth(cfg.Jwt)
+		jwtAuth, err := newJWTAuth(cfg.Jwt, revokedTokens)
 		if err != nil {
 			return err
 		}

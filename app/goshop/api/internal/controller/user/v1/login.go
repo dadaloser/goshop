@@ -41,7 +41,7 @@ func (us *userServer) Login(ctx *gin.Context) {
 		username = strings.TrimSpace(passwordLoginForm.Mobile)
 	}
 	if !isLoginUsername(username) {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrUserPasswordIncorrect, "手机号或邮箱格式错误"), nil)
+		core.WriteResponse(ctx, errors.WithCode(code.ErrUserPasswordIncorrect, "用户名、手机号或邮箱格式错误"), nil)
 		return
 	}
 
@@ -92,6 +92,10 @@ func isLoginUsername(username string) bool {
 	if _, err := mail.ParseAddress(username); err == nil {
 		return true
 	}
-	ok, _ := regexp.MatchString(`^1([38][0-9]|14[579]|5[^4]|16[6]|7[1-35-8]|9[189])\d{8}$`, username)
+	ok, _ := regexp.MatchString(`^[A-Za-z][A-Za-z0-9_]{2,31}$`, username)
+	if ok {
+		return true
+	}
+	ok, _ = regexp.MatchString(`^1([38][0-9]|14[579]|5[^4]|16[6]|7[1-35-8]|9[189])\d{8}$`, username)
 	return ok
 }

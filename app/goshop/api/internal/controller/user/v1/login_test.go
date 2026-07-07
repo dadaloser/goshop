@@ -10,9 +10,12 @@ func TestIsLoginUsername(t *testing.T) {
 	}{
 		{name: "mobile", username: "13800138000", want: true},
 		{name: "email", username: "user@example.com", want: true},
+		{name: "username", username: "user_001", want: true},
 		{name: "empty", username: "", want: false},
 		{name: "bad mobile", username: "12345", want: false},
 		{name: "bad email", username: "user@", want: false},
+		{name: "starts with number", username: "1user", want: false},
+		{name: "contains punctuation", username: "user-name", want: false},
 	}
 
 	for _, tt := range tests {

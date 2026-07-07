@@ -14,7 +14,7 @@ func (u *userServer) CreateUser(ctx context.Context, request *upbv1.CreateUserIn
 
 	userDO := v12.UserDO{
 		Mobile:   request.Mobile,
-		Email:    request.Email,
+		Email:    optionalString(request.Email),
 		NickName: request.NickName,
 		Password: request.PassWord,
 	}

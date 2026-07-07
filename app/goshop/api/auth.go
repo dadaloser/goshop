@@ -3,9 +3,11 @@ package api
 import (
 	"fmt"
 
+	"goshop/app/goshop/api/internal/tokenrevocation"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/gmicro/server/restserver/middlewares/auth"
+	"goshop/pkg/log"
 
 	"github.com/gin-gonic/gin"
 
@@ -13,7 +15,7 @@ import (
 )
 
 // 可以在此处使用别的中间件来实现认证授权
-func newJWTAuth(opts *options.JwtOptions) (middlewares.AuthStrategy, error) {
+func newJWTAuth(opts *options.JwtOptions, revokedTokens tokenrevocation.Store) (middlewares.AuthStrategy, error) {
 	if opts == nil {
 		return nil, fmt.Errorf("jwt options are required")
 	}
@@ -28,8 +30,27 @@ func newJWTAuth(opts *options.JwtOptions) (middlewares.AuthStrategy, error) {
 		},
 		IdentityHandler: claimHandlerFun,
 		IdentityKey:     middlewares.KeyUserID,
-		TokenLookup:     "header: Authorization:, query: token, cookie: jwt",
-		TokenHeadName:   "Bearer",
+		Authorizator: func(_ interface{}, c *gin.Context) bool {
+			if revokedTokens == nil {
+				return true
+			}
+			rawToken, ok := c.Get("JWT_TOKEN")
+			if !ok {
+				return false
+			}
+			token, ok := rawToken.(string)
+			if !ok {
+				return false
+			}
+			revoked, err := revokedTokens.IsRevoked(c.Request.Context(), token)
+			if err != nil {
+				log.Errorf("check jwt revocation failed: %v", err)
+				return false
+			}
+			return !revoked
+		},
+		TokenLookup:   "header: Authorization:, query: token, cookie: jwt",
+		TokenHeadName: "Bearer",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create jwt middleware: %w", err)

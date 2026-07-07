@@ -44,7 +44,7 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, er
 func (u *users) GetByUsername(ctx context.Context, username string) (*dv1.UserDO, error) {
 	user := dv1.UserDO{}
 	err := u.db.WithContext(ctx).
-		Where("mobile = ? OR email = ?", username, username).
+		Where("username = ? OR mobile = ? OR email = ?", username, username, username).
 		First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -98,14 +98,19 @@ func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
 //	@param user
 //	@return error
 func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
+	updates := map[string]interface{}{
+		"nick_name": user.NickName,
+		"gender":    user.Gender,
+		"birthday":  user.Birthday,
+		"email":     user.Email,
+	}
+	if user.Username != nil {
+		updates["username"] = user.Username
+	}
+
 	tx := u.db.WithContext(ctx).Model(&dv1.UserDO{}).
 		Where("id = ?", user.ID).
-		Updates(map[string]interface{}{
-			"nick_name": user.NickName,
-			"gender":    user.Gender,
-			"birthday":  user.Birthday,
-			"email":     user.Email,
-		})
+		Updates(updates)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}

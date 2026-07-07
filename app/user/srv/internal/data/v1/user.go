@@ -26,8 +26,9 @@ type BaseModel struct {
 */
 type UserDO struct {
 	BaseModel
+	Username *string    `gorm:"uniqueIndex:idx_username;type:varchar(32)"`
 	Mobile   string     `gorm:"index:idx_mobile;unique;type:varchar(11);not null"`
-	Email    string     `gorm:"index:idx_email;type:varchar(100)"`
+	Email    *string    `gorm:"uniqueIndex:idx_email;type:varchar(100)"`
 	Password string     `gorm:"type:varchar(100);not null"`
 	NickName string     `gorm:"type:varchar(20)"`
 	Birthday *time.Time `gorm:"type:datetime"`

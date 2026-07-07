@@ -2,6 +2,10 @@ package v1
 
 import (
 	"context"
+	"net/mail"
+	"regexp"
+	"strings"
+
 	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
 	code2 "goshop/gmicro/code"
@@ -28,7 +32,22 @@ type userService struct {
 	userStore dv1.UserStore
 }
 
+var (
+	usernamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{2,31}$`)
+	mobilePattern   = regexp.MustCompile(`^1([38][0-9]|14[579]|5[^4]|16[6]|7[1-35-8]|9[189])\d{8}$`)
+)
+
 func (u *userService) Create(ctx context.Context, user *UserDTO) error {
+	if user == nil {
+		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+	}
+	if err := normalizeUserIdentifiers(user); err != nil {
+		return err
+	}
+	if !mobilePattern.MatchString(user.Mobile) {
+		return errors.WithCode(code2.ErrValidation, "手机号格式错误")
+	}
+
 	//先判断用户是否存在
 	if _, err := u.userStore.GetByMobile(ctx, user.Mobile); err == nil {
 		return errors.WithCode(code.ErrUserAlreadyExists, "用户已经存在")
@@ -36,9 +55,17 @@ func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 		return err
 	}
 
-	if user.Email != "" {
-		if _, err := u.userStore.GetByUsername(ctx, user.Email); err == nil {
+	if user.Email != nil {
+		if _, err := u.userStore.GetByUsername(ctx, *user.Email); err == nil {
 			return errors.WithCode(code.ErrUserAlreadyExists, "邮箱已经存在")
+		} else if !errors.IsCode(err, code.ErrUserNotFound) {
+			return err
+		}
+	}
+
+	if user.Username != nil {
+		if _, err := u.userStore.GetByUsername(ctx, *user.Username); err == nil {
+			return errors.WithCode(code.ErrUserAlreadyExists, "用户名已经存在")
 		} else if !errors.IsCode(err, code.ErrUserNotFound) {
 			return err
 		}
@@ -53,6 +80,13 @@ func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 }
 
 func (u *userService) Update(ctx context.Context, user *UserDTO) error {
+	if user == nil {
+		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+	}
+	if err := normalizeUserIdentifiers(user); err != nil {
+		return err
+	}
+
 	//先查询用户是否存在
 	_, err := u.userStore.GetByID(ctx, uint64(user.ID))
 	if err != nil {
@@ -81,6 +115,11 @@ func (u *userService) GetByMobile(ctx context.Context, mobile string) (*UserDTO,
 }
 
 func (u *userService) GetByUsername(ctx context.Context, username string) (*UserDTO, error) {
+	username = normalizeLoginIdentifier(username)
+	if username == "" {
+		return nil, errors.WithCode(code2.ErrValidation, "登录标识不能为空")
+	}
+
 	userDO, err := u.userStore.GetByUsername(ctx, username)
 	if err != nil {
 		return nil, err
@@ -93,6 +132,60 @@ func NewUserService(us dv1.UserStore) UserSrv {
 	return &userService{
 		userStore: us,
 	}
+}
+
+func (u *UserDTO) UsernameValue() string {
+	if u == nil || u.Username == nil {
+		return ""
+	}
+	return *u.Username
+}
+
+func (u *UserDTO) EmailValue() string {
+	if u == nil || u.Email == nil {
+		return ""
+	}
+	return *u.Email
+}
+
+func normalizeUserIdentifiers(user *UserDTO) error {
+	user.Mobile = strings.TrimSpace(user.Mobile)
+	user.Username = normalizeUsername(user.UsernameValue())
+	user.Email = normalizeEmail(user.EmailValue())
+
+	if user.Username != nil && !usernamePattern.MatchString(*user.Username) {
+		return errors.WithCode(code2.ErrValidation, "用户名格式错误")
+	}
+	if user.Email != nil && !isEmailAddress(*user.Email) {
+		return errors.WithCode(code2.ErrValidation, "邮箱格式错误")
+	}
+	return nil
+}
+
+func normalizeUsername(value string) *string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func normalizeEmail(value string) *string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func normalizeLoginIdentifier(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	return value
+}
+
+func isEmailAddress(value string) bool {
+	address, err := mail.ParseAddress(value)
+	return err == nil && address.Name == "" && address.Address == value
 }
 
 var _ UserSrv = &userService{}

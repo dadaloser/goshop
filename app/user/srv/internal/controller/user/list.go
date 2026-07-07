@@ -18,7 +18,9 @@ func DTOToResponse(userDTO srvv1.UserDTO) *upbv1.UserInfoResponse {
 		Gender:   userDTO.Gender,
 		Role:     int32(userDTO.Role),
 		Mobile:   userDTO.Mobile,
-		Email:    userDTO.Email,
+	}
+	if userDTO.Email != nil {
+		userInfoRsp.Email = *userDTO.Email
 	}
 	if userDTO.Birthday != nil {
 		userInfoRsp.BirthDay = uint64(userDTO.Birthday.Unix())
@@ -49,4 +51,11 @@ func (us *userServer) GetUserList(ctx context.Context, info *upbv1.PageInfo) (*u
 		rsp.Data = append(rsp.Data, userRsp)
 	}
 	return &rsp, nil
+}
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }

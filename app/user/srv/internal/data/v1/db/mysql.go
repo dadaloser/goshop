@@ -96,6 +96,7 @@ func validateUserSchema(db *gorm.DB) error {
 		"update_time",
 		"deleted_at",
 		"is_deleted",
+		"username",
 		"mobile",
 		"email",
 		"password",
