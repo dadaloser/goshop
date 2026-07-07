@@ -99,6 +99,14 @@ func (os *orderServer) CreateOrder(ctx context.Context, request *pb.OrderRequest
 }
 
 func (os *orderServer) CreateOrderCom(ctx context.Context, request *pb.OrderRequest) (*emptypb.Empty, error) {
+	err := os.srv.Orders().CreateCom(ctx, &dto.OrderDTO{
+		OrderInfoDO: do.OrderInfoDO{
+			OrderSn: request.OrderSn,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &emptypb.Empty{}, nil
 }
 

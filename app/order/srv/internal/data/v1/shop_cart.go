@@ -18,4 +18,5 @@ type ShopCartStore interface {
 	ClearCheck(ctx context.Context, userID uint64) error
 
 	DeleteByGoodsIDs(ctx context.Context, txn *gorm.DB, userID uint64, goodsIDs []int32) error
+	RestoreCheckedItems(ctx context.Context, txn *gorm.DB, userID uint64, items []*do.OrderGoods) error
 }

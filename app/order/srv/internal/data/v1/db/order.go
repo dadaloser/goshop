@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"strings"
+
 	"goshop/app/pkg/code"
 	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
@@ -51,8 +53,16 @@ func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, 
 		offset = (meta.Page - 1) * limit
 	}
 
+	countQuery := o.db.WithContext(ctx).Model(&do.OrderInfoDO{})
+	if userID > 0 {
+		countQuery = countQuery.Where("user = ?", userID)
+	}
+	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+
 	//排序
-	query := o.db.WithContext(ctx).Preload("OrderGoods")
+	query := o.db.WithContext(ctx).Model(&do.OrderInfoDO{}).Preload("OrderGoods")
 	if userID > 0 {
 		query = query.Where("user = ?", userID)
 	}
@@ -60,7 +70,7 @@ func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, 
 		query = query.Order(value)
 	}
 
-	d := query.Offset(offset).Limit(limit).Find(&ret.Items).Count(&ret.TotalCount)
+	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, d.Error.Error())
 	}
@@ -73,7 +83,36 @@ func (o *orders) Create(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO
 	if txn != nil {
 		db = txn
 	}
-	return db.Create(order).Error
+	return db.WithContext(ctx).Create(order).Error
+}
+
+func (o *orders) DeleteByOrderSn(ctx context.Context, txn *gorm.DB, orderSn string) error {
+	orderSn = strings.TrimSpace(orderSn)
+	if orderSn == "" {
+		return nil
+	}
+
+	db := o.db
+	if txn != nil {
+		db = txn
+	}
+
+	var order do.OrderInfoDO
+	err := db.WithContext(ctx).Where("order_sn = ?", orderSn).First(&order).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+
+	if err := db.WithContext(ctx).Where("`order` = ?", order.ID).Delete(&do.OrderGoods{}).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if err := db.WithContext(ctx).Where("id = ?", order.ID).Delete(&do.OrderInfoDO{}).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return nil
 }
 
 func (o *orders) Update(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO) error {

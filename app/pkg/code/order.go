@@ -12,4 +12,7 @@ const (
 
 	// ErrOrderNotFound - 404: Order not found.
 	ErrOrderNotFound
+
+	// ErrOrderConflict - 400: Order already exists with different data.
+	ErrOrderConflict
 )

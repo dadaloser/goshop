@@ -15,5 +15,7 @@ type OrderStore interface {
 
 	Create(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO) error
 
+	DeleteByOrderSn(ctx context.Context, txn *gorm.DB, orderSn string) error
+
 	Update(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO) error
 }

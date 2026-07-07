@@ -14,4 +14,12 @@ func init() {
 	register(ErrUserLoginLocked, http.StatusForbidden, "User login temporarily locked")
 	register(ErrSmsRateLimited, http.StatusForbidden, "Sms send temporarily rate limited")
 	register(ErrSmsVerifyLocked, http.StatusForbidden, "Sms verification temporarily locked")
+	register(ErrGoodsNotFound, http.StatusNotFound, "Goods not found")
+	register(ErrCategoryNotFound, http.StatusNotFound, "Category not found")
+	register(ErrEsUnmarshal, http.StatusInternalServerError, "Es unmarshal error")
+	register(ErrShopCartItemNotFound, http.StatusNotFound, "ShopCart item not found")
+	register(ErrSubmitOrder, http.StatusBadRequest, "Submit order error")
+	register(ErrNoGoodsSelect, http.StatusBadRequest, "No Goods selected")
+	register(ErrOrderNotFound, http.StatusNotFound, "Order not found")
+	register(ErrOrderConflict, http.StatusBadRequest, "Order already exists with different data")
 }

@@ -26,6 +26,9 @@ type InventoryStore interface {
 	//新增库存销售信息
 	CreateStockSellDetail(ctx context.Context, txn *gorm.DB, detail *do.StockSellDetailDO) error
 
+	//不存在时新增库存销售信息
+	CreateStockSellDetailIfAbsent(ctx context.Context, txn *gorm.DB, detail *do.StockSellDetailDO) (bool, error)
+
 	//更新库存销售状态
 	UpdateStockSellDetailStatus(ctx context.Context, txn *gorm.DB, ordersn string, status int32) error
 }

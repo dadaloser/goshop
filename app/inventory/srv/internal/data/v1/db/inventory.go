@@ -11,6 +11,7 @@ import (
 	"goshop/pkg/log"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type inventorys struct {
@@ -26,7 +27,7 @@ func (i *inventorys) UpdateStockSellDetailStatus(ctx context.Context, txn *gorm.
 
 	//update语句如果没有更新的话那么不会报错，但是他会返回一个影响的行数，
 	//所以我们可以根据影响的行数来判断是否更新成功
-	result := db.Model(do.StockSellDetailDO{}).Where("order_sn = ?", ordersn).Update("status", status)
+	result := db.WithContext(ctx).Model(do.StockSellDetailDO{}).Where("order_sn = ?", ordersn).Update("status", status)
 	if result.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, result.Error.Error())
 	}
@@ -45,7 +46,7 @@ func (i *inventorys) GetSellDetail(ctx context.Context, txn *gorm.DB, ordersn st
 		db = txn
 	}
 	var orderSellDetail do.StockSellDetailDO
-	err := db.Where("order_sn = ?", ordersn).First(&orderSellDetail).Error
+	err := db.WithContext(ctx).Where("order_sn = ?", ordersn).First(&orderSellDetail).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.WithCode(code.ErrInvSellDetailNotFound, err.Error())
@@ -98,16 +99,34 @@ func (i *inventorys) CreateStockSellDetail(ctx context.Context, txn *gorm.DB, de
 		db = txn
 	}
 
-	tx := db.Create(&detail)
+	tx := db.WithContext(ctx).Create(&detail)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
 	return nil
 }
 
+func (i *inventorys) CreateStockSellDetailIfAbsent(ctx context.Context, txn *gorm.DB, detail *do.StockSellDetailDO) (bool, error) {
+	db := i.db
+	if txn != nil {
+		db = txn
+	}
+
+	tx := db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "order_sn"}},
+			DoNothing: true,
+		}).
+		Create(detail)
+	if tx.Error != nil {
+		return false, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	return tx.RowsAffected > 0, nil
+}
+
 func (i *inventorys) Create(ctx context.Context, inv *do.InventoryDO) error {
 	//设置库存， 如果我要更新库存
-	tx := i.db.Create(&inv)
+	tx := i.db.WithContext(ctx).Create(&inv)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
@@ -116,7 +135,7 @@ func (i *inventorys) Create(ctx context.Context, inv *do.InventoryDO) error {
 
 func (i *inventorys) Get(ctx context.Context, goodsID uint64) (*do.InventoryDO, error) {
 	inv := do.InventoryDO{}
-	err := i.db.Where("goods = ?", goodsID).First(&inv).Error
+	err := i.db.WithContext(ctx).Where("goods = ?", goodsID).First(&inv).Error
 	if err != nil {
 		log.Errorf("get inv err: %v", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {

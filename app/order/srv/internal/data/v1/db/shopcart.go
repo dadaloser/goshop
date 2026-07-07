@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+
 	"goshop/app/pkg/code"
 	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
@@ -29,12 +30,49 @@ func (sc *shopCarts) DeleteByGoodsIDs(ctx context.Context, txn *gorm.DB, userID 
 	if txn != nil {
 		db = txn
 	}
-	return db.Where("user = ? AND goods IN (?)", userID, goodsIDs).Delete(&do.ShoppingCartDO{}).Error
+	return db.WithContext(ctx).Where("user = ? AND goods IN (?)", userID, goodsIDs).Delete(&do.ShoppingCartDO{}).Error
+}
+
+func (sc *shopCarts) RestoreCheckedItems(ctx context.Context, txn *gorm.DB, userID uint64, items []*do.OrderGoods) error {
+	db := sc.db
+	if txn != nil {
+		db = txn
+	}
+
+	for _, item := range items {
+		if item == nil || item.Goods <= 0 || item.Nums <= 0 {
+			continue
+		}
+
+		tx := db.WithContext(ctx).Model(&do.ShoppingCartDO{}).
+			Where("user = ? AND goods = ?", userID, item.Goods).
+			Updates(map[string]interface{}{
+				"nums":    gorm.Expr("GREATEST(nums, ?)", item.Nums),
+				"checked": true,
+			})
+		if tx.Error != nil {
+			return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		}
+		if tx.RowsAffected > 0 {
+			continue
+		}
+
+		err := db.WithContext(ctx).Create(&do.ShoppingCartDO{
+			User:    int32(userID),
+			Goods:   item.Goods,
+			Nums:    item.Nums,
+			Checked: true,
+		}).Error
+		if err != nil {
+			return errors.WithCode(code2.ErrDatabase, err.Error())
+		}
+	}
+	return nil
 }
 
 func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta metav1.ListMeta, orderBy []string) (*do.ShoppingCartDOList, error) {
 	ret := &do.ShoppingCartDOList{}
-	query := sc.db
+	countQuery := sc.db.WithContext(ctx).Model(&do.ShoppingCartDO{})
 	//分页
 	var limit, offset int
 	if meta.PageSize == 0 {
@@ -48,18 +86,28 @@ func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta
 	}
 
 	if userID > 0 {
+		countQuery = countQuery.Where("user = ?", userID)
+	}
+	if checked {
+		countQuery = countQuery.Where("checked = ?", true)
+	}
+	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+
+	//排序
+	query := sc.db.WithContext(ctx).Model(&do.ShoppingCartDO{})
+	if userID > 0 {
 		query = query.Where("user = ?", userID)
 	}
 	if checked {
 		query = query.Where("checked = ?", true)
 	}
-
-	//排序
 	for _, value := range orderBy {
 		query = query.Order(value)
 	}
 
-	d := query.Offset(offset).Limit(limit).Find(&ret.Items).Count(&ret.TotalCount)
+	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, d.Error.Error())
 	}

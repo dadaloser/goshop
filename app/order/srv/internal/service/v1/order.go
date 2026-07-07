@@ -14,6 +14,7 @@ import (
 	v1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
+	"strings"
 
 	"github.com/dtm-labs/client/dtmgrpc"
 )
@@ -84,13 +85,44 @@ func (os *orderService) DeleteCartItem(ctx context.Context, id uint64) error {
 }
 
 func (os *orderService) CreateCom(ctx context.Context, order *dto.OrderDTO) error {
-	/*
-		1. 删除orderinfo表
-		2. 删除ordergoods表
-		3. 删除order找到对应的购物车条目，删除购物车条目
-	*/
-	//其实不用回滚
-	//你应该先查询订单是否已经存在，如果已经存在删除相关记录即可， 同时恢复购物车记录
+	if order == nil || strings.TrimSpace(order.OrderSn) == "" {
+		return nil
+	}
+
+	existing, err := os.data.Orders().Get(ctx, order.OrderSn)
+	if err != nil {
+		if errors.IsCode(err, code.ErrOrderNotFound) {
+			return nil
+		}
+		return err
+	}
+
+	txn := os.data.Begin()
+	if txn.Error != nil {
+		return fmt.Errorf("begin create order compensation transaction: %w", txn.Error)
+	}
+
+	committed := false
+	defer func() {
+		if !committed {
+			_ = txn.Rollback()
+		}
+	}()
+
+	err = os.data.ShopCarts().RestoreCheckedItems(ctx, txn, uint64(existing.User), existing.OrderGoods)
+	if err != nil {
+		return fmt.Errorf("restore selected shop carts: %w", err)
+	}
+
+	err = os.data.Orders().DeleteByOrderSn(ctx, txn, existing.OrderSn)
+	if err != nil {
+		return fmt.Errorf("delete compensated order: %w", err)
+	}
+
+	if err := txn.Commit().Error; err != nil {
+		return fmt.Errorf("commit create order compensation transaction: %w", err)
+	}
+	committed = true
 	return nil
 }
 
@@ -100,6 +132,27 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 		2. 生成order_goods表
 		3. 根据order找到对应的购物车条目，删除购物车条目
 	*/
+	if order == nil {
+		return errors.WithCode(code.ErrSubmitOrder, "order is required")
+	}
+	order.OrderSn = strings.TrimSpace(order.OrderSn)
+	if order.OrderSn == "" {
+		return errors.WithCode(code.ErrSubmitOrder, "order_sn is required")
+	}
+	if !hasOrderGoods(order.OrderGoods) {
+		return errors.WithCode(code.ErrNoGoodsSelect, "没有选择商品")
+	}
+
+	existing, err := os.data.Orders().Get(ctx, order.OrderSn)
+	if err == nil {
+		if sameCreateOrder(existing, order) {
+			return nil
+		}
+		return errors.WithCode(code.ErrOrderConflict, "order_sn already exists with different order data")
+	}
+	if !errors.IsCode(err, code.ErrOrderNotFound) {
+		return err
+	}
 
 	var goodsIds []int32
 	for _, value := range order.OrderGoods {
@@ -158,6 +211,70 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 		return fmt.Errorf("commit order transaction: %w", err)
 	}
 	return nil
+}
+
+func sameCreateOrder(existing *do.OrderInfoDO, incoming *dto.OrderDTO) bool {
+	if existing == nil || incoming == nil {
+		return false
+	}
+	if existing.User != incoming.User {
+		return false
+	}
+	if strings.TrimSpace(existing.OrderSn) != strings.TrimSpace(incoming.OrderSn) {
+		return false
+	}
+	if strings.TrimSpace(existing.Address) != strings.TrimSpace(incoming.Address) {
+		return false
+	}
+	if strings.TrimSpace(existing.SignerName) != strings.TrimSpace(incoming.SignerName) {
+		return false
+	}
+	if strings.TrimSpace(existing.SingerMobile) != strings.TrimSpace(incoming.SingerMobile) {
+		return false
+	}
+	if strings.TrimSpace(existing.Post) != strings.TrimSpace(incoming.Post) {
+		return false
+	}
+	return sameOrderGoods(existing.OrderGoods, incoming.OrderGoods)
+}
+
+func hasOrderGoods(items []*do.OrderGoods) bool {
+	_, ok := aggregateOrderGoods(items)
+	return ok
+}
+
+func sameOrderGoods(left, right []*do.OrderGoods) bool {
+	leftGoods, ok := aggregateOrderGoods(left)
+	if !ok {
+		return false
+	}
+	rightGoods, ok := aggregateOrderGoods(right)
+	if !ok {
+		return false
+	}
+	if len(leftGoods) != len(rightGoods) {
+		return false
+	}
+	for goodsID, nums := range leftGoods {
+		if rightGoods[goodsID] != nums {
+			return false
+		}
+	}
+	return true
+}
+
+func aggregateOrderGoods(items []*do.OrderGoods) (map[int32]int64, bool) {
+	if len(items) == 0 {
+		return nil, false
+	}
+	goods := make(map[int32]int64, len(items))
+	for _, item := range items {
+		if item == nil || item.Goods <= 0 || item.Nums <= 0 {
+			return nil, false
+		}
+		goods[item.Goods] += int64(item.Nums)
+	}
+	return goods, len(goods) > 0
 }
 
 func (os *orderService) Get(ctx context.Context, orderSn string) (*dto.OrderDTO, error) {
