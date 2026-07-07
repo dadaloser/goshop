@@ -118,3 +118,11 @@ func TestConfigValidateStartupRequiresAdminAuth(t *testing.T) {
 		t.Fatal("ValidateStartup() error = nil, want missing admin-auth error")
 	}
 }
+
+func TestConfigValidateStartupDoesNotBypassAuthInDevelopment(t *testing.T) {
+	cfg := &Config{Log: &log.Options{Development: true}}
+
+	if err := cfg.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want missing admin-auth error")
+	}
+}

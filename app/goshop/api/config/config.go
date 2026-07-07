@@ -31,9 +31,6 @@ func (c *Config) Validate() []error {
 }
 
 func (c *Config) ValidateStartup() error {
-	if c.Log != nil && c.Log.Development {
-		return nil
-	}
 	if c.Server != nil {
 		if err := c.Server.ValidateStartup(); err != nil {
 			return err

@@ -52,9 +52,6 @@ func (o *Config) SafeString() string {
 }
 
 func (o *Config) ValidateStartup() error {
-	if o.Log != nil && o.Log.Development {
-		return nil
-	}
 	if o.Server != nil {
 		if err := o.Server.ValidateStartup(); err != nil {
 			return err

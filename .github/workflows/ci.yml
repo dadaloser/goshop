@@ -49,6 +49,9 @@ jobs:
       - name: Check config secrets
         run: make config-secret-check
 
+      - name: Check startup validation
+        run: make startup-validation-check
+
       - name: Check protobuf drift
         run: make proto-check
 
