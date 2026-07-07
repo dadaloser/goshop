@@ -121,6 +121,72 @@ func TestRequireAdminPermission(t *testing.T) {
 	}
 }
 
+func TestRequireAdminAccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name       string
+		opts       *config.AdminAuthOptions
+		permission string
+		minRole    string
+		wantStatus int
+	}{
+		{
+			name:       "nil options rejects",
+			permission: "user:list",
+			minRole:    config.AdminRoleAdmin,
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "missing permission rejects",
+			opts: &config.AdminAuthOptions{
+				Role:        config.AdminRoleSuperAdmin,
+				Permissions: []string{"goods:list"},
+			},
+			permission: "user:list",
+			minRole:    config.AdminRoleAdmin,
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "insufficient role rejects wildcard permission",
+			opts: &config.AdminAuthOptions{
+				Role:        config.AdminRoleBasic,
+				Permissions: []string{"*"},
+			},
+			permission: "user:list",
+			minRole:    config.AdminRoleAdmin,
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "permission and role pass",
+			opts: &config.AdminAuthOptions{
+				Role:        config.AdminRoleAdmin,
+				Permissions: []string{"user:list"},
+			},
+			permission: "user:list",
+			minRole:    config.AdminRoleAdmin,
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.GET("/admin", requireAdminAccess(tt.opts, tt.permission, tt.minRole), func(c *gin.Context) {
+				c.Status(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
 func TestAdminAuthChain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

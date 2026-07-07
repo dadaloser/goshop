@@ -104,6 +104,7 @@ func newPasswordLoginTestService(users *fakeUserData, attempts *fakeLoginAttempt
 		},
 		nil,
 		attempts,
+		nil,
 	)
 }
 

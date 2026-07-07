@@ -17,7 +17,7 @@ func initRouter(g *restserver.Server, cfg *config.Config) {
 	adminAuth := requireAdminToken(cfg.AdminAuth)
 	ugroup := v1.Group("/user", adminAuth)
 	ucontroller := controller.NewUserController()
-	ugroup.GET("list", requireAdminPermission(cfg.AdminAuth, "user:list"), ucontroller.List)
+	ugroup.GET("list", requireAdminAccess(cfg.AdminAuth, "user:list", config.AdminRoleAdmin), ucontroller.List)
 }
 
 func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {
@@ -55,6 +55,21 @@ func requireAdminPermission(opts *config.AdminAuthOptions, permission string) gi
 				"code":       http.StatusForbidden,
 				"msg":        "admin permission denied",
 				"permission": permission,
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+func requireAdminAccess(opts *config.AdminAuthOptions, permission, minRole string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if opts == nil || !opts.HasAccess(permission, minRole) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code":       http.StatusForbidden,
+				"msg":        "admin access denied",
+				"permission": permission,
+				"min_role":   minRole,
 			})
 			return
 		}

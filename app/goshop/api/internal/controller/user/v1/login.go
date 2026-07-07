@@ -18,7 +18,7 @@ import (
 type PassWordLoginForm struct {
 	Username  string `form:"username" json:"username"`
 	Mobile    string `form:"mobile" json:"mobile"`
-	PassWord  string `form:"password" json:"password" binding:"required,min=3,max=20"`
+	PassWord  string `form:"password" json:"password" binding:"required,min=1,max=72"`
 	Captcha   string `form:"captcha" json:"captcha" binding:"required,min=5,max=5"`
 	CaptchaId string `form:"captcha_id" json:"captcha_id" binding:"required"`
 }

@@ -5,6 +5,8 @@ import (
 	"net/mail"
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
@@ -37,6 +39,11 @@ var (
 	mobilePattern   = regexp.MustCompile(`^1([38][0-9]|14[579]|5[^4]|16[6]|7[1-35-8]|9[189])\d{8}$`)
 )
 
+const (
+	minPasswordLength = 8
+	maxPasswordBytes  = 72
+)
+
 func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 	if user == nil {
 		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
@@ -46,6 +53,9 @@ func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 	}
 	if !mobilePattern.MatchString(user.Mobile) {
 		return errors.WithCode(code2.ErrValidation, "手机号格式错误")
+	}
+	if !isStrongPassword(user.Password) {
+		return errors.WithCode(code2.ErrValidation, "密码必须为8-72字节，并包含大小写字母、数字和特殊字符")
 	}
 
 	//先判断用户是否存在
@@ -186,6 +196,31 @@ func normalizeLoginIdentifier(value string) string {
 func isEmailAddress(value string) bool {
 	address, err := mail.ParseAddress(value)
 	return err == nil && address.Name == "" && address.Address == value
+}
+
+func isStrongPassword(password string) bool {
+	if utf8.RuneCountInString(password) < minPasswordLength || len(password) > maxPasswordBytes {
+		return false
+	}
+
+	var hasUpper, hasLower, hasDigit, hasSpecial bool
+	for _, r := range password {
+		switch {
+		case unicode.IsSpace(r):
+			return false
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		case unicode.IsPunct(r) || unicode.IsSymbol(r):
+			hasSpecial = true
+		default:
+			hasSpecial = true
+		}
+	}
+	return hasUpper && hasLower && hasDigit && hasSpecial
 }
 
 var _ UserSrv = &userService{}

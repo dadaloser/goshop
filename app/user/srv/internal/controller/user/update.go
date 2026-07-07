@@ -28,7 +28,12 @@ func (u *userServer) UpdateUser(ctx context.Context, request *upbv1.UpdateUserIn
 
 	err := u.srv.Update(ctx, &userDTO)
 	if err != nil {
-		log.Errorf("update user: %v, error: %v", userDTO, err)
+		log.Errorf(
+			"update user failed: id=%d email=%s error=%v",
+			userDTO.ID,
+			redactOptionalEmailForLog(userDTO.Email),
+			err,
+		)
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

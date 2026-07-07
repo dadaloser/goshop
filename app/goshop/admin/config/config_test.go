@@ -54,6 +54,100 @@ func TestAdminAuthOptionsHasPermission(t *testing.T) {
 	}
 }
 
+func TestAdminAuthOptionsHasRoleAtLeast(t *testing.T) {
+	tests := []struct {
+		name     string
+		role     string
+		required string
+		want     bool
+	}{
+		{
+			name:     "basic cannot access admin",
+			role:     AdminRoleBasic,
+			required: AdminRoleAdmin,
+			want:     false,
+		},
+		{
+			name:     "admin can access admin",
+			role:     AdminRoleAdmin,
+			required: AdminRoleAdmin,
+			want:     true,
+		},
+		{
+			name:     "super admin can access primary admin",
+			role:     AdminRoleSuperAdmin,
+			required: AdminRolePrimaryAdmin,
+			want:     true,
+		},
+		{
+			name:     "unknown role rejects",
+			role:     "owner",
+			required: AdminRoleBasic,
+			want:     false,
+		},
+		{
+			name: "empty required role passes",
+			role: AdminRoleBasic,
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &AdminAuthOptions{Role: tt.role}
+			if got := opts.HasRoleAtLeast(tt.required); got != tt.want {
+				t.Fatalf("HasRoleAtLeast(%q) = %t, want %t", tt.required, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAdminAuthOptionsHasAccessRequiresPermissionAndRole(t *testing.T) {
+	tests := []struct {
+		name       string
+		opts       *AdminAuthOptions
+		permission string
+		minRole    string
+		want       bool
+	}{
+		{
+			name:       "permission and role pass",
+			opts:       &AdminAuthOptions{Role: AdminRoleAdmin, Permissions: []string{"user:list"}},
+			permission: "user:list",
+			minRole:    AdminRoleAdmin,
+			want:       true,
+		},
+		{
+			name:       "permission without role rejects",
+			opts:       &AdminAuthOptions{Role: AdminRoleBasic, Permissions: []string{"user:list"}},
+			permission: "user:list",
+			minRole:    AdminRoleAdmin,
+			want:       false,
+		},
+		{
+			name:       "role without permission rejects",
+			opts:       &AdminAuthOptions{Role: AdminRoleSuperAdmin, Permissions: []string{"goods:list"}},
+			permission: "user:list",
+			minRole:    AdminRoleAdmin,
+			want:       false,
+		},
+		{
+			name:       "nil options reject",
+			permission: "user:list",
+			minRole:    AdminRoleBasic,
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.opts.HasAccess(tt.permission, tt.minRole); got != tt.want {
+				t.Fatalf("HasAccess(%q, %q) = %t, want %t", tt.permission, tt.minRole, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestAdminAuthOptionsEffectivePermissionsFromEnv(t *testing.T) {
 	t.Setenv("GOSHOP_ADMIN_PERMISSIONS", "user:list, goods:* , user:list,,")
 
@@ -72,6 +166,7 @@ func TestAdminAuthOptionsEffectivePermissionsFromEnv(t *testing.T) {
 
 func TestAdminAuthOptionsValidateStartup(t *testing.T) {
 	t.Setenv("GOSHOP_ADMIN_TOKEN", "")
+	t.Setenv("GOSHOP_ADMIN_ROLE", "")
 	t.Setenv("GOSHOP_ADMIN_PERMISSIONS", "")
 
 	tests := []struct {
@@ -86,13 +181,31 @@ func TestAdminAuthOptionsValidateStartup(t *testing.T) {
 		},
 		{
 			name:    "missing permissions rejects",
-			opts:    &AdminAuthOptions{Token: "secret"},
+			opts:    &AdminAuthOptions{Token: "secret", Role: AdminRoleAdmin},
+			wantErr: true,
+		},
+		{
+			name: "missing role rejects",
+			opts: &AdminAuthOptions{
+				Token:       "secret",
+				Permissions: []string{"user:list"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "unknown role rejects",
+			opts: &AdminAuthOptions{
+				Token:       "secret",
+				Role:        "owner",
+				Permissions: []string{"user:list"},
+			},
 			wantErr: true,
 		},
 		{
 			name: "complete config passes",
 			opts: &AdminAuthOptions{
 				Token:       "secret",
+				Role:        AdminRoleAdmin,
 				Permissions: []string{"user:list"},
 			},
 		},

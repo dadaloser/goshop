@@ -11,7 +11,7 @@ type RegisterForm struct {
 	Mobile   string `form:"mobile" json:"mobile" binding:"required,mobile"` //手机号码格式有规范可寻， 自定义validator
 	Email    string `form:"email" json:"email" binding:"omitempty,email"`
 	NickName string `form:"nick_name" json:"nick_name" binding:"omitempty,min=2,max=20"`
-	PassWord string `form:"password" json:"password" binding:"required,min=3,max=20"`
+	PassWord string `form:"password" json:"password" binding:"required,min=8,max=72"`
 	Code     string `form:"code" json:"code" binding:"required,min=6,max=6"`
 }
 

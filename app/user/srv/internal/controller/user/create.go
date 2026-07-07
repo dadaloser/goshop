@@ -22,7 +22,12 @@ func (u *userServer) CreateUser(ctx context.Context, request *upbv1.CreateUserIn
 
 	err := u.srv.Create(ctx, &userDTO)
 	if err != nil {
-		log.Errorf("create user: %v, error: %v", userDTO, err)
+		log.Errorf(
+			"create user failed: mobile=%s email=%s error=%v",
+			redactMobileForLog(userDTO.Mobile),
+			redactOptionalEmailForLog(userDTO.Email),
+			err,
+		)
 		return nil, err
 	}
 

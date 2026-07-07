@@ -24,7 +24,22 @@ type Config struct {
 
 type AdminAuthOptions struct {
 	Token       string   `json:"token" mapstructure:"token"`
+	Role        string   `json:"role" mapstructure:"role"`
 	Permissions []string `json:"permissions" mapstructure:"permissions"`
+}
+
+const (
+	AdminRoleBasic        = "basic"
+	AdminRoleAdmin        = "admin"
+	AdminRolePrimaryAdmin = "primary_admin"
+	AdminRoleSuperAdmin   = "super_admin"
+)
+
+var adminRoleLevels = map[string]int{
+	AdminRoleBasic:        1,
+	AdminRoleAdmin:        2,
+	AdminRolePrimaryAdmin: 3,
+	AdminRoleSuperAdmin:   4,
 }
 
 func NewAdminAuthOptions() *AdminAuthOptions {
@@ -43,6 +58,13 @@ func (o *AdminAuthOptions) EffectivePermissions() []string {
 		return normalizePermissions(o.Permissions)
 	}
 	return normalizePermissions(strings.Split(os.Getenv("GOSHOP_ADMIN_PERMISSIONS"), ","))
+}
+
+func (o *AdminAuthOptions) EffectiveRole() string {
+	if o != nil && strings.TrimSpace(o.Role) != "" {
+		return normalizeRole(o.Role)
+	}
+	return normalizeRole(os.Getenv("GOSHOP_ADMIN_ROLE"))
 }
 
 func (o *AdminAuthOptions) HasPermission(permission string) bool {
@@ -64,6 +86,27 @@ func (o *AdminAuthOptions) HasPermission(permission string) bool {
 	return false
 }
 
+func (o *AdminAuthOptions) HasRoleAtLeast(required string) bool {
+	required = normalizeRole(required)
+	if required == "" {
+		return true
+	}
+
+	currentLevel, ok := adminRoleLevels[o.EffectiveRole()]
+	if !ok {
+		return false
+	}
+	requiredLevel, ok := adminRoleLevels[required]
+	if !ok {
+		return false
+	}
+	return currentLevel >= requiredLevel
+}
+
+func (o *AdminAuthOptions) HasAccess(permission, minRole string) bool {
+	return o != nil && o.HasPermission(permission) && o.HasRoleAtLeast(minRole)
+}
+
 func normalizePermissions(values []string) []string {
 	permissions := make([]string, 0, len(values))
 	seen := make(map[string]struct{}, len(values))
@@ -81,6 +124,10 @@ func normalizePermissions(values []string) []string {
 	return permissions
 }
 
+func normalizeRole(role string) string {
+	return strings.ToLower(strings.TrimSpace(role))
+}
+
 func (o *AdminAuthOptions) Validate() []error {
 	return nil
 }
@@ -92,6 +139,9 @@ func (o *AdminAuthOptions) ValidateStartup() error {
 	if len(o.EffectivePermissions()) == 0 {
 		return errors.New("admin-auth.permissions or GOSHOP_ADMIN_PERMISSIONS is required")
 	}
+	if _, ok := adminRoleLevels[o.EffectiveRole()]; !ok {
+		return errors.New("admin-auth.role or GOSHOP_ADMIN_ROLE must be one of: basic, admin, primary_admin, super_admin")
+	}
 	return nil
 }
 
@@ -100,6 +150,7 @@ func (o *AdminAuthOptions) AddFlags(fs *pflag.FlagSet) {
 		return
 	}
 	fs.StringVar(&o.Token, "admin-auth.token", o.Token, "shared token required for admin routes until full RBAC is enabled")
+	fs.StringVar(&o.Role, "admin-auth.role", o.Role, "bootstrap admin role: basic, admin, primary_admin, or super_admin")
 	fs.StringSliceVar(&o.Permissions, "admin-auth.permissions", o.Permissions, "permissions granted to the bootstrap admin token, for example user:list or user:*")
 }
 

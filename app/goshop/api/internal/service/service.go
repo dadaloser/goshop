@@ -6,6 +6,7 @@ import (
 	vGoods "goshop/app/goshop/api/internal/service/goods/v1"
 	vSms "goshop/app/goshop/api/internal/service/sms/v1"
 	vUser "goshop/app/goshop/api/internal/service/user/v1"
+	"goshop/app/goshop/api/internal/smsattempt"
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/pkg/options"
 )
@@ -28,6 +29,8 @@ type service struct {
 	codeStore smscode.Store
 
 	loginAttempts loginattempt.Store
+
+	smsAttempts smsattempt.Store
 }
 
 func (s *service) Sms() vSms.SmsSrv {
@@ -39,15 +42,16 @@ func (s *service) Goods() vGoods.GoodsSrv {
 }
 
 func (s *service) Users() vUser.UserSrv {
-	return vUser.NewUserService(s.data, s.jwtOpts, s.codeStore, s.loginAttempts)
+	return vUser.NewUserService(s.data, s.jwtOpts, s.codeStore, s.loginAttempts, s.smsAttempts)
 }
 
-func NewService(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store) *service {
+func NewService(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store) *service {
 	return &service{data: store,
 		smsOpts:       smsOpts,
 		jwtOpts:       jwtOpts,
 		codeStore:     codeStore,
 		loginAttempts: loginAttempts,
+		smsAttempts:   smsAttempts,
 	}
 }
 

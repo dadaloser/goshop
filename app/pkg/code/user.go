@@ -24,4 +24,7 @@ const (
 
 	// ErrSmsRateLimited - 403: Sms send is temporarily rate limited.
 	ErrSmsRateLimited
+
+	// ErrSmsVerifyLocked - 403: Sms verification is temporarily locked.
+	ErrSmsVerifyLocked
 )

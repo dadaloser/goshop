@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"goshop/app/goshop/api/internal/loginattempt"
+	"goshop/app/goshop/api/internal/smsattempt"
 	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
@@ -43,10 +44,12 @@ type userService struct {
 	codeStore smscode.Store
 
 	loginAttempts loginattempt.Store
+
+	smsAttempts smsattempt.Store
 }
 
-func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store) UserSrv {
-	return &userService{data: data, jwtOpts: jwtOpts, codeStore: codeStore, loginAttempts: loginAttempts}
+func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store) UserSrv {
+	return &userService{data: data, jwtOpts: jwtOpts, codeStore: codeStore, loginAttempts: loginAttempts, smsAttempts: smsAttempts}
 }
 
 func (us *userService) PasswordLogin(ctx context.Context, username, password string) (*UserDTO, error) {
@@ -93,14 +96,26 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 }
 
 func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*UserDTO, error) {
+	if err := us.ensureSmsCodeAllowed(ctx, mobile, smscode.TypeLogin); err != nil {
+		return nil, err
+	}
+
 	key := smscode.LoginKey(mobile)
 	value, err := us.codeStore.Get(ctx, key)
 	if err != nil {
+		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeLogin); lockedErr != nil {
+			return nil, lockedErr
+		}
 		return nil, errors.WithCode(code.ErrCodeNotExist, "验证码不存在")
 	}
 	if value != smsCode {
+		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeLogin); lockedErr != nil {
+			return nil, lockedErr
+		}
 		return nil, errors.WithCode(code.ErrCodeInCorrect, "验证码错误")
 	}
+
+	us.resetSmsCodeFailures(ctx, mobile, smscode.TypeLogin)
 
 	user, err := us.data.Users().GetByUsername(ctx, mobile)
 	if err != nil {
@@ -123,15 +138,27 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 }
 
 func (us *userService) Register(ctx context.Context, mobile, email, password, nickName, codes string) (*UserDTO, error) {
+	if err := us.ensureSmsCodeAllowed(ctx, mobile, smscode.TypeRegister); err != nil {
+		return nil, err
+	}
+
 	key := smscode.RegisterKey(mobile)
 	value, err := us.codeStore.Get(ctx, key)
 	if err != nil {
+		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeRegister); lockedErr != nil {
+			return nil, lockedErr
+		}
 		return nil, errors.WithCode(code.ErrCodeNotExist, "验证码不存在")
 	}
 
 	if value != codes {
+		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeRegister); lockedErr != nil {
+			return nil, lockedErr
+		}
 		return nil, errors.WithCode(code.ErrCodeInCorrect, "验证码错误")
 	}
+
+	us.resetSmsCodeFailures(ctx, mobile, smscode.TypeRegister)
 
 	var user = &data.User{
 		Mobile:   mobile,
@@ -240,6 +267,48 @@ func (us *userService) resetPasswordLoginFailures(ctx context.Context, username 
 
 	if err := us.loginAttempts.Reset(ctx, username); err != nil {
 		log.Warnf("reset password login failures failed: %v", err)
+	}
+}
+
+func (us *userService) ensureSmsCodeAllowed(ctx context.Context, mobile string, codeType uint) error {
+	if us.smsAttempts == nil {
+		return nil
+	}
+
+	locked, err := us.smsAttempts.IsLocked(ctx, mobile, codeType)
+	if err != nil {
+		log.Errorf("check sms verification attempts failed: %v", err)
+		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码验证暂时不可用，请稍后重试")
+	}
+	if locked {
+		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码错误次数过多，请稍后重试")
+	}
+	return nil
+}
+
+func (us *userService) recordSmsCodeFailure(ctx context.Context, mobile string, codeType uint) error {
+	if us.smsAttempts == nil {
+		return nil
+	}
+
+	locked, err := us.smsAttempts.RecordFailure(ctx, mobile, codeType)
+	if err != nil {
+		log.Errorf("record sms verification failure failed: %v", err)
+		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码验证暂时不可用，请稍后重试")
+	}
+	if locked {
+		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码错误次数过多，请稍后重试")
+	}
+	return nil
+}
+
+func (us *userService) resetSmsCodeFailures(ctx context.Context, mobile string, codeType uint) {
+	if us.smsAttempts == nil {
+		return
+	}
+
+	if err := us.smsAttempts.Reset(ctx, mobile, codeType); err != nil {
+		log.Warnf("reset sms verification failures failed: %v", err)
 	}
 }
 

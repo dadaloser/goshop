@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"goshop/app/pkg/code"
@@ -22,7 +23,7 @@ func TestUserService_CreateNormalizesOptionalIdentifiers(t *testing.T) {
 			Username: stringPtr(" user_001 "),
 			Mobile:   "13800138000",
 			Email:    stringPtr(" USER@example.COM "),
-			Password: "secret",
+			Password: "Secret123!",
 		},
 	}
 
@@ -38,7 +39,7 @@ func TestUserService_CreateNormalizesOptionalIdentifiers(t *testing.T) {
 	if got, want := valueOf(store.created.Email), "user@example.com"; got != want {
 		t.Fatalf("created email = %q, want %q", got, want)
 	}
-	if store.created.Password == "secret" {
+	if store.created.Password == "Secret123!" {
 		t.Fatal("created password was not encrypted")
 	}
 }
@@ -55,7 +56,7 @@ func TestUserService_CreateRejectsDuplicateEmailAfterNormalization(t *testing.T)
 		UserDO: dv1.UserDO{
 			Mobile:   "13800138000",
 			Email:    stringPtr(" USER@example.COM "),
-			Password: "secret",
+			Password: "Secret123!",
 		},
 	})
 	if !errors.IsCode(err, code.ErrUserAlreadyExists) {
@@ -75,7 +76,7 @@ func TestUserService_CreateRejectsDuplicateUsername(t *testing.T) {
 		UserDO: dv1.UserDO{
 			Username: stringPtr("user_001"),
 			Mobile:   "13800138000",
-			Password: "secret",
+			Password: "Secret123!",
 		},
 	})
 	if !errors.IsCode(err, code.ErrUserAlreadyExists) {
@@ -93,7 +94,7 @@ func TestUserService_CreateRejectsInvalidUsername(t *testing.T) {
 		UserDO: dv1.UserDO{
 			Username: stringPtr("user-name"),
 			Mobile:   "13800138000",
-			Password: "secret",
+			Password: "Secret123!",
 		},
 	})
 	if !errors.IsCode(err, code2.ErrValidation) {
@@ -114,7 +115,7 @@ func TestUserService_CreateRejectsInvalidEmail(t *testing.T) {
 		UserDO: dv1.UserDO{
 			Mobile:   "13800138000",
 			Email:    stringPtr("User <user@example.com>"),
-			Password: "secret",
+			Password: "Secret123!",
 		},
 	})
 	if !errors.IsCode(err, code2.ErrValidation) {
@@ -122,6 +123,43 @@ func TestUserService_CreateRejectsInvalidEmail(t *testing.T) {
 	}
 	if store.created != nil {
 		t.Fatal("Create() persisted user with invalid email")
+	}
+}
+
+func TestUserService_CreateRejectsWeakPasswords(t *testing.T) {
+	tests := []struct {
+		name     string
+		password string
+	}{
+		{name: "too short", password: "Aa1!"},
+		{name: "missing upper", password: "secret123!"},
+		{name: "missing lower", password: "SECRET123!"},
+		{name: "missing digit", password: "Secret!!!"},
+		{name: "missing special", password: "Secret123"},
+		{name: "contains space", password: "Secret 123!"},
+		{name: "too long for bcrypt", password: strings.Repeat("Secret123!", 8)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := &fakeUserStore{
+				usersByIdentifier: map[string]*dv1.UserDO{},
+			}
+			svc := NewUserService(store)
+
+			err := svc.Create(context.Background(), &UserDTO{
+				UserDO: dv1.UserDO{
+					Mobile:   "13800138000",
+					Password: tt.password,
+				},
+			})
+			if !errors.IsCode(err, code2.ErrValidation) {
+				t.Fatalf("Create() error = %v, want ErrValidation", err)
+			}
+			if store.created != nil {
+				t.Fatal("Create() persisted user with weak password")
+			}
+		})
 	}
 }
 

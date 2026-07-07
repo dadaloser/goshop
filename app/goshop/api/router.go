@@ -10,6 +10,7 @@ import (
 	"goshop/app/goshop/api/internal/data/rpc"
 	"goshop/app/goshop/api/internal/loginattempt"
 	"goshop/app/goshop/api/internal/service"
+	"goshop/app/goshop/api/internal/smsattempt"
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/goshop/api/internal/smslimit"
 	"goshop/app/goshop/api/internal/tokenrevocation"
@@ -28,10 +29,11 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 
 	codeStore := smscode.NewRedisStore()
 	loginAttempts := loginattempt.NewRedisStore()
+	smsAttempts := smsattempt.NewRedisStore()
 	smsLimiter := smslimit.NewRedisStore()
 	revokedTokens := tokenrevocation.NewRedisStore()
 	//原来的过程其实很复杂
-	serviceFactory := service.NewService(data, cfg.Sms, cfg.Jwt, codeStore, loginAttempts)
+	serviceFactory := service.NewService(data, cfg.Sms, cfg.Jwt, codeStore, loginAttempts, smsAttempts)
 	uController := user.NewUserController(g.Translator(), serviceFactory, revokedTokens)
 	{
 		uGroup.POST("pwd_login", uController.Login)

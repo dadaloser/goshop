@@ -13,4 +13,5 @@ func init() {
 	register(ErrCodeInCorrect, http.StatusBadRequest, "Sms code incorrect")
 	register(ErrUserLoginLocked, http.StatusForbidden, "User login temporarily locked")
 	register(ErrSmsRateLimited, http.StatusForbidden, "Sms send temporarily rate limited")
+	register(ErrSmsVerifyLocked, http.StatusForbidden, "Sms verification temporarily locked")
 }

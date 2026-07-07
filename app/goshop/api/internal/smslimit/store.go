@@ -16,7 +16,7 @@ import (
 const (
 	defaultCooldown = time.Minute
 	defaultWindow   = 24 * time.Hour
-	defaultMaxSends = 100
+	defaultMaxSends = 10
 
 	cooldownKeyPrefix = "sms:cooldown:"
 	windowKeyPrefix   = "sms:window:"
