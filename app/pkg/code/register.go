@@ -11,4 +11,5 @@ func init() {
 	register(ErrSmsSend, http.StatusBadRequest, "Send sms error")
 	register(ErrCodeNotExist, http.StatusBadRequest, "Sms code incorrect or expired")
 	register(ErrCodeInCorrect, http.StatusBadRequest, "Sms code incorrect")
+	register(ErrUserLoginLocked, http.StatusForbidden, "User login temporarily locked")
 }

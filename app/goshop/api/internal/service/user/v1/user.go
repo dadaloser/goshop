@@ -2,6 +2,9 @@ package v1
 
 import (
 	"context"
+	"strings"
+
+	"goshop/app/goshop/api/internal/loginattempt"
 	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
@@ -38,16 +41,26 @@ type userService struct {
 	jwtOpts *options.JwtOptions
 
 	codeStore smscode.Store
+
+	loginAttempts loginattempt.Store
 }
 
-func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store) UserSrv {
-	return &userService{data: data, jwtOpts: jwtOpts, codeStore: codeStore}
+func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store) UserSrv {
+	return &userService{data: data, jwtOpts: jwtOpts, codeStore: codeStore, loginAttempts: loginAttempts}
 }
 
 func (us *userService) PasswordLogin(ctx context.Context, username, password string) (*UserDTO, error) {
+	username = normalizeLoginIdentifier(username)
+	if err := us.ensurePasswordLoginAllowed(ctx, username); err != nil {
+		return nil, err
+	}
+
 	user, err := us.data.Users().GetByUsername(ctx, username)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserNotFound) {
+			if lockedErr := us.recordPasswordLoginFailure(ctx, username); lockedErr != nil {
+				return nil, lockedErr
+			}
 			return nil, errors.WithCode(code.ErrUserPasswordIncorrect, "手机号或密码错误")
 		}
 		return nil, err
@@ -57,10 +70,15 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 	err = us.data.Users().CheckPassWord(ctx, password, user.PassWord)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserPasswordIncorrect) {
+			if lockedErr := us.recordPasswordLoginFailure(ctx, username); lockedErr != nil {
+				return nil, lockedErr
+			}
 			return nil, errors.WithCode(code.ErrUserPasswordIncorrect, "手机号或密码错误")
 		}
 		return nil, err
 	}
+
+	us.resetPasswordLoginFailures(ctx, username)
 
 	token, expiresAt, err := us.createToken(user)
 	if err != nil {
@@ -181,6 +199,52 @@ func (u *userService) GetByUsername(ctx context.Context, username string) (*User
 		return nil, err
 	}
 	return &UserDTO{User: userDO}, nil
+}
+
+func (us *userService) ensurePasswordLoginAllowed(ctx context.Context, username string) error {
+	if us.loginAttempts == nil {
+		return nil
+	}
+
+	locked, err := us.loginAttempts.IsLocked(ctx, username)
+	if err != nil {
+		log.Errorf("check password login attempts failed: %v", err)
+		return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
+	}
+	if locked {
+		return errors.WithCode(code.ErrUserLoginLocked, "登录失败次数过多，请稍后重试")
+	}
+	return nil
+}
+
+func (us *userService) recordPasswordLoginFailure(ctx context.Context, username string) error {
+	if us.loginAttempts == nil {
+		return nil
+	}
+
+	locked, err := us.loginAttempts.RecordFailure(ctx, username)
+	if err != nil {
+		log.Errorf("record password login failure failed: %v", err)
+		return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
+	}
+	if locked {
+		return errors.WithCode(code.ErrUserLoginLocked, "登录失败次数过多，请稍后重试")
+	}
+	return nil
+}
+
+func (us *userService) resetPasswordLoginFailures(ctx context.Context, username string) {
+	if us.loginAttempts == nil {
+		return
+	}
+
+	if err := us.loginAttempts.Reset(ctx, username); err != nil {
+		log.Warnf("reset password login failures failed: %v", err)
+	}
+}
+
+func normalizeLoginIdentifier(username string) string {
+	return strings.ToLower(strings.TrimSpace(username))
 }
 
 var _ UserSrv = &userService{}

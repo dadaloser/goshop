@@ -18,4 +18,7 @@ const (
 
 	// ErrCodeInCorrect - 400: Sms code incorrect.
 	ErrCodeInCorrect
+
+	// ErrUserLoginLocked - 403: User login is temporarily locked.
+	ErrUserLoginLocked
 )
