@@ -142,7 +142,7 @@ func (f *fakeUserSrv) SmsLogin(context.Context, string, string) (*userv1.UserDTO
 	return nil, nil
 }
 
-func (f *fakeUserSrv) Register(context.Context, string, string, string, string, string) (*userv1.UserDTO, error) {
+func (f *fakeUserSrv) Register(context.Context, string, string, string, string, string, string) (*userv1.UserDTO, error) {
 	return nil, nil
 }
 

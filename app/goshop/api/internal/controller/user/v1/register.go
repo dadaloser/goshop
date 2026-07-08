@@ -10,6 +10,7 @@ import (
 )
 
 type RegisterForm struct {
+	Username string `form:"username" json:"username" binding:"omitempty,min=3,max=32"`
 	Mobile   string `form:"mobile" json:"mobile" binding:"required,mobile"` //手机号码格式有规范可寻， 自定义validator
 	Email    string `form:"email" json:"email" binding:"omitempty,email"`
 	NickName string `form:"nick_name" json:"nick_name" binding:"omitempty,min=2,max=20"`
@@ -29,7 +30,7 @@ func (us *userServer) Register(ctx *gin.Context) {
 		core.WriteResponse(ctx, err, nil)
 		return
 	}
-	userDTO, err := userSrv.Register(ctx, regForm.Mobile, regForm.Email, regForm.PassWord, regForm.NickName, regForm.Code)
+	userDTO, err := userSrv.Register(ctx, regForm.Mobile, regForm.Email, regForm.Username, regForm.PassWord, regForm.NickName, regForm.Code)
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
 		return

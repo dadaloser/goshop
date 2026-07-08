@@ -26,6 +26,7 @@ func (u *userServer) UpdateUser(ctx context.Context, request *upbv1.UpdateUserIn
 			ID: request.Id,
 		},
 		NickName: request.NickName,
+		Username: optionalString(request.Username),
 		Email:    optionalString(request.Email),
 		Gender:   request.Gender,
 		Birthday: &birthDay,

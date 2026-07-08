@@ -135,7 +135,7 @@ func TestUserServiceRejectsMissingCodeStore(t *testing.T) {
 		{
 			name: "register",
 			run: func() error {
-				_, err := svc.Register(context.Background(), "13800138000", "user@example.com", "Strong1!", "tester", "123456")
+				_, err := svc.Register(context.Background(), "13800138000", "user@example.com", "user_001", "Strong1!", "tester", "123456")
 				return err
 			},
 		},

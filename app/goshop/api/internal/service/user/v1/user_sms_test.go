@@ -60,15 +60,19 @@ func TestSmsLoginReturnsLockedWhenFailureReachesThreshold(t *testing.T) {
 func TestRegisterResetsSmsFailuresOnSuccess(t *testing.T) {
 	codes := &fakeSmsCodeStore{value: "123456"}
 	attempts := &fakeSmsAttempts{}
-	svc := newSmsTestService(&fakeUserData{}, codes, attempts)
+	users := &fakeUserData{}
+	svc := newSmsTestService(users, codes, attempts)
 
-	got, err := svc.Register(context.Background(), "13800138000", "user@example.com", "Strong1!", "tester", "123456")
+	got, err := svc.Register(context.Background(), "13800138000", "user@example.com", "user_001", "Strong1!", "tester", "123456")
 
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
 	if got.Token == "" {
 		t.Fatal("Register() token is empty")
+	}
+	if users.created.Username != "user_001" {
+		t.Fatalf("Register() username = %q, want user_001", users.created.Username)
 	}
 	if attempts.resetMobile != "13800138000" {
 		t.Fatalf("reset mobile = %q, want 13800138000", attempts.resetMobile)

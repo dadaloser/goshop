@@ -92,6 +92,7 @@ func writeLoginResponse(ctx *gin.Context, userDTO *userv1.UserDTO) {
 
 	core.WriteResponse(ctx, nil, gin.H{
 		"id":         userDTO.ID,
+		"username":   userDTO.Username,
 		"nick_name":  userDTO.NickName,
 		"mobile":     userDTO.Mobile,
 		"email":      userDTO.Email,

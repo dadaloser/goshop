@@ -30,7 +30,7 @@ type UserDTO struct {
 type UserSrv interface {
 	PasswordLogin(ctx context.Context, username, password string) (*UserDTO, error)
 	SmsLogin(ctx context.Context, mobile, smsCode string) (*UserDTO, error)
-	Register(ctx context.Context, mobile, email, password, nickName, code string) (*UserDTO, error)
+	Register(ctx context.Context, mobile, email, username, password, nickName, code string) (*UserDTO, error)
 	Update(ctx context.Context, userDTO *UserDTO) error
 	Get(ctx context.Context, userID uint64) (*UserDTO, error)
 	GetByUsername(ctx context.Context, username string) (*UserDTO, error)
@@ -149,7 +149,7 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 	}, nil
 }
 
-func (us *userService) Register(ctx context.Context, mobile, email, password, nickName, codes string) (*UserDTO, error) {
+func (us *userService) Register(ctx context.Context, mobile, email, username, password, nickName, codes string) (*UserDTO, error) {
 	if err := us.ensureSmsCodeAllowed(ctx, mobile, smscode.TypeRegister); err != nil {
 		return nil, err
 	}
@@ -176,6 +176,7 @@ func (us *userService) Register(ctx context.Context, mobile, email, password, ni
 	us.resetSmsCodeFailures(ctx, mobile, smscode.TypeRegister)
 
 	var user = &data.User{
+		Username: username,
 		Mobile:   mobile,
 		Email:    email,
 		NickName: nickName,

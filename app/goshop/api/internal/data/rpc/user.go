@@ -75,6 +75,7 @@ func (u *users) Create(ctx context.Context, user *data.User) error {
 	}
 
 	protoUser := &upbv1.CreateUserInfo{
+		Username: user.Username,
 		Mobile:   user.Mobile,
 		Email:    user.Email,
 		NickName: user.NickName,
@@ -98,6 +99,7 @@ func (u *users) Update(ctx context.Context, user *data.User) error {
 
 	protoUser := &upbv1.UpdateUserInfo{
 		Id:       int32(user.ID),
+		Username: user.Username,
 		NickName: user.NickName,
 		Gender:   user.Gender,
 		BirthDay: uint64(user.Birthday.Unix()),
@@ -127,6 +129,7 @@ func (u *users) Get(ctx context.Context, userID uint64) (data.User, error) {
 
 	return data.User{
 		ID:       uint64(user.Id),
+		Username: user.Username,
 		Mobile:   user.Mobile,
 		Email:    user.Email,
 		NickName: user.NickName,
@@ -159,6 +162,7 @@ func (u *users) GetByUsername(ctx context.Context, username string) (data.User, 
 
 	return data.User{
 		ID:       uint64(user.Id),
+		Username: user.Username,
 		Mobile:   user.Mobile,
 		Email:    user.Email,
 		NickName: user.NickName,

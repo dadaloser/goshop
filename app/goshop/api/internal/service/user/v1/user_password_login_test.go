@@ -126,13 +126,18 @@ type fakeUserData struct {
 	checkPasswordErr    error
 	updateCalled        bool
 	updatedUser         *data.User
+	created             data.User
 	getCalled           bool
 	gotID               uint64
 	gotUsername         string
 	getByUsernameCalled bool
 }
 
-func (f *fakeUserData) Create(context.Context, *data.User) error {
+func (f *fakeUserData) Create(_ context.Context, user *data.User) error {
+	if user != nil {
+		f.created = *user
+		user.ID = 1
+	}
 	return nil
 }
 

@@ -19,6 +19,7 @@ func (u *userServer) CreateUser(ctx context.Context, request *upbv1.CreateUserIn
 	log.Infof("create user function called.")
 
 	userDO := v12.UserDO{
+		Username: optionalString(request.Username),
 		Mobile:   request.Mobile,
 		Email:    optionalString(request.Email),
 		NickName: request.NickName,

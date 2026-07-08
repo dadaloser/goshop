@@ -21,6 +21,9 @@ func DTOToResponse(userDTO srvv1.UserDTO) *upbv1.UserInfoResponse {
 		Role:     int32(userDTO.Role),
 		Mobile:   userDTO.Mobile,
 	}
+	if userDTO.Username != nil {
+		userInfoRsp.Username = *userDTO.Username
+	}
 	if userDTO.Email != nil {
 		userInfoRsp.Email = *userDTO.Email
 	}
