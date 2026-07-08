@@ -7,6 +7,7 @@ import (
 	"goshop/app/inventory/srv/internal/domain/dto"
 	v1 "goshop/app/inventory/srv/internal/service/v1"
 	"goshop/app/pkg/code"
+	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 
@@ -22,6 +23,10 @@ type inventoryServer struct {
 
 // 设置库存
 func (is *inventoryServer) SetInv(ctx context.Context, info *invpb.GoodsInvInfo) (*emptypb.Empty, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "inventory request is required")
+	}
+
 	invDTO := &dto.InventoryDTO{}
 	invDTO.Goods = info.GoodsId
 	invDTO.Stocks = info.Num
@@ -33,6 +38,10 @@ func (is *inventoryServer) SetInv(ctx context.Context, info *invpb.GoodsInvInfo)
 }
 
 func (is *inventoryServer) InvDetail(ctx context.Context, info *invpb.GoodsInvInfo) (*invpb.GoodsInvInfo, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "inventory request is required")
+	}
+
 	inv, err := is.srv.Inventory().Get(ctx, uint64(info.GoodsId))
 	if err != nil {
 		return nil, err
@@ -44,6 +53,10 @@ func (is *inventoryServer) InvDetail(ctx context.Context, info *invpb.GoodsInvIn
 }
 
 func (is *inventoryServer) Sell(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "inventory sell request is required")
+	}
+
 	var detail []do.GoodsDetail
 	for _, value := range info.GoodsInfo {
 		detail = append(detail, do.GoodsDetail{Goods: value.GoodsId, Num: value.Num})
@@ -61,6 +74,10 @@ func (is *inventoryServer) Sell(ctx context.Context, info *invpb.SellInfo) (*emp
 }
 
 func (is *inventoryServer) Reback(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "inventory reback request is required")
+	}
+
 	log.Infof("订单%s归还库存", info.OrderSn)
 	var detail []do.GoodsDetail
 	for _, v := range info.GoodsInfo {

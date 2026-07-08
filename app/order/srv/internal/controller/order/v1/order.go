@@ -6,7 +6,9 @@ import (
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
 	"goshop/app/order/srv/internal/service/v1"
+	code2 "goshop/gmicro/code"
 	metav1 "goshop/pkg/common/meta/v1"
+	"goshop/pkg/errors"
 	"goshop/pkg/log"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -23,6 +25,10 @@ func NewOrderServer(srv service.ServiceFactory) *orderServer {
 }
 
 func (os *orderServer) CartItemList(ctx context.Context, info *pb.UserInfo) (*pb.CartItemListResponse, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "user info is required")
+	}
+
 	list, err := os.srv.Orders().CartItemList(ctx, uint64(info.Id), metav1.ListMeta{}, []string{})
 	if err != nil {
 		return nil, err
@@ -35,6 +41,10 @@ func (os *orderServer) CartItemList(ctx context.Context, info *pb.UserInfo) (*pb
 }
 
 func (os *orderServer) CreateCartItem(ctx context.Context, request *pb.CartItemRequest) (*pb.ShopCartInfoResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "cart item request is required")
+	}
+
 	cart, err := os.srv.Orders().CreateCartItem(ctx, &dto.ShopCartDTO{
 		ShoppingCartDO: do.ShoppingCartDO{
 			User:    request.UserId,
@@ -50,6 +60,10 @@ func (os *orderServer) CreateCartItem(ctx context.Context, request *pb.CartItemR
 }
 
 func (os *orderServer) UpdateCartItem(ctx context.Context, request *pb.CartItemRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "cart item request is required")
+	}
+
 	err := os.srv.Orders().UpdateCartItem(ctx, &dto.ShopCartDTO{
 		ShoppingCartDO: do.ShoppingCartDO{
 			User:    request.UserId,
@@ -65,6 +79,10 @@ func (os *orderServer) UpdateCartItem(ctx context.Context, request *pb.CartItemR
 }
 
 func (os *orderServer) DeleteCartItem(ctx context.Context, request *pb.CartItemRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "cart item request is required")
+	}
+
 	if err := os.srv.Orders().DeleteCartItem(ctx, uint64(request.UserId), uint64(request.Id)); err != nil {
 		return nil, err
 	}
@@ -73,8 +91,15 @@ func (os *orderServer) DeleteCartItem(ctx context.Context, request *pb.CartItemR
 
 // 这个是给分布式事务saga调用的，目前没为api提供的目的
 func (os *orderServer) CreateOrder(ctx context.Context, request *pb.OrderRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "order request is required")
+	}
+
 	orderGoods := make([]*do.OrderGoods, len(request.OrderItems))
 	for i, item := range request.OrderItems {
+		if item == nil {
+			return nil, errors.WithCode(code2.ErrValidation, "order item is required")
+		}
 		orderGoods[i] = &do.OrderGoods{
 			Goods: item.GoodsId,
 			Nums:  item.Nums,
@@ -99,6 +124,10 @@ func (os *orderServer) CreateOrder(ctx context.Context, request *pb.OrderRequest
 }
 
 func (os *orderServer) CreateOrderCom(ctx context.Context, request *pb.OrderRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "order request is required")
+	}
+
 	err := os.srv.Orders().CreateCom(ctx, &dto.OrderDTO{
 		OrderInfoDO: do.OrderInfoDO{
 			OrderSn: request.OrderSn,
@@ -130,6 +159,10 @@ func (os *orderServer) CreateOrderCom(ctx context.Context, request *pb.OrderRequ
 订单号会单独做一个接口，订单查询，以及一系列的关联我们应该采用order_sn，不要再去采用id去关联
 */
 func (os *orderServer) SubmitOrder(ctx context.Context, request *pb.OrderRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "order request is required")
+	}
+
 	//从购物车中得到选中的商品
 	orderDTO := dto.OrderDTO{
 		OrderInfoDO: do.OrderInfoDO{
@@ -151,6 +184,10 @@ func (os *orderServer) SubmitOrder(ctx context.Context, request *pb.OrderRequest
 }
 
 func (os *orderServer) OrderList(ctx context.Context, request *pb.OrderFilterRequest) (*pb.OrderListResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "order filter request is required")
+	}
+
 	list, err := os.srv.Orders().List(ctx, uint64(request.UserId), metav1.ListMeta{
 		Page:     int(request.Pages),
 		PageSize: int(request.PagePerNums),
@@ -166,6 +203,10 @@ func (os *orderServer) OrderList(ctx context.Context, request *pb.OrderFilterReq
 }
 
 func (os *orderServer) OrderDetail(ctx context.Context, request *pb.OrderRequest) (*pb.OrderInfoDetailResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "order request is required")
+	}
+
 	order, err := os.srv.Orders().Get(ctx, uint64(request.UserId), request.OrderSn)
 	if err != nil {
 		return nil, err
@@ -177,6 +218,10 @@ func (os *orderServer) OrderDetail(ctx context.Context, request *pb.OrderRequest
 }
 
 func (os *orderServer) UpdateOrderStatus(ctx context.Context, status *pb.OrderStatus) (*emptypb.Empty, error) {
+	if status == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "order status is required")
+	}
+
 	orderDTO := &dto.OrderDTO{
 		OrderInfoDO: do.OrderInfoDO{
 			OrderSn: status.OrderSn,

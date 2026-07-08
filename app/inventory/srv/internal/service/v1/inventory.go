@@ -49,10 +49,17 @@ type inventoryService struct {
 }
 
 func (is *inventoryService) Create(ctx context.Context, inv *dto.InventoryDTO) error {
+	if inv == nil || inv.Goods <= 0 || inv.Stocks < 0 {
+		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
+	}
 	return is.data.Inventories().Create(ctx, &inv.InventoryDO)
 }
 
 func (is *inventoryService) Get(ctx context.Context, goodsID uint64) (*dto.InventoryDTO, error) {
+	if goodsID == 0 {
+		return nil, errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+	}
+
 	inv, err := is.data.Inventories().Get(ctx, goodsID)
 	if err != nil {
 		return nil, err
