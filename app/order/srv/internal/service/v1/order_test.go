@@ -200,6 +200,74 @@ func TestGetRequiresUserOwnership(t *testing.T) {
 	}
 }
 
+func TestListIgnoresMissingUser(t *testing.T) {
+	svc := &orderService{}
+
+	got, err := svc.List(context.Background(), 0, metav1.ListMeta{}, nil)
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if got.TotalCount != 0 || len(got.Items) != 0 {
+		t.Fatalf("List() = %+v, want empty result", got)
+	}
+}
+
+func TestCartItemListIgnoresMissingUser(t *testing.T) {
+	svc := &orderService{}
+
+	got, err := svc.CartItemList(context.Background(), 0, metav1.ListMeta{}, nil)
+	if err != nil {
+		t.Fatalf("CartItemList() error = %v, want nil", err)
+	}
+	if got.TotalCount != 0 || len(got.Items) != 0 {
+		t.Fatalf("CartItemList() = %+v, want empty result", got)
+	}
+}
+
+func TestDeleteCartItemRequiresUser(t *testing.T) {
+	svc := &orderService{}
+
+	tests := []struct {
+		name   string
+		userID uint64
+		id     uint64
+	}{
+		{name: "missing user", id: 1},
+		{name: "missing cart id", userID: 10},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := svc.DeleteCartItem(context.Background(), tt.userID, tt.id)
+			if !errors.IsCode(err, code.ErrShopCartItemNotFound) {
+				t.Fatalf("DeleteCartItem() error = %v, want code %d", err, code.ErrShopCartItemNotFound)
+			}
+		})
+	}
+}
+
+func TestDeleteCartItemScopesByUser(t *testing.T) {
+	var gotUserID, gotID uint64
+	svc := &orderService{
+		data: fakeOrderDataFactory{
+			shopCarts: fakeShopCartStore{
+				delete: func(_ context.Context, userID, id uint64) error {
+					gotUserID = userID
+					gotID = id
+					return nil
+				},
+			},
+		},
+	}
+
+	if err := svc.DeleteCartItem(context.Background(), 10, 20); err != nil {
+		t.Fatalf("DeleteCartItem() error = %v, want nil", err)
+	}
+	if gotUserID != 10 || gotID != 20 {
+		t.Fatalf("DeleteCartItem() passed userID=%d id=%d, want userID=10 id=20", gotUserID, gotID)
+	}
+}
+
 type fakeOrderDataFactory struct {
 	orders    datav1.OrderStore
 	shopCarts datav1.ShopCartStore
@@ -241,5 +309,44 @@ func (fakeOrderStore) DeleteByOrderSn(context.Context, *gorm.DB, string) error {
 }
 
 func (fakeOrderStore) Update(context.Context, *gorm.DB, *do.OrderInfoDO) error {
+	return nil
+}
+
+type fakeShopCartStore struct {
+	delete func(context.Context, uint64, uint64) error
+}
+
+func (fakeShopCartStore) List(context.Context, uint64, bool, metav1.ListMeta, []string) (*do.ShoppingCartDOList, error) {
+	return nil, nil
+}
+
+func (fakeShopCartStore) Create(context.Context, *do.ShoppingCartDO) error {
+	return nil
+}
+
+func (fakeShopCartStore) Get(context.Context, uint64, uint64) (*do.ShoppingCartDO, error) {
+	return nil, errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+}
+
+func (fakeShopCartStore) UpdateNum(context.Context, *do.ShoppingCartDO) error {
+	return nil
+}
+
+func (f fakeShopCartStore) Delete(ctx context.Context, userID, id uint64) error {
+	if f.delete != nil {
+		return f.delete(ctx, userID, id)
+	}
+	return nil
+}
+
+func (fakeShopCartStore) ClearCheck(context.Context, uint64) error {
+	return nil
+}
+
+func (fakeShopCartStore) DeleteByGoodsIDs(context.Context, *gorm.DB, uint64, []int32) error {
+	return nil
+}
+
+func (fakeShopCartStore) RestoreCheckedItems(context.Context, *gorm.DB, uint64, []*do.OrderGoods) error {
 	return nil
 }

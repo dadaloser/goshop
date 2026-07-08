@@ -65,7 +65,7 @@ func (os *orderServer) UpdateCartItem(ctx context.Context, request *pb.CartItemR
 }
 
 func (os *orderServer) DeleteCartItem(ctx context.Context, request *pb.CartItemRequest) (*emptypb.Empty, error) {
-	if err := os.srv.Orders().DeleteCartItem(ctx, uint64(request.Id)); err != nil {
+	if err := os.srv.Orders().DeleteCartItem(ctx, uint64(request.UserId), uint64(request.Id)); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

@@ -28,7 +28,7 @@ type OrderSrv interface {
 	CartItemList(ctx context.Context, userID uint64, meta v1.ListMeta, orderBy []string) (*dto.ShopCartDTOList, error)
 	CreateCartItem(ctx context.Context, cartItem *dto.ShopCartDTO) (*dto.ShopCartDTO, error)
 	UpdateCartItem(ctx context.Context, cartItem *dto.ShopCartDTO) error
-	DeleteCartItem(ctx context.Context, id uint64) error
+	DeleteCartItem(ctx context.Context, userID, id uint64) error
 	Get(ctx context.Context, userID uint64, orderSn string) (*dto.OrderDTO, error)
 	List(ctx context.Context, userID uint64, meta v1.ListMeta, orderBy []string) (*dto.OrderDTOList, error)
 	Submit(ctx context.Context, order *dto.OrderDTO) error
@@ -44,6 +44,10 @@ type orderService struct {
 }
 
 func (os *orderService) CartItemList(ctx context.Context, userID uint64, meta v1.ListMeta, orderBy []string) (*dto.ShopCartDTOList, error) {
+	if userID == 0 {
+		return &dto.ShopCartDTOList{}, nil
+	}
+
 	carts, err := os.data.ShopCarts().List(ctx, userID, false, meta, orderBy)
 	if err != nil {
 		return nil, err
@@ -57,6 +61,10 @@ func (os *orderService) CartItemList(ctx context.Context, userID uint64, meta v1
 }
 
 func (os *orderService) CreateCartItem(ctx context.Context, cartItem *dto.ShopCartDTO) (*dto.ShopCartDTO, error) {
+	if cartItem == nil || cartItem.User <= 0 || cartItem.Goods <= 0 || cartItem.Nums <= 0 {
+		return nil, errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+	}
+
 	existing, err := os.data.ShopCarts().Get(ctx, uint64(cartItem.User), uint64(cartItem.Goods))
 	if err == nil {
 		existing.Nums += cartItem.Nums
@@ -77,11 +85,17 @@ func (os *orderService) CreateCartItem(ctx context.Context, cartItem *dto.ShopCa
 }
 
 func (os *orderService) UpdateCartItem(ctx context.Context, cartItem *dto.ShopCartDTO) error {
+	if cartItem == nil || cartItem.User <= 0 || cartItem.Goods <= 0 || cartItem.Nums <= 0 {
+		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+	}
 	return os.data.ShopCarts().UpdateNum(ctx, &cartItem.ShoppingCartDO)
 }
 
-func (os *orderService) DeleteCartItem(ctx context.Context, id uint64) error {
-	return os.data.ShopCarts().Delete(ctx, id)
+func (os *orderService) DeleteCartItem(ctx context.Context, userID, id uint64) error {
+	if userID == 0 || id == 0 {
+		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+	}
+	return os.data.ShopCarts().Delete(ctx, userID, id)
 }
 
 func (os *orderService) CreateCom(ctx context.Context, order *dto.OrderDTO) error {
@@ -293,6 +307,10 @@ func (os *orderService) Get(ctx context.Context, userID uint64, orderSn string) 
 }
 
 func (os *orderService) List(ctx context.Context, userID uint64, meta v1.ListMeta, orderBy []string) (*dto.OrderDTOList, error) {
+	if userID == 0 {
+		return &dto.OrderDTOList{}, nil
+	}
+
 	orders, err := os.data.Orders().List(ctx, userID, meta, orderBy)
 	if err != nil {
 		return nil, err

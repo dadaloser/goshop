@@ -72,6 +72,10 @@ func (sc *shopCarts) RestoreCheckedItems(ctx context.Context, txn *gorm.DB, user
 
 func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta metav1.ListMeta, orderBy []string) (*do.ShoppingCartDOList, error) {
 	ret := &do.ShoppingCartDOList{}
+	if userID == 0 {
+		return ret, nil
+	}
+
 	countQuery := sc.db.WithContext(ctx).Model(&do.ShoppingCartDO{})
 	//分页
 	var limit, offset int
@@ -85,9 +89,7 @@ func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta
 		offset = (meta.Page - 1) * limit
 	}
 
-	if userID > 0 {
-		countQuery = countQuery.Where("user = ?", userID)
-	}
+	countQuery = countQuery.Where("user = ?", userID)
 	if checked {
 		countQuery = countQuery.Where("checked = ?", true)
 	}
@@ -97,9 +99,7 @@ func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta
 
 	//排序
 	query := sc.db.WithContext(ctx).Model(&do.ShoppingCartDO{})
-	if userID > 0 {
-		query = query.Where("user = ?", userID)
-	}
+	query = query.Where("user = ?", userID)
 	if checked {
 		query = query.Where("checked = ?", true)
 	}
@@ -148,8 +148,12 @@ func (sc *shopCarts) UpdateNum(ctx context.Context, cartItem *do.ShoppingCartDO)
 	return nil
 }
 
-func (sc *shopCarts) Delete(ctx context.Context, ID uint64) error {
-	tx := sc.db.WithContext(ctx).Where("id = ?", ID).Delete(&do.ShoppingCartDO{})
+func (sc *shopCarts) Delete(ctx context.Context, userID, ID uint64) error {
+	if userID == 0 || ID == 0 {
+		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+	}
+
+	tx := sc.db.WithContext(ctx).Where("id = ? AND user = ?", ID, userID).Delete(&do.ShoppingCartDO{})
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}

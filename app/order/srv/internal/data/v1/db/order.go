@@ -41,6 +41,10 @@ func (o *orders) Get(ctx context.Context, orderSn string) (*do.OrderInfoDO, erro
 
 func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, orderBy []string) (*do.OrderInfoDOList, error) {
 	ret := &do.OrderInfoDOList{}
+	if userID == 0 {
+		return ret, nil
+	}
+
 	//分页
 	var limit, offset int
 	if meta.PageSize == 0 {
@@ -54,18 +58,14 @@ func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, 
 	}
 
 	countQuery := o.db.WithContext(ctx).Model(&do.OrderInfoDO{})
-	if userID > 0 {
-		countQuery = countQuery.Where("user = ?", userID)
-	}
+	countQuery = countQuery.Where("user = ?", userID)
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 
 	//排序
 	query := o.db.WithContext(ctx).Model(&do.OrderInfoDO{}).Preload("OrderGoods")
-	if userID > 0 {
-		query = query.Where("user = ?", userID)
-	}
+	query = query.Where("user = ?", userID)
 	for _, value := range orderBy {
 		query = query.Order(value)
 	}
