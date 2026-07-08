@@ -15,6 +15,7 @@ func init() {
 	register(ErrSmsRateLimited, http.StatusForbidden, "Sms send temporarily rate limited")
 	register(ErrSmsVerifyLocked, http.StatusForbidden, "Sms verification temporarily locked")
 	register(ErrGoodsNotFound, http.StatusNotFound, "Goods not found")
+	register(ErrGoodsInvalid, http.StatusBadRequest, "Goods request is invalid")
 	register(ErrCategoryNotFound, http.StatusNotFound, "Category not found")
 	register(ErrEsUnmarshal, http.StatusInternalServerError, "Es unmarshal error")
 	register(ErrInventoryNotFound, http.StatusNotFound, "Inventory not found")

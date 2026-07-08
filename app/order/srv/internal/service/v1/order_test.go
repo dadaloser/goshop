@@ -8,6 +8,7 @@ import (
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
 	"goshop/app/pkg/code"
+	"goshop/app/pkg/options"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 
@@ -265,6 +266,56 @@ func TestDeleteCartItemScopesByUser(t *testing.T) {
 	}
 	if gotUserID != 10 || gotID != 20 {
 		t.Fatalf("DeleteCartItem() passed userID=%d id=%d, want userID=10 id=20", gotUserID, gotID)
+	}
+}
+
+func TestSubmitRejectsInvalidRequest(t *testing.T) {
+	tests := []struct {
+		name  string
+		svc   *orderService
+		order *dto.OrderDTO
+	}{
+		{
+			name: "nil order",
+			svc:  &orderService{},
+		},
+		{
+			name: "missing user",
+			svc:  &orderService{dtmOpts: &options.DtmOptions{GrpcServer: "127.0.0.1:36790"}},
+			order: &dto.OrderDTO{
+				OrderInfoDO: do.OrderInfoDO{OrderSn: "order-1"},
+			},
+		},
+		{
+			name: "missing order sn",
+			svc:  &orderService{dtmOpts: &options.DtmOptions{GrpcServer: "127.0.0.1:36790"}},
+			order: &dto.OrderDTO{
+				OrderInfoDO: do.OrderInfoDO{User: 10},
+			},
+		},
+		{
+			name: "missing dtm config",
+			svc:  &orderService{},
+			order: &dto.OrderDTO{
+				OrderInfoDO: do.OrderInfoDO{User: 10, OrderSn: "order-1"},
+			},
+		},
+		{
+			name: "empty dtm grpc server",
+			svc:  &orderService{dtmOpts: &options.DtmOptions{}},
+			order: &dto.OrderDTO{
+				OrderInfoDO: do.OrderInfoDO{User: 10, OrderSn: "order-1"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.svc.Submit(context.Background(), tt.order)
+			if !errors.IsCode(err, code.ErrSubmitOrder) {
+				t.Fatalf("Submit() error = %v, want code %d", err, code.ErrSubmitOrder)
+			}
+		})
 	}
 }
 

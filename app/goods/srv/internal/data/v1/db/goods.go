@@ -29,7 +29,11 @@ func newGoods(factory *mysqlFactory) *goods {
 }
 
 func (g *goods) CreateInTxn(ctx context.Context, txn *gorm.DB, goods *do.GoodsDO) error {
-	tx := txn.Create(goods)
+	if txn == nil || goods == nil {
+		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
+	}
+
+	tx := txn.WithContext(ctx).Create(goods)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
@@ -37,15 +41,35 @@ func (g *goods) CreateInTxn(ctx context.Context, txn *gorm.DB, goods *do.GoodsDO
 }
 
 func (g *goods) UpdateInTxn(ctx context.Context, txn *gorm.DB, goods *do.GoodsDO) error {
-	tx := txn.Save(goods)
+	if txn == nil || goods == nil || goods.ID <= 0 {
+		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+	}
+
+	tx := txn.WithContext(ctx).Model(&do.GoodsDO{}).
+		Where("id = ?", goods.ID).
+		Updates(goodsUpdateValues(goods))
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
 	}
 	return nil
 }
 
 func (g *goods) DeleteInTxn(ctx context.Context, txn *gorm.DB, ID uint64) error {
-	return txn.Where("id = ?", ID).Delete(&do.GoodsDO{}).Error
+	if txn == nil || ID == 0 {
+		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+	}
+
+	tx := txn.WithContext(ctx).Where("id = ?", ID).Delete(&do.GoodsDO{})
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+	}
+	return nil
 }
 
 //func NewGoods(db *gorm.DB) *goods {
@@ -71,7 +95,7 @@ func (g *goods) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 	}
 
 	//排序
-	query := g.db.Preload("Category").Preload("Brands")
+	query := g.db.WithContext(ctx).Preload("Category").Preload("Brands")
 	for _, value := range orderBy {
 		//坑
 		query = query.Order(value)
@@ -86,7 +110,7 @@ func (g *goods) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 
 func (g *goods) Get(ctx context.Context, ID uint64) (*do.GoodsDO, error) {
 	good := &do.GoodsDO{}
-	err := g.db.Preload("Category").Preload("Brands").First(good, ID).Error
+	err := g.db.WithContext(ctx).Preload("Category").Preload("Brands").First(good, ID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.WithCode(code.ErrGoodsNotFound, err.Error())
@@ -101,7 +125,7 @@ func (g *goods) ListByIDs(ctx context.Context, ids []uint64, orderBy []string) (
 	ret := &do.GoodsDOList{}
 
 	//排序
-	query := g.db.Preload("Category").Preload("Brands")
+	query := g.db.WithContext(ctx).Preload("Category").Preload("Brands")
 	for _, value := range orderBy {
 		query = query.Order(value)
 	}
@@ -114,7 +138,11 @@ func (g *goods) ListByIDs(ctx context.Context, ids []uint64, orderBy []string) (
 }
 
 func (g *goods) Create(ctx context.Context, goods *do.GoodsDO) error {
-	tx := g.db.Create(goods)
+	if goods == nil {
+		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
+	}
+
+	tx := g.db.WithContext(ctx).Create(goods)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
@@ -122,15 +150,57 @@ func (g *goods) Create(ctx context.Context, goods *do.GoodsDO) error {
 }
 
 func (g *goods) Update(ctx context.Context, goods *do.GoodsDO) error {
-	tx := g.db.Save(goods)
+	if goods == nil || goods.ID <= 0 {
+		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+	}
+
+	tx := g.db.WithContext(ctx).Model(&do.GoodsDO{}).
+		Where("id = ?", goods.ID).
+		Updates(goodsUpdateValues(goods))
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
 	}
 	return nil
 }
 
 func (g *goods) Delete(ctx context.Context, ID uint64) error {
-	return g.db.Where("id = ?", ID).Delete(&do.GoodsDO{}).Error
+	if ID == 0 {
+		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+	}
+
+	tx := g.db.WithContext(ctx).Where("id = ?", ID).Delete(&do.GoodsDO{})
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+	}
+	return nil
 }
 
 var _ v1.GoodsStore = &goods{}
+
+func goodsUpdateValues(goods *do.GoodsDO) map[string]interface{} {
+	return map[string]interface{}{
+		"category_id":       goods.CategoryID,
+		"brands_id":         goods.BrandsID,
+		"on_sale":           goods.OnSale,
+		"ship_free":         goods.ShipFree,
+		"is_new":            goods.IsNew,
+		"is_hot":            goods.IsHot,
+		"name":              goods.Name,
+		"goods_sn":          goods.GoodsSn,
+		"click_num":         goods.ClickNum,
+		"sold_num":          goods.SoldNum,
+		"fav_num":           goods.FavNum,
+		"market_price":      goods.MarketPrice,
+		"shop_price":        goods.ShopPrice,
+		"goods_brief":       goods.GoodsBrief,
+		"images":            goods.Images,
+		"desc_images":       goods.DescImages,
+		"goods_front_image": goods.GoodsFrontImage,
+	}
+}

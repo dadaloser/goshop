@@ -9,4 +9,7 @@ const (
 
 	// ErrBrandNotFound - 500: Es unmarshal error.
 	ErrEsUnmarshal
+
+	// ErrGoodsInvalid - 400: Goods request is invalid.
+	ErrGoodsInvalid
 )

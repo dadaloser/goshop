@@ -30,7 +30,7 @@ func (g *goods) Create(ctx context.Context, goods *do.GoodsSearchDO) error {
 		Index(goods.GetIndexName()).
 		Id(strconv.Itoa(int(goods.ID))).
 		BodyJson(&goods).
-		Do(context.TODO())
+		Do(ctx)
 	return err
 }
 

@@ -342,6 +342,17 @@ func (os *orderService) List(ctx context.Context, userID uint64, meta v1.ListMet
 }
 
 func (os *orderService) Submit(ctx context.Context, order *dto.OrderDTO) error {
+	if order == nil {
+		return errors.WithCode(code.ErrSubmitOrder, "order is required")
+	}
+	order.OrderSn = strings.TrimSpace(order.OrderSn)
+	if order.User <= 0 || order.OrderSn == "" {
+		return errors.WithCode(code.ErrSubmitOrder, "user and order_sn are required")
+	}
+	if os.dtmOpts == nil || strings.TrimSpace(os.dtmOpts.GrpcServer) == "" {
+		return errors.WithCode(code.ErrSubmitOrder, "dtm grpc server is required")
+	}
+
 	//先从购物车中获取商品信息
 	list, err := os.data.ShopCarts().List(ctx, uint64(order.User), true, v1.ListMeta{}, []string{})
 	if err != nil {

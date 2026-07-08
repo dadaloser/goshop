@@ -2,15 +2,19 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	proto "goshop/api/goods/v1"
 	v1 "goshop/app/goods/srv/internal/data/v1"
 	v12 "goshop/app/goods/srv/internal/data_search/v1"
 	"goshop/app/goods/srv/internal/domain/do"
 	"goshop/app/goods/srv/internal/domain/dto"
+	"goshop/app/pkg/code"
+	"goshop/pkg/errors"
 	"sync"
 
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/log"
+	"strings"
 
 	"github.com/zeromicro/go-zero/core/mr"
 )
@@ -141,11 +145,15 @@ func goodsSearchFromDTO(goods *dto.GoodsDTO) do.GoodsSearchDO {
 }
 
 // 可以引入mysql+binlog+canal+kafka来实现最终一致性可靠方案
-func (gs *goodsService) Create(ctx context.Context, goods *dto.GoodsDTO) error {
+func (gs *goodsService) Create(ctx context.Context, goods *dto.GoodsDTO) (err error) {
 	/*
 		数据先写mysql，然后写es
 	*/
-	_, err := gs.data.Brands().Get(ctx, uint64(goods.BrandsID))
+	if err := validateGoodsForWrite(goods, false); err != nil {
+		return err
+	}
+
+	_, err = gs.data.Brands().Get(ctx, uint64(goods.BrandsID))
 	if err != nil {
 		return err
 	}
@@ -160,33 +168,53 @@ func (gs *goodsService) Create(ctx context.Context, goods *dto.GoodsDTO) error {
 	//比较重的方案： 每次都要发送一个事务消息
 	//因此引入外部数据库事务来控制事务
 	txn := gs.data.Begin() //开启事务要非常小心， 这种方案是不是就没有问题了呢, 其实也不是， 事务的超时问题， 以及事务的回滚问题， 以及事务的提交问题， 都需要我们去控制的
-	defer func() {         //很重要!!!防止出现崩溃没有回滚
-		if err := recover(); err != nil {
-			txn.Rollback()
-			log.Errorf("goodsService.Create panic: %v", err)
+	if txn.Error != nil {
+		return txn.Error
+	}
+
+	committed := false
+	defer func() {
+		if panicValue := recover(); panicValue != nil {
+			if !committed {
+				_ = txn.Rollback().Error
+			}
+			err = fmt.Errorf("create goods transaction panic: %v", panicValue)
+			log.Errorf("goodsService.Create panic: %v", panicValue)
 			return
+		}
+		if !committed {
+			_ = txn.Rollback().Error
 		}
 	}()
 
 	err = gs.data.Goods().CreateInTxn(ctx, txn, &goods.GoodsDO)
 	if err != nil {
 		log.Errorf("data.CreateInTxn err: %v", err)
-		txn.Rollback()
 		return err
 	}
 	searchDO := goodsSearchFromDTO(goods)
 
 	err = gs.searchData.Goods().Create(ctx, &searchDO) //这个接口如果超时了就会出问题
 	if err != nil {
-		txn.Rollback()
 		return err
 	}
-	txn.Commit()
+	if err := txn.Commit().Error; err != nil {
+		return fmt.Errorf("commit create goods transaction: %w", err)
+	}
+	committed = true
 	return nil
 }
 
-func (gs *goodsService) Update(ctx context.Context, goods *dto.GoodsDTO) error {
-	_, err := gs.data.Brands().Get(ctx, uint64(goods.BrandsID))
+func (gs *goodsService) Update(ctx context.Context, goods *dto.GoodsDTO) (err error) {
+	if err := validateGoodsForWrite(goods, true); err != nil {
+		return err
+	}
+
+	if _, err := gs.data.Goods().Get(ctx, uint64(goods.ID)); err != nil {
+		return err
+	}
+
+	_, err = gs.data.Brands().Get(ctx, uint64(goods.BrandsID))
 	if err != nil {
 		return err
 	}
@@ -200,32 +228,73 @@ func (gs *goodsService) Update(ctx context.Context, goods *dto.GoodsDTO) error {
 	if txn.Error != nil {
 		return txn.Error
 	}
+	committed := false
+	defer func() {
+		if panicValue := recover(); panicValue != nil {
+			if !committed {
+				_ = txn.Rollback().Error
+			}
+			err = fmt.Errorf("update goods transaction panic: %v", panicValue)
+			log.Errorf("goodsService.Update panic: %v", panicValue)
+			return
+		}
+		if !committed {
+			_ = txn.Rollback().Error
+		}
+	}()
+
 	if err := gs.data.Goods().UpdateInTxn(ctx, txn, &goods.GoodsDO); err != nil {
-		txn.Rollback()
 		return err
 	}
 	searchDO := goodsSearchFromDTO(goods)
 	if err := gs.searchData.Goods().Update(ctx, &searchDO); err != nil {
-		txn.Rollback()
 		return err
 	}
-	return txn.Commit().Error
+	if err := txn.Commit().Error; err != nil {
+		return fmt.Errorf("commit update goods transaction: %w", err)
+	}
+	committed = true
+	return nil
 }
 
-func (gs *goodsService) Delete(ctx context.Context, ID uint64) error {
+func (gs *goodsService) Delete(ctx context.Context, ID uint64) (err error) {
+	if ID == 0 {
+		return errors.WithCode(code.ErrGoodsInvalid, "goods id is required")
+	}
+	if _, err := gs.data.Goods().Get(ctx, ID); err != nil {
+		return err
+	}
+
 	txn := gs.data.Begin()
 	if txn.Error != nil {
 		return txn.Error
 	}
+	committed := false
+	defer func() {
+		if panicValue := recover(); panicValue != nil {
+			if !committed {
+				_ = txn.Rollback().Error
+			}
+			err = fmt.Errorf("delete goods transaction panic: %v", panicValue)
+			log.Errorf("goodsService.Delete panic: %v", panicValue)
+			return
+		}
+		if !committed {
+			_ = txn.Rollback().Error
+		}
+	}()
+
 	if err := gs.data.Goods().DeleteInTxn(ctx, txn, ID); err != nil {
-		txn.Rollback()
 		return err
 	}
 	if err := gs.searchData.Goods().Delete(ctx, ID); err != nil {
-		txn.Rollback()
 		return err
 	}
-	return txn.Commit().Error
+	if err := txn.Commit().Error; err != nil {
+		return fmt.Errorf("commit delete goods transaction: %w", err)
+	}
+	committed = true
+	return nil
 }
 
 func (gs *goodsService) BatchGet(ctx context.Context, ids []uint64) ([]*dto.GoodsDTO, error) {
@@ -261,3 +330,28 @@ func (gs *goodsService) BatchGet(ctx context.Context, ids []uint64) ([]*dto.Good
 }
 
 var _ GoodsSrv = &goodsService{}
+
+func validateGoodsForWrite(goods *dto.GoodsDTO, requireID bool) error {
+	if goods == nil {
+		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
+	}
+	if requireID && goods.ID <= 0 {
+		return errors.WithCode(code.ErrGoodsInvalid, "goods id is required")
+	}
+
+	goods.Name = strings.TrimSpace(goods.Name)
+	goods.GoodsSn = strings.TrimSpace(goods.GoodsSn)
+	goods.GoodsBrief = strings.TrimSpace(goods.GoodsBrief)
+	goods.GoodsFrontImage = strings.TrimSpace(goods.GoodsFrontImage)
+
+	if goods.CategoryID <= 0 || goods.BrandsID <= 0 {
+		return errors.WithCode(code.ErrGoodsInvalid, "category_id and brand_id are required")
+	}
+	if goods.Name == "" || goods.GoodsSn == "" {
+		return errors.WithCode(code.ErrGoodsInvalid, "name and goods_sn are required")
+	}
+	if goods.MarketPrice < 0 || goods.ShopPrice < 0 {
+		return errors.WithCode(code.ErrGoodsInvalid, "goods price must not be negative")
+	}
+	return nil
+}

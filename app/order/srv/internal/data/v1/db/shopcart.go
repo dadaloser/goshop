@@ -26,6 +26,10 @@ func newShopCarts(factory *dataFactory) *shopCarts {
 
 // 这个在事务中执行，建议大家使用消息队列来实现
 func (sc *shopCarts) DeleteByGoodsIDs(ctx context.Context, txn *gorm.DB, userID uint64, goodsIDs []int32) error {
+	if userID == 0 || len(goodsIDs) == 0 {
+		return nil
+	}
+
 	db := sc.db
 	if txn != nil {
 		db = txn
@@ -135,10 +139,16 @@ func (sc *shopCarts) Get(ctx context.Context, userID, goodsID uint64) (*do.Shopp
 }
 
 func (sc *shopCarts) UpdateNum(ctx context.Context, cartItem *do.ShoppingCartDO) error {
+	if cartItem == nil || cartItem.User <= 0 || cartItem.Goods <= 0 || cartItem.Nums <= 0 {
+		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+	}
+
 	tx := sc.db.WithContext(ctx).Model(&do.ShoppingCartDO{}).
 		Where("user = ? AND goods = ?", cartItem.User, cartItem.Goods).
-		Update("nums", cartItem.Nums).
-		Update("checked", cartItem.Checked)
+		Updates(map[string]interface{}{
+			"nums":    cartItem.Nums,
+			"checked": cartItem.Checked,
+		})
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
