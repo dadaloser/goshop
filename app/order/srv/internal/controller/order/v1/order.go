@@ -166,7 +166,7 @@ func (os *orderServer) OrderList(ctx context.Context, request *pb.OrderFilterReq
 }
 
 func (os *orderServer) OrderDetail(ctx context.Context, request *pb.OrderRequest) (*pb.OrderInfoDetailResponse, error) {
-	order, err := os.srv.Orders().Get(ctx, request.OrderSn)
+	order, err := os.srv.Orders().Get(ctx, uint64(request.UserId), request.OrderSn)
 	if err != nil {
 		return nil, err
 	}

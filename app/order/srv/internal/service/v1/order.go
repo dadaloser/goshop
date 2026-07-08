@@ -29,7 +29,7 @@ type OrderSrv interface {
 	CreateCartItem(ctx context.Context, cartItem *dto.ShopCartDTO) (*dto.ShopCartDTO, error)
 	UpdateCartItem(ctx context.Context, cartItem *dto.ShopCartDTO) error
 	DeleteCartItem(ctx context.Context, id uint64) error
-	Get(ctx context.Context, orderSn string) (*dto.OrderDTO, error)
+	Get(ctx context.Context, userID uint64, orderSn string) (*dto.OrderDTO, error)
 	List(ctx context.Context, userID uint64, meta v1.ListMeta, orderBy []string) (*dto.OrderDTOList, error)
 	Submit(ctx context.Context, order *dto.OrderDTO) error
 	Create(ctx context.Context, order *dto.OrderDTO) error
@@ -277,10 +277,17 @@ func aggregateOrderGoods(items []*do.OrderGoods) (map[int32]int64, bool) {
 	return goods, len(goods) > 0
 }
 
-func (os *orderService) Get(ctx context.Context, orderSn string) (*dto.OrderDTO, error) {
+func (os *orderService) Get(ctx context.Context, userID uint64, orderSn string) (*dto.OrderDTO, error) {
+	if userID == 0 || strings.TrimSpace(orderSn) == "" {
+		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+	}
+
 	order, err := os.data.Orders().Get(ctx, orderSn)
 	if err != nil {
 		return nil, err
+	}
+	if uint64(order.User) != userID {
+		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
 	}
 	return &dto.OrderDTO{OrderInfoDO: *order}, nil
 }

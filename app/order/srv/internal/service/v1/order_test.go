@@ -134,6 +134,72 @@ func TestCreateRejectsOrderSnConflict(t *testing.T) {
 	}
 }
 
+func TestGetRequiresUserOwnership(t *testing.T) {
+	existing := &do.OrderInfoDO{
+		User:    10,
+		OrderSn: "order-1",
+		OrderGoods: []*do.OrderGoods{
+			{Goods: 1, Nums: 2},
+		},
+	}
+	svc := &orderService{
+		data: fakeOrderDataFactory{
+			orders: fakeOrderStore{
+				get: func(context.Context, string) (*do.OrderInfoDO, error) {
+					return existing, nil
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name    string
+		userID  uint64
+		orderSn string
+		wantErr bool
+	}{
+		{
+			name:    "owner can read",
+			userID:  10,
+			orderSn: "order-1",
+		},
+		{
+			name:    "missing user is rejected",
+			orderSn: "order-1",
+			wantErr: true,
+		},
+		{
+			name:    "other user is rejected",
+			userID:  11,
+			orderSn: "order-1",
+			wantErr: true,
+		},
+		{
+			name:    "empty order sn is rejected",
+			userID:  10,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := svc.Get(context.Background(), tt.userID, tt.orderSn)
+			if tt.wantErr {
+				if !errors.IsCode(err, code.ErrOrderNotFound) {
+					t.Fatalf("Get() error = %v, want code %d", err, code.ErrOrderNotFound)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Get() error = %v, want nil", err)
+			}
+			if got.OrderSn != existing.OrderSn {
+				t.Fatalf("Get() order_sn = %q, want %q", got.OrderSn, existing.OrderSn)
+			}
+		})
+	}
+}
+
 type fakeOrderDataFactory struct {
 	orders    datav1.OrderStore
 	shopCarts datav1.ShopCartStore
