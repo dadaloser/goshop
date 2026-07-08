@@ -7,6 +7,10 @@ import (
 
 type ServiceFactory interface {
 	Goods() GoodsSrv
+	Categories() CategorySrv
+	Brands() BrandSrv
+	Banners() BannerSrv
+	CategoryBrands() CategoryBrandSrv
 }
 
 type service struct {
@@ -22,4 +26,20 @@ var _ ServiceFactory = &service{}
 
 func (s *service) Goods() GoodsSrv {
 	return newGoods(s)
+}
+
+func (s *service) Categories() CategorySrv {
+	return newCategories(s)
+}
+
+func (s *service) Brands() BrandSrv {
+	return newBrands(s)
+}
+
+func (s *service) Banners() BannerSrv {
+	return newBanners(s)
+}
+
+func (s *service) CategoryBrands() CategoryBrandSrv {
+	return newCategoryBrands(s)
 }

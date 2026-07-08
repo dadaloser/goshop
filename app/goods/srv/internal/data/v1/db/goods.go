@@ -52,7 +52,9 @@ func (g *goods) UpdateInTxn(ctx context.Context, txn *gorm.DB, goods *do.GoodsDO
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
-		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+		if _, err := g.Get(ctx, uint64(goods.ID)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
