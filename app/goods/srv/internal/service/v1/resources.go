@@ -101,6 +101,20 @@ func (s *categoryService) Delete(ctx context.Context, id uint64) error {
 	if len(category.SubCategory) > 0 {
 		return errors.WithCode(code.ErrGoodsInvalid, "category has sub categories")
 	}
+	goodsCount, err := s.data.Goods().CountByCategory(ctx, id)
+	if err != nil {
+		return err
+	}
+	if goodsCount > 0 {
+		return errors.WithCode(code.ErrGoodsInvalid, "category has goods")
+	}
+	relations, err := s.data.CategoryBrands().ListByCategory(ctx, id, []string{})
+	if err != nil {
+		return err
+	}
+	if relations.TotalCount > 0 {
+		return errors.WithCode(code.ErrGoodsInvalid, "category has brand relations")
+	}
 	return s.data.Categories().Delete(ctx, id)
 }
 
@@ -142,6 +156,20 @@ func (s *brandService) Delete(ctx context.Context, id uint64) error {
 	}
 	if _, err := s.data.Brands().Get(ctx, id); err != nil {
 		return err
+	}
+	goodsCount, err := s.data.Goods().CountByBrand(ctx, id)
+	if err != nil {
+		return err
+	}
+	if goodsCount > 0 {
+		return errors.WithCode(code.ErrGoodsInvalid, "brand has goods")
+	}
+	relationCount, err := s.data.CategoryBrands().CountByBrand(ctx, id)
+	if err != nil {
+		return err
+	}
+	if relationCount > 0 {
+		return errors.WithCode(code.ErrGoodsInvalid, "brand has category relations")
 	}
 	return s.data.Brands().Delete(ctx, id)
 }

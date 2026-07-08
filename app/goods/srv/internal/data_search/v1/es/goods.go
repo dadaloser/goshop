@@ -3,6 +3,7 @@ package es
 import (
 	"context"
 	"encoding/json"
+	proto "goshop/api/goods/v1"
 	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 	"strconv"
@@ -26,6 +27,10 @@ func NewGoods(esClient *elastic.Client) *goods {
 }
 
 func (g *goods) Create(ctx context.Context, goods *do.GoodsSearchDO) error {
+	if goods == nil || goods.ID <= 0 {
+		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
+	}
+
 	_, err := g.esClient.Index().
 		Index(goods.GetIndexName()).
 		Id(strconv.Itoa(int(goods.ID))).
@@ -35,11 +40,19 @@ func (g *goods) Create(ctx context.Context, goods *do.GoodsSearchDO) error {
 }
 
 func (g *goods) Delete(ctx context.Context, ID uint64) error {
+	if ID == 0 {
+		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+	}
+
 	_, err := g.esClient.Delete().Index(do.GoodsSearchDO{}.GetIndexName()).Id(strconv.Itoa(int(ID))).Refresh("true").Do(ctx)
 	return err
 }
 
 func (g *goods) Update(ctx context.Context, goods *do.GoodsSearchDO) error {
+	if goods == nil || goods.ID <= 0 {
+		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
+	}
+
 	err := g.Delete(ctx, uint64(goods.ID))
 	if err != nil {
 		return err
@@ -52,6 +65,13 @@ func (g *goods) Update(ctx context.Context, goods *do.GoodsSearchDO) error {
 }
 
 func (g *goods) Search(ctx context.Context, req *v1.GoodsFilterRequest) (*do.GoodsSearchDOList, error) {
+	if req == nil {
+		req = &v1.GoodsFilterRequest{}
+	}
+	if req.GoodsFilterRequest == nil {
+		req.GoodsFilterRequest = &proto.GoodsFilterRequest{}
+	}
+
 	//match bool 复合查询
 	q := elastic.NewBoolQuery()
 	if req.KeyWords != "" {

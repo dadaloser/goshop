@@ -38,6 +38,10 @@ func (sc *shopCarts) DeleteByGoodsIDs(ctx context.Context, txn *gorm.DB, userID 
 }
 
 func (sc *shopCarts) RestoreCheckedItems(ctx context.Context, txn *gorm.DB, userID uint64, items []*do.OrderGoods) error {
+	if userID == 0 {
+		return nil
+	}
+
 	db := sc.db
 	if txn != nil {
 		db = txn
@@ -107,9 +111,7 @@ func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta
 	if checked {
 		query = query.Where("checked = ?", true)
 	}
-	for _, value := range orderBy {
-		query = query.Order(value)
-	}
+	query = applyOrderBy(query, orderBy, shopCartOrderColumns)
 
 	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
@@ -119,6 +121,10 @@ func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta
 }
 
 func (sc *shopCarts) Create(ctx context.Context, cartItem *do.ShoppingCartDO) error {
+	if cartItem == nil || cartItem.User <= 0 || cartItem.Goods <= 0 || cartItem.Nums <= 0 {
+		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+	}
+
 	tx := sc.db.WithContext(ctx).Create(cartItem)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
@@ -127,6 +133,10 @@ func (sc *shopCarts) Create(ctx context.Context, cartItem *do.ShoppingCartDO) er
 }
 
 func (sc *shopCarts) Get(ctx context.Context, userID, goodsID uint64) (*do.ShoppingCartDO, error) {
+	if userID == 0 || goodsID == 0 {
+		return nil, errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+	}
+
 	var shopCart do.ShoppingCartDO
 	err := sc.db.WithContext(ctx).Where("user = ? AND goods = ?", userID, goodsID).First(&shopCart).Error
 	if err != nil {
@@ -175,6 +185,10 @@ func (sc *shopCarts) Delete(ctx context.Context, userID, ID uint64) error {
 
 // 清空check状态
 func (sc *shopCarts) ClearCheck(ctx context.Context, userID uint64) error {
+	if userID == 0 {
+		return nil
+	}
+
 	tx := sc.db.WithContext(ctx).Model(&do.ShoppingCartDO{}).
 		Where("user = ? AND checked = ?", userID, true).
 		Update("checked", false)

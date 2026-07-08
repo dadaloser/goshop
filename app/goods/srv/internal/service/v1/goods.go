@@ -68,6 +68,10 @@ func retrieveIDs(category *do.CategoryDO) []uint64 {
 }
 
 func (gs *goodsService) List(ctx context.Context, opts metav1.ListMeta, req *proto.GoodsFilterRequest, orderBy []string) (*dto.GoodsDTOList, error) {
+	if req == nil {
+		req = &proto.GoodsFilterRequest{}
+	}
+
 	searchReq := v12.GoodsFilterRequest{
 		GoodsFilterRequest: req,
 	}
@@ -90,6 +94,9 @@ func (gs *goodsService) List(ctx context.Context, opts metav1.ListMeta, req *pro
 		log.Errorf("serachData.Search err: %v", err)
 		return nil, err
 	}
+	if goodsList == nil {
+		return &dto.GoodsDTOList{}, nil
+	}
 
 	log.Debugf("Search es data: %v", goodsList)
 
@@ -106,7 +113,13 @@ func (gs *goodsService) List(ctx context.Context, opts metav1.ListMeta, req *pro
 	}
 	var ret dto.GoodsDTOList
 	ret.TotalCount = int(goodsList.TotalCount)
+	if goods == nil {
+		return &ret, nil
+	}
 	for _, value := range goods.Items {
+		if value == nil {
+			continue
+		}
 		ret.Items = append(ret.Items, &dto.GoodsDTO{
 			GoodsDO: *value,
 		})
@@ -115,6 +128,10 @@ func (gs *goodsService) List(ctx context.Context, opts metav1.ListMeta, req *pro
 }
 
 func (gs *goodsService) Get(ctx context.Context, ID uint64) (*dto.GoodsDTO, error) {
+	if ID == 0 {
+		return nil, errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+	}
+
 	goods, err := gs.data.Goods().Get(ctx, ID)
 	if err != nil {
 		log.Errorf("data.Get err: %v", err)

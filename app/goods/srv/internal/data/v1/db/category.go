@@ -54,9 +54,7 @@ func (c *categories) ListAll(ctx context.Context, orderBy []string) (*do.Categor
 	}
 
 	query := c.db.WithContext(ctx).Model(&do.CategoryDO{}).Where("level = ?", 1)
-	for _, value := range orderBy {
-		query = query.Order(value)
-	}
+	query = applyOrderBy(query, orderBy, categoryOrderColumns)
 
 	if err := query.Preload("SubCategory.SubCategory").Find(&ret.Items).Error; err != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, err.Error())

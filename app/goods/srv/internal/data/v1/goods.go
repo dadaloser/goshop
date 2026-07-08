@@ -10,6 +10,8 @@ import (
 
 type GoodsStore interface {
 	Get(ctx context.Context, ID uint64) (*do.GoodsDO, error)
+	CountByCategory(ctx context.Context, categoryID uint64) (int64, error)
+	CountByBrand(ctx context.Context, brandID uint64) (int64, error)
 	ListByIDs(ctx context.Context, ids []uint64, orderBy []string) (*do.GoodsDOList, error)
 	List(ctx context.Context, orderBy []string, opts metav1.ListMeta) (*do.GoodsDOList, error)
 	Create(ctx context.Context, goods *do.GoodsDO) error

@@ -59,9 +59,7 @@ func (b *brands) List(ctx context.Context, opts metav1.ListMeta, orderBy []strin
 	}
 
 	query := b.db.WithContext(ctx).Model(&do.BrandsDO{})
-	for _, value := range orderBy {
-		query = query.Order(value)
-	}
+	query = applyOrderBy(query, orderBy, brandOrderColumns)
 
 	if opts.PageSize <= 0 {
 		opts.PageSize = 10

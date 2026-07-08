@@ -85,25 +85,26 @@ func (g *goods) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 	ret := &do.GoodsDOList{}
 
 	//分页
-	var limit, offset int
-	if opts.PageSize == 0 {
+	limit := opts.PageSize
+	if limit <= 0 {
 		limit = 10
-	} else {
-		limit = opts.PageSize
 	}
 
+	var offset int
 	if opts.Page > 0 {
 		offset = (opts.Page - 1) * limit
 	}
 
-	//排序
-	query := g.db.WithContext(ctx).Preload("Category").Preload("Brands")
-	for _, value := range orderBy {
-		//坑
-		query = query.Order(value)
+	countQuery := g.db.WithContext(ctx).Model(&do.GoodsDO{})
+	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 
-	d := query.Offset(offset).Limit(limit).Find(&ret.Items).Count(&ret.TotalCount)
+	//排序
+	query := g.db.WithContext(ctx).Preload("Category").Preload("Brands")
+	query = applyOrderBy(query, orderBy, goodsOrderColumns)
+
+	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, d.Error.Error())
 	}
@@ -111,6 +112,10 @@ func (g *goods) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 }
 
 func (g *goods) Get(ctx context.Context, ID uint64) (*do.GoodsDO, error) {
+	if ID == 0 {
+		return nil, errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+	}
+
 	good := &do.GoodsDO{}
 	err := g.db.WithContext(ctx).Preload("Category").Preload("Brands").First(good, ID).Error
 	if err != nil {
@@ -122,15 +127,47 @@ func (g *goods) Get(ctx context.Context, ID uint64) (*do.GoodsDO, error) {
 	return good, nil
 }
 
+func (g *goods) CountByCategory(ctx context.Context, categoryID uint64) (int64, error) {
+	if categoryID == 0 {
+		return 0, nil
+	}
+
+	var count int64
+	err := g.db.WithContext(ctx).Model(&do.GoodsDO{}).
+		Where("category_id = ?", categoryID).
+		Count(&count).Error
+	if err != nil {
+		return 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return count, nil
+}
+
+func (g *goods) CountByBrand(ctx context.Context, brandID uint64) (int64, error) {
+	if brandID == 0 {
+		return 0, nil
+	}
+
+	var count int64
+	err := g.db.WithContext(ctx).Model(&do.GoodsDO{}).
+		Where("brands_id = ?", brandID).
+		Count(&count).Error
+	if err != nil {
+		return 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return count, nil
+}
+
 func (g *goods) ListByIDs(ctx context.Context, ids []uint64, orderBy []string) (*do.GoodsDOList, error) {
 	//实现gorm查询
 	ret := &do.GoodsDOList{}
+	ids = normalizeIDs(ids)
+	if len(ids) == 0 {
+		return ret, nil
+	}
 
 	//排序
 	query := g.db.WithContext(ctx).Preload("Category").Preload("Brands")
-	for _, value := range orderBy {
-		query = query.Order(value)
-	}
+	query = applyOrderBy(query, orderBy, goodsOrderColumns)
 
 	d := query.Where("id in ?", ids).Find(&ret.Items).Count(&ret.TotalCount)
 	if d.Error != nil {
@@ -151,6 +188,26 @@ func (g *goods) Create(ctx context.Context, goods *do.GoodsDO) error {
 	return nil
 }
 
+func normalizeIDs(ids []uint64) []uint64 {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	seen := make(map[uint64]struct{}, len(ids))
+	normalized := make([]uint64, 0, len(ids))
+	for _, id := range ids {
+		if id == 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		normalized = append(normalized, id)
+	}
+	return normalized
+}
+
 func (g *goods) Update(ctx context.Context, goods *do.GoodsDO) error {
 	if goods == nil || goods.ID <= 0 {
 		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
@@ -163,7 +220,9 @@ func (g *goods) Update(ctx context.Context, goods *do.GoodsDO) error {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
-		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+		if _, err := g.Get(ctx, uint64(goods.ID)); err != nil {
+			return err
+		}
 	}
 	return nil
 }

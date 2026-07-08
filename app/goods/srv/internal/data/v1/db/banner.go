@@ -37,9 +37,7 @@ func (b *banners) List(ctx context.Context, opts metav1.ListMeta, orderBy []stri
 	}
 
 	query := b.db.WithContext(ctx).Model(&do.BannerDO{})
-	for _, value := range orderBy {
-		query = query.Order(value)
-	}
+	query = applyOrderBy(query, orderBy, bannerOrderColumns)
 	if opts.PageSize <= 0 {
 		opts.PageSize = 10
 	}

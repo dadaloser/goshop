@@ -26,6 +26,11 @@ func newOrders(factory *dataFactory) *orders {
 }
 
 func (o *orders) Get(ctx context.Context, orderSn string) (*do.OrderInfoDO, error) {
+	orderSn = strings.TrimSpace(orderSn)
+	if orderSn == "" {
+		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+	}
+
 	var order do.OrderInfoDO
 
 	//加链路
@@ -66,9 +71,7 @@ func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, 
 	//排序
 	query := o.db.WithContext(ctx).Model(&do.OrderInfoDO{}).Preload("OrderGoods")
 	query = query.Where("user = ?", userID)
-	for _, value := range orderBy {
-		query = query.Order(value)
-	}
+	query = applyOrderBy(query, orderBy, orderInfoOrderColumns)
 
 	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
@@ -79,11 +82,22 @@ func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, 
 
 // Create 创建订单之后要删除对应的购物车记录
 func (o *orders) Create(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO) error {
+	if order == nil {
+		return errors.WithCode(code.ErrSubmitOrder, "order is required")
+	}
+	order.OrderSn = strings.TrimSpace(order.OrderSn)
+	if order.User <= 0 || order.OrderSn == "" {
+		return errors.WithCode(code.ErrSubmitOrder, "user and order_sn are required")
+	}
+
 	db := o.db
 	if txn != nil {
 		db = txn
 	}
-	return db.WithContext(ctx).Create(order).Error
+	if err := db.WithContext(ctx).Create(order).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return nil
 }
 
 func (o *orders) DeleteByOrderSn(ctx context.Context, txn *gorm.DB, orderSn string) error {
@@ -116,6 +130,18 @@ func (o *orders) DeleteByOrderSn(ctx context.Context, txn *gorm.DB, orderSn stri
 }
 
 func (o *orders) Update(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO) error {
+	if order == nil {
+		return errors.WithCode(code.ErrOrderNotFound, "order not found")
+	}
+	order.OrderSn = strings.TrimSpace(order.OrderSn)
+	order.Status = strings.TrimSpace(order.Status)
+	if order.ID <= 0 && order.OrderSn == "" {
+		return errors.WithCode(code.ErrOrderNotFound, "order not found")
+	}
+	if order.Status == "" {
+		return errors.WithCode(code.ErrOrderStatusInvalid, "order status is required")
+	}
+
 	db := o.db
 	if txn != nil {
 		db = txn

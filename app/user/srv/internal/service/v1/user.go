@@ -247,7 +247,7 @@ func (u *userService) List(ctx context.Context, orderBy []string, opts metav1.Li
 
 	//业务逻辑2
 	//代码不方便写单元测试用例
-	var userDTOList UserDTOList
+	userDTOList := UserDTOList{TotalCount: doList.TotalCount}
 	for _, value := range doList.Items {
 		projectDTO := UserDTO{*value}
 		userDTOList.Items = append(userDTOList.Items, &projectDTO)

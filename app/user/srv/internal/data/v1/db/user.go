@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"strings"
+
 	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
 	code2 "goshop/gmicro/code"
@@ -28,10 +30,15 @@ func NewUsers(db *gorm.DB) dv1.UserStore {
 //	@return *dv1.UserDO
 //	@return error
 func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, error) {
+	mobile = strings.TrimSpace(mobile)
+	if mobile == "" {
+		return nil, errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+
 	user := dv1.UserDO{}
 
 	//err是gorm的error这种error我们尽量不要抛出去
-	err := u.db.Where("mobile=?", mobile).First(&user).Error
+	err := u.db.WithContext(ctx).Where("mobile=?", mobile).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.WithCode(code.ErrUserNotFound, err.Error())
@@ -42,6 +49,11 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, er
 }
 
 func (u *users) GetByUsername(ctx context.Context, username string) (*dv1.UserDO, error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return nil, errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+
 	user := dv1.UserDO{}
 	err := u.db.WithContext(ctx).
 		Where("username = ? OR mobile = ? OR email = ?", username, username, username).
@@ -64,8 +76,12 @@ func (u *users) GetByUsername(ctx context.Context, username string) (*dv1.UserDO
 //	@return *dv1.UserDO
 //	@return error
 func (u *users) GetByID(ctx context.Context, id uint64) (*dv1.UserDO, error) {
+	if id == 0 {
+		return nil, errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+
 	user := dv1.UserDO{}
-	err := u.db.First(&user, id).Error
+	err := u.db.WithContext(ctx).First(&user, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.WithCode(code.ErrUserNotFound, err.Error())
@@ -83,6 +99,10 @@ func (u *users) GetByID(ctx context.Context, id uint64) (*dv1.UserDO, error) {
 //	@param user: 用户DO
 //	@return error
 func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
+	if user == nil {
+		return errors.WithCode(code2.ErrValidation, "user is required")
+	}
+
 	tx := u.db.WithContext(ctx).Create(user)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
@@ -98,6 +118,10 @@ func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
 //	@param user
 //	@return error
 func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
+	if user == nil || user.ID <= 0 {
+		return errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+
 	updates := map[string]interface{}{
 		"nick_name": user.NickName,
 		"gender":    user.Gender,
@@ -113,6 +137,9 @@ func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
 		Updates(updates)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrUserNotFound, "user not found")
 	}
 	return nil
 }
@@ -148,14 +175,16 @@ func (u *users) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 		offset = (opts.Page - 1) * limit
 	}
 
-	//排序
-	query := u.db
-	for _, value := range orderBy {
-		//坑:注意db被污染
-		query = query.Order(value)
+	countQuery := u.db.WithContext(ctx).Model(&dv1.UserDO{})
+	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 
-	d := query.Offset(offset).Limit(limit).Find(&ret.Items).Count(&ret.TotalCount)
+	//排序
+	query := u.db.WithContext(ctx).Model(&dv1.UserDO{})
+	query = applyOrderBy(query, orderBy, userOrderColumns)
+
+	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, d.Error.Error())
 	}

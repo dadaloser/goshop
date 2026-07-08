@@ -34,9 +34,7 @@ func (cb *categoryBrands) List(ctx context.Context, opts metav1.ListMeta, orderB
 	}
 
 	query := cb.db.WithContext(ctx).Preload("Category").Preload("Brands")
-	for _, value := range orderBy {
-		query = query.Order(value)
-	}
+	query = applyOrderBy(query, orderBy, categoryBrandOrderColumns)
 	if opts.PageSize <= 0 {
 		opts.PageSize = 10
 	}
@@ -65,14 +63,27 @@ func (cb *categoryBrands) ListByCategory(ctx context.Context, categoryID uint64,
 		Where("category_id = ?", categoryID).
 		Preload("Category").
 		Preload("Brands")
-	for _, value := range orderBy {
-		query = query.Order(value)
-	}
+	query = applyOrderBy(query, orderBy, categoryBrandOrderColumns)
 	tx := query.Find(&ret.Items)
 	if tx.Error != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
 	return ret, nil
+}
+
+func (cb *categoryBrands) CountByBrand(ctx context.Context, brandID uint64) (int64, error) {
+	if brandID == 0 {
+		return 0, nil
+	}
+
+	var count int64
+	err := cb.db.WithContext(ctx).Model(&do.GoodsCategoryBrandDO{}).
+		Where("brands_id = ?", brandID).
+		Count(&count).Error
+	if err != nil {
+		return 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return count, nil
 }
 
 func (cb *categoryBrands) Create(ctx context.Context, txn *gorm.DB, gcb *do.GoodsCategoryBrandDO) error {

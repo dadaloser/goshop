@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	proto "goshop/api/goods/v1"
 	datav1 "goshop/app/goods/srv/internal/data/v1"
 	searchv1 "goshop/app/goods/srv/internal/data_search/v1"
 	"goshop/app/goods/srv/internal/domain/do"
@@ -114,6 +115,101 @@ func TestDeleteRejectsMissingGoodsID(t *testing.T) {
 	}
 }
 
+func TestGetRejectsMissingGoodsID(t *testing.T) {
+	svc := &goodsService{}
+
+	_, err := svc.Get(context.Background(), 0)
+	if !errors.IsCode(err, code.ErrGoodsNotFound) {
+		t.Fatalf("Get() error = %v, want code %d", err, code.ErrGoodsNotFound)
+	}
+}
+
+func TestListAcceptsNilFilter(t *testing.T) {
+	var gotSearchReq *searchv1.GoodsFilterRequest
+	svc := &goodsService{
+		data: fakeGoodsDataFactory{
+			goods: fakeGoodsStore{
+				listByIDs: func(context.Context, []uint64, []string) (*do.GoodsDOList, error) {
+					return &do.GoodsDOList{}, nil
+				},
+			},
+		},
+		searchData: fakeSearchFactory{
+			goods: fakeSearchGoodsStore{
+				search: func(_ context.Context, req *searchv1.GoodsFilterRequest) (*do.GoodsSearchDOList, error) {
+					gotSearchReq = req
+					return &do.GoodsSearchDOList{}, nil
+				},
+			},
+		},
+	}
+
+	got, err := svc.List(context.Background(), metav1.ListMeta{}, nil, nil)
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if got == nil || got.TotalCount != 0 || len(got.Items) != 0 {
+		t.Fatalf("List() = %+v, want empty result", got)
+	}
+	if gotSearchReq == nil || gotSearchReq.GoodsFilterRequest == nil {
+		t.Fatalf("List() search request = %+v, want non-nil embedded filter", gotSearchReq)
+	}
+}
+
+func TestListTreatsNilStoresAsEmptyResult(t *testing.T) {
+	tests := []struct {
+		name string
+		svc  *goodsService
+	}{
+		{
+			name: "nil search result",
+			svc: &goodsService{
+				searchData: fakeSearchFactory{
+					goods: fakeSearchGoodsStore{
+						search: func(context.Context, *searchv1.GoodsFilterRequest) (*do.GoodsSearchDOList, error) {
+							return nil, nil
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "nil mysql result",
+			svc: &goodsService{
+				data: fakeGoodsDataFactory{
+					goods: fakeGoodsStore{
+						listByIDs: func(context.Context, []uint64, []string) (*do.GoodsDOList, error) {
+							return nil, nil
+						},
+					},
+				},
+				searchData: fakeSearchFactory{
+					goods: fakeSearchGoodsStore{
+						search: func(context.Context, *searchv1.GoodsFilterRequest) (*do.GoodsSearchDOList, error) {
+							return &do.GoodsSearchDOList{
+								TotalCount: 1,
+								Items:      []*do.GoodsSearchDO{{ID: 1}},
+							}, nil
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.svc.List(context.Background(), metav1.ListMeta{}, &proto.GoodsFilterRequest{}, nil)
+			if err != nil {
+				t.Fatalf("List() error = %v, want nil", err)
+			}
+			if got == nil || len(got.Items) != 0 {
+				t.Fatalf("List() = %+v, want empty items", got)
+			}
+		})
+	}
+}
+
 func TestUpdateChecksGoodsExistsBeforeReferences(t *testing.T) {
 	brandLookups := 0
 	svc := &goodsService{
@@ -191,7 +287,10 @@ func (fakeGoodsDataFactory) Begin() *gorm.DB {
 }
 
 type fakeGoodsStore struct {
-	get func(context.Context, uint64) (*do.GoodsDO, error)
+	get             func(context.Context, uint64) (*do.GoodsDO, error)
+	countByCategory func(context.Context, uint64) (int64, error)
+	countByBrand    func(context.Context, uint64) (int64, error)
+	listByIDs       func(context.Context, []uint64, []string) (*do.GoodsDOList, error)
 }
 
 func (f fakeGoodsStore) Get(ctx context.Context, id uint64) (*do.GoodsDO, error) {
@@ -201,7 +300,24 @@ func (f fakeGoodsStore) Get(ctx context.Context, id uint64) (*do.GoodsDO, error)
 	return &do.GoodsDO{}, nil
 }
 
-func (fakeGoodsStore) ListByIDs(context.Context, []uint64, []string) (*do.GoodsDOList, error) {
+func (f fakeGoodsStore) CountByCategory(ctx context.Context, categoryID uint64) (int64, error) {
+	if f.countByCategory != nil {
+		return f.countByCategory(ctx, categoryID)
+	}
+	return 0, nil
+}
+
+func (f fakeGoodsStore) CountByBrand(ctx context.Context, brandID uint64) (int64, error) {
+	if f.countByBrand != nil {
+		return f.countByBrand(ctx, brandID)
+	}
+	return 0, nil
+}
+
+func (f fakeGoodsStore) ListByIDs(ctx context.Context, ids []uint64, orderBy []string) (*do.GoodsDOList, error) {
+	if f.listByIDs != nil {
+		return f.listByIDs(ctx, ids, orderBy)
+	}
 	return nil, nil
 }
 
@@ -238,7 +354,8 @@ func (fakeGoodsStore) Begin() *gorm.DB {
 }
 
 type fakeBrandStore struct {
-	get func(context.Context, uint64) (*do.BrandsDO, error)
+	get    func(context.Context, uint64) (*do.BrandsDO, error)
+	delete func(context.Context, uint64) error
 }
 
 func (fakeBrandStore) List(context.Context, metav1.ListMeta, []string) (*do.BrandsDOList, error) {
@@ -253,7 +370,10 @@ func (fakeBrandStore) Update(context.Context, *gorm.DB, *do.BrandsDO) error {
 	return nil
 }
 
-func (fakeBrandStore) Delete(context.Context, uint64) error {
+func (f fakeBrandStore) Delete(ctx context.Context, id uint64) error {
+	if f.delete != nil {
+		return f.delete(ctx, id)
+	}
 	return nil
 }
 
@@ -272,7 +392,9 @@ func (f fakeSearchFactory) Goods() searchv1.GoodsStore {
 	return f.goods
 }
 
-type fakeSearchGoodsStore struct{}
+type fakeSearchGoodsStore struct {
+	search func(context.Context, *searchv1.GoodsFilterRequest) (*do.GoodsSearchDOList, error)
+}
 
 func (fakeSearchGoodsStore) Create(context.Context, *do.GoodsSearchDO) error {
 	return nil
@@ -286,7 +408,10 @@ func (fakeSearchGoodsStore) Update(context.Context, *do.GoodsSearchDO) error {
 	return nil
 }
 
-func (fakeSearchGoodsStore) Search(context.Context, *searchv1.GoodsFilterRequest) (*do.GoodsSearchDOList, error) {
+func (f fakeSearchGoodsStore) Search(ctx context.Context, req *searchv1.GoodsFilterRequest) (*do.GoodsSearchDOList, error) {
+	if f.search != nil {
+		return f.search(ctx, req)
+	}
 	return nil, nil
 }
 
