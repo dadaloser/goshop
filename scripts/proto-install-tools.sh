@@ -18,6 +18,8 @@ go install "github.com/go-kratos/kratos/cmd/protoc-gen-go-http/v2@${PROTOC_GEN_G
 
 if [[ -n "${PROTOC_GEN_GO_GIN_INSTALL}" ]]; then
   go install "${PROTOC_GEN_GO_GIN_INSTALL}"
+else
+  (cd "${ROOT_DIR}" && go install ./tools/protoc-gen-go-gin)
 fi
 
 if ! command -v protoc-gen-go-gin >/dev/null 2>&1; then

@@ -8,9 +8,9 @@
 # api/**/*.pb.go headers and should be reviewed in the same PR as the generated
 # output.
 
-export PROTOC_GEN_GO_VERSION="${PROTOC_GEN_GO_VERSION:-v1.28.1}"
-export PROTOC_GEN_GO_GRPC_VERSION="${PROTOC_GEN_GO_GRPC_VERSION:-v1.2.0}"
-export PROTOC_GEN_GO_HTTP_VERSION="${PROTOC_GEN_GO_HTTP_VERSION:-v2.3.0}"
+export PROTOC_GEN_GO_VERSION="${PROTOC_GEN_GO_VERSION:-v1.36.11}"
+export PROTOC_GEN_GO_GRPC_VERSION="${PROTOC_GEN_GO_GRPC_VERSION:-v1.6.0}"
+export PROTOC_GEN_GO_HTTP_VERSION="${PROTOC_GEN_GO_HTTP_VERSION:-v2.0.0-20260404020628-f149714c1d54}"
 
 # protoc-gen-go-gin is required for api/*/v1/*_gin.pb.go.
 # This repository does not currently know its public Go module path, so callers

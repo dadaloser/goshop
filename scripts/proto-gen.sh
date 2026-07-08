@@ -45,7 +45,7 @@ generate_business_proto() {
       --proto_path="${THIRD_PARTY_DIR}" \
       --go_out=paths=source_relative:. \
       --go-grpc_out=paths=source_relative:. \
-      --gin_out=paths=source_relative:. \
+      --go-gin_out=paths=source_relative:. \
       "${proto}"
   )
 }

@@ -4,7 +4,7 @@ package proto
 
 import (
 	gin "github.com/gin-gonic/gin"
-	"google.golang.org/protobuf/types/known/emptypb"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	http "net/http"
 )
 
