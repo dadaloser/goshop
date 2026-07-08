@@ -24,6 +24,22 @@ var (
 	order_busi     = client.ServiceEndpoint(client.ServiceOrder)
 )
 
+const (
+	OrderStatusPaying        = "PAYING"
+	OrderStatusWaitBuyerPay  = "WAIT_BUYER_PAY"
+	OrderStatusTradeSuccess  = "TRADE_SUCCESS"
+	OrderStatusTradeClosed   = "TRADE_CLOSED"
+	OrderStatusTradeFinished = "TRADE_FINISHED"
+)
+
+var validOrderStatuses = map[string]struct{}{
+	OrderStatusPaying:        {},
+	OrderStatusWaitBuyerPay:  {},
+	OrderStatusTradeSuccess:  {},
+	OrderStatusTradeClosed:   {},
+	OrderStatusTradeFinished: {},
+}
+
 type OrderSrv interface {
 	CartItemList(ctx context.Context, userID uint64, meta v1.ListMeta, orderBy []string) (*dto.ShopCartDTOList, error)
 	CreateCartItem(ctx context.Context, cartItem *dto.ShopCartDTO) (*dto.ShopCartDTO, error)
@@ -385,7 +401,49 @@ func (os *orderService) Submit(ctx context.Context, order *dto.OrderDTO) error {
 }
 
 func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
+	if order == nil {
+		return errors.WithCode(code.ErrOrderStatusInvalid, "order is required")
+	}
+	order.OrderSn = strings.TrimSpace(order.OrderSn)
+	order.Status = strings.TrimSpace(order.Status)
+	if order.OrderSn == "" || order.Status == "" {
+		return errors.WithCode(code.ErrOrderStatusInvalid, "order_sn and status are required")
+	}
+	if !isValidOrderStatus(order.Status) {
+		return errors.WithCode(code.ErrOrderStatusInvalid, "invalid order status")
+	}
+
+	existing, err := os.data.Orders().Get(ctx, order.OrderSn)
+	if err != nil {
+		return err
+	}
+	if !canTransitionOrderStatus(existing.Status, order.Status) {
+		return errors.WithCode(code.ErrOrderStatusInvalid, "invalid order status transition")
+	}
+
 	return os.data.Orders().Update(ctx, nil, &order.OrderInfoDO)
+}
+
+func isValidOrderStatus(status string) bool {
+	_, ok := validOrderStatuses[status]
+	return ok
+}
+
+func canTransitionOrderStatus(current, next string) bool {
+	current = strings.TrimSpace(current)
+	next = strings.TrimSpace(next)
+	if current == "" || current == next {
+		return true
+	}
+
+	switch current {
+	case OrderStatusTradeClosed, OrderStatusTradeFinished:
+		return false
+	case OrderStatusTradeSuccess:
+		return next == OrderStatusTradeFinished
+	default:
+		return isValidOrderStatus(current) && isValidOrderStatus(next)
+	}
 }
 
 func newOrderService(sv *service) *orderService {

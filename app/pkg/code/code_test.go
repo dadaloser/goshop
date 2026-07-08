@@ -54,6 +54,7 @@ func TestErrorCodesAreUnique(t *testing.T) {
 		"app.ErrNoGoodsSelect":         appcode.ErrNoGoodsSelect,
 		"app.ErrOrderNotFound":         appcode.ErrOrderNotFound,
 		"app.ErrOrderConflict":         appcode.ErrOrderConflict,
+		"app.ErrOrderStatusInvalid":    appcode.ErrOrderStatusInvalid,
 	} {
 		if existing, ok := codes[code]; ok {
 			t.Fatalf("error code %d is used by both %s and %s", code, existing, name)

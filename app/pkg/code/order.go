@@ -15,4 +15,7 @@ const (
 
 	// ErrOrderConflict - 400: Order already exists with different data.
 	ErrOrderConflict
+
+	// ErrOrderStatusInvalid - 400: Order status is invalid.
+	ErrOrderStatusInvalid
 )

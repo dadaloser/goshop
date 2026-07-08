@@ -25,4 +25,5 @@ func init() {
 	register(ErrNoGoodsSelect, http.StatusBadRequest, "No Goods selected")
 	register(ErrOrderNotFound, http.StatusNotFound, "Order not found")
 	register(ErrOrderConflict, http.StatusBadRequest, "Order already exists with different data")
+	register(ErrOrderStatusInvalid, http.StatusBadRequest, "Order status is invalid")
 }

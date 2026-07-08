@@ -268,6 +268,125 @@ func TestDeleteCartItemScopesByUser(t *testing.T) {
 	}
 }
 
+func TestUpdateValidatesOrderStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		currentStatus  string
+		nextStatus     string
+		wantErr        bool
+		wantUpdateCall bool
+	}{
+		{
+			name:           "empty current accepts known status",
+			nextStatus:     OrderStatusWaitBuyerPay,
+			wantUpdateCall: true,
+		},
+		{
+			name:       "unknown status rejected",
+			nextStatus: "UNKNOWN",
+			wantErr:    true,
+		},
+		{
+			name:          "closed cannot reopen",
+			currentStatus: OrderStatusTradeClosed,
+			nextStatus:    OrderStatusWaitBuyerPay,
+			wantErr:       true,
+		},
+		{
+			name:          "finished cannot change",
+			currentStatus: OrderStatusTradeFinished,
+			nextStatus:    OrderStatusTradeClosed,
+			wantErr:       true,
+		},
+		{
+			name:           "success can finish",
+			currentStatus:  OrderStatusTradeSuccess,
+			nextStatus:     OrderStatusTradeFinished,
+			wantUpdateCall: true,
+		},
+		{
+			name:          "success cannot go back to paying",
+			currentStatus: OrderStatusTradeSuccess,
+			nextStatus:    OrderStatusPaying,
+			wantErr:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var updatedStatus string
+			svc := &orderService{
+				data: fakeOrderDataFactory{
+					orders: fakeOrderStore{
+						get: func(context.Context, string) (*do.OrderInfoDO, error) {
+							return &do.OrderInfoDO{
+								OrderSn: "order-1",
+								Status:  tt.currentStatus,
+							}, nil
+						},
+						update: func(_ context.Context, _ *gorm.DB, order *do.OrderInfoDO) error {
+							updatedStatus = order.Status
+							return nil
+						},
+					},
+				},
+			}
+
+			err := svc.Update(context.Background(), &dto.OrderDTO{
+				OrderInfoDO: do.OrderInfoDO{
+					OrderSn: " order-1 ",
+					Status:  tt.nextStatus,
+				},
+			})
+			if tt.wantErr {
+				if !errors.IsCode(err, code.ErrOrderStatusInvalid) {
+					t.Fatalf("Update() error = %v, want code %d", err, code.ErrOrderStatusInvalid)
+				}
+				if updatedStatus != "" {
+					t.Fatalf("Update() called data update with status %q, want no update", updatedStatus)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Update() error = %v, want nil", err)
+			}
+			if tt.wantUpdateCall && updatedStatus != tt.nextStatus {
+				t.Fatalf("Update() updated status = %q, want %q", updatedStatus, tt.nextStatus)
+			}
+		})
+	}
+}
+
+func TestUpdateRequiresOrderStatusFields(t *testing.T) {
+	svc := &orderService{}
+
+	tests := []struct {
+		name  string
+		order *dto.OrderDTO
+	}{
+		{
+			name: "nil order",
+		},
+		{
+			name:  "empty order sn",
+			order: &dto.OrderDTO{OrderInfoDO: do.OrderInfoDO{Status: OrderStatusPaying}},
+		},
+		{
+			name:  "empty status",
+			order: &dto.OrderDTO{OrderInfoDO: do.OrderInfoDO{OrderSn: "order-1"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := svc.Update(context.Background(), tt.order)
+			if !errors.IsCode(err, code.ErrOrderStatusInvalid) {
+				t.Fatalf("Update() error = %v, want code %d", err, code.ErrOrderStatusInvalid)
+			}
+		})
+	}
+}
+
 type fakeOrderDataFactory struct {
 	orders    datav1.OrderStore
 	shopCarts datav1.ShopCartStore
@@ -286,7 +405,8 @@ func (fakeOrderDataFactory) Begin() *gorm.DB {
 }
 
 type fakeOrderStore struct {
-	get func(context.Context, string) (*do.OrderInfoDO, error)
+	get    func(context.Context, string) (*do.OrderInfoDO, error)
+	update func(context.Context, *gorm.DB, *do.OrderInfoDO) error
 }
 
 func (f fakeOrderStore) Get(ctx context.Context, orderSn string) (*do.OrderInfoDO, error) {
@@ -308,7 +428,10 @@ func (fakeOrderStore) DeleteByOrderSn(context.Context, *gorm.DB, string) error {
 	return nil
 }
 
-func (fakeOrderStore) Update(context.Context, *gorm.DB, *do.OrderInfoDO) error {
+func (f fakeOrderStore) Update(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO) error {
+	if f.update != nil {
+		return f.update(ctx, txn, order)
+	}
 	return nil
 }
 
