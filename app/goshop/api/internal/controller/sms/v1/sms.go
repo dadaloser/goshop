@@ -35,6 +35,11 @@ func NewSmsController(sf service.ServiceFactory, trans ut.Translator, codeStore 
 }
 
 func (sc *SmsController) SendSms(c *gin.Context) {
+	if sc == nil {
+		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, "sms controller is not initialized"), nil)
+		return
+	}
+
 	sendSmsForm := SendSmsForm{}
 	if err := c.ShouldBind(&sendSmsForm); err != nil {
 		gin2.HandleValidatorError(c, err, sc.trans)
@@ -43,6 +48,15 @@ func (sc *SmsController) SendSms(c *gin.Context) {
 
 	if !captcha.Verify(sendSmsForm.CaptchaId, sendSmsForm.Captcha, true) {
 		core.WriteResponse(c, errors.WithCode(code.ErrCodeInCorrect, "验证码错误"), nil)
+		return
+	}
+
+	if sc.sf == nil {
+		core.WriteResponse(c, errors.WithCode(code.ErrConnectGRPC, "sms service is not initialized"), nil)
+		return
+	}
+	if sc.codeStore == nil {
+		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, "sms code store is not initialized"), nil)
 		return
 	}
 
@@ -63,7 +77,13 @@ func (sc *SmsController) SendSms(c *gin.Context) {
 		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, err.Error()), nil)
 		return
 	}
-	err = sc.sf.Sms().SendSms(c, sendSmsForm.Mobile, "SMS_181850725", "{\"code\":"+smsCode+"}")
+	smsSrv := sc.sf.Sms()
+	if smsSrv == nil {
+		core.WriteResponse(c, errors.WithCode(code.ErrConnectGRPC, "sms service is not initialized"), nil)
+		return
+	}
+
+	err = smsSrv.SendSms(c, sendSmsForm.Mobile, "SMS_181850725", "{\"code\":"+smsCode+"}")
 	if err != nil {
 		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, err.Error()), nil)
 		return

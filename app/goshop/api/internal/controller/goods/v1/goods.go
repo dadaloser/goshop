@@ -5,8 +5,10 @@ import (
 	"goshop/app/goshop/api/internal/domain/request"
 	"goshop/app/goshop/api/internal/service"
 	v1 "goshop/app/goshop/api/internal/service/goods/v1"
+	"goshop/app/pkg/code"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
+	"goshop/pkg/errors"
 	"goshop/pkg/log"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +31,11 @@ func NewGoodsController(srv service.ServiceFactory, trans ut.Translator) *goodsC
 func (gc *goodsController) List(ctx *gin.Context) {
 	log.Info("goods list function called ...")
 
+	if gc == nil || gc.srv == nil {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "goods service is not initialized"), nil)
+		return
+	}
+
 	var r request.GoodsFilter
 
 	if err := ctx.ShouldBindQuery(&r); err != nil {
@@ -48,39 +55,54 @@ func (gc *goodsController) List(ctx *gin.Context) {
 		PagePerNums: r.PagePerNums,
 	}
 
-	goodsDTOList, err := gc.srv.Goods().List(ctx, &gfr)
+	goodsSrv := gc.srv.Goods()
+	if goodsSrv == nil {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "goods service is not initialized"), nil)
+		return
+	}
+
+	goodsDTOList, err := goodsSrv.List(ctx, &gfr)
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
 		return
 	}
+	if goodsDTOList == nil {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "goods service response is empty"), nil)
+		return
+	}
 
 	reMap := map[string]interface{}{
-		"total": goodsDTOList.Total,
+		"total": goodsDTOList.GetTotal(),
 	}
 	goodsList := make([]interface{}, 0)
-	for _, value := range goodsDTOList.Data {
+	for _, value := range goodsDTOList.GetData() {
+		if value == nil {
+			continue
+		}
+		category := value.GetCategory()
+		brand := value.GetBrand()
 		goodsList = append(goodsList, map[string]interface{}{
-			"id":          value.Id,
-			"name":        value.Name,
-			"goods_brief": value.GoodsBrief,
-			"desc":        value.GoodsDesc,
-			"ship_free":   value.ShipFree,
-			"images":      value.Images,
-			"desc_images": value.DescImages,
-			"front_image": value.GoodsFrontImage,
-			"shop_price":  value.ShopPrice,
+			"id":          value.GetId(),
+			"name":        value.GetName(),
+			"goods_brief": value.GetGoodsBrief(),
+			"desc":        value.GetGoodsDesc(),
+			"ship_free":   value.GetShipFree(),
+			"images":      value.GetImages(),
+			"desc_images": value.GetDescImages(),
+			"front_image": value.GetGoodsFrontImage(),
+			"shop_price":  value.GetShopPrice(),
 			"category": map[string]interface{}{
-				"id":   value.Category.Id,
-				"name": value.Category.Name,
+				"id":   category.GetId(),
+				"name": category.GetName(),
 			},
 			"brand": map[string]interface{}{
-				"id":   value.Brand.Id,
-				"name": value.Brand.Name,
-				"logo": value.Brand.Logo,
+				"id":   brand.GetId(),
+				"name": brand.GetName(),
+				"logo": brand.GetLogo(),
 			},
-			"is_hot":  value.IsHot,
-			"is_new":  value.IsNew,
-			"on_sale": value.OnSale,
+			"is_hot":  value.GetIsHot(),
+			"is_new":  value.GetIsNew(),
+			"on_sale": value.GetOnSale(),
 		})
 	}
 	reMap["data"] = goodsList
