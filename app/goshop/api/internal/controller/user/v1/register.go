@@ -1,8 +1,10 @@
 package user
 
 import (
+	"goshop/app/pkg/code"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
+	"goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,9 +24,18 @@ func (us *userServer) Register(ctx *gin.Context) {
 		return
 	}
 
-	userDTO, err := us.sf.Users().Register(ctx, regForm.Mobile, regForm.Email, regForm.PassWord, regForm.NickName, regForm.Code)
+	userSrv, err := us.usersService()
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	userDTO, err := userSrv.Register(ctx, regForm.Mobile, regForm.Email, regForm.PassWord, regForm.NickName, regForm.Code)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	if userDTO == nil {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "user service response is empty"), nil)
 		return
 	}
 

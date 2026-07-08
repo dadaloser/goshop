@@ -51,7 +51,12 @@ func (us *userServer) Login(ctx *gin.Context) {
 		return
 	}
 
-	userDTO, err := us.sf.Users().PasswordLogin(ctx, username, passwordLoginForm.PassWord)
+	userSrv, err := us.usersService()
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	userDTO, err := userSrv.PasswordLogin(ctx, username, passwordLoginForm.PassWord)
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
 		return
@@ -66,7 +71,12 @@ func (us *userServer) SmsLogin(ctx *gin.Context) {
 		return
 	}
 
-	userDTO, err := us.sf.Users().SmsLogin(ctx, loginForm.Mobile, loginForm.Code)
+	userSrv, err := us.usersService()
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	userDTO, err := userSrv.SmsLogin(ctx, loginForm.Mobile, loginForm.Code)
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
 		return
@@ -75,6 +85,11 @@ func (us *userServer) SmsLogin(ctx *gin.Context) {
 }
 
 func writeLoginResponse(ctx *gin.Context, userDTO *userv1.UserDTO) {
+	if userDTO == nil {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "user service response is empty"), nil)
+		return
+	}
+
 	core.WriteResponse(ctx, nil, gin.H{
 		"id":         userDTO.ID,
 		"nick_name":  userDTO.NickName,

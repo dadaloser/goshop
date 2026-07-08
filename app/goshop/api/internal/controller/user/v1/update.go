@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"goshop/app/pkg/code"
 	gin2 "goshop/app/pkg/translator/gin"
 	gcode "goshop/gmicro/code"
 	"goshop/gmicro/server/restserver/middlewares"
@@ -33,9 +34,18 @@ func (us *userServer) UpdateUser(ctx *gin.Context) {
 		core.WriteResponse(ctx, err, nil)
 		return
 	}
-	userDTO, err := us.sf.Users().Get(ctx, userIDInt)
+	userSrv, err := us.usersService()
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	userDTO, err := userSrv.Get(ctx, userIDInt)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	if userDTO == nil {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "user service response is empty"), nil)
 		return
 	}
 	userDTO.NickName = updateForm.Name
@@ -55,7 +65,7 @@ func (us *userServer) UpdateUser(ctx *gin.Context) {
 	userDTO.Birthday = jtime.Time{birthDay}
 	userDTO.Gender = updateForm.Gender
 	userDTO.Email = updateForm.Email
-	err = us.sf.Users().Update(ctx, userDTO)
+	err = userSrv.Update(ctx, userDTO)
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
 		return

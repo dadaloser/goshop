@@ -34,14 +34,23 @@ type service struct {
 }
 
 func (s *service) Sms() vSms.SmsSrv {
+	if s == nil {
+		return vSms.NewSmsService(nil)
+	}
 	return vSms.NewSmsService(s.smsOpts)
 }
 
 func (s *service) Goods() vGoods.GoodsSrv {
+	if s == nil {
+		return vGoods.NewGoods(nil)
+	}
 	return vGoods.NewGoods(s.data)
 }
 
 func (s *service) Users() vUser.UserSrv {
+	if s == nil {
+		return vUser.NewUserService(nil, nil, nil, nil, nil)
+	}
 	return vUser.NewUserService(s.data, s.jwtOpts, s.codeStore, s.loginAttempts, s.smsAttempts)
 }
 

@@ -55,11 +55,15 @@ func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStor
 
 func (us *userService) PasswordLogin(ctx context.Context, username, password string) (*UserDTO, error) {
 	username = normalizeLoginIdentifier(username)
+	users, err := us.usersData()
+	if err != nil {
+		return nil, err
+	}
 	if err := us.ensurePasswordLoginAllowed(ctx, username); err != nil {
 		return nil, err
 	}
 
-	user, err := us.data.Users().GetByUsername(ctx, username)
+	user, err := users.GetByUsername(ctx, username)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserNotFound) {
 			if lockedErr := us.recordPasswordLoginFailure(ctx, username); lockedErr != nil {
@@ -71,7 +75,7 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 	}
 
 	//检查密码是否正确
-	err = us.data.Users().CheckPassWord(ctx, password, user.PassWord)
+	err = users.CheckPassWord(ctx, password, user.PassWord)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserPasswordIncorrect) {
 			if lockedErr := us.recordPasswordLoginFailure(ctx, username); lockedErr != nil {
@@ -100,6 +104,9 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 	if err := us.ensureSmsCodeAllowed(ctx, mobile, smscode.TypeLogin); err != nil {
 		return nil, err
 	}
+	if us == nil || us.codeStore == nil {
+		return nil, errors.WithCode(code.ErrConnectGRPC, "sms code store is not initialized")
+	}
 
 	key := smscode.LoginKey(mobile)
 	value, err := us.codeStore.Get(ctx, key)
@@ -118,7 +125,11 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 
 	us.resetSmsCodeFailures(ctx, mobile, smscode.TypeLogin)
 
-	user, err := us.data.Users().GetByUsername(ctx, mobile)
+	users, err := us.usersData()
+	if err != nil {
+		return nil, err
+	}
+	user, err := users.GetByUsername(ctx, mobile)
 	if err != nil {
 		return nil, err
 	}
@@ -141,6 +152,9 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 func (us *userService) Register(ctx context.Context, mobile, email, password, nickName, codes string) (*UserDTO, error) {
 	if err := us.ensureSmsCodeAllowed(ctx, mobile, smscode.TypeRegister); err != nil {
 		return nil, err
+	}
+	if us == nil || us.codeStore == nil {
+		return nil, errors.WithCode(code.ErrConnectGRPC, "sms code store is not initialized")
 	}
 
 	key := smscode.RegisterKey(mobile)
@@ -167,7 +181,11 @@ func (us *userService) Register(ctx context.Context, mobile, email, password, ni
 		NickName: nickName,
 		PassWord: password,
 	}
-	err = us.data.Users().Create(ctx, user)
+	users, err := us.usersData()
+	if err != nil {
+		return nil, err
+	}
+	err = users.Create(ctx, user)
 	if err != nil {
 		log.Errorf("user register failed: %v", err)
 		return nil, err
@@ -190,6 +208,10 @@ func (us *userService) Register(ctx context.Context, mobile, email, password, ni
 }
 
 func (us *userService) createToken(user data.User) (string, int64, error) {
+	if us == nil || us.jwtOpts == nil || strings.TrimSpace(us.jwtOpts.Key) == "" || us.jwtOpts.Timeout <= 0 {
+		return "", 0, errors.WithCode(code.ErrConnectGRPC, "jwt options are not initialized")
+	}
+
 	now := time.Now()
 	j := middlewares.NewJWT(us.jwtOpts.Key)
 	claims := middlewares.CustomClaims{
@@ -214,7 +236,11 @@ func (u *userService) Update(ctx context.Context, userDTO *UserDTO) error {
 		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
 	}
 
-	return u.data.Users().Update(ctx, &userDTO.User)
+	users, err := u.usersData()
+	if err != nil {
+		return err
+	}
+	return users.Update(ctx, &userDTO.User)
 }
 
 func (us *userService) Get(ctx context.Context, userID uint64) (*UserDTO, error) {
@@ -222,7 +248,11 @@ func (us *userService) Get(ctx context.Context, userID uint64) (*UserDTO, error)
 		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
 	}
 
-	userDO, err := us.data.Users().Get(ctx, userID)
+	users, err := us.usersData()
+	if err != nil {
+		return nil, err
+	}
+	userDO, err := users.Get(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -235,15 +265,30 @@ func (u *userService) GetByUsername(ctx context.Context, username string) (*User
 		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
 	}
 
-	userDO, err := u.data.Users().GetByUsername(ctx, username)
+	users, err := u.usersData()
+	if err != nil {
+		return nil, err
+	}
+	userDO, err := users.GetByUsername(ctx, username)
 	if err != nil {
 		return nil, err
 	}
 	return &UserDTO{User: userDO}, nil
 }
 
+func (us *userService) usersData() (data.UserData, error) {
+	if us == nil || us.data == nil {
+		return nil, errors.WithCode(code.ErrConnectGRPC, "user data client is not initialized")
+	}
+	users := us.data.Users()
+	if users == nil {
+		return nil, errors.WithCode(code.ErrConnectGRPC, "user data client is not initialized")
+	}
+	return users, nil
+}
+
 func (us *userService) ensurePasswordLoginAllowed(ctx context.Context, username string) error {
-	if us.loginAttempts == nil {
+	if us == nil || us.loginAttempts == nil {
 		return nil
 	}
 
@@ -259,7 +304,7 @@ func (us *userService) ensurePasswordLoginAllowed(ctx context.Context, username 
 }
 
 func (us *userService) recordPasswordLoginFailure(ctx context.Context, username string) error {
-	if us.loginAttempts == nil {
+	if us == nil || us.loginAttempts == nil {
 		return nil
 	}
 
@@ -275,7 +320,7 @@ func (us *userService) recordPasswordLoginFailure(ctx context.Context, username 
 }
 
 func (us *userService) resetPasswordLoginFailures(ctx context.Context, username string) {
-	if us.loginAttempts == nil {
+	if us == nil || us.loginAttempts == nil {
 		return
 	}
 
@@ -285,7 +330,7 @@ func (us *userService) resetPasswordLoginFailures(ctx context.Context, username 
 }
 
 func (us *userService) ensureSmsCodeAllowed(ctx context.Context, mobile string, codeType uint) error {
-	if us.smsAttempts == nil {
+	if us == nil || us.smsAttempts == nil {
 		return nil
 	}
 
@@ -301,7 +346,7 @@ func (us *userService) ensureSmsCodeAllowed(ctx context.Context, mobile string, 
 }
 
 func (us *userService) recordSmsCodeFailure(ctx context.Context, mobile string, codeType uint) error {
-	if us.smsAttempts == nil {
+	if us == nil || us.smsAttempts == nil {
 		return nil
 	}
 
@@ -317,7 +362,7 @@ func (us *userService) recordSmsCodeFailure(ctx context.Context, mobile string, 
 }
 
 func (us *userService) resetSmsCodeFailures(ctx context.Context, mobile string, codeType uint) {
-	if us.smsAttempts == nil {
+	if us == nil || us.smsAttempts == nil {
 		return
 	}
 

@@ -1,7 +1,9 @@
 package user
 
 import (
+	"goshop/app/pkg/code"
 	"goshop/pkg/common/core"
+	"goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,9 +14,18 @@ func (us *userServer) GetUserDetail(ctx *gin.Context) {
 		core.WriteResponse(ctx, err, nil)
 		return
 	}
-	userDTO, err := us.sf.Users().Get(ctx, userID)
+	userSrv, err := us.usersService()
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	userDTO, err := userSrv.Get(ctx, userID)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	if userDTO == nil {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "user service response is empty"), nil)
 		return
 	}
 	core.WriteResponse(ctx, nil, gin.H{
