@@ -71,6 +71,9 @@ type OrderStatus struct {
 	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	OrderSn       string                 `protobuf:"bytes,2,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
 	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	PayType       string                 `protobuf:"bytes,4,opt,name=payType,proto3" json:"payType,omitempty"`
+	TradeNo       string                 `protobuf:"bytes,5,opt,name=tradeNo,proto3" json:"tradeNo,omitempty"`
+	PayTime       int64                  `protobuf:"varint,6,opt,name=payTime,proto3" json:"payTime,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -124,6 +127,27 @@ func (x *OrderStatus) GetStatus() string {
 		return x.Status
 	}
 	return ""
+}
+
+func (x *OrderStatus) GetPayType() string {
+	if x != nil {
+		return x.PayType
+	}
+	return ""
+}
+
+func (x *OrderStatus) GetTradeNo() string {
+	if x != nil {
+		return x.TradeNo
+	}
+	return ""
+}
+
+func (x *OrderStatus) GetPayTime() int64 {
+	if x != nil {
+		return x.PayTime
+	}
+	return 0
 }
 
 type CartItemRequest struct {
@@ -840,11 +864,14 @@ const file_order_proto_rawDesc = "" +
 	"\n" +
 	"\vorder.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x1a\n" +
 	"\bUserInfo\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x05R\x02id\"O\n" +
+	"\x02id\x18\x01 \x01(\x05R\x02id\"\x9d\x01\n" +
 	"\vOrderStatus\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x18\n" +
 	"\aorderSn\x18\x02 \x01(\tR\aorderSn\x12\x16\n" +
-	"\x06status\x18\x03 \x01(\tR\x06status\"\xdf\x01\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x18\n" +
+	"\apayType\x18\x04 \x01(\tR\apayType\x12\x18\n" +
+	"\atradeNo\x18\x05 \x01(\tR\atradeNo\x12\x18\n" +
+	"\apayTime\x18\x06 \x01(\x03R\apayTime\"\xdf\x01\n" +
 	"\x0fCartItemRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x16\n" +
 	"\x06userId\x18\x02 \x01(\x05R\x06userId\x12\x18\n" +

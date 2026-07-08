@@ -239,6 +239,65 @@ func TestUpdateChecksGoodsExistsBeforeReferences(t *testing.T) {
 	}
 }
 
+func TestCreateWritesGoodsSyncOutboxEvent(t *testing.T) {
+	var createdEvent *do.OutboxEventDO
+	svc := &goodsService{
+		testTxn: fakeTxn{},
+		data: fakeGoodsDataFactory{
+			goods: fakeGoodsStore{},
+			outbox: fakeOutboxStore{
+				createInTxn: func(_ context.Context, _ *gorm.DB, event *do.OutboxEventDO) error {
+					createdEvent = event
+					return nil
+				},
+			},
+			categories: fakeCategoryStore{},
+			brands:     fakeBrandStore{},
+		},
+	}
+
+	goods := validGoodsDTO()
+	goods.ID = 12
+	if err := svc.Create(context.Background(), goods); err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if createdEvent == nil {
+		t.Fatal("Create() did not enqueue outbox event")
+	}
+	if createdEvent.Action != do.OutboxActionUpsert {
+		t.Fatalf("Create() action = %q, want %q", createdEvent.Action, do.OutboxActionUpsert)
+	}
+	if createdEvent.Topic != do.OutboxTopicGoodsSync {
+		t.Fatalf("Create() topic = %q, want %q", createdEvent.Topic, do.OutboxTopicGoodsSync)
+	}
+}
+
+func TestDeleteWritesGoodsDeleteOutboxEvent(t *testing.T) {
+	var createdEvent *do.OutboxEventDO
+	svc := &goodsService{
+		testTxn: fakeTxn{},
+		data: fakeGoodsDataFactory{
+			goods: fakeGoodsStore{},
+			outbox: fakeOutboxStore{
+				createInTxn: func(_ context.Context, _ *gorm.DB, event *do.OutboxEventDO) error {
+					createdEvent = event
+					return nil
+				},
+			},
+		},
+	}
+
+	if err := svc.Delete(context.Background(), 9); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	if createdEvent == nil {
+		t.Fatal("Delete() did not enqueue outbox event")
+	}
+	if createdEvent.Action != do.OutboxActionDelete {
+		t.Fatalf("Delete() action = %q, want %q", createdEvent.Action, do.OutboxActionDelete)
+	}
+}
+
 func validGoodsDTO() *dto.GoodsDTO {
 	return &dto.GoodsDTO{
 		GoodsDO: do.GoodsDO{
@@ -256,6 +315,7 @@ func validGoodsDTO() *dto.GoodsDTO {
 
 type fakeGoodsDataFactory struct {
 	goods          datav1.GoodsStore
+	outbox         datav1.OutboxStore
 	categories     datav1.CategoryStore
 	brands         datav1.BrandsStore
 	banners        datav1.BannerStore
@@ -264,6 +324,10 @@ type fakeGoodsDataFactory struct {
 
 func (f fakeGoodsDataFactory) Goods() datav1.GoodsStore {
 	return f.goods
+}
+
+func (f fakeGoodsDataFactory) Outbox() datav1.OutboxStore {
+	return f.outbox
 }
 
 func (f fakeGoodsDataFactory) Categories() datav1.CategoryStore {
@@ -392,19 +456,100 @@ func (f fakeSearchFactory) Goods() searchv1.GoodsStore {
 	return f.goods
 }
 
+type fakeOutboxStore struct {
+	createInTxn  func(context.Context, *gorm.DB, *do.OutboxEventDO) error
+	claim        func(context.Context, string, int, int64) ([]*do.OutboxEventDO, error)
+	listByStatus func(context.Context, string, string, int) ([]*do.OutboxEventDO, error)
+	markDone     func(context.Context, int32) error
+	markRetry    func(context.Context, int32, int32, int64, string) error
+	markDead     func(context.Context, int32, int32, string) error
+	release      func(context.Context, int32) error
+}
+
+type fakeTxn struct{}
+
+func (fakeTxn) DB() *gorm.DB {
+	return &gorm.DB{}
+}
+
+func (fakeTxn) Commit() error {
+	return nil
+}
+
+func (fakeTxn) Rollback() error {
+	return nil
+}
+
+func (f fakeOutboxStore) CreateInTxn(ctx context.Context, txn *gorm.DB, event *do.OutboxEventDO) error {
+	if f.createInTxn != nil {
+		return f.createInTxn(ctx, txn, event)
+	}
+	return nil
+}
+
+func (f fakeOutboxStore) ClaimPending(ctx context.Context, topic string, limit int, nowUnix int64) ([]*do.OutboxEventDO, error) {
+	if f.claim != nil {
+		return f.claim(ctx, topic, limit, nowUnix)
+	}
+	return nil, nil
+}
+
+func (f fakeOutboxStore) ListByStatus(ctx context.Context, topic, status string, limit int) ([]*do.OutboxEventDO, error) {
+	if f.listByStatus != nil {
+		return f.listByStatus(ctx, topic, status, limit)
+	}
+	return nil, nil
+}
+
+func (f fakeOutboxStore) MarkDone(ctx context.Context, id int32) error {
+	if f.markDone != nil {
+		return f.markDone(ctx, id)
+	}
+	return nil
+}
+
+func (f fakeOutboxStore) MarkRetry(ctx context.Context, id int32, retryCount int32, nextAttemptAt int64, lastError string) error {
+	if f.markRetry != nil {
+		return f.markRetry(ctx, id, retryCount, nextAttemptAt, lastError)
+	}
+	return nil
+}
+
+func (f fakeOutboxStore) MarkDead(ctx context.Context, id int32, retryCount int32, lastError string) error {
+	if f.markDead != nil {
+		return f.markDead(ctx, id, retryCount, lastError)
+	}
+	return nil
+}
+
+func (f fakeOutboxStore) ReleaseClaim(ctx context.Context, id int32) error {
+	if f.release != nil {
+		return f.release(ctx, id)
+	}
+	return nil
+}
+
 type fakeSearchGoodsStore struct {
 	search func(context.Context, *searchv1.GoodsFilterRequest) (*do.GoodsSearchDOList, error)
+	update func(context.Context, *do.GoodsSearchDO) error
+	delete func(context.Context, uint64) error
 }
 
 func (fakeSearchGoodsStore) Create(context.Context, *do.GoodsSearchDO) error {
 	return nil
 }
 
-func (fakeSearchGoodsStore) Delete(context.Context, uint64) error {
+func (f fakeSearchGoodsStore) Delete(ctx context.Context, id uint64) error {
+	if f.delete != nil {
+		return f.delete(ctx, id)
+	}
 	return nil
 }
 
-func (fakeSearchGoodsStore) Update(context.Context, *do.GoodsSearchDO) error {
+func (f fakeSearchGoodsStore) Update(ctx context.Context, goods *do.GoodsSearchDO) error {
+	if f.update != nil {
+		return f.update(ctx, goods)
+	}
 	return nil
 }
 
@@ -417,6 +562,7 @@ func (f fakeSearchGoodsStore) Search(ctx context.Context, req *searchv1.GoodsFil
 
 var _ datav1.DataFactory = fakeGoodsDataFactory{}
 var _ datav1.GoodsStore = fakeGoodsStore{}
+var _ datav1.OutboxStore = fakeOutboxStore{}
 var _ datav1.BrandsStore = fakeBrandStore{}
 var _ searchv1.SearchFactory = fakeSearchFactory{}
 var _ searchv1.GoodsStore = fakeSearchGoodsStore{}

@@ -28,6 +28,9 @@ message OrderStatus {
     int32 id = 1;
     string orderSn = 2;
     string status = 3;
+    string payType = 4;
+    string tradeNo = 5;
+    int64 payTime = 6;
 }
 
 message CartItemRequest {
@@ -105,4 +108,3 @@ message CartItemListResponse {
     int32 total = 1;
     repeated ShopCartInfoResponse data = 2;
 }
-

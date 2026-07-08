@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	goodsv1 "goshop/app/goshop/api/internal/service/goods/v1"
+	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
 	smsv1 "goshop/app/goshop/api/internal/service/sms/v1"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
 	"goshop/app/pkg/code"
@@ -119,6 +120,10 @@ type fakeUserServiceFactory struct {
 }
 
 func (f *fakeUserServiceFactory) Goods() goodsv1.GoodsSrv {
+	return nil
+}
+
+func (f *fakeUserServiceFactory) Orders() orderv1.OrderSrv {
 	return nil
 }
 

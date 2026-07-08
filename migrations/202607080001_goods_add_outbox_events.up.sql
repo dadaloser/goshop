@@ -1,0 +1,22 @@
+CREATE TABLE `outbox_events` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `add_time` datetime(3) NULL,
+  `update_time` datetime(3) NULL,
+  `deleted_at` datetime(3) NULL,
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
+  `topic` varchar(64) NOT NULL,
+  `aggregate_type` varchar(32) NOT NULL,
+  `aggregate_id` int NOT NULL,
+  `action` varchar(16) NOT NULL,
+  `payload` text NOT NULL,
+  `status` varchar(16) NOT NULL,
+  `retry_count` int NOT NULL DEFAULT 0,
+  `max_retry_count` int NOT NULL DEFAULT 5,
+  `last_error` text NULL,
+  `next_attempt_at` bigint NOT NULL DEFAULT 0,
+  `processing_lock` varchar(64) NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_outbox_status_topic` (`topic`, `status`, `next_attempt_at`),
+  KEY `idx_outbox_aggregate` (`aggregate_type`, `aggregate_id`),
+  KEY `idx_outbox_deleted_at` (`deleted_at`)
+);

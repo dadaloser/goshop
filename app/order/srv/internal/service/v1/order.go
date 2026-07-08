@@ -15,6 +15,7 @@ import (
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 	"strings"
+	"time"
 
 	"github.com/dtm-labs/client/dtmgrpc"
 )
@@ -430,6 +431,15 @@ func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 	}
 	if !canTransitionOrderStatus(existing.Status, order.Status) {
 		return errors.WithCode(code.ErrOrderStatusInvalid, "invalid order status transition")
+	}
+	if order.Status == OrderStatusTradeSuccess {
+		if strings.TrimSpace(order.TradeNo) == "" {
+			return errors.WithCode(code.ErrOrderStatusInvalid, "trade_no is required when order is paid")
+		}
+		if order.PayTime == nil {
+			now := time.Now()
+			order.PayTime = &now
+		}
 	}
 
 	return os.data.Orders().Update(ctx, nil, &order.OrderInfoDO)

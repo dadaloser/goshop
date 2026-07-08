@@ -4,6 +4,9 @@ import (
 	"context"
 
 	"goshop/app/goods/srv/config"
+	db2 "goshop/app/goods/srv/internal/data/v1/db"
+	"goshop/app/goods/srv/internal/data_search/v1/es"
+	v1 "goshop/app/goods/srv/internal/service/v1"
 	"goshop/app/pkg/options"
 	gapp "goshop/gmicro/app"
 	"goshop/pkg/app"
@@ -11,6 +14,7 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
+	"golang.org/x/sync/errgroup"
 	"goshop/gmicro/registry"
 	"goshop/gmicro/registry/consul"
 )
@@ -58,17 +62,41 @@ func NewGoodsApp(cfg *config.Config) (*gapp.App, error) {
 	), nil
 }
 
+func newGoodsServiceFactory(cfg *config.Config) (v1.ServiceFactory, error) {
+	dataFactory, err := db2.GetDBFactoryOr(cfg.MySQLOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	searchFactory, err := es.GetSearchFactoryOr(cfg.EsOptions)
+	if err != nil {
+		return nil, err
+	}
+	return v1.NewService(dataFactory, searchFactory), nil
+}
+
 func run(cfg *config.Config) app.RunFunc {
 	return func(ctx context.Context, baseName string) error {
 		log.Init(cfg.Log)
 		defer log.Flush()
+
+		srvFactory, err := newGoodsServiceFactory(cfg)
+		if err != nil {
+			return err
+		}
 
 		goodsApp, err := NewGoodsApp(cfg)
 		if err != nil {
 			return err
 		}
 
-		//启动
-		return goodsApp.RunContext(ctx)
+		group, groupCtx := errgroup.WithContext(ctx)
+		group.Go(func() error {
+			return srvFactory.RunBackground(groupCtx)
+		})
+		group.Go(func() error {
+			return goodsApp.RunContext(groupCtx)
+		})
+		return group.Wait()
 	}
 }

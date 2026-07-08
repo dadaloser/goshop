@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	v1 "goshop/app/goods/srv/internal/data/v1"
 	v12 "goshop/app/goods/srv/internal/data_search/v1"
 )
@@ -11,6 +12,7 @@ type ServiceFactory interface {
 	Brands() BrandSrv
 	Banners() BannerSrv
 	CategoryBrands() CategoryBrandSrv
+	RunBackground(ctx context.Context) error
 }
 
 type service struct {
@@ -42,4 +44,8 @@ func (s *service) Banners() BannerSrv {
 
 func (s *service) CategoryBrands() CategoryBrandSrv {
 	return newCategoryBrands(s)
+}
+
+func (s *service) RunBackground(ctx context.Context) error {
+	return s.runGoodsOutboxWorker(ctx)
 }

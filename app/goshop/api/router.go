@@ -5,6 +5,7 @@ import (
 
 	"goshop/app/goshop/api/config"
 	"goshop/app/goshop/api/internal/controller/goods/v1"
+	orderv1 "goshop/app/goshop/api/internal/controller/order/v1"
 	v12 "goshop/app/goshop/api/internal/controller/sms/v1"
 	"goshop/app/goshop/api/internal/controller/user/v1"
 	"goshop/app/goshop/api/internal/data/rpc"
@@ -47,6 +48,9 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 		uGroup.GET("detail", jwtAuth.AuthFunc(), uController.GetUserDetail)
 		uGroup.PATCH("update", jwtAuth.AuthFunc(), uController.UpdateUser)
 		uGroup.POST("logout", jwtAuth.AuthFunc(), uController.Logout)
+
+		orderController := orderv1.NewOrderController(serviceFactory, g.Translator())
+		uGroup.POST("orders/pay/callback", jwtAuth.AuthFunc(), orderController.SimulatePayCallback)
 	}
 
 	baseRouter := v1.Group("base")

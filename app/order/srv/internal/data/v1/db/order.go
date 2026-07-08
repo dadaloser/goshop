@@ -152,9 +152,19 @@ func (o *orders) Update(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO
 	} else {
 		query = query.Where("order_sn = ?", order.OrderSn)
 	}
-	tx := query.Updates(map[string]interface{}{
+	updates := map[string]interface{}{
 		"status": order.Status,
-	})
+	}
+	if order.PayType != "" {
+		updates["pay_type"] = order.PayType
+	}
+	if order.TradeNo != "" {
+		updates["trade_no"] = order.TradeNo
+	}
+	if order.PayTime != nil {
+		updates["pay_time"] = order.PayTime
+	}
+	tx := query.Updates(updates)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}

@@ -12,6 +12,7 @@ import (
 	"goshop/app/goshop/api/internal/captcha"
 	"goshop/app/goshop/api/internal/service"
 	goodsv1 "goshop/app/goshop/api/internal/service/goods/v1"
+	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
 	smsv1 "goshop/app/goshop/api/internal/service/sms/v1"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
 	"goshop/app/pkg/code"
@@ -157,6 +158,10 @@ type fakeSmsServiceFactory struct {
 }
 
 func (f *fakeSmsServiceFactory) Goods() goodsv1.GoodsSrv {
+	return nil
+}
+
+func (f *fakeSmsServiceFactory) Orders() orderv1.OrderSrv {
 	return nil
 }
 

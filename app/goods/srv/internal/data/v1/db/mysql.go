@@ -35,6 +35,10 @@ func (mf *mysqlFactory) Goods() v1.GoodsStore {
 	return newGoods(mf)
 }
 
+func (mf *mysqlFactory) Outbox() v1.OutboxStore {
+	return newOutbox(mf)
+}
+
 func (mf *mysqlFactory) Categories() v1.CategoryStore {
 	return newCategorys(mf)
 }

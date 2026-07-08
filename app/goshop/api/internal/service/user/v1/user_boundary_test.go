@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
@@ -198,4 +199,8 @@ func validJWTOptions() *options.JwtOptions {
 		Timeout:    time.Hour,
 		MaxRefresh: time.Hour,
 	}
+}
+
+func (f *fakeDataFactory) Orders() opb.OrderClient {
+	return nil
 }

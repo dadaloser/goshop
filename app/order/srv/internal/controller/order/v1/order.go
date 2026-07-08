@@ -10,6 +10,7 @@ import (
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
+	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -226,10 +227,16 @@ func (os *orderServer) UpdateOrderStatus(ctx context.Context, status *pb.OrderSt
 		OrderInfoDO: do.OrderInfoDO{
 			OrderSn: status.OrderSn,
 			Status:  status.Status,
+			PayType: status.PayType,
+			TradeNo: status.TradeNo,
 		},
 	}
 	if status.Id > 0 {
 		orderDTO.ID = status.Id
+	}
+	if status.PayTime > 0 {
+		payTime := time.Unix(status.PayTime, 0)
+		orderDTO.PayTime = &payTime
 	}
 	if err := os.srv.Orders().Update(ctx, orderDTO); err != nil {
 		return nil, err

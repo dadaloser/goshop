@@ -10,6 +10,7 @@ import (
 	gpb "goshop/api/goods/v1"
 	"goshop/app/goshop/api/internal/service"
 	goodsv1 "goshop/app/goshop/api/internal/service/goods/v1"
+	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
 	smsv1 "goshop/app/goshop/api/internal/service/sms/v1"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
 	"goshop/app/pkg/code"
@@ -129,6 +130,10 @@ type fakeGoodsServiceFactory struct {
 
 func (f *fakeGoodsServiceFactory) Goods() goodsv1.GoodsSrv {
 	return f.goods
+}
+
+func (f *fakeGoodsServiceFactory) Orders() orderv1.OrderSrv {
+	return nil
 }
 
 func (f *fakeGoodsServiceFactory) Users() userv1.UserSrv {

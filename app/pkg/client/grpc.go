@@ -5,6 +5,7 @@ import (
 	"fmt"
 	goodspb "goshop/api/goods/v1"
 	inventorypb "goshop/api/inventory/v1"
+	orderpb "goshop/api/order/v1"
 	userpb "goshop/api/user/v1"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/rpcserver"
@@ -59,6 +60,18 @@ func NewInventoryClient(
 		return nil, nil, err
 	}
 	return inventorypb.NewInventoryClient(conn), conn, nil
+}
+
+func NewOrderClient(
+	ctx context.Context,
+	registry *options.RegistryOptions,
+	opts ...rpcserver.ClientOption,
+) (orderpb.OrderClient, *grpc.ClientConn, error) {
+	conn, err := DialServiceInsecure(ctx, registry, ServiceOrder, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	return orderpb.NewOrderClient(conn), conn, nil
 }
 
 func NewUserClient(

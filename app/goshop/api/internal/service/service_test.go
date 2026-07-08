@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	gpb "goshop/api/goods/v1"
+	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
 	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 )
@@ -26,6 +27,19 @@ func TestNilServiceFactoryReturnsSafeServices(t *testing.T) {
 	}
 	if _, err := userSrv.Get(context.Background(), 1); !errors.IsCode(err, code.ErrConnectGRPC) {
 		t.Fatalf("Users().Get() error = %v, want code %d", err, code.ErrConnectGRPC)
+	}
+
+	orderSrv := svc.Orders()
+	if orderSrv == nil {
+		t.Fatal("Orders() returned nil")
+	}
+	if err := orderSrv.SimulatePayCallback(context.Background(), &orderv1.PayCallbackRequest{
+		UserID:  1,
+		OrderSn: "order-1",
+		TradeNo: "trade-1",
+		Success: true,
+	}); !errors.IsCode(err, code.ErrConnectGRPC) {
+		t.Fatalf("Orders().SimulatePayCallback() error = %v, want code %d", err, code.ErrConnectGRPC)
 	}
 
 	smsSrv := svc.Sms()
