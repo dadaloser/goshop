@@ -124,6 +124,10 @@ type fakeUserData struct {
 	user                data.User
 	getByUsernameErr    error
 	checkPasswordErr    error
+	updateCalled        bool
+	updatedUser         *data.User
+	getCalled           bool
+	gotID               uint64
 	gotUsername         string
 	getByUsernameCalled bool
 }
@@ -133,11 +137,14 @@ func (f *fakeUserData) Create(context.Context, *data.User) error {
 }
 
 func (f *fakeUserData) Update(context.Context, *data.User) error {
+	f.updateCalled = true
 	return nil
 }
 
-func (f *fakeUserData) Get(context.Context, uint64) (data.User, error) {
-	return data.User{}, nil
+func (f *fakeUserData) Get(_ context.Context, userID uint64) (data.User, error) {
+	f.getCalled = true
+	f.gotID = userID
+	return f.user, nil
 }
 
 func (f *fakeUserData) GetByMobile(context.Context, string) (data.User, error) {

@@ -3,7 +3,9 @@ package user
 import (
 	"context"
 	"crypto/sha512"
+	code2 "goshop/gmicro/code"
 	"goshop/pkg/common/auth"
+	"goshop/pkg/errors"
 	"strings"
 
 	upbv1 "goshop/api/user/v1"
@@ -12,6 +14,10 @@ import (
 )
 
 func (us *userServer) CheckPassWord(ctx context.Context, info *upbv1.PasswordCheckInfo) (*upbv1.CheckResponse, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "password check request is required")
+	}
+
 	//校验密码
 	if err := auth.Compare(info.EncryptedPassword, info.Password); err == nil {
 		return &upbv1.CheckResponse{Success: true}, nil

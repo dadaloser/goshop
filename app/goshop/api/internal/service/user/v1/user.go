@@ -14,6 +14,7 @@ import (
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/pkg/options"
+	code2 "goshop/gmicro/code"
 	"goshop/gmicro/server/restserver/middlewares"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -209,10 +210,18 @@ func (us *userService) createToken(user data.User) (string, int64, error) {
 }
 
 func (u *userService) Update(ctx context.Context, userDTO *UserDTO) error {
+	if userDTO == nil || userDTO.ID == 0 {
+		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+	}
+
 	return u.data.Users().Update(ctx, &userDTO.User)
 }
 
 func (us *userService) Get(ctx context.Context, userID uint64) (*UserDTO, error) {
+	if userID == 0 {
+		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+
 	userDO, err := us.data.Users().Get(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -221,6 +230,11 @@ func (us *userService) Get(ctx context.Context, userID uint64) (*UserDTO, error)
 }
 
 func (u *userService) GetByUsername(ctx context.Context, username string) (*UserDTO, error) {
+	username = normalizeLoginIdentifier(username)
+	if username == "" {
+		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+
 	userDO, err := u.data.Users().GetByUsername(ctx, username)
 	if err != nil {
 		return nil, err

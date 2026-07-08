@@ -5,6 +5,8 @@ import (
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/user/srv/internal/data/v1"
 	v12 "goshop/app/user/srv/internal/service/v1"
+	code2 "goshop/gmicro/code"
+	"goshop/pkg/errors"
 	"goshop/pkg/log"
 	"time"
 
@@ -12,6 +14,10 @@ import (
 )
 
 func (u *userServer) UpdateUser(ctx context.Context, request *upbv1.UpdateUserInfo) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "update user request is required")
+	}
+
 	log.Infof("update user function called.")
 
 	birthDay := time.Unix(int64(request.BirthDay), 0)

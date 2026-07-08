@@ -9,6 +9,8 @@ import (
 
 	proto "goshop/api/goods/v1"
 	v1 "goshop/app/goods/srv/internal/service/v1"
+	code2 "goshop/gmicro/code"
+	"goshop/pkg/errors"
 	"goshop/pkg/log"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -51,6 +53,10 @@ func ModelToResponse(goods *dto.GoodsDTO) *proto.GoodsInfoResponse {
 }
 
 func (gs *goodsServer) GoodsList(ctx context.Context, request *proto.GoodsFilterRequest) (*proto.GoodsListResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "goods filter request is required")
+	}
+
 	list, err := gs.srv.Goods().List(ctx, v12.ListMeta{Page: int(request.Pages), PageSize: int(request.PagePerNums)}, request, []string{})
 	if err != nil {
 		log.Errorf("get goods list error: %v", err.Error())
@@ -65,6 +71,10 @@ func (gs *goodsServer) GoodsList(ctx context.Context, request *proto.GoodsFilter
 }
 
 func (gs *goodsServer) BatchGetGoods(ctx context.Context, info *proto.BatchGoodsIdInfo) (*proto.GoodsListResponse, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "batch goods request is required")
+	}
+
 	var ids []uint64
 	for _, id := range info.Id {
 		ids = append(ids, uint64(id))
@@ -81,6 +91,10 @@ func (gs *goodsServer) BatchGetGoods(ctx context.Context, info *proto.BatchGoods
 }
 
 func (gs *goodsServer) CreateGoods(ctx context.Context, info *proto.CreateGoodsInfo) (*proto.GoodsInfoResponse, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "goods request is required")
+	}
+
 	goods := createGoodsInfoToDTO(info)
 	if err := gs.srv.Goods().Create(ctx, goods); err != nil {
 		return nil, err
@@ -93,6 +107,10 @@ func (gs *goodsServer) CreateGoods(ctx context.Context, info *proto.CreateGoodsI
 }
 
 func (gs *goodsServer) DeleteGoods(ctx context.Context, info *proto.DeleteGoodsInfo) (*emptypb.Empty, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "delete goods request is required")
+	}
+
 	if err := gs.srv.Goods().Delete(ctx, uint64(info.Id)); err != nil {
 		return nil, err
 	}
@@ -100,6 +118,10 @@ func (gs *goodsServer) DeleteGoods(ctx context.Context, info *proto.DeleteGoodsI
 }
 
 func (gs *goodsServer) UpdateGoods(ctx context.Context, info *proto.CreateGoodsInfo) (*emptypb.Empty, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "goods request is required")
+	}
+
 	if err := gs.srv.Goods().Update(ctx, createGoodsInfoToDTO(info)); err != nil {
 		return nil, err
 	}
@@ -107,6 +129,10 @@ func (gs *goodsServer) UpdateGoods(ctx context.Context, info *proto.CreateGoodsI
 }
 
 func (gs *goodsServer) GetGoodsDetail(ctx context.Context, request *proto.GoodInfoRequest) (*proto.GoodsInfoResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "goods detail request is required")
+	}
+
 	goods, err := gs.srv.Goods().Get(ctx, uint64(request.Id))
 	if err != nil {
 		return nil, err
@@ -128,6 +154,10 @@ func (gs *goodsServer) GetAllCategorysList(ctx context.Context, empty *emptypb.E
 }
 
 func (gs *goodsServer) GetSubCategory(ctx context.Context, request *proto.CategoryListRequest) (*proto.SubCategoryListResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "category request is required")
+	}
+
 	category, err := gs.srv.Categories().Get(ctx, uint64(request.GetId()))
 	if err != nil {
 		return nil, err
@@ -144,6 +174,10 @@ func (gs *goodsServer) GetSubCategory(ctx context.Context, request *proto.Catego
 }
 
 func (gs *goodsServer) CreateCategory(ctx context.Context, request *proto.CategoryInfoRequest) (*proto.CategoryInfoResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "category request is required")
+	}
+
 	category, err := gs.srv.Categories().Create(ctx, categoryRequestToDO(request))
 	if err != nil {
 		return nil, err
@@ -152,6 +186,10 @@ func (gs *goodsServer) CreateCategory(ctx context.Context, request *proto.Catego
 }
 
 func (gs *goodsServer) DeleteCategory(ctx context.Context, request *proto.DeleteCategoryRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "delete category request is required")
+	}
+
 	if err := gs.srv.Categories().Delete(ctx, uint64(request.GetId())); err != nil {
 		return nil, err
 	}
@@ -159,6 +197,10 @@ func (gs *goodsServer) DeleteCategory(ctx context.Context, request *proto.Delete
 }
 
 func (gs *goodsServer) UpdateCategory(ctx context.Context, request *proto.CategoryInfoRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "category request is required")
+	}
+
 	if err := gs.srv.Categories().Update(ctx, categoryRequestToDO(request)); err != nil {
 		return nil, err
 	}
@@ -166,6 +208,10 @@ func (gs *goodsServer) UpdateCategory(ctx context.Context, request *proto.Catego
 }
 
 func (gs *goodsServer) BrandList(ctx context.Context, request *proto.BrandFilterRequest) (*proto.BrandListResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "brand filter request is required")
+	}
+
 	list, err := gs.srv.Brands().List(ctx, v12.ListMeta{Page: int(request.GetPages()), PageSize: int(request.GetPagePerNums())}, []string{})
 	if err != nil {
 		return nil, err
@@ -179,6 +225,10 @@ func (gs *goodsServer) BrandList(ctx context.Context, request *proto.BrandFilter
 }
 
 func (gs *goodsServer) CreateBrand(ctx context.Context, request *proto.BrandRequest) (*proto.BrandInfoResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "brand request is required")
+	}
+
 	brand, err := gs.srv.Brands().Create(ctx, brandRequestToDO(request))
 	if err != nil {
 		return nil, err
@@ -187,6 +237,10 @@ func (gs *goodsServer) CreateBrand(ctx context.Context, request *proto.BrandRequ
 }
 
 func (gs *goodsServer) DeleteBrand(ctx context.Context, request *proto.BrandRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "brand request is required")
+	}
+
 	if err := gs.srv.Brands().Delete(ctx, uint64(request.GetId())); err != nil {
 		return nil, err
 	}
@@ -194,6 +248,10 @@ func (gs *goodsServer) DeleteBrand(ctx context.Context, request *proto.BrandRequ
 }
 
 func (gs *goodsServer) UpdateBrand(ctx context.Context, request *proto.BrandRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "brand request is required")
+	}
+
 	if err := gs.srv.Brands().Update(ctx, brandRequestToDO(request)); err != nil {
 		return nil, err
 	}
@@ -214,6 +272,10 @@ func (gs *goodsServer) BannerList(ctx context.Context, empty *emptypb.Empty) (*p
 }
 
 func (gs *goodsServer) CreateBanner(ctx context.Context, request *proto.BannerRequest) (*proto.BannerResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "banner request is required")
+	}
+
 	banner, err := gs.srv.Banners().Create(ctx, bannerRequestToDO(request))
 	if err != nil {
 		return nil, err
@@ -222,6 +284,10 @@ func (gs *goodsServer) CreateBanner(ctx context.Context, request *proto.BannerRe
 }
 
 func (gs *goodsServer) DeleteBanner(ctx context.Context, request *proto.BannerRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "banner request is required")
+	}
+
 	if err := gs.srv.Banners().Delete(ctx, uint64(request.GetId())); err != nil {
 		return nil, err
 	}
@@ -229,6 +295,10 @@ func (gs *goodsServer) DeleteBanner(ctx context.Context, request *proto.BannerRe
 }
 
 func (gs *goodsServer) UpdateBanner(ctx context.Context, request *proto.BannerRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "banner request is required")
+	}
+
 	if err := gs.srv.Banners().Update(ctx, bannerRequestToDO(request)); err != nil {
 		return nil, err
 	}
@@ -236,6 +306,10 @@ func (gs *goodsServer) UpdateBanner(ctx context.Context, request *proto.BannerRe
 }
 
 func (gs *goodsServer) CategoryBrandList(ctx context.Context, request *proto.CategoryBrandFilterRequest) (*proto.CategoryBrandListResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "category brand filter request is required")
+	}
+
 	list, err := gs.srv.CategoryBrands().List(ctx, v12.ListMeta{Page: int(request.GetPages()), PageSize: int(request.GetPagePerNums())}, []string{})
 	if err != nil {
 		return nil, err
@@ -249,6 +323,10 @@ func (gs *goodsServer) CategoryBrandList(ctx context.Context, request *proto.Cat
 }
 
 func (gs *goodsServer) GetCategoryBrandList(ctx context.Context, request *proto.CategoryInfoRequest) (*proto.BrandListResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "category request is required")
+	}
+
 	list, err := gs.srv.CategoryBrands().ListByCategory(ctx, uint64(request.GetId()), []string{})
 	if err != nil {
 		return nil, err
@@ -262,6 +340,10 @@ func (gs *goodsServer) GetCategoryBrandList(ctx context.Context, request *proto.
 }
 
 func (gs *goodsServer) CreateCategoryBrand(ctx context.Context, request *proto.CategoryBrandRequest) (*proto.CategoryBrandResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "category brand request is required")
+	}
+
 	relation, err := gs.srv.CategoryBrands().Create(ctx, categoryBrandRequestToDO(request))
 	if err != nil {
 		return nil, err
@@ -270,6 +352,10 @@ func (gs *goodsServer) CreateCategoryBrand(ctx context.Context, request *proto.C
 }
 
 func (gs *goodsServer) DeleteCategoryBrand(ctx context.Context, request *proto.CategoryBrandRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "category brand request is required")
+	}
+
 	if err := gs.srv.CategoryBrands().Delete(ctx, uint64(request.GetId())); err != nil {
 		return nil, err
 	}
@@ -277,6 +363,10 @@ func (gs *goodsServer) DeleteCategoryBrand(ctx context.Context, request *proto.C
 }
 
 func (gs *goodsServer) UpdateCategoryBrand(ctx context.Context, request *proto.CategoryBrandRequest) (*emptypb.Empty, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "category brand request is required")
+	}
+
 	if err := gs.srv.CategoryBrands().Update(ctx, categoryBrandRequestToDO(request)); err != nil {
 		return nil, err
 	}

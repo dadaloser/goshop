@@ -3,9 +3,11 @@ package rpc
 import (
 	"context"
 	"goshop/app/pkg/code"
+	code2 "goshop/gmicro/code"
 	"goshop/gmicro/server/rpcserver"
 	"goshop/gmicro/server/rpcserver/clientinterceptors"
 	"goshop/pkg/errors"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -47,12 +49,19 @@ func NewUserServiceClientContext(ctx context.Context, r registry.Discovery) (upb
 }
 
 func (u *users) CheckPassWord(ctx context.Context, password, encryptedPwd string) error {
+	if strings.TrimSpace(encryptedPwd) == "" {
+		return errors.WithCode(code.ErrUserPasswordIncorrect, "密码错误")
+	}
+
 	cres, err := u.uc.CheckPassWord(ctx, &upbv1.PasswordCheckInfo{
 		Password:          password,
 		EncryptedPassword: encryptedPwd,
 	})
 	if err != nil {
 		return err
+	}
+	if cres == nil {
+		return errors.WithCode(code.ErrUserPasswordIncorrect, "密码错误")
 	}
 	if cres.Success {
 		return nil
@@ -61,6 +70,10 @@ func (u *users) CheckPassWord(ctx context.Context, password, encryptedPwd string
 }
 
 func (u *users) Create(ctx context.Context, user *data.User) error {
+	if user == nil {
+		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+	}
+
 	protoUser := &upbv1.CreateUserInfo{
 		Mobile:   user.Mobile,
 		Email:    user.Email,
@@ -71,11 +84,18 @@ func (u *users) Create(ctx context.Context, user *data.User) error {
 	if err != nil {
 		return userRPCError(err, code.ErrUserAlreadyExists)
 	}
+	if userRsp == nil {
+		return errors.WithCode(code.ErrUserAlreadyExists, "用户创建失败")
+	}
 	user.ID = uint64(userRsp.Id)
 	return err
 }
 
 func (u *users) Update(ctx context.Context, user *data.User) error {
+	if user == nil || user.ID == 0 {
+		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+	}
+
 	protoUser := &upbv1.UpdateUserInfo{
 		Id:       int32(user.ID),
 		NickName: user.NickName,
@@ -91,11 +111,18 @@ func (u *users) Update(ctx context.Context, user *data.User) error {
 }
 
 func (u *users) Get(ctx context.Context, userID uint64) (data.User, error) {
+	if userID == 0 {
+		return data.User{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+
 	user, err := u.uc.GetUserById(ctx, &upbv1.IdRequest{
 		Id: int32(userID),
 	})
 	if err != nil {
 		return data.User{}, userRPCError(err, code.ErrUserNotFound)
+	}
+	if user == nil {
+		return data.User{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
 	}
 
 	return data.User{
@@ -115,11 +142,19 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (data.User, erro
 }
 
 func (u *users) GetByUsername(ctx context.Context, username string) (data.User, error) {
+	username = strings.ToLower(strings.TrimSpace(username))
+	if username == "" {
+		return data.User{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+
 	user, err := u.uc.GetUserByMobile(ctx, &upbv1.MobileRequest{
 		Mobile: username,
 	})
 	if err != nil {
 		return data.User{}, userRPCError(err, code.ErrUserNotFound)
+	}
+	if user == nil {
+		return data.User{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
 	}
 
 	return data.User{
