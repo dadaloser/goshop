@@ -34,6 +34,14 @@ type orderService struct {
 	data data.DataFactory
 }
 
+const (
+	orderStatusPaying       = "PAYING"
+	orderStatusWaitBuyerPay = "WAIT_BUYER_PAY"
+	orderStatusTradeSuccess = "TRADE_SUCCESS"
+	orderStatusTradeClosed  = "TRADE_CLOSED"
+	orderStatusTradeFinish  = "TRADE_FINISHED"
+)
+
 func NewOrderService(data data.DataFactory) OrderSrv {
 	return &orderService{data: data}
 }
@@ -61,45 +69,95 @@ func (os *orderService) SimulatePayCallback(ctx context.Context, req *PayCallbac
 		return errors.WithCode(code.ErrConnectGRPC, "inventory grpc client is not initialized")
 	}
 
-	status := &opb.OrderStatus{
+	orderDetail, err := client.OrderDetail(ctx, &opb.OrderRequest{
+		UserId:  int32(req.UserID),
 		OrderSn: req.OrderSn,
+	})
+	if err != nil {
+		return err
 	}
+	if orderDetail == nil || orderDetail.OrderInfo == nil {
+		return errors.WithCode(code.ErrOrderNotFound, "order not found")
+	}
+
+	targetStatus := orderStatusTradeClosed
 	if req.Success {
 		if req.TradeNo == "" {
 			return errors.WithCode(code.ErrOrderStatusInvalid, "trade_no is required for paid callback")
 		}
-		status.Status = "TRADE_SUCCESS"
-		status.PayType = req.PayType
-		status.TradeNo = req.TradeNo
-		status.PayTime = time.Now().Unix()
-	} else {
-		status.Status = "TRADE_CLOSED"
+		targetStatus = orderStatusTradeSuccess
 	}
 
-	if _, err := client.UpdateOrderStatus(ctx, status); err != nil {
+	currentStatus := strings.TrimSpace(orderDetail.OrderInfo.Status)
+	if !canApplyPayCallback(currentStatus, targetStatus) {
+		return errors.WithCode(code.ErrOrderStatusInvalid, "invalid order status transition")
+	}
+
+	sellInfo, err := sellInfoFromOrder(req.OrderSn, orderDetail.Goods)
+	if err != nil {
 		return err
-	}
-
-	sellInfo := &ipb.SellInfo{OrderSn: req.OrderSn}
-	for _, item := range req.Items {
-		if item.GoodsID <= 0 || item.Num <= 0 {
-			return errors.WithCode(code.ErrOrderStatusInvalid, "pay callback items are invalid")
-		}
-		sellInfo.GoodsInfo = append(sellInfo.GoodsInfo, &ipb.GoodsInvInfo{
-			GoodsId: item.GoodsID,
-			Num:     item.Num,
-		})
-	}
-	if len(sellInfo.GoodsInfo) == 0 {
-		return errors.WithCode(code.ErrOrderStatusInvalid, "pay callback items are required")
 	}
 
 	if req.Success {
-		_, err := inventoryClient.Confirm(ctx, sellInfo)
-		return err
+		if _, err := inventoryClient.Confirm(ctx, sellInfo); err != nil {
+			return err
+		}
+	} else {
+		if _, err := inventoryClient.Release(ctx, sellInfo); err != nil {
+			return err
+		}
 	}
-	_, err := inventoryClient.Release(ctx, sellInfo)
+
+	status := &opb.OrderStatus{
+		OrderSn: req.OrderSn,
+		Status:  targetStatus,
+	}
+	if req.Success {
+		status.PayType = req.PayType
+		status.TradeNo = req.TradeNo
+		status.PayTime = time.Now().Unix()
+	}
+
+	_, err = client.UpdateOrderStatus(ctx, status)
 	return err
 }
 
 var _ OrderSrv = &orderService{}
+
+func sellInfoFromOrder(orderSn string, goods []*opb.OrderItemResponse) (*ipb.SellInfo, error) {
+	sellInfo := &ipb.SellInfo{OrderSn: orderSn}
+	for _, item := range goods {
+		if item == nil || item.GoodsId <= 0 || item.Nums <= 0 {
+			return nil, errors.WithCode(code.ErrOrderStatusInvalid, "order goods are invalid")
+		}
+		sellInfo.GoodsInfo = append(sellInfo.GoodsInfo, &ipb.GoodsInvInfo{
+			GoodsId: item.GoodsId,
+			Num:     item.Nums,
+		})
+	}
+	if len(sellInfo.GoodsInfo) == 0 {
+		return nil, errors.WithCode(code.ErrOrderStatusInvalid, "order goods are required")
+	}
+	return sellInfo, nil
+}
+
+func canApplyPayCallback(currentStatus, targetStatus string) bool {
+	currentStatus = strings.TrimSpace(currentStatus)
+	targetStatus = strings.TrimSpace(targetStatus)
+	if currentStatus == "" || currentStatus == targetStatus {
+		return true
+	}
+
+	switch currentStatus {
+	case orderStatusWaitBuyerPay:
+		return targetStatus == orderStatusPaying || targetStatus == orderStatusTradeSuccess || targetStatus == orderStatusTradeClosed
+	case orderStatusPaying:
+		return targetStatus == orderStatusTradeSuccess || targetStatus == orderStatusTradeClosed
+	case orderStatusTradeSuccess:
+		return targetStatus == orderStatusTradeFinish
+	case orderStatusTradeClosed, orderStatusTradeFinish:
+		return false
+	default:
+		return false
+	}
+}

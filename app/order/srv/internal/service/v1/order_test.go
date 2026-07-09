@@ -53,6 +53,33 @@ func TestCreateRejectsEmptyOrderGoods(t *testing.T) {
 	}
 }
 
+func TestNormalizeInitialOrderStatus(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		output string
+	}{
+		{
+			name:   "empty defaults to wait buyer pay",
+			input:  " ",
+			output: OrderStatusWaitBuyerPay,
+		},
+		{
+			name:   "existing status is preserved",
+			input:  OrderStatusPaying,
+			output: OrderStatusPaying,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeInitialOrderStatus(tt.input); got != tt.output {
+				t.Fatalf("normalizeInitialOrderStatus(%q) = %q, want %q", tt.input, got, tt.output)
+			}
+		})
+	}
+}
+
 func TestCreateIsIdempotentForSameOrder(t *testing.T) {
 	existing := &do.OrderInfoDO{
 		User:         10,
@@ -324,6 +351,7 @@ func TestUpdateValidatesOrderStatus(t *testing.T) {
 		name           string
 		currentStatus  string
 		nextStatus     string
+		tradeNo        string
 		wantErr        bool
 		wantUpdateCall bool
 	}{
@@ -331,6 +359,38 @@ func TestUpdateValidatesOrderStatus(t *testing.T) {
 			name:           "empty current accepts known status",
 			nextStatus:     OrderStatusWaitBuyerPay,
 			wantUpdateCall: true,
+		},
+		{
+			name:           "wait buyer pay can become success",
+			currentStatus:  OrderStatusWaitBuyerPay,
+			nextStatus:     OrderStatusTradeSuccess,
+			tradeNo:        "trade-1",
+			wantUpdateCall: true,
+		},
+		{
+			name:           "wait buyer pay can become closed",
+			currentStatus:  OrderStatusWaitBuyerPay,
+			nextStatus:     OrderStatusTradeClosed,
+			wantUpdateCall: true,
+		},
+		{
+			name:          "wait buyer pay cannot finish directly",
+			currentStatus: OrderStatusWaitBuyerPay,
+			nextStatus:    OrderStatusTradeFinished,
+			wantErr:       true,
+		},
+		{
+			name:           "paying can become success",
+			currentStatus:  OrderStatusPaying,
+			nextStatus:     OrderStatusTradeSuccess,
+			tradeNo:        "trade-1",
+			wantUpdateCall: true,
+		},
+		{
+			name:          "paying cannot return to wait buyer pay",
+			currentStatus: OrderStatusPaying,
+			nextStatus:    OrderStatusWaitBuyerPay,
+			wantErr:       true,
 		},
 		{
 			name:       "unknown status rejected",
@@ -387,6 +447,7 @@ func TestUpdateValidatesOrderStatus(t *testing.T) {
 				OrderInfoDO: do.OrderInfoDO{
 					OrderSn: " order-1 ",
 					Status:  tt.nextStatus,
+					TradeNo: tt.tradeNo,
 				},
 			})
 			if tt.wantErr {

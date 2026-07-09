@@ -173,6 +173,7 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 	if !hasOrderGoods(order.OrderGoods) {
 		return errors.WithCode(code.ErrNoGoodsSelect, "没有选择商品")
 	}
+	order.Status = normalizeInitialOrderStatus(order.Status)
 
 	existing, err := os.data.Orders().Get(ctx, order.OrderSn)
 	if err == nil {
@@ -458,13 +459,25 @@ func canTransitionOrderStatus(current, next string) bool {
 	}
 
 	switch current {
+	case OrderStatusWaitBuyerPay:
+		return next == OrderStatusPaying || next == OrderStatusTradeSuccess || next == OrderStatusTradeClosed
+	case OrderStatusPaying:
+		return next == OrderStatusTradeSuccess || next == OrderStatusTradeClosed
 	case OrderStatusTradeClosed, OrderStatusTradeFinished:
 		return false
 	case OrderStatusTradeSuccess:
 		return next == OrderStatusTradeFinished
 	default:
-		return isValidOrderStatus(current) && isValidOrderStatus(next)
+		return false
 	}
+}
+
+func normalizeInitialOrderStatus(status string) string {
+	status = strings.TrimSpace(status)
+	if status == "" {
+		return OrderStatusWaitBuyerPay
+	}
+	return status
 }
 
 func newOrderService(sv *service) *orderService {

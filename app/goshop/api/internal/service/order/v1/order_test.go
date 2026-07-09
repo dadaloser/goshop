@@ -41,13 +41,22 @@ func TestSimulatePayCallbackRejectsInvalidInput(t *testing.T) {
 		},
 		{
 			name: "missing trade no for success",
-			svc:  NewOrderService(fakeDataFactory{orderClient: fakeOrderClient{}, inventoryClient: fakeInventoryClient{}}),
+			svc:  NewOrderService(fakeDataFactory{orderClient: fakeOrderClient{detail: orderDetailResponse}, inventoryClient: fakeInventoryClient{}}),
 			req:  &PayCallbackRequest{UserID: 1, OrderSn: "order-1", Success: true},
 			code: code.ErrOrderStatusInvalid,
 		},
 		{
-			name: "missing items",
-			svc:  NewOrderService(fakeDataFactory{orderClient: fakeOrderClient{}, inventoryClient: fakeInventoryClient{}}),
+			name: "empty order goods",
+			svc: NewOrderService(fakeDataFactory{
+				orderClient: fakeOrderClient{
+					detail: func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+						return &opb.OrderInfoDetailResponse{
+							OrderInfo: &opb.OrderInfoResponse{OrderSn: "order-1", Status: orderStatusWaitBuyerPay},
+						}, nil
+					},
+				},
+				inventoryClient: fakeInventoryClient{},
+			}),
 			req:  &PayCallbackRequest{UserID: 1, OrderSn: "order-1", TradeNo: "trade-1", Success: true},
 			code: code.ErrOrderStatusInvalid,
 		},
@@ -64,17 +73,26 @@ func TestSimulatePayCallbackRejectsInvalidInput(t *testing.T) {
 }
 
 func TestSimulatePayCallbackWritesExpectedStatus(t *testing.T) {
+	var gotDetail *opb.OrderRequest
 	var got *opb.OrderStatus
 	var confirm *ipb.SellInfo
+	var calls []string
 	svc := NewOrderService(fakeDataFactory{
 		orderClient: fakeOrderClient{
+			detail: func(_ context.Context, in *opb.OrderRequest, _ ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+				gotDetail = in
+				calls = append(calls, "detail")
+				return orderDetailResponse(nil, nil)
+			},
 			update: func(_ context.Context, in *opb.OrderStatus, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				calls = append(calls, "update")
 				got = in
 				return &emptypb.Empty{}, nil
 			},
 		},
 		inventoryClient: fakeInventoryClient{
 			confirm: func(_ context.Context, in *ipb.SellInfo, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				calls = append(calls, "confirm")
 				confirm = in
 				return &emptypb.Empty{}, nil
 			},
@@ -86,13 +104,13 @@ func TestSimulatePayCallbackWritesExpectedStatus(t *testing.T) {
 		OrderSn: " order-9 ",
 		PayType: "alipay",
 		TradeNo: "trade-1",
-		Items: []OrderItem{
-			{GoodsID: 101, Num: 2},
-		},
 		Success: true,
 	})
 	if err != nil {
 		t.Fatalf("SimulatePayCallback() error = %v", err)
+	}
+	if gotDetail == nil || gotDetail.UserId != 9 || gotDetail.OrderSn != "order-9" {
+		t.Fatalf("OrderDetail() got %+v", gotDetail)
 	}
 	if got == nil {
 		t.Fatal("SimulatePayCallback() did not call UpdateOrderStatus")
@@ -103,20 +121,30 @@ func TestSimulatePayCallbackWritesExpectedStatus(t *testing.T) {
 	if confirm == nil || confirm.OrderSn != "order-9" || len(confirm.GoodsInfo) != 1 || confirm.GoodsInfo[0].GoodsId != 101 || confirm.GoodsInfo[0].Num != 2 {
 		t.Fatalf("Confirm() got %+v", confirm)
 	}
+	if len(calls) != 3 || calls[0] != "detail" || calls[1] != "confirm" || calls[2] != "update" {
+		t.Fatalf("call order = %v, want [detail confirm update]", calls)
+	}
 }
 
 func TestSimulatePayCallbackCanCloseOrder(t *testing.T) {
 	var got *opb.OrderStatus
 	var release *ipb.SellInfo
+	var calls []string
 	svc := NewOrderService(fakeDataFactory{
 		orderClient: fakeOrderClient{
+			detail: func(_ context.Context, _ *opb.OrderRequest, _ ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+				calls = append(calls, "detail")
+				return orderDetailResponse(nil, nil)
+			},
 			update: func(_ context.Context, in *opb.OrderStatus, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				calls = append(calls, "update")
 				got = in
 				return &emptypb.Empty{}, nil
 			},
 		},
 		inventoryClient: fakeInventoryClient{
 			release: func(_ context.Context, in *ipb.SellInfo, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				calls = append(calls, "release")
 				release = in
 				return &emptypb.Empty{}, nil
 			},
@@ -126,9 +154,6 @@ func TestSimulatePayCallbackCanCloseOrder(t *testing.T) {
 	err := svc.SimulatePayCallback(context.Background(), &PayCallbackRequest{
 		UserID:  9,
 		OrderSn: "order-9",
-		Items: []OrderItem{
-			{GoodsID: 201, Num: 1},
-		},
 		Success: false,
 	})
 	if err != nil {
@@ -137,8 +162,37 @@ func TestSimulatePayCallbackCanCloseOrder(t *testing.T) {
 	if got == nil || got.Status != "TRADE_CLOSED" {
 		t.Fatalf("UpdateOrderStatus() got %+v, want TRADE_CLOSED", got)
 	}
-	if release == nil || release.OrderSn != "order-9" || len(release.GoodsInfo) != 1 || release.GoodsInfo[0].GoodsId != 201 || release.GoodsInfo[0].Num != 1 {
+	if release == nil || release.OrderSn != "order-9" || len(release.GoodsInfo) != 1 || release.GoodsInfo[0].GoodsId != 101 || release.GoodsInfo[0].Num != 2 {
 		t.Fatalf("Release() got %+v", release)
+	}
+	if len(calls) != 3 || calls[0] != "detail" || calls[1] != "release" || calls[2] != "update" {
+		t.Fatalf("call order = %v, want [detail release update]", calls)
+	}
+}
+
+func TestSimulatePayCallbackRejectsConflictingTerminalState(t *testing.T) {
+	svc := NewOrderService(fakeDataFactory{
+		orderClient: fakeOrderClient{
+			detail: func(_ context.Context, _ *opb.OrderRequest, _ ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+				return &opb.OrderInfoDetailResponse{
+					OrderInfo: &opb.OrderInfoResponse{OrderSn: "order-9", Status: orderStatusTradeClosed},
+					Goods: []*opb.OrderItemResponse{
+						{GoodsId: 101, Nums: 2},
+					},
+				}, nil
+			},
+		},
+		inventoryClient: fakeInventoryClient{},
+	})
+
+	err := svc.SimulatePayCallback(context.Background(), &PayCallbackRequest{
+		UserID:  9,
+		OrderSn: "order-9",
+		TradeNo: "trade-1",
+		Success: true,
+	})
+	if !errors.IsCode(err, code.ErrOrderStatusInvalid) {
+		t.Fatalf("SimulatePayCallback() error = %v, want code %d", err, code.ErrOrderStatusInvalid)
 	}
 }
 
@@ -165,7 +219,15 @@ func (f fakeDataFactory) Users() data.UserData {
 
 type fakeOrderClient struct {
 	opb.OrderClient
+	detail func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error)
 	update func(context.Context, *opb.OrderStatus, ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+func (f fakeOrderClient) OrderDetail(ctx context.Context, in *opb.OrderRequest, opts ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+	if f.detail != nil {
+		return f.detail(ctx, in, opts...)
+	}
+	return orderDetailResponse(ctx, in, opts...)
 }
 
 func (f fakeOrderClient) UpdateOrderStatus(ctx context.Context, in *opb.OrderStatus, opts ...grpc.CallOption) (*emptypb.Empty, error) {
@@ -193,4 +255,16 @@ func (f fakeInventoryClient) Release(ctx context.Context, in *ipb.SellInfo, opts
 		return f.release(ctx, in, opts...)
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func orderDetailResponse(_ context.Context, _ *opb.OrderRequest, _ ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+	return &opb.OrderInfoDetailResponse{
+		OrderInfo: &opb.OrderInfoResponse{
+			OrderSn: "order-9",
+			Status:  orderStatusWaitBuyerPay,
+		},
+		Goods: []*opb.OrderItemResponse{
+			{GoodsId: 101, Nums: 2},
+		},
+	}, nil
 }

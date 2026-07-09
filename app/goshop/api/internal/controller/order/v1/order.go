@@ -23,7 +23,7 @@ type SimulatePayCallbackForm struct {
 	OrderSn string                        `form:"order_sn" json:"order_sn" binding:"required"`
 	PayType string                        `form:"pay_type" json:"pay_type"`
 	TradeNo string                        `form:"trade_no" json:"trade_no"`
-	Items   []SimulatePayCallbackItemForm `form:"items" json:"items" binding:"required,min=1,dive"`
+	Items   []SimulatePayCallbackItemForm `form:"items" json:"items"`
 	Success *bool                         `form:"success" json:"success" binding:"required"`
 }
 

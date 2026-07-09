@@ -257,6 +257,10 @@ func shopCartToResponse(cart *dto.ShopCartDTO) *pb.ShopCartInfoResponse {
 }
 
 func orderToResponse(order *dto.OrderDTO) *pb.OrderInfoResponse {
+	var payTime int64
+	if order.PayTime != nil {
+		payTime = order.PayTime.Unix()
+	}
 	return &pb.OrderInfoResponse{
 		Id:      order.ID,
 		UserId:  order.User,
@@ -269,6 +273,8 @@ func orderToResponse(order *dto.OrderDTO) *pb.OrderInfoResponse {
 		Name:    order.SignerName,
 		Mobile:  order.SingerMobile,
 		AddTime: order.CreatedAt.Format("2006-01-02 15:04:05"),
+		TradeNo: order.TradeNo,
+		PayTime: payTime,
 	}
 }
 
