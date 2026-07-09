@@ -126,6 +126,8 @@ func TestInventoryServiceRejectsInvalidCreateAndGet(t *testing.T) {
 
 func TestConfirmMarksSellDetailConfirmed(t *testing.T) {
 	var gotStatus int32
+	var confirmCalls int
+	var confirmedGoods []do.GoodsDetail
 	srv := &inventoryService{
 		pool:    nil,
 		testTxn: fakeTxn{},
@@ -135,8 +137,13 @@ func TestConfirmMarksSellDetailConfirmed(t *testing.T) {
 					return &do.StockSellDetailDO{
 						OrderSn: "order-1",
 						Status:  stockSellStatusReserved,
-						Detail:  do.GoodsDetailList{{Goods: 1, Num: 1}},
+						Detail:  do.GoodsDetailList{{Goods: 2, Num: 1}, {Goods: 1, Num: 2}},
 					}, nil
+				},
+				confirmSell: func(_ context.Context, _ *gorm.DB, goodsID uint64, num int) error {
+					confirmCalls++
+					confirmedGoods = append(confirmedGoods, do.GoodsDetail{Goods: int32(goodsID), Num: int32(num)})
+					return nil
 				},
 				updateSellDetailStatus: func(_ context.Context, _ *gorm.DB, _ string, status int32) error {
 					gotStatus = status
@@ -152,6 +159,12 @@ func TestConfirmMarksSellDetailConfirmed(t *testing.T) {
 	}
 	if gotStatus != stockSellStatusConfirmed {
 		t.Fatalf("Confirm() status = %d, want %d", gotStatus, stockSellStatusConfirmed)
+	}
+	if confirmCalls != 2 {
+		t.Fatalf("Confirm() confirmCalls = %d, want 2", confirmCalls)
+	}
+	if confirmedGoods[0].Goods != 1 || confirmedGoods[1].Goods != 2 {
+		t.Fatalf("Confirm() goods order = %+v, want sorted sell detail", confirmedGoods)
 	}
 }
 
@@ -250,6 +263,7 @@ type fakeInventoryStore struct {
 	getSellDetail          func(context.Context, *gorm.DB, string) (*do.StockSellDetailDO, error)
 	reduce                 func(context.Context, *gorm.DB, uint64, int) error
 	increase               func(context.Context, *gorm.DB, uint64, int) error
+	confirmSell            func(context.Context, *gorm.DB, uint64, int) error
 	createStockSellDetail  func(context.Context, *gorm.DB, *do.StockSellDetailDO) error
 	createStockIfAbsent    func(context.Context, *gorm.DB, *do.StockSellDetailDO) (bool, error)
 	updateSellDetailStatus func(context.Context, *gorm.DB, string, int32) error
@@ -286,6 +300,13 @@ func (f fakeInventoryStore) Reduce(ctx context.Context, txn *gorm.DB, goodsID ui
 func (f fakeInventoryStore) Increase(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {
 	if f.increase != nil {
 		return f.increase(ctx, txn, goodsID, num)
+	}
+	return nil
+}
+
+func (f fakeInventoryStore) ConfirmSell(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {
+	if f.confirmSell != nil {
+		return f.confirmSell(ctx, txn, goodsID, num)
 	}
 	return nil
 }

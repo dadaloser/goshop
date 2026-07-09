@@ -83,8 +83,12 @@ func (i *inventorys) Reduce(ctx context.Context, txn *gorm.DB, goodsID uint64, n
 	tx := db.WithContext(ctx).
 		Model(&do.InventoryDO{}).
 		Where("goods = ?", goodsID).
-		Where("stocks >= ?", num).
-		UpdateColumn("stocks", gorm.Expr("stocks - ?", num))
+		Where("available >= ?", num).
+		Updates(map[string]interface{}{
+			"available": gorm.Expr("available - ?", num),
+			"locked":    gorm.Expr("locked + ?", num),
+			"stocks":    gorm.Expr("stocks - ?", num),
+		})
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
@@ -109,12 +113,46 @@ func (i *inventorys) Increase(ctx context.Context, txn *gorm.DB, goodsID uint64,
 	tx := db.WithContext(ctx).
 		Model(&do.InventoryDO{}).
 		Where("goods = ?", goodsID).
-		UpdateColumn("stocks", gorm.Expr("stocks + ?", num))
+		Where("locked >= ?", num).
+		Updates(map[string]interface{}{
+			"available": gorm.Expr("available + ?", num),
+			"locked":    gorm.Expr("locked - ?", num),
+			"stocks":    gorm.Expr("stocks + ?", num),
+		})
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrInvNotEnough, "库存锁定数量不足")
+	}
+	return nil
+}
+
+func (i *inventorys) ConfirmSell(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {
+	if goodsID == 0 {
 		return errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+	}
+	if num <= 0 {
+		return errors.WithCode(code2.ErrValidation, "inventory quantity is invalid")
+	}
+
+	db := i.db
+	if txn != nil {
+		db = txn
+	}
+	tx := db.WithContext(ctx).
+		Model(&do.InventoryDO{}).
+		Where("goods = ?", goodsID).
+		Where("locked >= ?", num).
+		Updates(map[string]interface{}{
+			"locked": gorm.Expr("locked - ?", num),
+			"sold":   gorm.Expr("sold + ?", num),
+		})
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrInvNotEnough, "库存锁定数量不足")
 	}
 	return nil
 }
@@ -159,7 +197,7 @@ func (i *inventorys) CreateStockSellDetailIfAbsent(ctx context.Context, txn *gor
 }
 
 func (i *inventorys) Create(ctx context.Context, inv *do.InventoryDO) error {
-	if inv == nil || inv.Goods <= 0 || inv.Stocks < 0 {
+	if err := normalizeInventory(inv); err != nil {
 		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
 	}
 
@@ -167,6 +205,35 @@ func (i *inventorys) Create(ctx context.Context, inv *do.InventoryDO) error {
 	tx := i.db.WithContext(ctx).Create(inv)
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	return nil
+}
+
+func normalizeInventory(inv *do.InventoryDO) error {
+	if inv == nil || inv.Goods <= 0 {
+		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
+	}
+	if inv.Stocks < 0 || inv.Total < 0 || inv.Available < 0 || inv.Locked < 0 || inv.Sold < 0 {
+		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
+	}
+
+	if inv.Total == 0 && inv.Available == 0 && inv.Locked == 0 && inv.Sold == 0 {
+		inv.Total = inv.Stocks
+		inv.Available = inv.Stocks
+	}
+
+	if inv.Stocks == 0 && (inv.Available > 0 || inv.Locked > 0 || inv.Sold > 0 || inv.Total > 0) {
+		inv.Stocks = inv.Available
+	}
+
+	if inv.Total == 0 {
+		inv.Total = inv.Available + inv.Locked + inv.Sold
+	}
+	if inv.Stocks != inv.Available {
+		inv.Stocks = inv.Available
+	}
+	if inv.Total < inv.Available+inv.Locked+inv.Sold {
+		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
 	}
 	return nil
 }

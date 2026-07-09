@@ -242,6 +242,20 @@ func (is *inventoryService) Confirm(ctx context.Context, ordersn string, details
 			return nil
 		}
 
+		detail := sellDetail.Detail
+		if len(detail) == 0 {
+			log.Errorf("订单%s扣减库存记录明细为空", ordersn)
+			return errors.WithCode(code2.ErrDatabase, "inventory sell detail is empty")
+		}
+		sort.Sort(detail)
+
+		for _, goodsInfo := range detail {
+			if err := is.data.Inventories().ConfirmSell(ctx, txn.DB(), uint64(goodsInfo.Goods), int(goodsInfo.Num)); err != nil {
+				log.Errorf("订单%s确认库存失败", ordersn)
+				return err
+			}
+		}
+
 		if err := is.data.Inventories().UpdateStockSellDetailStatus(ctx, txn.DB(), ordersn, stockSellStatusConfirmed); err != nil {
 			log.Errorf("订单%s更新确认库存记录失败", ordersn)
 			return err

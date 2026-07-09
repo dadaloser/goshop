@@ -28,9 +28,13 @@ func (g *GoodsDetailList) Scan(value interface{}) error {
 
 type InventoryDO struct {
 	bgorm.BaseModel
-	Goods   int32 `gorm:"type:int;index"`
-	Stocks  int32 `gorm:"type:int"`
-	Version int32 `gorm:"type:int"` //分布式锁的乐观锁
+	Goods     int32 `gorm:"type:int;index"`
+	Total     int32 `gorm:"type:int"`
+	Available int32 `gorm:"type:int"`
+	Locked    int32 `gorm:"type:int"`
+	Sold      int32 `gorm:"type:int"`
+	Stocks    int32 `gorm:"type:int"`
+	Version   int32 `gorm:"type:int"` //分布式锁的乐观锁
 }
 
 func (id *InventoryDO) TableName() string {
@@ -54,7 +58,7 @@ func (id *InventoryDO) TableName() string {
 
 type StockSellDetailDO struct {
 	OrderSn string          `gorm:"type:varchar(200);index:idx_order_sn,unique;"`
-	Status  int32           `gorm:"type:varchar(200)"` //1 表示已扣减 2. 表示已归还
+	Status  int32           `gorm:"type:varchar(200)"` //1 表示已预留 2. 表示已释放 3. 表示已确认
 	Detail  GoodsDetailList `gorm:"type:varchar(200)"`
 }
 

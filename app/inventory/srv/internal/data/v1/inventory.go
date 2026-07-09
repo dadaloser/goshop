@@ -23,6 +23,9 @@ type InventoryStore interface {
 	//新增库存
 	Increase(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error
 
+	//确认锁定库存，转入已售
+	ConfirmSell(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error
+
 	//新增库存销售信息
 	CreateStockSellDetail(ctx context.Context, txn *gorm.DB, detail *do.StockSellDetailDO) error
 
