@@ -113,6 +113,14 @@ func TestInventoryServiceRejectsInvalidCreateAndGet(t *testing.T) {
 			},
 			code: code.ErrInventoryNotFound,
 		},
+		{
+			name: "get order detail empty order sn",
+			run: func() error {
+				_, err := srv.GetOrderDetail(context.Background(), " ")
+				return err
+			},
+			code: code2.ErrValidation,
+		},
 	}
 
 	for _, tt := range tests {
@@ -122,6 +130,30 @@ func TestInventoryServiceRejectsInvalidCreateAndGet(t *testing.T) {
 				t.Fatalf("error = %v, want code %d", err, tt.code)
 			}
 		})
+	}
+}
+
+func TestInventoryServiceGetOrderDetailDelegatesToStore(t *testing.T) {
+	srv := &inventoryService{
+		data: fakeInventoryDataFactory{
+			store: fakeInventoryStore{
+				getSellDetail: func(context.Context, *gorm.DB, string) (*do.StockSellDetailDO, error) {
+					return &do.StockSellDetailDO{
+						OrderSn: "order-1",
+						Status:  stockSellStatusReserved,
+						Detail:  do.GoodsDetailList{{Goods: 1, Num: 2}},
+					}, nil
+				},
+			},
+		},
+	}
+
+	detail, err := srv.GetOrderDetail(context.Background(), "order-1")
+	if err != nil {
+		t.Fatalf("GetOrderDetail() error = %v", err)
+	}
+	if detail == nil || detail.OrderSn != "order-1" || detail.Status != stockSellStatusReserved {
+		t.Fatalf("GetOrderDetail() = %+v", detail)
 	}
 }
 

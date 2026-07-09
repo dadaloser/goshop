@@ -34,6 +34,9 @@ type InventorySrv interface {
 	//根据商品的id查询库存
 	Get(ctx context.Context, goodsID uint64) (*dto.InventoryDTO, error)
 
+	//根据订单号查询库存预留记录
+	GetOrderDetail(ctx context.Context, orderSn string) (*do.StockSellDetailDO, error)
+
 	//扣减库存
 	Sell(ctx context.Context, orderSn string, detail []do.GoodsDetail) error
 
@@ -81,6 +84,13 @@ func (is *inventoryService) Get(ctx context.Context, goodsID uint64) (*dto.Inven
 		return nil, err
 	}
 	return &dto.InventoryDTO{InventoryDO: *inv}, nil
+}
+
+func (is *inventoryService) GetOrderDetail(ctx context.Context, orderSn string) (*do.StockSellDetailDO, error) {
+	if strings.TrimSpace(orderSn) == "" {
+		return nil, errors.WithCode(code2.ErrValidation, "order_sn不能为空")
+	}
+	return is.data.Inventories().GetSellDetail(ctx, nil, orderSn)
 }
 
 func (is *inventoryService) Sell(ctx context.Context, ordersn string, details []do.GoodsDetail) error {
@@ -281,6 +291,19 @@ func validateStockOperation(orderSn string, details []do.GoodsDetail) error {
 		}
 	}
 	return nil
+}
+
+func stockSellStatusName(status int32) string {
+	switch status {
+	case stockSellStatusReserved:
+		return "reserved"
+	case stockSellStatusReleased:
+		return "released"
+	case stockSellStatusConfirmed:
+		return "confirmed"
+	default:
+		return "unknown"
+	}
 }
 
 func unlockOrderMutex(mutex *redsync.Mutex, orderSn string) {

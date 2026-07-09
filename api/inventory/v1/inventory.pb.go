@@ -158,6 +158,118 @@ func (x *SellInfo) GetOrderSn() string {
 	return ""
 }
 
+type OrderInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OrderSn       string                 `protobuf:"bytes,1,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OrderInfo) Reset() {
+	*x = OrderInfo{}
+	mi := &file_inventory_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OrderInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrderInfo) ProtoMessage() {}
+
+func (x *OrderInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_inventory_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrderInfo.ProtoReflect.Descriptor instead.
+func (*OrderInfo) Descriptor() ([]byte, []int) {
+	return file_inventory_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *OrderInfo) GetOrderSn() string {
+	if x != nil {
+		return x.OrderSn
+	}
+	return ""
+}
+
+type SellDetailInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OrderSn       string                 `protobuf:"bytes,1,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
+	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	StatusName    string                 `protobuf:"bytes,3,opt,name=statusName,proto3" json:"statusName,omitempty"`
+	GoodsInfo     []*GoodsInvInfo        `protobuf:"bytes,4,rep,name=goodsInfo,proto3" json:"goodsInfo,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SellDetailInfo) Reset() {
+	*x = SellDetailInfo{}
+	mi := &file_inventory_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SellDetailInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SellDetailInfo) ProtoMessage() {}
+
+func (x *SellDetailInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_inventory_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SellDetailInfo.ProtoReflect.Descriptor instead.
+func (*SellDetailInfo) Descriptor() ([]byte, []int) {
+	return file_inventory_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *SellDetailInfo) GetOrderSn() string {
+	if x != nil {
+		return x.OrderSn
+	}
+	return ""
+}
+
+func (x *SellDetailInfo) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
+func (x *SellDetailInfo) GetStatusName() string {
+	if x != nil {
+		return x.StatusName
+	}
+	return ""
+}
+
+func (x *SellDetailInfo) GetGoodsInfo() []*GoodsInvInfo {
+	if x != nil {
+		return x.GoodsInfo
+	}
+	return nil
+}
+
 var File_inventory_proto protoreflect.FileDescriptor
 
 const file_inventory_proto_rawDesc = "" +
@@ -172,12 +284,23 @@ const file_inventory_proto_rawDesc = "" +
 	"\x04sold\x18\x06 \x01(\x05R\x04sold\"Q\n" +
 	"\bSellInfo\x12+\n" +
 	"\tgoodsInfo\x18\x01 \x03(\v2\r.GoodsInvInfoR\tgoodsInfo\x12\x18\n" +
-	"\aorderSn\x18\x02 \x01(\tR\aorderSn2\xa6\x03\n" +
+	"\aorderSn\x18\x02 \x01(\tR\aorderSn\"%\n" +
+	"\tOrderInfo\x12\x18\n" +
+	"\aorderSn\x18\x01 \x01(\tR\aorderSn\"\x8f\x01\n" +
+	"\x0eSellDetailInfo\x12\x18\n" +
+	"\aorderSn\x18\x01 \x01(\tR\aorderSn\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\x05R\x06status\x12\x1e\n" +
+	"\n" +
+	"statusName\x18\x03 \x01(\tR\n" +
+	"statusName\x12+\n" +
+	"\tgoodsInfo\x18\x04 \x03(\v2\r.GoodsInvInfoR\tgoodsInfo2\xd4\x03\n" +
 	"\tInventory\x12/\n" +
 	"\x06SetInv\x12\r.GoodsInvInfo\x1a\x16.google.protobuf.Empty\x121\n" +
 	"\bSetStock\x12\r.GoodsInvInfo\x1a\x16.google.protobuf.Empty\x12)\n" +
 	"\tInvDetail\x12\r.GoodsInvInfo\x1a\r.GoodsInvInfo\x12(\n" +
-	"\bGetStock\x12\r.GoodsInvInfo\x1a\r.GoodsInvInfo\x12)\n" +
+	"\bGetStock\x12\r.GoodsInvInfo\x1a\r.GoodsInvInfo\x12,\n" +
+	"\rGetSellDetail\x12\n" +
+	".OrderInfo\x1a\x0f.SellDetailInfo\x12)\n" +
 	"\x04Sell\x12\t.SellInfo\x1a\x16.google.protobuf.Empty\x12,\n" +
 	"\aReserve\x12\t.SellInfo\x1a\x16.google.protobuf.Empty\x12+\n" +
 	"\x06Reback\x12\t.SellInfo\x1a\x16.google.protobuf.Empty\x12,\n" +
@@ -196,37 +319,42 @@ func file_inventory_proto_rawDescGZIP() []byte {
 	return file_inventory_proto_rawDescData
 }
 
-var file_inventory_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_inventory_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_inventory_proto_goTypes = []any{
-	(*GoodsInvInfo)(nil),  // 0: GoodsInvInfo
-	(*SellInfo)(nil),      // 1: SellInfo
-	(*emptypb.Empty)(nil), // 2: google.protobuf.Empty
+	(*GoodsInvInfo)(nil),   // 0: GoodsInvInfo
+	(*SellInfo)(nil),       // 1: SellInfo
+	(*OrderInfo)(nil),      // 2: OrderInfo
+	(*SellDetailInfo)(nil), // 3: SellDetailInfo
+	(*emptypb.Empty)(nil),  // 4: google.protobuf.Empty
 }
 var file_inventory_proto_depIdxs = []int32{
 	0,  // 0: SellInfo.goodsInfo:type_name -> GoodsInvInfo
-	0,  // 1: Inventory.SetInv:input_type -> GoodsInvInfo
-	0,  // 2: Inventory.SetStock:input_type -> GoodsInvInfo
-	0,  // 3: Inventory.InvDetail:input_type -> GoodsInvInfo
-	0,  // 4: Inventory.GetStock:input_type -> GoodsInvInfo
-	1,  // 5: Inventory.Sell:input_type -> SellInfo
-	1,  // 6: Inventory.Reserve:input_type -> SellInfo
-	1,  // 7: Inventory.Reback:input_type -> SellInfo
-	1,  // 8: Inventory.Confirm:input_type -> SellInfo
-	1,  // 9: Inventory.Release:input_type -> SellInfo
-	2,  // 10: Inventory.SetInv:output_type -> google.protobuf.Empty
-	2,  // 11: Inventory.SetStock:output_type -> google.protobuf.Empty
-	0,  // 12: Inventory.InvDetail:output_type -> GoodsInvInfo
-	0,  // 13: Inventory.GetStock:output_type -> GoodsInvInfo
-	2,  // 14: Inventory.Sell:output_type -> google.protobuf.Empty
-	2,  // 15: Inventory.Reserve:output_type -> google.protobuf.Empty
-	2,  // 16: Inventory.Reback:output_type -> google.protobuf.Empty
-	2,  // 17: Inventory.Confirm:output_type -> google.protobuf.Empty
-	2,  // 18: Inventory.Release:output_type -> google.protobuf.Empty
-	10, // [10:19] is the sub-list for method output_type
-	1,  // [1:10] is the sub-list for method input_type
-	1,  // [1:1] is the sub-list for extension type_name
-	1,  // [1:1] is the sub-list for extension extendee
-	0,  // [0:1] is the sub-list for field type_name
+	0,  // 1: SellDetailInfo.goodsInfo:type_name -> GoodsInvInfo
+	0,  // 2: Inventory.SetInv:input_type -> GoodsInvInfo
+	0,  // 3: Inventory.SetStock:input_type -> GoodsInvInfo
+	0,  // 4: Inventory.InvDetail:input_type -> GoodsInvInfo
+	0,  // 5: Inventory.GetStock:input_type -> GoodsInvInfo
+	2,  // 6: Inventory.GetSellDetail:input_type -> OrderInfo
+	1,  // 7: Inventory.Sell:input_type -> SellInfo
+	1,  // 8: Inventory.Reserve:input_type -> SellInfo
+	1,  // 9: Inventory.Reback:input_type -> SellInfo
+	1,  // 10: Inventory.Confirm:input_type -> SellInfo
+	1,  // 11: Inventory.Release:input_type -> SellInfo
+	4,  // 12: Inventory.SetInv:output_type -> google.protobuf.Empty
+	4,  // 13: Inventory.SetStock:output_type -> google.protobuf.Empty
+	0,  // 14: Inventory.InvDetail:output_type -> GoodsInvInfo
+	0,  // 15: Inventory.GetStock:output_type -> GoodsInvInfo
+	3,  // 16: Inventory.GetSellDetail:output_type -> SellDetailInfo
+	4,  // 17: Inventory.Sell:output_type -> google.protobuf.Empty
+	4,  // 18: Inventory.Reserve:output_type -> google.protobuf.Empty
+	4,  // 19: Inventory.Reback:output_type -> google.protobuf.Empty
+	4,  // 20: Inventory.Confirm:output_type -> google.protobuf.Empty
+	4,  // 21: Inventory.Release:output_type -> google.protobuf.Empty
+	12, // [12:22] is the sub-list for method output_type
+	2,  // [2:12] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_inventory_proto_init() }
@@ -240,7 +368,7 @@ func file_inventory_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_inventory_proto_rawDesc), len(file_inventory_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

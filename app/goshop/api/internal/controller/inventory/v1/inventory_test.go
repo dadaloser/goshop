@@ -91,6 +91,52 @@ func TestInventoryControllerReturnsInventoryDetail(t *testing.T) {
 	}
 }
 
+func TestInventoryControllerReturnsOrderDetail(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	var gotOrderSn string
+	controller := NewInventoryController(&fakeInventoryServiceFactory{
+		inventory: fakeInventorySrv{
+			orderDetail: func(_ context.Context, orderSn string) (*ipb.SellDetailInfo, error) {
+				gotOrderSn = orderSn
+				return &ipb.SellDetailInfo{
+					OrderSn:    "order-1",
+					Status:     1,
+					StatusName: "reserved",
+					GoodsInfo: []*ipb.GoodsInvInfo{
+						{GoodsId: 11, Num: 2},
+						{GoodsId: 12, Num: 1},
+					},
+				}, nil
+			},
+		},
+	}, nil)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Params = gin.Params{{Key: "order_sn", Value: "order-1"}}
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/inventory/orders/order-1", nil)
+
+	controller.OrderDetail(ctx)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+	if gotOrderSn != "order-1" {
+		t.Fatalf("orderSn = %s, want order-1", gotOrderSn)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if body["order_sn"] != "order-1" || body["status"] != float64(1) || body["status_name"] != "reserved" {
+		t.Fatalf("response body = %+v", body)
+	}
+	goods, ok := body["goods"].([]any)
+	if !ok || len(goods) != 2 {
+		t.Fatalf("goods = %+v", body["goods"])
+	}
+}
+
 func assertInventoryErrorCode(t *testing.T, body []byte, want int) {
 	t.Helper()
 
@@ -132,12 +178,20 @@ func (f *fakeInventoryServiceFactory) Sms() smsv1.SmsSrv {
 var _ service.ServiceFactory = &fakeInventoryServiceFactory{}
 
 type fakeInventorySrv struct {
-	detail func(context.Context, uint64) (*ipb.GoodsInvInfo, error)
+	detail      func(context.Context, uint64) (*ipb.GoodsInvInfo, error)
+	orderDetail func(context.Context, string) (*ipb.SellDetailInfo, error)
 }
 
 func (f fakeInventorySrv) Detail(ctx context.Context, goodsID uint64) (*ipb.GoodsInvInfo, error) {
 	if f.detail != nil {
 		return f.detail(ctx, goodsID)
+	}
+	return nil, nil
+}
+
+func (f fakeInventorySrv) OrderDetail(ctx context.Context, orderSn string) (*ipb.SellDetailInfo, error) {
+	if f.orderDetail != nil {
+		return f.orderDetail(ctx, orderSn)
 	}
 	return nil, nil
 }

@@ -9,6 +9,7 @@ service Inventory {
     rpc SetStock(GoodsInvInfo) returns(google.protobuf.Empty); //设置库存(新接口)
     rpc InvDetail(GoodsInvInfo) returns (GoodsInvInfo); // 获取库存信息
     rpc GetStock(GoodsInvInfo) returns (GoodsInvInfo); // 获取库存信息(新接口)
+    rpc GetSellDetail(OrderInfo) returns (SellDetailInfo); //按订单号获取库存预留记录
     rpc Sell(SellInfo) returns (google.protobuf.Empty); //库存扣减
     rpc Reserve(SellInfo) returns (google.protobuf.Empty); //库存预留(新接口)
     rpc Reback(SellInfo) returns(google.protobuf.Empty); //库存归还
@@ -28,4 +29,15 @@ message GoodsInvInfo {
 message SellInfo {
     repeated GoodsInvInfo goodsInfo = 1;
     string orderSn = 2;
+}
+
+message OrderInfo {
+    string orderSn = 1;
+}
+
+message SellDetailInfo {
+    string orderSn = 1;
+    int32 status = 2;
+    string statusName = 3;
+    repeated GoodsInvInfo goodsInfo = 4;
 }

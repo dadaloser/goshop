@@ -68,6 +68,30 @@ func (is *inventoryServer) GetStock(ctx context.Context, info *invpb.GoodsInvInf
 	return is.InvDetail(ctx, info)
 }
 
+func (is *inventoryServer) GetSellDetail(ctx context.Context, info *invpb.OrderInfo) (*invpb.SellDetailInfo, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "inventory order request is required")
+	}
+
+	detail, err := is.srv.Inventory().GetOrderDetail(ctx, info.OrderSn)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &invpb.SellDetailInfo{
+		OrderSn:    detail.OrderSn,
+		Status:     detail.Status,
+		StatusName: stockSellStatusName(detail.Status),
+	}
+	for _, item := range detail.Detail {
+		resp.GoodsInfo = append(resp.GoodsInfo, &invpb.GoodsInvInfo{
+			GoodsId: item.Goods,
+			Num:     item.Num,
+		})
+	}
+	return resp, nil
+}
+
 func (is *inventoryServer) Sell(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
 	if info == nil {
 		return nil, errors.WithCode(code2.ErrValidation, "inventory sell request is required")
@@ -142,6 +166,19 @@ func (is *inventoryServer) Release(ctx context.Context, info *invpb.SellInfo) (*
 
 func NewInventoryServer(srv v1.ServiceFactory) *inventoryServer {
 	return &inventoryServer{srv: srv}
+}
+
+func stockSellStatusName(status int32) string {
+	switch status {
+	case 1:
+		return "reserved"
+	case 2:
+		return "released"
+	case 3:
+		return "confirmed"
+	default:
+		return "unknown"
+	}
 }
 
 var (

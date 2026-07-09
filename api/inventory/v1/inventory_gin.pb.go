@@ -88,6 +88,23 @@ func (s *InventoryHttpServer) GetStock_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *InventoryHttpServer) GetSellDetail_0(c *gin.Context) {
+	var in OrderInfo
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.GetSellDetail(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *InventoryHttpServer) Sell_0(c *gin.Context) {
 	var in SellInfo
 
@@ -182,6 +199,8 @@ func (s *InventoryHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.InvDetail_0)
 
 	s.router.Handle("POST", "", s.GetStock_0)
+
+	s.router.Handle("POST", "", s.GetSellDetail_0)
 
 	s.router.Handle("POST", "", s.Sell_0)
 

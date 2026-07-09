@@ -82,6 +82,13 @@ func TestInventoryServerRejectsNilRequests(t *testing.T) {
 				return err
 			},
 		},
+		{
+			name: "get sell detail",
+			run: func() error {
+				_, err := server.GetSellDetail(context.Background(), nil)
+				return err
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -91,6 +98,36 @@ func TestInventoryServerRejectsNilRequests(t *testing.T) {
 				t.Fatalf("error = %v, want code %d", err, code2.ErrValidation)
 			}
 		})
+	}
+}
+
+func TestInventoryServerGetSellDetailReturnsStatusAndItems(t *testing.T) {
+	server := &inventoryServer{
+		srv: fakeServiceFactory{
+			inventory: fakeInventoryService{
+				getOrderDetail: func(context.Context, string) (*do.StockSellDetailDO, error) {
+					return &do.StockSellDetailDO{
+						OrderSn: "order-1",
+						Status:  3,
+						Detail: do.GoodsDetailList{
+							{Goods: 11, Num: 2},
+							{Goods: 12, Num: 1},
+						},
+					}, nil
+				},
+			},
+		},
+	}
+
+	resp, err := server.GetSellDetail(context.Background(), &invpb.OrderInfo{OrderSn: "order-1"})
+	if err != nil {
+		t.Fatalf("GetSellDetail() error = %v", err)
+	}
+	if resp.OrderSn != "order-1" || resp.Status != 3 || resp.StatusName != "confirmed" {
+		t.Fatalf("GetSellDetail() = %+v", resp)
+	}
+	if len(resp.GoodsInfo) != 2 || resp.GoodsInfo[0].GoodsId != 11 || resp.GoodsInfo[0].Num != 2 {
+		t.Fatalf("GetSellDetail() goods = %+v", resp.GoodsInfo)
 	}
 }
 
@@ -163,12 +200,13 @@ func (f fakeServiceFactory) Inventory() svcv1.InventorySrv {
 }
 
 type fakeInventoryService struct {
-	create  func(context.Context, *dto.InventoryDTO) error
-	get     func(context.Context, uint64) (*dto.InventoryDTO, error)
-	sell    func(context.Context, string, []do.GoodsDetail) error
-	reback  func(context.Context, string, []do.GoodsDetail) error
-	confirm func(context.Context, string, []do.GoodsDetail) error
-	release func(context.Context, string, []do.GoodsDetail) error
+	create         func(context.Context, *dto.InventoryDTO) error
+	get            func(context.Context, uint64) (*dto.InventoryDTO, error)
+	getOrderDetail func(context.Context, string) (*do.StockSellDetailDO, error)
+	sell           func(context.Context, string, []do.GoodsDetail) error
+	reback         func(context.Context, string, []do.GoodsDetail) error
+	confirm        func(context.Context, string, []do.GoodsDetail) error
+	release        func(context.Context, string, []do.GoodsDetail) error
 }
 
 func (f fakeInventoryService) Create(ctx context.Context, inv *dto.InventoryDTO) error {
@@ -181,6 +219,13 @@ func (f fakeInventoryService) Create(ctx context.Context, inv *dto.InventoryDTO)
 func (f fakeInventoryService) Get(ctx context.Context, goodsID uint64) (*dto.InventoryDTO, error) {
 	if f.get != nil {
 		return f.get(ctx, goodsID)
+	}
+	return nil, nil
+}
+
+func (f fakeInventoryService) GetOrderDetail(ctx context.Context, orderSn string) (*do.StockSellDetailDO, error) {
+	if f.getOrderDetail != nil {
+		return f.getOrderDetail(ctx, orderSn)
 	}
 	return nil, nil
 }

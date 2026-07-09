@@ -58,3 +58,50 @@ func (ic *inventoryController) Detail(ctx *gin.Context) {
 		"sold":      inv.GetSold(),
 	})
 }
+
+func (ic *inventoryController) OrderDetail(ctx *gin.Context) {
+	if ic == nil || ic.sf == nil {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "inventory service is not initialized"), nil)
+		return
+	}
+
+	var uri request.InventoryOrderDetailURI
+	if err := ctx.ShouldBindUri(&uri); err != nil {
+		gin2.HandleValidatorError(ctx, err, ic.trans)
+		return
+	}
+
+	inventorySrv := ic.sf.Inventory()
+	if inventorySrv == nil {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "inventory service is not initialized"), nil)
+		return
+	}
+
+	detail, err := inventorySrv.OrderDetail(ctx, uri.OrderSn)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	if detail == nil {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "inventory service response is empty"), nil)
+		return
+	}
+
+	items := make([]gin.H, 0, len(detail.GetGoodsInfo()))
+	for _, item := range detail.GetGoodsInfo() {
+		if item == nil {
+			continue
+		}
+		items = append(items, gin.H{
+			"goods_id": item.GetGoodsId(),
+			"num":      item.GetNum(),
+		})
+	}
+
+	core.WriteResponse(ctx, nil, gin.H{
+		"order_sn":    detail.GetOrderSn(),
+		"status":      detail.GetStatus(),
+		"status_name": detail.GetStatusName(),
+		"goods":       items,
+	})
+}

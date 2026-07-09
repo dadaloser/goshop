@@ -71,6 +71,7 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	inventoryRouter := v1.Group("inventory")
 	{
 		inventoryController := inventory.NewInventoryController(serviceFactory, g.Translator())
+		inventoryRouter.GET("/orders/:order_sn", inventoryController.OrderDetail)
 		inventoryRouter.GET("/:goods_id", inventoryController.Detail)
 	}
 

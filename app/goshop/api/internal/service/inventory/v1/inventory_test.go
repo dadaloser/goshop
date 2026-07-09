@@ -63,6 +63,31 @@ func TestInventoryServiceDetailCallsInventoryClient(t *testing.T) {
 	}
 }
 
+func TestInventoryServiceOrderDetail(t *testing.T) {
+	client := &fakeInventoryClient{
+		getSellDetailResp: &ipb.SellDetailInfo{
+			OrderSn:    "order-1",
+			Status:     3,
+			StatusName: "confirmed",
+			GoodsInfo: []*ipb.GoodsInvInfo{
+				{GoodsId: 5, Num: 2},
+			},
+		},
+	}
+	svc := NewInventory(&fakeInventoryDataFactory{inventory: client})
+
+	resp, err := svc.OrderDetail(context.Background(), "order-1")
+	if err != nil {
+		t.Fatalf("OrderDetail() error = %v", err)
+	}
+	if resp.GetOrderSn() != "order-1" || resp.GetStatusName() != "confirmed" {
+		t.Fatalf("OrderDetail() response = %+v", resp)
+	}
+	if client.gotGetSellDetail == nil || client.gotGetSellDetail.GetOrderSn() != "order-1" {
+		t.Fatalf("GetSellDetail() request = %+v, want order-1", client.gotGetSellDetail)
+	}
+}
+
 type fakeInventoryDataFactory struct {
 	inventory *fakeInventoryClient
 }
@@ -89,12 +114,20 @@ func (f *fakeInventoryDataFactory) Users() data.UserData {
 type fakeInventoryClient struct {
 	ipb.InventoryClient
 
-	getStockResp *ipb.GoodsInvInfo
-	getStockErr  error
-	gotGetStock  *ipb.GoodsInvInfo
+	getStockResp      *ipb.GoodsInvInfo
+	getStockErr       error
+	gotGetStock       *ipb.GoodsInvInfo
+	getSellDetailResp *ipb.SellDetailInfo
+	getSellDetailErr  error
+	gotGetSellDetail  *ipb.OrderInfo
 }
 
 func (f *fakeInventoryClient) GetStock(ctx context.Context, in *ipb.GoodsInvInfo, opts ...grpc.CallOption) (*ipb.GoodsInvInfo, error) {
 	f.gotGetStock = in
 	return f.getStockResp, f.getStockErr
+}
+
+func (f *fakeInventoryClient) GetSellDetail(ctx context.Context, in *ipb.OrderInfo, opts ...grpc.CallOption) (*ipb.SellDetailInfo, error) {
+	f.gotGetSellDetail = in
+	return f.getSellDetailResp, f.getSellDetailErr
 }
