@@ -196,6 +196,143 @@ func TestSimulatePayCallbackRejectsConflictingTerminalState(t *testing.T) {
 	}
 }
 
+func TestCartItemOperationsForwardRequests(t *testing.T) {
+	var gotCreate *opb.CartItemRequest
+	var gotUpdate *opb.CartItemRequest
+	var gotDelete *opb.CartItemRequest
+	svc := NewOrderService(fakeDataFactory{
+		orderClient: fakeOrderClient{
+			createCartItem: func(_ context.Context, in *opb.CartItemRequest, _ ...grpc.CallOption) (*opb.ShopCartInfoResponse, error) {
+				gotCreate = in
+				return &opb.ShopCartInfoResponse{
+					Id:      1,
+					UserId:  in.UserId,
+					GoodsId: in.GoodsId,
+					Nums:    in.Nums,
+					Checked: in.Checked,
+				}, nil
+			},
+			updateCartItem: func(_ context.Context, in *opb.CartItemRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				gotUpdate = in
+				return &emptypb.Empty{}, nil
+			},
+			deleteCartItem: func(_ context.Context, in *opb.CartItemRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				gotDelete = in
+				return &emptypb.Empty{}, nil
+			},
+		},
+	})
+
+	item, err := svc.CreateCartItem(context.Background(), 9, &CartItemRequest{GoodsID: 101, Nums: 2, Checked: true})
+	if err != nil {
+		t.Fatalf("CreateCartItem() error = %v", err)
+	}
+	if gotCreate == nil || gotCreate.UserId != 9 || gotCreate.GoodsId != 101 || gotCreate.Nums != 2 || !gotCreate.Checked {
+		t.Fatalf("CreateCartItem() request = %+v", gotCreate)
+	}
+	if item == nil || item.Id != 1 {
+		t.Fatalf("CreateCartItem() response = %+v", item)
+	}
+
+	if err := svc.UpdateCartItem(context.Background(), 9, &CartItemRequest{GoodsID: 101, Nums: 3, Checked: false}); err != nil {
+		t.Fatalf("UpdateCartItem() error = %v", err)
+	}
+	if gotUpdate == nil || gotUpdate.UserId != 9 || gotUpdate.GoodsId != 101 || gotUpdate.Nums != 3 || gotUpdate.Checked {
+		t.Fatalf("UpdateCartItem() request = %+v", gotUpdate)
+	}
+
+	if err := svc.DeleteCartItem(context.Background(), 9, 7); err != nil {
+		t.Fatalf("DeleteCartItem() error = %v", err)
+	}
+	if gotDelete == nil || gotDelete.UserId != 9 || gotDelete.Id != 7 {
+		t.Fatalf("DeleteCartItem() request = %+v", gotDelete)
+	}
+}
+
+func TestSubmitOrderGeneratesOrderSnAndForwardsFields(t *testing.T) {
+	var got *opb.OrderRequest
+	svc := NewOrderService(fakeDataFactory{
+		orderClient: fakeOrderClient{
+			submitOrder: func(_ context.Context, in *opb.OrderRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				got = in
+				return &emptypb.Empty{}, nil
+			},
+		},
+	})
+
+	orderSn, err := svc.SubmitOrder(context.Background(), 9, &SubmitOrderRequest{
+		Address: "上海市浦东新区",
+		Name:    "buyer",
+		Mobile:  "13800138000",
+		Post:    "尽快发货",
+	})
+	if err != nil {
+		t.Fatalf("SubmitOrder() error = %v", err)
+	}
+	if orderSn == "" {
+		t.Fatal("SubmitOrder() orderSn is empty")
+	}
+	if got == nil || got.UserId != 9 || got.OrderSn != orderSn || got.Address != "上海市浦东新区" || got.Name != "buyer" || got.Mobile != "13800138000" || got.Post != "尽快发货" {
+		t.Fatalf("SubmitOrder() request = %+v", got)
+	}
+}
+
+func TestOrderQueriesForwardRequests(t *testing.T) {
+	var gotCartList *opb.UserInfo
+	var gotList *opb.OrderFilterRequest
+	var gotDetail *opb.OrderRequest
+	svc := NewOrderService(fakeDataFactory{
+		orderClient: fakeOrderClient{
+			cartItemList: func(_ context.Context, in *opb.UserInfo, _ ...grpc.CallOption) (*opb.CartItemListResponse, error) {
+				gotCartList = in
+				return &opb.CartItemListResponse{
+					Total: 1,
+					Data: []*opb.ShopCartInfoResponse{
+						{Id: 1, UserId: in.Id, GoodsId: 101, Nums: 2, Checked: true},
+					},
+				}, nil
+			},
+			list: func(_ context.Context, in *opb.OrderFilterRequest, _ ...grpc.CallOption) (*opb.OrderListResponse, error) {
+				gotList = in
+				return &opb.OrderListResponse{
+					Total: 1,
+					Data: []*opb.OrderInfoResponse{
+						{OrderSn: "order-1", UserId: in.UserId},
+					},
+				}, nil
+			},
+			detail: func(_ context.Context, in *opb.OrderRequest, _ ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+				gotDetail = in
+				return orderDetailResponse(nil, nil)
+			},
+		},
+	})
+
+	cartResp, err := svc.CartItemList(context.Background(), 9)
+	if err != nil {
+		t.Fatalf("CartItemList() error = %v", err)
+	}
+	if gotCartList == nil || gotCartList.Id != 9 || cartResp.GetTotal() != 1 {
+		t.Fatalf("CartItemList() request=%+v response=%+v", gotCartList, cartResp)
+	}
+
+	listResp, err := svc.OrderList(context.Background(), 9, &OrderListFilter{})
+	if err != nil {
+		t.Fatalf("OrderList() error = %v", err)
+	}
+	if gotList == nil || gotList.UserId != 9 || gotList.Pages != defaultOrderPage || gotList.PagePerNums != defaultOrderPageSize || listResp.GetTotal() != 1 {
+		t.Fatalf("OrderList() request=%+v response=%+v", gotList, listResp)
+	}
+
+	detailResp, err := svc.OrderDetail(context.Background(), 9, " order-1 ")
+	if err != nil {
+		t.Fatalf("OrderDetail() error = %v", err)
+	}
+	if gotDetail == nil || gotDetail.UserId != 9 || gotDetail.OrderSn != "order-1" || detailResp.GetOrderInfo().GetOrderSn() != "order-9" {
+		t.Fatalf("OrderDetail() request=%+v response=%+v", gotDetail, detailResp)
+	}
+}
+
 type fakeDataFactory struct {
 	inventoryClient ipb.InventoryClient
 	orderClient     opb.OrderClient
@@ -219,8 +356,56 @@ func (f fakeDataFactory) Users() data.UserData {
 
 type fakeOrderClient struct {
 	opb.OrderClient
-	detail func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error)
-	update func(context.Context, *opb.OrderStatus, ...grpc.CallOption) (*emptypb.Empty, error)
+	cartItemList   func(context.Context, *opb.UserInfo, ...grpc.CallOption) (*opb.CartItemListResponse, error)
+	createCartItem func(context.Context, *opb.CartItemRequest, ...grpc.CallOption) (*opb.ShopCartInfoResponse, error)
+	updateCartItem func(context.Context, *opb.CartItemRequest, ...grpc.CallOption) (*emptypb.Empty, error)
+	deleteCartItem func(context.Context, *opb.CartItemRequest, ...grpc.CallOption) (*emptypb.Empty, error)
+	submitOrder    func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*emptypb.Empty, error)
+	list           func(context.Context, *opb.OrderFilterRequest, ...grpc.CallOption) (*opb.OrderListResponse, error)
+	detail         func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error)
+	update         func(context.Context, *opb.OrderStatus, ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+func (f fakeOrderClient) CartItemList(ctx context.Context, in *opb.UserInfo, opts ...grpc.CallOption) (*opb.CartItemListResponse, error) {
+	if f.cartItemList != nil {
+		return f.cartItemList(ctx, in, opts...)
+	}
+	return &opb.CartItemListResponse{}, nil
+}
+
+func (f fakeOrderClient) CreateCartItem(ctx context.Context, in *opb.CartItemRequest, opts ...grpc.CallOption) (*opb.ShopCartInfoResponse, error) {
+	if f.createCartItem != nil {
+		return f.createCartItem(ctx, in, opts...)
+	}
+	return &opb.ShopCartInfoResponse{}, nil
+}
+
+func (f fakeOrderClient) UpdateCartItem(ctx context.Context, in *opb.CartItemRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	if f.updateCartItem != nil {
+		return f.updateCartItem(ctx, in, opts...)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (f fakeOrderClient) DeleteCartItem(ctx context.Context, in *opb.CartItemRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	if f.deleteCartItem != nil {
+		return f.deleteCartItem(ctx, in, opts...)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (f fakeOrderClient) SubmitOrder(ctx context.Context, in *opb.OrderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	if f.submitOrder != nil {
+		return f.submitOrder(ctx, in, opts...)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (f fakeOrderClient) OrderList(ctx context.Context, in *opb.OrderFilterRequest, opts ...grpc.CallOption) (*opb.OrderListResponse, error) {
+	if f.list != nil {
+		return f.list(ctx, in, opts...)
+	}
+	return &opb.OrderListResponse{}, nil
 }
 
 func (f fakeOrderClient) OrderDetail(ctx context.Context, in *opb.OrderRequest, opts ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {

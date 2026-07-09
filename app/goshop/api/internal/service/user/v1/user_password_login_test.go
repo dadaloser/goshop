@@ -105,6 +105,7 @@ func newPasswordLoginTestService(users *fakeUserData, attempts *fakeLoginAttempt
 		nil,
 		attempts,
 		nil,
+		nil,
 	)
 }
 
@@ -127,6 +128,8 @@ type fakeUserData struct {
 	updateCalled        bool
 	updatedUser         *data.User
 	created             data.User
+	deleteCalled        bool
+	deletedUserID       uint64
 	getCalled           bool
 	gotID               uint64
 	gotUsername         string
@@ -143,6 +146,12 @@ func (f *fakeUserData) Create(_ context.Context, user *data.User) error {
 
 func (f *fakeUserData) Update(context.Context, *data.User) error {
 	f.updateCalled = true
+	return nil
+}
+
+func (f *fakeUserData) Delete(_ context.Context, userID uint64) error {
+	f.deleteCalled = true
+	f.deletedUserID = userID
 	return nil
 }
 

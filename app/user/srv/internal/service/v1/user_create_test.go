@@ -183,6 +183,7 @@ func TestUserService_GetByUsernameNormalizesIdentifier(t *testing.T) {
 type fakeUserStore struct {
 	usersByIdentifier map[string]*dv1.UserDO
 	created           *dv1.UserDO
+	deletedID         uint64
 }
 
 func (f *fakeUserStore) List(context.Context, []string, metav1.ListMeta) (*dv1.UserDOList, error) {
@@ -213,6 +214,11 @@ func (f *fakeUserStore) Create(_ context.Context, user *dv1.UserDO) error {
 }
 
 func (f *fakeUserStore) Update(context.Context, *dv1.UserDO) error {
+	return nil
+}
+
+func (f *fakeUserStore) Delete(_ context.Context, id uint64) error {
+	f.deletedID = id
 	return nil
 }
 

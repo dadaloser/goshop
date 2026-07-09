@@ -25,6 +25,7 @@ type UserSrv interface {
 	List(ctx context.Context, orderBy []string, opts metav1.ListMeta) (*UserDTOList, error)
 	Create(ctx context.Context, user *UserDTO) error
 	Update(ctx context.Context, user *UserDTO) error
+	Delete(ctx context.Context, id uint64) error
 	GetByID(ctx context.Context, ID uint64) (*UserDTO, error)
 	GetByMobile(ctx context.Context, mobile string) (*UserDTO, error)
 	GetByUsername(ctx context.Context, username string) (*UserDTO, error)
@@ -104,6 +105,13 @@ func (u *userService) Update(ctx context.Context, user *UserDTO) error {
 	}
 
 	return u.userStore.Update(ctx, &user.UserDO)
+}
+
+func (u *userService) Delete(ctx context.Context, id uint64) error {
+	if id == 0 {
+		return errors.WithCode(code2.ErrValidation, "用户不存在")
+	}
+	return u.userStore.Delete(ctx, id)
 }
 
 func (u *userService) GetByID(ctx context.Context, ID uint64) (*UserDTO, error) {

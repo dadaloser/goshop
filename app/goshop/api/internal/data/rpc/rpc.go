@@ -41,8 +41,7 @@ func (g grpcData) Users() data.UserData {
 
 var (
 	dbFactory data.DataFactory
-	initErr   error
-	once      sync.Once
+	factoryMu sync.Mutex
 )
 
 // rpc的连接， 基于服务发现
@@ -50,47 +49,45 @@ func GetDataFactoryOr(ctx context.Context, options *options.RegistryOptions) (da
 	if ctx == nil {
 		ctx = context.TODO()
 	}
-	if options == nil && dbFactory == nil {
+	if dbFactory != nil {
+		return dbFactory, nil
+	}
+	if options == nil {
 		return nil, fmt.Errorf("failed to get grpc store factory")
 	}
 
-	//这里负责依赖的所有的rpc连接
-	once.Do(func() {
-		dialOpts := []rpcserver.ClientOption{
-			rpcserver.WithConnectProbe(false),
-		}
+	dialOpts := []rpcserver.ClientOption{
+		rpcserver.WithConnectProbe(false),
+	}
 
-		userClient, _, err := appclient.NewUserClient(ctx, options, dialOpts...)
-		if err != nil {
-			initErr = err
-			return
-		}
-		goodsClient, _, err := appclient.NewGoodsClient(ctx, options, dialOpts...)
-		if err != nil {
-			initErr = err
-			return
-		}
-		inventoryClient, _, err := appclient.NewInventoryClient(ctx, options, dialOpts...)
-		if err != nil {
-			initErr = err
-			return
-		}
-		orderClient, _, err := appclient.NewOrderClient(ctx, options, dialOpts...)
-		if err != nil {
-			initErr = err
-			return
-		}
+	userClient, _, err := appclient.NewUserClient(ctx, options, dialOpts...)
+	if err != nil {
+		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
+	}
+	goodsClient, _, err := appclient.NewGoodsClient(ctx, options, dialOpts...)
+	if err != nil {
+		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
+	}
+	inventoryClient, _, err := appclient.NewInventoryClient(ctx, options, dialOpts...)
+	if err != nil {
+		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
+	}
+	orderClient, _, err := appclient.NewOrderClient(ctx, options, dialOpts...)
+	if err != nil {
+		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
+	}
 
-		dbFactory = &grpcData{
-			gc: goodsClient,
-			ic: inventoryClient,
-			oc: orderClient,
-			uc: userClient,
-		}
-	})
+	factory := &grpcData{
+		gc: goodsClient,
+		ic: inventoryClient,
+		oc: orderClient,
+		uc: userClient,
+	}
 
-	if initErr != nil || dbFactory == nil {
-		return nil, errors2.WrapC(initErr, code.ErrConnectGRPC, "failed to get grpc store factory")
+	factoryMu.Lock()
+	defer factoryMu.Unlock()
+	if dbFactory == nil {
+		dbFactory = factory
 	}
 	return dbFactory, nil
 }

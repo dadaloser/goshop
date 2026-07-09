@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"goshop/app/goshop/api/internal/tokenrevocation"
+	"goshop/app/goshop/api/internal/tokenversion"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/gmicro/server/restserver/middlewares/auth"
@@ -15,10 +16,11 @@ import (
 )
 
 // 可以在此处使用别的中间件来实现认证授权
-func newJWTAuth(opts *options.JwtOptions, revokedTokens tokenrevocation.Store) (middlewares.AuthStrategy, error) {
+func newJWTAuth(opts *options.JwtOptions, revokedTokens tokenrevocation.Store, tokenVersions tokenversion.Store) (middlewares.AuthStrategy, error) {
 	if opts == nil {
 		return nil, fmt.Errorf("jwt options are required")
 	}
+	parser := middlewares.NewJWT(opts.Key)
 	gjwt, err := ginjwt.New(&ginjwt.GinJWTMiddleware{
 		Realm:            opts.Realm,
 		SigningAlgorithm: "HS256",
@@ -31,9 +33,6 @@ func newJWTAuth(opts *options.JwtOptions, revokedTokens tokenrevocation.Store) (
 		IdentityHandler: claimHandlerFun,
 		IdentityKey:     middlewares.KeyUserID,
 		Authorizator: func(_ interface{}, c *gin.Context) bool {
-			if revokedTokens == nil {
-				return true
-			}
 			rawToken, ok := c.Get("JWT_TOKEN")
 			if !ok {
 				return false
@@ -42,12 +41,34 @@ func newJWTAuth(opts *options.JwtOptions, revokedTokens tokenrevocation.Store) (
 			if !ok {
 				return false
 			}
-			revoked, err := revokedTokens.IsRevoked(c.Request.Context(), token)
+
+			if revokedTokens != nil {
+				revoked, err := revokedTokens.IsRevoked(c.Request.Context(), token)
+				if err != nil {
+					log.Errorf("check jwt revocation failed: %v", err)
+					return false
+				}
+				if revoked {
+					return false
+				}
+			}
+
+			if tokenVersions == nil {
+				return true
+			}
+
+			claims, err := parser.ParseToken(token)
 			if err != nil {
-				log.Errorf("check jwt revocation failed: %v", err)
+				log.Errorf("parse jwt claims failed: %v", err)
 				return false
 			}
-			return !revoked
+
+			currentVersion, err := tokenVersions.CurrentVersion(c.Request.Context(), uint64(claims.ID))
+			if err != nil {
+				log.Errorf("check jwt token version failed: %v", err)
+				return false
+			}
+			return currentVersion == claims.TokenVersion
 		},
 		TokenLookup:   "header: Authorization:, query: token, cookie: jwt",
 		TokenHeadName: "Bearer",

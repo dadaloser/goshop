@@ -3,16 +3,17 @@ package v1
 import (
 	"context"
 	"strings"
+	"time"
 
 	"goshop/app/goshop/api/internal/loginattempt"
 	"goshop/app/goshop/api/internal/smsattempt"
 	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
-	"time"
 
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/smscode"
+	"goshop/app/goshop/api/internal/tokenversion"
 	"goshop/app/pkg/options"
 	code2 "goshop/gmicro/code"
 	"goshop/gmicro/server/restserver/middlewares"
@@ -34,6 +35,8 @@ type UserSrv interface {
 	Update(ctx context.Context, userDTO *UserDTO) error
 	Get(ctx context.Context, userID uint64) (*UserDTO, error)
 	GetByUsername(ctx context.Context, username string) (*UserDTO, error)
+	LogoutAll(ctx context.Context, userID uint64) error
+	DeleteAccount(ctx context.Context, userID uint64, password string) error
 }
 
 type userService struct {
@@ -47,10 +50,12 @@ type userService struct {
 	loginAttempts loginattempt.Store
 
 	smsAttempts smsattempt.Store
+
+	tokenVersions tokenversion.Store
 }
 
-func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store) UserSrv {
-	return &userService{data: data, jwtOpts: jwtOpts, codeStore: codeStore, loginAttempts: loginAttempts, smsAttempts: smsAttempts}
+func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) UserSrv {
+	return &userService{data: data, jwtOpts: jwtOpts, codeStore: codeStore, loginAttempts: loginAttempts, smsAttempts: smsAttempts, tokenVersions: tokenVersions}
 }
 
 func (us *userService) PasswordLogin(ctx context.Context, username, password string) (*UserDTO, error) {
@@ -88,7 +93,7 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 
 	us.resetPasswordLoginFailures(ctx, username)
 
-	token, expiresAt, err := us.createToken(user)
+	token, expiresAt, err := us.createToken(ctx, user)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +143,7 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 		log.Warn("delete sms login code failed")
 	}
 
-	token, expiresAt, err := us.createToken(user)
+	token, expiresAt, err := us.createToken(ctx, user)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +201,7 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 		log.Warn("delete sms code failed")
 	}
 
-	token, expiresAt, err := us.createToken(*user)
+	token, expiresAt, err := us.createToken(ctx, *user)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +213,7 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 	}, nil
 }
 
-func (us *userService) createToken(user data.User) (string, int64, error) {
+func (us *userService) createToken(ctx context.Context, user data.User) (string, int64, error) {
 	if us == nil || us.jwtOpts == nil || strings.TrimSpace(us.jwtOpts.Key) == "" || us.jwtOpts.Timeout <= 0 {
 		return "", 0, errors.WithCode(code.ErrConnectGRPC, "jwt options are not initialized")
 	}
@@ -216,9 +221,10 @@ func (us *userService) createToken(user data.User) (string, int64, error) {
 	now := time.Now()
 	j := middlewares.NewJWT(us.jwtOpts.Key)
 	claims := middlewares.CustomClaims{
-		ID:          uint(user.ID),
-		NickName:    user.NickName,
-		AuthorityId: uint(user.Role),
+		ID:           uint(user.ID),
+		NickName:     user.NickName,
+		AuthorityId:  uint(user.Role),
+		TokenVersion: us.currentTokenVersion(ctx, user.ID),
 		RegisteredClaims: jwt.RegisteredClaims{
 			NotBefore: jwt.NewNumericDate(now), //签名的生效时间
 			ExpiresAt: jwt.NewNumericDate(now.Add(us.jwtOpts.Timeout)),
@@ -230,6 +236,48 @@ func (us *userService) createToken(user data.User) (string, int64, error) {
 		return "", 0, err
 	}
 	return token, now.Local().Add(us.jwtOpts.Timeout).Unix(), nil
+}
+
+func (us *userService) LogoutAll(ctx context.Context, userID uint64) error {
+	if userID == 0 {
+		return errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+
+	if err := us.bumpTokenVersion(ctx, userID); err != nil {
+		return errors.WithCode(code.ErrConnectGRPC, "退出登录失败")
+	}
+	return nil
+}
+
+func (us *userService) DeleteAccount(ctx context.Context, userID uint64, password string) error {
+	if userID == 0 {
+		return errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+	if strings.TrimSpace(password) == "" {
+		return errors.WithCode(code2.ErrValidation, "密码不能为空")
+	}
+	if _, err := us.tokenVersionStore(); err != nil {
+		return err
+	}
+
+	users, err := us.usersData()
+	if err != nil {
+		return err
+	}
+	user, err := users.Get(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if err = users.CheckPassWord(ctx, password, user.PassWord); err != nil {
+		return err
+	}
+	if err = users.Delete(ctx, userID); err != nil {
+		return err
+	}
+	if err = us.bumpTokenVersion(ctx, userID); err != nil {
+		return errors.WithCode(code.ErrConnectGRPC, "注销账号失败")
+	}
+	return nil
 }
 
 func (u *userService) Update(ctx context.Context, userDTO *UserDTO) error {
@@ -286,6 +334,38 @@ func (us *userService) usersData() (data.UserData, error) {
 		return nil, errors.WithCode(code.ErrConnectGRPC, "user data client is not initialized")
 	}
 	return users, nil
+}
+
+func (us *userService) tokenVersionStore() (tokenversion.Store, error) {
+	if us == nil || us.tokenVersions == nil {
+		return nil, errors.WithCode(code.ErrConnectGRPC, "token version store is not initialized")
+	}
+	return us.tokenVersions, nil
+}
+
+func (us *userService) currentTokenVersion(ctx context.Context, userID uint64) uint64 {
+	if us == nil || us.tokenVersions == nil || userID == 0 {
+		return 0
+	}
+
+	version, err := us.tokenVersions.CurrentVersion(ctx, userID)
+	if err != nil {
+		log.Errorf("load token version failed: userID=%d error=%v", userID, err)
+		return 0
+	}
+	return version
+}
+
+func (us *userService) bumpTokenVersion(ctx context.Context, userID uint64) error {
+	store, err := us.tokenVersionStore()
+	if err != nil {
+		return err
+	}
+	if _, err = store.Bump(ctx, userID); err != nil {
+		log.Errorf("bump token version failed: userID=%d error=%v", userID, err)
+		return err
+	}
+	return nil
 }
 
 func (us *userService) ensurePasswordLoginAllowed(ctx context.Context, username string) error {

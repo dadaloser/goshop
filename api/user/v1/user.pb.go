@@ -622,7 +622,7 @@ const file_user_proto_rawDesc = "" +
 	"\busername\x18\t \x01(\tR\busername\"O\n" +
 	"\x10UserListResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12%\n" +
-	"\x04data\x18\x02 \x03(\v2\x11.UserInfoResponseR\x04data2\xd5\x03\n" +
+	"\x04data\x18\x02 \x03(\v2\x11.UserInfoResponseR\x04data2\x9e\x04\n" +
 	"\x04User\x12A\n" +
 	"\vGetUserList\x12\t.PageInfo\x1a\x11.UserListResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/users\x12P\n" +
 	"\x0fGetUserByMobile\x12\x0e.MobileRequest\x1a\x11.UserInfoResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/user/mobile\x12D\n" +
@@ -631,7 +631,10 @@ const file_user_proto_rawDesc = "" +
 	"\n" +
 	"CreateUser\x12\x0f.CreateUserInfo\x1a\x11.UserInfoResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/user/create\x12Q\n" +
 	"\n" +
-	"UpdateUser\x12\x0f.UpdateUserInfo\x1a\x16.google.protobuf.Empty\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/user/update\x12Q\n" +
+	"UpdateUser\x12\x0f.UpdateUserInfo\x1a\x16.google.protobuf.Empty\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/user/update\x12G\n" +
+	"\n" +
+	"DeleteUser\x12\n" +
+	".IdRequest\x1a\x16.google.protobuf.Empty\"\x15\x82\xd3\xe4\x93\x02\x0f*\r/v1/user/{id}\x12Q\n" +
 	"\rCheckPassWord\x12\x12.PasswordCheckInfo\x1a\x0e.CheckResponse\"\x1c\x82\xd3\xe4\x93\x02\x16:\x01*\"\x11/v1/user/passwordB\aZ\x05./;v1b\x06proto3"
 
 var (
@@ -666,15 +669,17 @@ var file_user_proto_depIdxs = []int32{
 	4, // 3: User.GetUserById:input_type -> IdRequest
 	5, // 4: User.CreateUser:input_type -> CreateUserInfo
 	6, // 5: User.UpdateUser:input_type -> UpdateUserInfo
-	0, // 6: User.CheckPassWord:input_type -> PasswordCheckInfo
-	8, // 7: User.GetUserList:output_type -> UserListResponse
-	7, // 8: User.GetUserByMobile:output_type -> UserInfoResponse
-	7, // 9: User.GetUserById:output_type -> UserInfoResponse
-	7, // 10: User.CreateUser:output_type -> UserInfoResponse
-	9, // 11: User.UpdateUser:output_type -> google.protobuf.Empty
-	1, // 12: User.CheckPassWord:output_type -> CheckResponse
-	7, // [7:13] is the sub-list for method output_type
-	1, // [1:7] is the sub-list for method input_type
+	4, // 6: User.DeleteUser:input_type -> IdRequest
+	0, // 7: User.CheckPassWord:input_type -> PasswordCheckInfo
+	8, // 8: User.GetUserList:output_type -> UserListResponse
+	7, // 9: User.GetUserByMobile:output_type -> UserInfoResponse
+	7, // 10: User.GetUserById:output_type -> UserInfoResponse
+	7, // 11: User.CreateUser:output_type -> UserInfoResponse
+	9, // 12: User.UpdateUser:output_type -> google.protobuf.Empty
+	9, // 13: User.DeleteUser:output_type -> google.protobuf.Empty
+	1, // 14: User.CheckPassWord:output_type -> CheckResponse
+	8, // [8:15] is the sub-list for method output_type
+	1, // [1:8] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name

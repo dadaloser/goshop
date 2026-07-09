@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"strings"
+	"time"
 
 	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
@@ -135,6 +136,27 @@ func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
 	tx := u.db.WithContext(ctx).Model(&dv1.UserDO{}).
 		Where("id = ?", user.ID).
 		Updates(updates)
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected == 0 {
+		return errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+	return nil
+}
+
+func (u *users) Delete(ctx context.Context, id uint64) error {
+	if id == 0 {
+		return errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+
+	now := time.Now()
+	tx := u.db.WithContext(ctx).Model(&dv1.UserDO{}).
+		Where("id = ? AND deleted_at IS NULL", id).
+		Updates(map[string]interface{}{
+			"is_deleted": true,
+			"deleted_at": now,
+		})
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}

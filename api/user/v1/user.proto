@@ -36,6 +36,11 @@ service User{
             body: "*"
         };
     }; // 更新用户
+    rpc DeleteUser(IdRequest) returns (google.protobuf.Empty){
+        option (google.api.http) = {
+            delete: "/v1/user/{id}"
+        };
+    }; // 注销用户
     rpc CheckPassWord(PasswordCheckInfo) returns (CheckResponse){
         option (google.api.http) = {
             post: "/v1/user/password"

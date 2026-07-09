@@ -87,7 +87,7 @@ func TestUserServiceRejectsMissingDataDependency(t *testing.T) {
 		},
 		{
 			name: "nil data factory get",
-			svc:  NewUserService(nil, validJWTOptions(), nil, nil, nil),
+			svc:  NewUserService(nil, validJWTOptions(), nil, nil, nil, nil),
 			run: func(svc UserSrv) error {
 				_, err := svc.Get(context.Background(), 1)
 				return err
@@ -95,14 +95,14 @@ func TestUserServiceRejectsMissingDataDependency(t *testing.T) {
 		},
 		{
 			name: "nil user data update",
-			svc:  NewUserService(&fakeDataFactory{}, validJWTOptions(), nil, nil, nil),
+			svc:  NewUserService(&fakeDataFactory{}, validJWTOptions(), nil, nil, nil, nil),
 			run: func(svc UserSrv) error {
 				return svc.Update(context.Background(), &UserDTO{User: data.User{ID: 1}})
 			},
 		},
 		{
 			name: "nil user data password login",
-			svc:  NewUserService(&fakeDataFactory{}, validJWTOptions(), nil, nil, nil),
+			svc:  NewUserService(&fakeDataFactory{}, validJWTOptions(), nil, nil, nil, nil),
 			run: func(svc UserSrv) error {
 				_, err := svc.PasswordLogin(context.Background(), "user_001", "secret")
 				return err
@@ -121,7 +121,7 @@ func TestUserServiceRejectsMissingDataDependency(t *testing.T) {
 }
 
 func TestUserServiceRejectsMissingCodeStore(t *testing.T) {
-	svc := NewUserService(&fakeDataFactory{users: &fakeUserData{}}, validJWTOptions(), nil, nil, nil)
+	svc := NewUserService(&fakeDataFactory{users: &fakeUserData{}}, validJWTOptions(), nil, nil, nil, nil)
 
 	tests := []struct {
 		name string
@@ -161,7 +161,7 @@ func TestUserServiceRejectsMissingJWTOptions(t *testing.T) {
 			PassWord: "hashed",
 		},
 	}
-	svc := NewUserService(&fakeDataFactory{users: users}, nil, nil, nil, nil)
+	svc := NewUserService(&fakeDataFactory{users: users}, nil, nil, nil, nil, nil)
 
 	_, err := svc.PasswordLogin(context.Background(), "user_001", "secret")
 	if !errors.IsCode(err, code.ErrConnectGRPC) {
@@ -187,6 +187,7 @@ func newUserBoundaryTestService(users *fakeUserData) UserSrv {
 	return NewUserService(
 		&fakeDataFactory{users: users},
 		validJWTOptions(),
+		nil,
 		nil,
 		nil,
 		nil,

@@ -97,6 +97,7 @@ func newSmsTestService(users *fakeUserData, codes *fakeSmsCodeStore, attempts *f
 		codes,
 		nil,
 		attempts,
+		nil,
 	)
 }
 

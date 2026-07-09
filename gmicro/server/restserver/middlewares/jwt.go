@@ -8,9 +8,10 @@ import (
 )
 
 type CustomClaims struct {
-	ID          uint `json:"userid"`
-	NickName    string
-	AuthorityId uint
+	ID           uint `json:"userid"`
+	NickName     string
+	AuthorityId  uint
+	TokenVersion uint64 `json:"tv"`
 	jwt.RegisteredClaims
 }
 

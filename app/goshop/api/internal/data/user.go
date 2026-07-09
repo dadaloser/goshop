@@ -26,6 +26,7 @@ type UserList struct {
 type UserData interface {
 	Create(ctx context.Context, user *User) error
 	Update(ctx context.Context, user *User) error
+	Delete(ctx context.Context, userID uint64) error
 	Get(ctx context.Context, userID uint64) (User, error)
 	GetByMobile(ctx context.Context, mobile string) (User, error)
 	GetByUsername(ctx context.Context, username string) (User, error)

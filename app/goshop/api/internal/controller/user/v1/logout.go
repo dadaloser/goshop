@@ -34,6 +34,24 @@ func (us *userServer) Logout(ctx *gin.Context) {
 	core.WriteResponse(ctx, nil, gin.H{"ok": true})
 }
 
+func (us *userServer) LogoutAll(ctx *gin.Context) {
+	userID, err := userIDFromContext(ctx)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	userSrv, err := us.usersService()
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	if err = userSrv.LogoutAll(ctx, userID); err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	core.WriteResponse(ctx, nil, gin.H{"ok": true})
+}
+
 func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
 	exp, ok := ginjwt.ExtractClaims(ctx)["exp"]
 	if !ok {

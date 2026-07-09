@@ -53,6 +53,13 @@ func TestUsersRejectInvalidInputBeforeRPC(t *testing.T) {
 			code: code.ErrUserNotFound,
 		},
 		{
+			name: "delete zero id",
+			run: func() error {
+				return store.Delete(context.Background(), 0)
+			},
+			code: code.ErrUserNotFound,
+		},
+		{
 			name: "get empty username",
 			run: func() error {
 				_, err := store.GetByUsername(context.Background(), " ")
@@ -232,6 +239,11 @@ func (f *fakeUserClient) CreateUser(_ context.Context, in *upbv1.CreateUserInfo,
 func (f *fakeUserClient) UpdateUser(_ context.Context, in *upbv1.UpdateUserInfo, _ ...grpc.CallOption) (*emptypb.Empty, error) {
 	f.called = true
 	f.updateRequest = in
+	return &emptypb.Empty{}, nil
+}
+
+func (f *fakeUserClient) DeleteUser(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	f.called = true
 	return &emptypb.Empty{}, nil
 }
 

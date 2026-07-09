@@ -67,4 +67,7 @@ type UserStore interface {
 
 	//更新用户
 	Update(ctx context.Context, user *UserDO) error
+
+	//删除用户
+	Delete(ctx context.Context, id uint64) error
 }

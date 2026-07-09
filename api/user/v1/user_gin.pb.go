@@ -105,6 +105,23 @@ func (s *UserHttpServer) UpdateUser_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *UserHttpServer) DeleteUser_0(c *gin.Context) {
+	var in IdRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.DeleteUser(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *UserHttpServer) CheckPassWord_0(c *gin.Context) {
 	var in PasswordCheckInfo
 
@@ -133,6 +150,8 @@ func (s *UserHttpServer) RegisterService() {
 	s.router.Handle("POST", "/v1/user/create", s.CreateUser_0)
 
 	s.router.Handle("POST", "/v1/user/update", s.UpdateUser_0)
+
+	s.router.Handle("POST", "/v1/user/{id}", s.DeleteUser_0)
 
 	s.router.Handle("POST", "/v1/user/password", s.CheckPassWord_0)
 

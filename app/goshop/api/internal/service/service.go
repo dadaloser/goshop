@@ -10,6 +10,7 @@ import (
 	vUser "goshop/app/goshop/api/internal/service/user/v1"
 	"goshop/app/goshop/api/internal/smsattempt"
 	"goshop/app/goshop/api/internal/smscode"
+	"goshop/app/goshop/api/internal/tokenversion"
 	"goshop/app/pkg/options"
 )
 
@@ -35,6 +36,8 @@ type service struct {
 	loginAttempts loginattempt.Store
 
 	smsAttempts smsattempt.Store
+
+	tokenVersions tokenversion.Store
 }
 
 func (s *service) Sms() vSms.SmsSrv {
@@ -67,18 +70,19 @@ func (s *service) Orders() vOrder.OrderSrv {
 
 func (s *service) Users() vUser.UserSrv {
 	if s == nil {
-		return vUser.NewUserService(nil, nil, nil, nil, nil)
+		return vUser.NewUserService(nil, nil, nil, nil, nil, nil)
 	}
-	return vUser.NewUserService(s.data, s.jwtOpts, s.codeStore, s.loginAttempts, s.smsAttempts)
+	return vUser.NewUserService(s.data, s.jwtOpts, s.codeStore, s.loginAttempts, s.smsAttempts, s.tokenVersions)
 }
 
-func NewService(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store) *service {
+func NewService(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) *service {
 	return &service{data: store,
 		smsOpts:       smsOpts,
 		jwtOpts:       jwtOpts,
 		codeStore:     codeStore,
 		loginAttempts: loginAttempts,
 		smsAttempts:   smsAttempts,
+		tokenVersions: tokenVersions,
 	}
 }
 

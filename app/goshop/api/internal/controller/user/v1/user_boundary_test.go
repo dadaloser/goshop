@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	goodsv1 "goshop/app/goshop/api/internal/service/goods/v1"
@@ -94,6 +95,48 @@ func TestUpdateUserRejectsNilUserResponse(t *testing.T) {
 	}
 }
 
+func TestLogoutAllCallsUserService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userSrv := &fakeUserSrv{}
+	server := &userServer{sf: &fakeUserServiceFactory{users: userSrv}}
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/user/logout_all", nil)
+	ctx.Set(middlewares.KeyUserID, float64(11))
+
+	server.LogoutAll(ctx)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+	if userSrv.logoutAllUserID != 11 {
+		t.Fatalf("logout all user id = %d, want 11", userSrv.logoutAllUserID)
+	}
+}
+
+func TestDeleteAccountCallsUserService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userSrv := &fakeUserSrv{}
+	server := &userServer{sf: &fakeUserServiceFactory{users: userSrv}}
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodDelete, "/user/account", strings.NewReader(`{"password":"secret"}`))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Set(middlewares.KeyUserID, float64(12))
+
+	server.DeleteAccount(ctx)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+	if userSrv.deleteAccountUserID != 12 {
+		t.Fatalf("delete account user id = %d, want 12", userSrv.deleteAccountUserID)
+	}
+	if userSrv.deleteAccountPassword != "secret" {
+		t.Fatalf("delete account password = %q, want secret", userSrv.deleteAccountPassword)
+	}
+}
+
 func assertUserErrorCodeFromErr(t *testing.T, err error, want int) {
 	t.Helper()
 
@@ -141,7 +184,10 @@ func (f *fakeUserServiceFactory) Sms() smsv1.SmsSrv {
 }
 
 type fakeUserSrv struct {
-	updateCalled bool
+	updateCalled          bool
+	logoutAllUserID       uint64
+	deleteAccountUserID   uint64
+	deleteAccountPassword string
 }
 
 func (f *fakeUserSrv) PasswordLogin(context.Context, string, string) (*userv1.UserDTO, error) {
@@ -167,4 +213,15 @@ func (f *fakeUserSrv) Get(context.Context, uint64) (*userv1.UserDTO, error) {
 
 func (f *fakeUserSrv) GetByUsername(context.Context, string) (*userv1.UserDTO, error) {
 	return nil, nil
+}
+
+func (f *fakeUserSrv) LogoutAll(_ context.Context, userID uint64) error {
+	f.logoutAllUserID = userID
+	return nil
+}
+
+func (f *fakeUserSrv) DeleteAccount(_ context.Context, userID uint64, password string) error {
+	f.deleteAccountUserID = userID
+	f.deleteAccountPassword = password
+	return nil
 }

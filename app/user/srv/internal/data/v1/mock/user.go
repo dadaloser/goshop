@@ -32,6 +32,10 @@ func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
 	return errors.New("mock users Update not implemented")
 }
 
+func (u *users) Delete(ctx context.Context, id uint64) error {
+	return errors.New("mock users Delete not implemented")
+}
+
 func NewUsers() *users {
 	return &users{}
 }

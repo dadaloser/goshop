@@ -112,6 +112,20 @@ func (u *users) Update(ctx context.Context, user *data.User) error {
 	return nil
 }
 
+func (u *users) Delete(ctx context.Context, userID uint64) error {
+	if userID == 0 {
+		return errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+
+	_, err := u.uc.DeleteUser(ctx, &upbv1.IdRequest{
+		Id: int32(userID),
+	})
+	if err != nil {
+		return userRPCError(err, code.ErrUserNotFound)
+	}
+	return nil
+}
+
 func (u *users) Get(ctx context.Context, userID uint64) (data.User, error) {
 	if userID == 0 {
 		return data.User{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
