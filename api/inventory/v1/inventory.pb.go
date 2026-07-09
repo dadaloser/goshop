@@ -136,11 +136,14 @@ const file_inventory_proto_rawDesc = "" +
 	"\x03num\x18\x02 \x01(\x05R\x03num\"Q\n" +
 	"\bSellInfo\x12+\n" +
 	"\tgoodsInfo\x18\x01 \x03(\v2\r.GoodsInvInfoR\tgoodsInfo\x12\x18\n" +
-	"\aorderSn\x18\x02 \x01(\tR\aorderSn2\x9b\x02\n" +
+	"\aorderSn\x18\x02 \x01(\tR\aorderSn2\xa6\x03\n" +
 	"\tInventory\x12/\n" +
-	"\x06SetInv\x12\r.GoodsInvInfo\x1a\x16.google.protobuf.Empty\x12)\n" +
-	"\tInvDetail\x12\r.GoodsInvInfo\x1a\r.GoodsInvInfo\x12)\n" +
-	"\x04Sell\x12\t.SellInfo\x1a\x16.google.protobuf.Empty\x12+\n" +
+	"\x06SetInv\x12\r.GoodsInvInfo\x1a\x16.google.protobuf.Empty\x121\n" +
+	"\bSetStock\x12\r.GoodsInvInfo\x1a\x16.google.protobuf.Empty\x12)\n" +
+	"\tInvDetail\x12\r.GoodsInvInfo\x1a\r.GoodsInvInfo\x12(\n" +
+	"\bGetStock\x12\r.GoodsInvInfo\x1a\r.GoodsInvInfo\x12)\n" +
+	"\x04Sell\x12\t.SellInfo\x1a\x16.google.protobuf.Empty\x12,\n" +
+	"\aReserve\x12\t.SellInfo\x1a\x16.google.protobuf.Empty\x12+\n" +
 	"\x06Reback\x12\t.SellInfo\x1a\x16.google.protobuf.Empty\x12,\n" +
 	"\aConfirm\x12\t.SellInfo\x1a\x16.google.protobuf.Empty\x12,\n" +
 	"\aRelease\x12\t.SellInfo\x1a\x16.google.protobuf.EmptyB\tZ\a.;protob\x06proto3"
@@ -164,24 +167,30 @@ var file_inventory_proto_goTypes = []any{
 	(*emptypb.Empty)(nil), // 2: google.protobuf.Empty
 }
 var file_inventory_proto_depIdxs = []int32{
-	0, // 0: SellInfo.goodsInfo:type_name -> GoodsInvInfo
-	0, // 1: Inventory.SetInv:input_type -> GoodsInvInfo
-	0, // 2: Inventory.InvDetail:input_type -> GoodsInvInfo
-	1, // 3: Inventory.Sell:input_type -> SellInfo
-	1, // 4: Inventory.Reback:input_type -> SellInfo
-	1, // 5: Inventory.Confirm:input_type -> SellInfo
-	1, // 6: Inventory.Release:input_type -> SellInfo
-	2, // 7: Inventory.SetInv:output_type -> google.protobuf.Empty
-	0, // 8: Inventory.InvDetail:output_type -> GoodsInvInfo
-	2, // 9: Inventory.Sell:output_type -> google.protobuf.Empty
-	2, // 10: Inventory.Reback:output_type -> google.protobuf.Empty
-	2, // 11: Inventory.Confirm:output_type -> google.protobuf.Empty
-	2, // 12: Inventory.Release:output_type -> google.protobuf.Empty
-	7, // [7:13] is the sub-list for method output_type
-	1, // [1:7] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0,  // 0: SellInfo.goodsInfo:type_name -> GoodsInvInfo
+	0,  // 1: Inventory.SetInv:input_type -> GoodsInvInfo
+	0,  // 2: Inventory.SetStock:input_type -> GoodsInvInfo
+	0,  // 3: Inventory.InvDetail:input_type -> GoodsInvInfo
+	0,  // 4: Inventory.GetStock:input_type -> GoodsInvInfo
+	1,  // 5: Inventory.Sell:input_type -> SellInfo
+	1,  // 6: Inventory.Reserve:input_type -> SellInfo
+	1,  // 7: Inventory.Reback:input_type -> SellInfo
+	1,  // 8: Inventory.Confirm:input_type -> SellInfo
+	1,  // 9: Inventory.Release:input_type -> SellInfo
+	2,  // 10: Inventory.SetInv:output_type -> google.protobuf.Empty
+	2,  // 11: Inventory.SetStock:output_type -> google.protobuf.Empty
+	0,  // 12: Inventory.InvDetail:output_type -> GoodsInvInfo
+	0,  // 13: Inventory.GetStock:output_type -> GoodsInvInfo
+	2,  // 14: Inventory.Sell:output_type -> google.protobuf.Empty
+	2,  // 15: Inventory.Reserve:output_type -> google.protobuf.Empty
+	2,  // 16: Inventory.Reback:output_type -> google.protobuf.Empty
+	2,  // 17: Inventory.Confirm:output_type -> google.protobuf.Empty
+	2,  // 18: Inventory.Release:output_type -> google.protobuf.Empty
+	10, // [10:19] is the sub-list for method output_type
+	1,  // [1:10] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_inventory_proto_init() }

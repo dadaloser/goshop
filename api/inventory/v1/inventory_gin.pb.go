@@ -37,6 +37,23 @@ func (s *InventoryHttpServer) SetInv_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *InventoryHttpServer) SetStock_0(c *gin.Context) {
+	var in GoodsInvInfo
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.SetStock(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *InventoryHttpServer) InvDetail_0(c *gin.Context) {
 	var in GoodsInvInfo
 
@@ -54,6 +71,23 @@ func (s *InventoryHttpServer) InvDetail_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *InventoryHttpServer) GetStock_0(c *gin.Context) {
+	var in GoodsInvInfo
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.GetStock(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *InventoryHttpServer) Sell_0(c *gin.Context) {
 	var in SellInfo
 
@@ -63,6 +97,23 @@ func (s *InventoryHttpServer) Sell_0(c *gin.Context) {
 	}
 
 	out, err := s.server.Sell(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *InventoryHttpServer) Reserve_0(c *gin.Context) {
+	var in SellInfo
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.Reserve(c, &in)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -126,9 +177,15 @@ func (s *InventoryHttpServer) RegisterService() {
 
 	s.router.Handle("POST", "", s.SetInv_0)
 
+	s.router.Handle("POST", "", s.SetStock_0)
+
 	s.router.Handle("POST", "", s.InvDetail_0)
 
+	s.router.Handle("POST", "", s.GetStock_0)
+
 	s.router.Handle("POST", "", s.Sell_0)
+
+	s.router.Handle("POST", "", s.Reserve_0)
 
 	s.router.Handle("POST", "", s.Reback_0)
 

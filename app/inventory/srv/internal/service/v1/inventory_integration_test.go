@@ -1,0 +1,490 @@
+package v1
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	invdb "goshop/app/inventory/srv/internal/data/v1/db"
+	"goshop/app/inventory/srv/internal/domain/do"
+	"goshop/app/pkg/code"
+	"goshop/app/pkg/options"
+	"goshop/pkg/errors"
+
+	mysqldriver "github.com/go-sql-driver/mysql"
+	gormmysql "gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
+
+const inventoryTestMySQLDSNEnv = "GOSHOP_INVENTORY_TEST_MYSQL_DSN"
+
+var inventoryIntegrationGoodsSeed atomic.Int64
+
+func TestInventorySellConcurrentRealDB(t *testing.T) {
+	db, dsn := mustOpenInventoryIntegrationDB(t)
+	prepareInventoryIntegrationSchema(t, db)
+
+	srv := mustNewInventoryIntegrationService(t, dsn)
+	goodsID := nextInventoryIntegrationGoodsID()
+	orderPrefix := fmt.Sprintf("inventory-realdb-%d", time.Now().UnixNano())
+	seedInventoryIntegrationFixture(t, db, goodsID, 100, orderPrefix)
+
+	const workers = 1000
+	var successCount atomic.Int32
+	var notEnoughCount atomic.Int32
+
+	errCh := make(chan error, workers)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			orderSn := fmt.Sprintf("%s-%d", orderPrefix, i)
+			err := srv.Sell(context.Background(), orderSn, []do.GoodsDetail{{
+				Goods: goodsID,
+				Num:   1,
+			}})
+			switch {
+			case err == nil:
+				successCount.Add(1)
+			case errors.IsCode(err, code.ErrInvNotEnough):
+				notEnoughCount.Add(1)
+			default:
+				errCh <- fmt.Errorf("Inventory.Sell(orderSn=%q, goodsID=%d) error = %v, want nil or ErrInvNotEnough", orderSn, goodsID, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Error(err)
+	}
+
+	if got, want := successCount.Load(), int32(100); got != want {
+		t.Fatalf("Inventory.Sell(concurrent goodsID=%d) success count = %d, want %d", goodsID, got, want)
+	}
+	if got, want := notEnoughCount.Load(), int32(workers)-successCount.Load(); got != want {
+		t.Fatalf("Inventory.Sell(concurrent goodsID=%d) not enough count = %d, want %d", goodsID, got, want)
+	}
+
+	inv, err := srv.data.Inventories().Get(context.Background(), uint64(goodsID))
+	if err != nil {
+		t.Fatalf("Inventories().Get(goodsID=%d) error = %v", goodsID, err)
+	}
+	if got, want := inv.Available, int32(0); got != want {
+		t.Errorf("Inventories().Get(goodsID=%d).Available = %d, want %d", goodsID, got, want)
+	}
+	if got, want := inv.Locked, int32(100); got != want {
+		t.Errorf("Inventories().Get(goodsID=%d).Locked = %d, want %d", goodsID, got, want)
+	}
+	if got, want := inv.Sold, int32(0); got != want {
+		t.Errorf("Inventories().Get(goodsID=%d).Sold = %d, want %d", goodsID, got, want)
+	}
+	if got, want := inv.Stocks, int32(0); got != want {
+		t.Errorf("Inventories().Get(goodsID=%d).Stocks = %d, want %d", goodsID, got, want)
+	}
+
+	var reservedCount int64
+	err = db.WithContext(context.Background()).
+		Model(&do.StockSellDetailDO{}).
+		Where("order_sn LIKE ?", orderPrefix+"-%").
+		Where("status = ?", stockSellStatusReserved).
+		Count(&reservedCount).Error
+	if err != nil {
+		t.Fatalf("Count reserved stock sell detail(orderPrefix=%q) error = %v", orderPrefix, err)
+	}
+	if got, want := reservedCount, int64(100); got != want {
+		t.Fatalf("Count reserved stock sell detail(orderPrefix=%q) = %d, want %d", orderPrefix, got, want)
+	}
+}
+
+func TestInventorySellDuplicateOrderRealDB(t *testing.T) {
+	db, dsn := mustOpenInventoryIntegrationDB(t)
+	prepareInventoryIntegrationSchema(t, db)
+
+	srv := mustNewInventoryIntegrationService(t, dsn)
+	goodsID := nextInventoryIntegrationGoodsID()
+	orderSn := fmt.Sprintf("inventory-realdb-duplicate-%d", time.Now().UnixNano())
+	orderPrefix := orderSn + "-cleanup"
+	seedInventoryIntegrationFixture(t, db, goodsID, 5, orderPrefix)
+
+	detail := []do.GoodsDetail{{
+		Goods: goodsID,
+		Num:   2,
+	}}
+
+	if err := srv.Sell(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Sell(first orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+	}
+	if err := srv.Sell(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Sell(duplicate orderSn=%q, goodsID=%d) error = %v, want nil", orderSn, goodsID, err)
+	}
+
+	inv, err := srv.data.Inventories().Get(context.Background(), uint64(goodsID))
+	if err != nil {
+		t.Fatalf("Inventories().Get(goodsID=%d) error = %v", goodsID, err)
+	}
+	if got, want := inv.Available, int32(3); got != want {
+		t.Errorf("Inventories().Get(goodsID=%d).Available = %d, want %d", goodsID, got, want)
+	}
+	if got, want := inv.Locked, int32(2); got != want {
+		t.Errorf("Inventories().Get(goodsID=%d).Locked = %d, want %d", goodsID, got, want)
+	}
+	if got, want := inv.Stocks, int32(3); got != want {
+		t.Errorf("Inventories().Get(goodsID=%d).Stocks = %d, want %d", goodsID, got, want)
+	}
+
+	var detailCount int64
+	err = db.WithContext(context.Background()).
+		Model(&do.StockSellDetailDO{}).
+		Where("order_sn = ?", orderSn).
+		Count(&detailCount).Error
+	if err != nil {
+		t.Fatalf("Count stock sell detail(orderSn=%q) error = %v", orderSn, err)
+	}
+	if got, want := detailCount, int64(1); got != want {
+		t.Fatalf("Count stock sell detail(orderSn=%q) = %d, want %d", orderSn, got, want)
+	}
+
+	t.Cleanup(func() {
+		_ = db.WithContext(context.Background()).Unscoped().Where("order_sn = ?", orderSn).Delete(&do.StockSellDetailDO{}).Error
+	})
+}
+
+func TestInventoryConfirmRealDB(t *testing.T) {
+	db, dsn := mustOpenInventoryIntegrationDB(t)
+	prepareInventoryIntegrationSchema(t, db)
+
+	srv := mustNewInventoryIntegrationService(t, dsn)
+	goodsID := nextInventoryIntegrationGoodsID()
+	orderSn := fmt.Sprintf("inventory-realdb-confirm-%d", time.Now().UnixNano())
+	seedInventoryIntegrationFixture(t, db, goodsID, 5, orderSn)
+
+	detail := []do.GoodsDetail{{
+		Goods: goodsID,
+		Num:   2,
+	}}
+
+	if err := srv.Sell(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Sell(orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+	}
+	if err := srv.Confirm(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Confirm(orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+	}
+
+	assertInventoryState(t, srv, goodsID, 3, 0, 2, 3)
+	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusConfirmed)
+}
+
+func TestInventoryReleaseRealDB(t *testing.T) {
+	db, dsn := mustOpenInventoryIntegrationDB(t)
+	prepareInventoryIntegrationSchema(t, db)
+
+	srv := mustNewInventoryIntegrationService(t, dsn)
+	goodsID := nextInventoryIntegrationGoodsID()
+	orderSn := fmt.Sprintf("inventory-realdb-release-%d", time.Now().UnixNano())
+	seedInventoryIntegrationFixture(t, db, goodsID, 5, orderSn)
+
+	detail := []do.GoodsDetail{{
+		Goods: goodsID,
+		Num:   2,
+	}}
+
+	if err := srv.Sell(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Sell(orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+	}
+	if err := srv.Release(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Release(orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+	}
+
+	assertInventoryState(t, srv, goodsID, 5, 0, 0, 5)
+	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusReleased)
+}
+
+func TestInventoryConfirmIsIdempotentRealDB(t *testing.T) {
+	db, dsn := mustOpenInventoryIntegrationDB(t)
+	prepareInventoryIntegrationSchema(t, db)
+
+	srv := mustNewInventoryIntegrationService(t, dsn)
+	goodsID := nextInventoryIntegrationGoodsID()
+	orderSn := fmt.Sprintf("inventory-realdb-confirm-idempotent-%d", time.Now().UnixNano())
+	seedInventoryIntegrationFixture(t, db, goodsID, 5, orderSn)
+
+	detail := []do.GoodsDetail{{
+		Goods: goodsID,
+		Num:   2,
+	}}
+
+	if err := srv.Sell(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Sell(orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+	}
+	if err := srv.Confirm(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Confirm(first orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+	}
+	if err := srv.Confirm(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Confirm(duplicate orderSn=%q, goodsID=%d) error = %v, want nil", orderSn, goodsID, err)
+	}
+
+	assertInventoryState(t, srv, goodsID, 3, 0, 2, 3)
+	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusConfirmed)
+}
+
+func TestInventoryReleaseAfterConfirmRealDB(t *testing.T) {
+	db, dsn := mustOpenInventoryIntegrationDB(t)
+	prepareInventoryIntegrationSchema(t, db)
+
+	srv := mustNewInventoryIntegrationService(t, dsn)
+	goodsID := nextInventoryIntegrationGoodsID()
+	orderSn := fmt.Sprintf("inventory-realdb-release-after-confirm-%d", time.Now().UnixNano())
+	seedInventoryIntegrationFixture(t, db, goodsID, 5, orderSn)
+
+	detail := []do.GoodsDetail{{
+		Goods: goodsID,
+		Num:   2,
+	}}
+
+	if err := srv.Sell(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Sell(orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+	}
+	if err := srv.Confirm(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Confirm(orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+	}
+	if err := srv.Release(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Release(after confirm orderSn=%q, goodsID=%d) error = %v, want nil", orderSn, goodsID, err)
+	}
+
+	assertInventoryState(t, srv, goodsID, 3, 0, 2, 3)
+	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusConfirmed)
+}
+
+func TestInventoryReleaseBeforeSellPreventsDelayedDeductionRealDB(t *testing.T) {
+	db, dsn := mustOpenInventoryIntegrationDB(t)
+	prepareInventoryIntegrationSchema(t, db)
+
+	srv := mustNewInventoryIntegrationService(t, dsn)
+	goodsID := nextInventoryIntegrationGoodsID()
+	orderSn := fmt.Sprintf("inventory-realdb-release-before-sell-%d", time.Now().UnixNano())
+	seedInventoryIntegrationFixture(t, db, goodsID, 5, orderSn)
+
+	detail := []do.GoodsDetail{{
+		Goods: goodsID,
+		Num:   2,
+	}}
+
+	if err := srv.Release(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Release(missing detail orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+	}
+	if err := srv.Sell(context.Background(), orderSn, detail); err != nil {
+		t.Fatalf("Inventory.Sell(after release marker orderSn=%q, goodsID=%d) error = %v, want nil", orderSn, goodsID, err)
+	}
+
+	assertInventoryState(t, srv, goodsID, 5, 0, 0, 5)
+	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusReleased)
+	assertStockSellDetailCount(t, db, orderSn, 1)
+}
+
+func mustOpenInventoryIntegrationDB(t *testing.T) (*gorm.DB, string) {
+	t.Helper()
+
+	dsn := inventoryIntegrationDSNFromEnv()
+	if dsn == "" {
+		t.Skipf("set %s or INVENTORY_MYSQL_USERNAME/INVENTORY_MYSQL_PASSWORD[/HOST/PORT/DATABASE] to run real MySQL inventory integration tests", inventoryTestMySQLDSNEnv)
+	}
+
+	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	if err != nil {
+		t.Fatalf("gorm.Open(real inventory test db) error = %v", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("db.DB(real inventory test db) error = %v", err)
+	}
+	sqlDB.SetMaxOpenConns(128)
+	sqlDB.SetMaxIdleConns(32)
+	sqlDB.SetConnMaxLifetime(time.Minute)
+
+	t.Cleanup(func() {
+		_ = sqlDB.Close()
+	})
+
+	return db, dsn
+}
+
+func mustNewInventoryIntegrationService(t *testing.T, dsn string) *inventoryService {
+	t.Helper()
+
+	cfg, err := mysqldriver.ParseDSN(dsn)
+	if err != nil {
+		t.Fatalf("mysql.ParseDSN(real inventory test dsn) error = %v", err)
+	}
+	host, port, err := splitMySQLAddr(cfg.Addr)
+	if err != nil {
+		t.Fatalf("splitMySQLAddr(%q) error = %v", cfg.Addr, err)
+	}
+
+	mysqlOpts := &options.MySQLOptions{
+		Host:                  host,
+		Port:                  port,
+		Username:              cfg.User,
+		Password:              cfg.Passwd,
+		Database:              cfg.DBName,
+		MaxIdleConnections:    32,
+		MaxOpenConnections:    128,
+		MaxConnectionLifetime: time.Minute,
+		LogLevel:              1,
+	}
+
+	dataFactory, err := invdb.GetDBFactoryOr(mysqlOpts)
+	if err != nil {
+		t.Fatalf("GetDBFactoryOr(real inventory test db) error = %v", err)
+	}
+
+	return &inventoryService{
+		data: dataFactory,
+		pool: nil,
+	}
+}
+
+func prepareInventoryIntegrationSchema(t *testing.T, db *gorm.DB) {
+	t.Helper()
+
+	if err := db.AutoMigrate(&do.InventoryDO{}, &do.StockSellDetailDO{}); err != nil {
+		t.Fatalf("AutoMigrate(inventory integration schema) error = %v", err)
+	}
+}
+
+func seedInventoryIntegrationFixture(t *testing.T, db *gorm.DB, goodsID int32, stocks int32, orderPrefix string) {
+	t.Helper()
+
+	if err := db.WithContext(context.Background()).Create(&do.InventoryDO{
+		Goods:     goodsID,
+		Total:     stocks,
+		Available: stocks,
+		Locked:    0,
+		Sold:      0,
+		Stocks:    stocks,
+		Version:   0,
+	}).Error; err != nil {
+		t.Fatalf("Create(inventory fixture goodsID=%d) error = %v", goodsID, err)
+	}
+
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_ = db.WithContext(ctx).Unscoped().
+			Where("order_sn = ? OR order_sn LIKE ?", orderPrefix, orderPrefix+"-%").
+			Delete(&do.StockSellDetailDO{}).Error
+		_ = db.WithContext(ctx).Unscoped().Where("goods = ?", goodsID).Delete(&do.InventoryDO{}).Error
+	})
+}
+
+func nextInventoryIntegrationGoodsID() int32 {
+	return int32(time.Now().Unix()%1_000_000_000) + int32(inventoryIntegrationGoodsSeed.Add(1))
+}
+
+func splitMySQLAddr(addr string) (string, string, error) {
+	if addr == "" {
+		return "127.0.0.1", "3306", nil
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err == nil {
+		return host, port, nil
+	}
+	if strings.Count(addr, ":") == 0 {
+		return addr, "3306", nil
+	}
+	return "", "", err
+}
+
+func inventoryIntegrationDSNFromEnv() string {
+	if dsn := strings.TrimSpace(os.Getenv(inventoryTestMySQLDSNEnv)); dsn != "" {
+		return dsn
+	}
+
+	username := strings.TrimSpace(os.Getenv("INVENTORY_MYSQL_USERNAME"))
+	password := strings.TrimSpace(os.Getenv("INVENTORY_MYSQL_PASSWORD"))
+	if username == "" || password == "" {
+		return ""
+	}
+
+	host := strings.TrimSpace(os.Getenv("INVENTORY_MYSQL_HOST"))
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	port := strings.TrimSpace(os.Getenv("INVENTORY_MYSQL_PORT"))
+	if port == "" {
+		port = "3306"
+	}
+	database := strings.TrimSpace(os.Getenv("INVENTORY_MYSQL_DATABASE"))
+	if database == "" {
+		database = "goshop_inventory_srv"
+	}
+
+	cfg := mysqldriver.Config{
+		User:                 username,
+		Passwd:               password,
+		Net:                  "tcp",
+		Addr:                 net.JoinHostPort(host, port),
+		DBName:               database,
+		ParseTime:            true,
+		Loc:                  time.Local,
+		AllowNativePasswords: true,
+	}
+	return cfg.FormatDSN()
+}
+
+func assertInventoryState(t *testing.T, srv *inventoryService, goodsID int32, wantAvailable, wantLocked, wantSold, wantStocks int32) {
+	t.Helper()
+
+	inv, err := srv.data.Inventories().Get(context.Background(), uint64(goodsID))
+	if err != nil {
+		t.Fatalf("Inventories().Get(goodsID=%d) error = %v", goodsID, err)
+	}
+	if got := inv.Available; got != wantAvailable {
+		t.Errorf("Inventories().Get(goodsID=%d).Available = %d, want %d", goodsID, got, wantAvailable)
+	}
+	if got := inv.Locked; got != wantLocked {
+		t.Errorf("Inventories().Get(goodsID=%d).Locked = %d, want %d", goodsID, got, wantLocked)
+	}
+	if got := inv.Sold; got != wantSold {
+		t.Errorf("Inventories().Get(goodsID=%d).Sold = %d, want %d", goodsID, got, wantSold)
+	}
+	if got := inv.Stocks; got != wantStocks {
+		t.Errorf("Inventories().Get(goodsID=%d).Stocks = %d, want %d", goodsID, got, wantStocks)
+	}
+}
+
+func assertStockSellDetailStatus(t *testing.T, db *gorm.DB, orderSn string, wantStatus int32) {
+	t.Helper()
+
+	var detail do.StockSellDetailDO
+	if err := db.WithContext(context.Background()).Where("order_sn = ?", orderSn).First(&detail).Error; err != nil {
+		t.Fatalf("Get stock sell detail(orderSn=%q) error = %v", orderSn, err)
+	}
+	if got := detail.Status; got != wantStatus {
+		t.Errorf("Get stock sell detail(orderSn=%q).Status = %d, want %d", orderSn, got, wantStatus)
+	}
+}
+
+func assertStockSellDetailCount(t *testing.T, db *gorm.DB, orderSn string, wantCount int64) {
+	t.Helper()
+
+	var got int64
+	if err := db.WithContext(context.Background()).Model(&do.StockSellDetailDO{}).Where("order_sn = ?", orderSn).Count(&got).Error; err != nil {
+		t.Fatalf("Count stock sell detail(orderSn=%q) error = %v", orderSn, err)
+	}
+	if got != wantCount {
+		t.Errorf("Count stock sell detail(orderSn=%q) = %d, want %d", orderSn, got, wantCount)
+	}
+}

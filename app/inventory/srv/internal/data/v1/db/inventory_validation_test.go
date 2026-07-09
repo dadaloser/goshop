@@ -48,20 +48,6 @@ func TestInventoryStoreRejectsInvalidInputBeforeDatabase(t *testing.T) {
 			code: code2.ErrValidation,
 		},
 		{
-			name: "confirm sell zero goods",
-			run: func() error {
-				return store.ConfirmSell(context.Background(), nil, 0, 1)
-			},
-			code: code.ErrInventoryNotFound,
-		},
-		{
-			name: "confirm sell zero quantity",
-			run: func() error {
-				return store.ConfirmSell(context.Background(), nil, 1, 0)
-			},
-			code: code2.ErrValidation,
-		},
-		{
 			name: "create nil inventory",
 			run: func() error {
 				return store.Create(context.Background(), nil)
@@ -135,18 +121,5 @@ func TestInventoryStoreRejectsInvalidInputBeforeDatabase(t *testing.T) {
 				t.Fatalf("error = %v, want code %d", err, tt.code)
 			}
 		})
-	}
-}
-
-func TestNormalizeInventoryInitializesCompatibleStockFields(t *testing.T) {
-	inv := &do.InventoryDO{Goods: 1, Stocks: 8}
-	if err := normalizeInventory(inv); err != nil {
-		t.Fatalf("normalizeInventory() error = %v", err)
-	}
-	if inv.Total != 8 || inv.Available != 8 || inv.Locked != 0 || inv.Sold != 0 {
-		t.Fatalf("normalizeInventory() = %+v, want total/available initialized from stocks", inv)
-	}
-	if inv.Stocks != inv.Available {
-		t.Fatalf("normalizeInventory() stocks = %d, want %d", inv.Stocks, inv.Available)
 	}
 }

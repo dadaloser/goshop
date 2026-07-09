@@ -37,6 +37,10 @@ func (is *inventoryServer) SetInv(ctx context.Context, info *invpb.GoodsInvInfo)
 	return &emptypb.Empty{}, nil
 }
 
+func (is *inventoryServer) SetStock(ctx context.Context, info *invpb.GoodsInvInfo) (*emptypb.Empty, error) {
+	return is.SetInv(ctx, info)
+}
+
 func (is *inventoryServer) InvDetail(ctx context.Context, info *invpb.GoodsInvInfo) (*invpb.GoodsInvInfo, error) {
 	if info == nil {
 		return nil, errors.WithCode(code2.ErrValidation, "inventory request is required")
@@ -50,6 +54,10 @@ func (is *inventoryServer) InvDetail(ctx context.Context, info *invpb.GoodsInvIn
 		GoodsId: inv.Goods,
 		Num:     inv.Stocks,
 	}, nil
+}
+
+func (is *inventoryServer) GetStock(ctx context.Context, info *invpb.GoodsInvInfo) (*invpb.GoodsInvInfo, error) {
+	return is.InvDetail(ctx, info)
 }
 
 func (is *inventoryServer) Sell(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
@@ -71,6 +79,10 @@ func (is *inventoryServer) Sell(ctx context.Context, info *invpb.SellInfo) (*emp
 	//time.Sleep(5 * time.Second)
 	//return nil, status.Errorf(codes.Aborted, " err.Error()") //测试
 	return &emptypb.Empty{}, nil
+}
+
+func (is *inventoryServer) Reserve(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
+	return is.Sell(ctx, info)
 }
 
 func (is *inventoryServer) Reback(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {

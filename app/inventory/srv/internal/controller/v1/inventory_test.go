@@ -30,9 +30,23 @@ func TestInventoryServerRejectsNilRequests(t *testing.T) {
 			},
 		},
 		{
+			name: "get stock",
+			run: func() error {
+				_, err := server.GetStock(context.Background(), nil)
+				return err
+			},
+		},
+		{
 			name: "sell",
 			run: func() error {
 				_, err := server.Sell(context.Background(), nil)
+				return err
+			},
+		},
+		{
+			name: "reserve",
+			run: func() error {
+				_, err := server.Reserve(context.Background(), nil)
 				return err
 			},
 		},
@@ -54,6 +68,13 @@ func TestInventoryServerRejectsNilRequests(t *testing.T) {
 			name: "release",
 			run: func() error {
 				_, err := server.Release(context.Background(), nil)
+				return err
+			},
+		},
+		{
+			name: "set stock",
+			run: func() error {
+				_, err := server.SetStock(context.Background(), nil)
 				return err
 			},
 		},
