@@ -21,6 +21,14 @@ func TestNilServiceFactoryReturnsSafeServices(t *testing.T) {
 		t.Fatalf("Goods().List() error = %v, want code %d", err, code.ErrConnectGRPC)
 	}
 
+	inventorySrv := svc.Inventory()
+	if inventorySrv == nil {
+		t.Fatal("Inventory() returned nil")
+	}
+	if _, err := inventorySrv.Detail(context.Background(), 1); !errors.IsCode(err, code.ErrConnectGRPC) {
+		t.Fatalf("Inventory().Detail() error = %v, want code %d", err, code.ErrConnectGRPC)
+	}
+
 	userSrv := svc.Users()
 	if userSrv == nil {
 		t.Fatal("Users() returned nil")

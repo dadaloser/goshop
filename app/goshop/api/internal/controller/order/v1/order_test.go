@@ -10,6 +10,7 @@ import (
 
 	"goshop/app/goshop/api/internal/service"
 	goodsv1 "goshop/app/goshop/api/internal/service/goods/v1"
+	inventoryv1 "goshop/app/goshop/api/internal/service/inventory/v1"
 	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
 	smsv1 "goshop/app/goshop/api/internal/service/sms/v1"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
@@ -103,6 +104,10 @@ func (f *fakeOrderServiceFactory) Goods() goodsv1.GoodsSrv {
 
 func (f *fakeOrderServiceFactory) Orders() orderv1.OrderSrv {
 	return f.orders
+}
+
+func (f *fakeOrderServiceFactory) Inventory() inventoryv1.InventorySrv {
+	return nil
 }
 
 func (f *fakeOrderServiceFactory) Users() userv1.UserSrv {

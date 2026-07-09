@@ -5,6 +5,7 @@ import (
 
 	"goshop/app/goshop/api/config"
 	"goshop/app/goshop/api/internal/controller/goods/v1"
+	inventory "goshop/app/goshop/api/internal/controller/inventory/v1"
 	orderv1 "goshop/app/goshop/api/internal/controller/order/v1"
 	v12 "goshop/app/goshop/api/internal/controller/sms/v1"
 	"goshop/app/goshop/api/internal/controller/user/v1"
@@ -65,6 +66,12 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	{
 		goodsController := goods.NewGoodsController(serviceFactory, g.Translator())
 		goodsRouter.GET("", goodsController.List)
+	}
+
+	inventoryRouter := v1.Group("inventory")
+	{
+		inventoryController := inventory.NewInventoryController(serviceFactory, g.Translator())
+		inventoryRouter.GET("/:goods_id", inventoryController.Detail)
 	}
 
 	return nil

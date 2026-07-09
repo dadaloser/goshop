@@ -4,6 +4,7 @@ import (
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/loginattempt"
 	vGoods "goshop/app/goshop/api/internal/service/goods/v1"
+	vInventory "goshop/app/goshop/api/internal/service/inventory/v1"
 	vOrder "goshop/app/goshop/api/internal/service/order/v1"
 	vSms "goshop/app/goshop/api/internal/service/sms/v1"
 	vUser "goshop/app/goshop/api/internal/service/user/v1"
@@ -16,6 +17,7 @@ import (
 // 使用工厂模式构建服务
 type ServiceFactory interface {
 	Goods() vGoods.GoodsSrv
+	Inventory() vInventory.InventorySrv
 	Orders() vOrder.OrderSrv
 	Users() vUser.UserSrv
 	Sms() vSms.SmsSrv
@@ -47,6 +49,13 @@ func (s *service) Goods() vGoods.GoodsSrv {
 		return vGoods.NewGoods(nil)
 	}
 	return vGoods.NewGoods(s.data)
+}
+
+func (s *service) Inventory() vInventory.InventorySrv {
+	if s == nil {
+		return vInventory.NewInventory(nil)
+	}
+	return vInventory.NewInventory(s.data)
 }
 
 func (s *service) Orders() vOrder.OrderSrv {
