@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	ipb "goshop/api/inventory/v1"
 	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/pkg/code"
@@ -16,7 +17,13 @@ type PayCallbackRequest struct {
 	OrderSn string
 	PayType string
 	TradeNo string
+	Items   []OrderItem
 	Success bool
+}
+
+type OrderItem struct {
+	GoodsID int32
+	Num     int32
 }
 
 type OrderSrv interface {
@@ -49,6 +56,10 @@ func (os *orderService) SimulatePayCallback(ctx context.Context, req *PayCallbac
 	if client == nil {
 		return errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
 	}
+	inventoryClient := os.data.Inventory()
+	if inventoryClient == nil {
+		return errors.WithCode(code.ErrConnectGRPC, "inventory grpc client is not initialized")
+	}
 
 	status := &opb.OrderStatus{
 		OrderSn: req.OrderSn,
@@ -65,7 +76,29 @@ func (os *orderService) SimulatePayCallback(ctx context.Context, req *PayCallbac
 		status.Status = "TRADE_CLOSED"
 	}
 
-	_, err := client.UpdateOrderStatus(ctx, status)
+	if _, err := client.UpdateOrderStatus(ctx, status); err != nil {
+		return err
+	}
+
+	sellInfo := &ipb.SellInfo{OrderSn: req.OrderSn}
+	for _, item := range req.Items {
+		if item.GoodsID <= 0 || item.Num <= 0 {
+			return errors.WithCode(code.ErrOrderStatusInvalid, "pay callback items are invalid")
+		}
+		sellInfo.GoodsInfo = append(sellInfo.GoodsInfo, &ipb.GoodsInvInfo{
+			GoodsId: item.GoodsID,
+			Num:     item.Num,
+		})
+	}
+	if len(sellInfo.GoodsInfo) == 0 {
+		return errors.WithCode(code.ErrOrderStatusInvalid, "pay callback items are required")
+	}
+
+	if req.Success {
+		_, err := inventoryClient.Confirm(ctx, sellInfo)
+		return err
+	}
+	_, err := inventoryClient.Release(ctx, sellInfo)
 	return err
 }
 

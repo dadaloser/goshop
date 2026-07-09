@@ -88,6 +88,40 @@ func (s *InventoryHttpServer) Reback_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *InventoryHttpServer) Confirm_0(c *gin.Context) {
+	var in SellInfo
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.Confirm(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *InventoryHttpServer) Release_0(c *gin.Context) {
+	var in SellInfo
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.Release(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *InventoryHttpServer) RegisterService() {
 
 	s.router.Handle("POST", "", s.SetInv_0)
@@ -97,5 +131,9 @@ func (s *InventoryHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.Sell_0)
 
 	s.router.Handle("POST", "", s.Reback_0)
+
+	s.router.Handle("POST", "", s.Confirm_0)
+
+	s.router.Handle("POST", "", s.Release_0)
 
 }

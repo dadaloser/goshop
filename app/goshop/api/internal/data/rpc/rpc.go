@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	gpb "goshop/api/goods/v1"
+	ipb "goshop/api/inventory/v1"
 	opb "goshop/api/order/v1"
 	upb "goshop/api/user/v1"
 	"goshop/app/goshop/api/internal/data"
@@ -17,6 +18,7 @@ import (
 
 type grpcData struct {
 	gc gpb.GoodsClient
+	ic ipb.InventoryClient
 	oc opb.OrderClient
 	uc upb.UserClient
 }
@@ -27,6 +29,10 @@ func (g grpcData) Goods() gpb.GoodsClient {
 
 func (g grpcData) Orders() opb.OrderClient {
 	return g.oc
+}
+
+func (g grpcData) Inventory() ipb.InventoryClient {
+	return g.ic
 }
 
 func (g grpcData) Users() data.UserData {
@@ -64,6 +70,11 @@ func GetDataFactoryOr(ctx context.Context, options *options.RegistryOptions) (da
 			initErr = err
 			return
 		}
+		inventoryClient, _, err := appclient.NewInventoryClient(ctx, options, dialOpts...)
+		if err != nil {
+			initErr = err
+			return
+		}
 		orderClient, _, err := appclient.NewOrderClient(ctx, options, dialOpts...)
 		if err != nil {
 			initErr = err
@@ -72,6 +83,7 @@ func GetDataFactoryOr(ctx context.Context, options *options.RegistryOptions) (da
 
 		dbFactory = &grpcData{
 			gc: goodsClient,
+			ic: inventoryClient,
 			oc: orderClient,
 			uc: userClient,
 		}

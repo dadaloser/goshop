@@ -90,6 +90,36 @@ func (is *inventoryServer) Reback(ctx context.Context, info *invpb.SellInfo) (*e
 	return &emptypb.Empty{}, nil
 }
 
+func (is *inventoryServer) Confirm(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "inventory confirm request is required")
+	}
+
+	var detail []do.GoodsDetail
+	for _, value := range info.GoodsInfo {
+		detail = append(detail, do.GoodsDetail{Goods: value.GoodsId, Num: value.Num})
+	}
+	if err := is.srv.Inventory().Confirm(ctx, info.OrderSn, detail); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (is *inventoryServer) Release(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "inventory release request is required")
+	}
+
+	var detail []do.GoodsDetail
+	for _, value := range info.GoodsInfo {
+		detail = append(detail, do.GoodsDetail{Goods: value.GoodsId, Num: value.Num})
+	}
+	if err := is.srv.Inventory().Release(ctx, info.OrderSn, detail); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
 func NewInventoryServer(srv v1.ServiceFactory) *inventoryServer {
 	return &inventoryServer{srv: srv}
 }

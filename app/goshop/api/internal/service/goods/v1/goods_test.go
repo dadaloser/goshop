@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	gpb "goshop/api/goods/v1"
+	ipb "goshop/api/inventory/v1"
 	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/pkg/code"
@@ -89,6 +90,10 @@ func (f *fakeGoodsDataFactory) Goods() gpb.GoodsClient {
 }
 
 func (f *fakeGoodsDataFactory) Orders() opb.OrderClient {
+	return nil
+}
+
+func (f *fakeGoodsDataFactory) Inventory() ipb.InventoryClient {
 	return nil
 }
 

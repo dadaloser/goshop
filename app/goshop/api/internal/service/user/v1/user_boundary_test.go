@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	ipb "goshop/api/inventory/v1"
 	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/pkg/code"
@@ -202,5 +203,9 @@ func validJWTOptions() *options.JwtOptions {
 }
 
 func (f *fakeDataFactory) Orders() opb.OrderClient {
+	return nil
+}
+
+func (f *fakeDataFactory) Inventory() ipb.InventoryClient {
 	return nil
 }

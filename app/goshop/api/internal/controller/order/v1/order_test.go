@@ -24,7 +24,7 @@ func TestOrderControllerRejectsMissingServiceFactory(t *testing.T) {
 	controller := NewOrderController(nil, nil)
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/order/pay/callback", strings.NewReader(`{"order_sn":"o1","success":true}`))
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/order/pay/callback", strings.NewReader(`{"order_sn":"o1","items":[{"goods_id":1,"num":1}],"success":true}`))
 	ctx.Request.Header.Set("Content-Type", "application/json")
 
 	controller.SimulatePayCallback(ctx)
@@ -40,7 +40,7 @@ func TestOrderControllerRejectsMissingUserContext(t *testing.T) {
 	controller := NewOrderController(&fakeOrderServiceFactory{orders: &fakeOrderSrv{}}, nil)
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/order/pay/callback", strings.NewReader(`{"order_sn":"o1","success":true}`))
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/order/pay/callback", strings.NewReader(`{"order_sn":"o1","items":[{"goods_id":1,"num":1}],"success":true}`))
 	ctx.Request.Header.Set("Content-Type", "application/json")
 
 	controller.SimulatePayCallback(ctx)
@@ -64,7 +64,7 @@ func TestOrderControllerSimulatesPayCallback(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Set(middlewares.KeyUserID, float64(7))
-	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/order/pay/callback", strings.NewReader(`{"order_sn":"o1","pay_type":"wechat","trade_no":"t1","success":true}`))
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/order/pay/callback", strings.NewReader(`{"order_sn":"o1","pay_type":"wechat","trade_no":"t1","items":[{"goods_id":11,"num":2}],"success":true}`))
 	ctx.Request.Header.Set("Content-Type", "application/json")
 
 	controller.SimulatePayCallback(ctx)
@@ -74,6 +74,9 @@ func TestOrderControllerSimulatesPayCallback(t *testing.T) {
 	}
 	if got == nil || got.UserID != 7 || got.OrderSn != "o1" || got.PayType != "wechat" || got.TradeNo != "t1" || !got.Success {
 		t.Fatalf("request = %+v", got)
+	}
+	if len(got.Items) != 1 || got.Items[0].GoodsID != 11 || got.Items[0].Num != 2 {
+		t.Fatalf("items = %+v", got.Items)
 	}
 }
 

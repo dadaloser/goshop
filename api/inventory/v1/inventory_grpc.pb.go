@@ -24,6 +24,8 @@ const (
 	Inventory_InvDetail_FullMethodName = "/Inventory/InvDetail"
 	Inventory_Sell_FullMethodName      = "/Inventory/Sell"
 	Inventory_Reback_FullMethodName    = "/Inventory/Reback"
+	Inventory_Confirm_FullMethodName   = "/Inventory/Confirm"
+	Inventory_Release_FullMethodName   = "/Inventory/Release"
 )
 
 // InventoryClient is the client API for Inventory service.
@@ -34,6 +36,8 @@ type InventoryClient interface {
 	InvDetail(ctx context.Context, in *GoodsInvInfo, opts ...grpc.CallOption) (*GoodsInvInfo, error)
 	Sell(ctx context.Context, in *SellInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Reback(ctx context.Context, in *SellInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Confirm(ctx context.Context, in *SellInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Release(ctx context.Context, in *SellInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type inventoryClient struct {
@@ -84,6 +88,26 @@ func (c *inventoryClient) Reback(ctx context.Context, in *SellInfo, opts ...grpc
 	return out, nil
 }
 
+func (c *inventoryClient) Confirm(ctx context.Context, in *SellInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Inventory_Confirm_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *inventoryClient) Release(ctx context.Context, in *SellInfo, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Inventory_Release_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InventoryServer is the server API for Inventory service.
 // All implementations must embed UnimplementedInventoryServer
 // for forward compatibility.
@@ -92,6 +116,8 @@ type InventoryServer interface {
 	InvDetail(context.Context, *GoodsInvInfo) (*GoodsInvInfo, error)
 	Sell(context.Context, *SellInfo) (*emptypb.Empty, error)
 	Reback(context.Context, *SellInfo) (*emptypb.Empty, error)
+	Confirm(context.Context, *SellInfo) (*emptypb.Empty, error)
+	Release(context.Context, *SellInfo) (*emptypb.Empty, error)
 	mustEmbedUnimplementedInventoryServer()
 }
 
@@ -113,6 +139,12 @@ func (UnimplementedInventoryServer) Sell(context.Context, *SellInfo) (*emptypb.E
 }
 func (UnimplementedInventoryServer) Reback(context.Context, *SellInfo) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method Reback not implemented")
+}
+func (UnimplementedInventoryServer) Confirm(context.Context, *SellInfo) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Confirm not implemented")
+}
+func (UnimplementedInventoryServer) Release(context.Context, *SellInfo) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Release not implemented")
 }
 func (UnimplementedInventoryServer) mustEmbedUnimplementedInventoryServer() {}
 func (UnimplementedInventoryServer) testEmbeddedByValue()                   {}
@@ -207,6 +239,42 @@ func _Inventory_Reback_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Inventory_Confirm_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SellInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventoryServer).Confirm(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Inventory_Confirm_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventoryServer).Confirm(ctx, req.(*SellInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Inventory_Release_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SellInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventoryServer).Release(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Inventory_Release_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventoryServer).Release(ctx, req.(*SellInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Inventory_ServiceDesc is the grpc.ServiceDesc for Inventory service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -229,6 +297,14 @@ var Inventory_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Reback",
 			Handler:    _Inventory_Reback_Handler,
+		},
+		{
+			MethodName: "Confirm",
+			Handler:    _Inventory_Confirm_Handler,
+		},
+		{
+			MethodName: "Release",
+			Handler:    _Inventory_Release_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

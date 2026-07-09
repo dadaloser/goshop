@@ -43,6 +43,20 @@ func TestInventoryServerRejectsNilRequests(t *testing.T) {
 				return err
 			},
 		},
+		{
+			name: "confirm",
+			run: func() error {
+				_, err := server.Confirm(context.Background(), nil)
+				return err
+			},
+		},
+		{
+			name: "release",
+			run: func() error {
+				_, err := server.Release(context.Background(), nil)
+				return err
+			},
+		},
 	}
 
 	for _, tt := range tests {
