@@ -17,6 +17,7 @@ service Order {
     rpc SubmitOrder(OrderRequest) returns (google.protobuf.Empty); //提交订单
     rpc OrderList(OrderFilterRequest) returns (OrderListResponse); // 订单列表
     rpc OrderDetail(OrderRequest) returns (OrderInfoDetailResponse); // 订单详情
+    rpc GetOrderBySn(OrderLookupRequest) returns (OrderInfoDetailResponse); // 按订单号查询订单详情
     rpc UpdateOrderStatus(OrderStatus) returns (google.protobuf.Empty); // 修改订单状态
 }
 
@@ -56,6 +57,10 @@ message OrderRequest {
     repeated OrderItemResponse orderItems = 8;
 }
 
+message OrderLookupRequest {
+    string orderSn = 1;
+}
+
 message OrderInfoResponse {
     int32 id = 1;
     int32 userId = 2;
@@ -68,6 +73,8 @@ message OrderInfoResponse {
     string name = 9;
     string mobile = 10;
     string addTime = 11;
+    string tradeNo = 12;
+    int64 payTime = 13;
 }
 
 message ShopCartInfoResponse {

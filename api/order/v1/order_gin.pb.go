@@ -173,6 +173,23 @@ func (s *OrderHttpServer) OrderDetail_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *OrderHttpServer) GetOrderBySn_0(c *gin.Context) {
+	var in OrderLookupRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.GetOrderBySn(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *OrderHttpServer) UpdateOrderStatus_0(c *gin.Context) {
 	var in OrderStatus
 
@@ -209,6 +226,8 @@ func (s *OrderHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.OrderList_0)
 
 	s.router.Handle("POST", "", s.OrderDetail_0)
+
+	s.router.Handle("POST", "", s.GetOrderBySn_0)
 
 	s.router.Handle("POST", "", s.UpdateOrderStatus_0)
 

@@ -29,6 +29,7 @@ const (
 	Order_SubmitOrder_FullMethodName       = "/Order/SubmitOrder"
 	Order_OrderList_FullMethodName         = "/Order/OrderList"
 	Order_OrderDetail_FullMethodName       = "/Order/OrderDetail"
+	Order_GetOrderBySn_FullMethodName      = "/Order/GetOrderBySn"
 	Order_UpdateOrderStatus_FullMethodName = "/Order/UpdateOrderStatus"
 )
 
@@ -47,6 +48,7 @@ type OrderClient interface {
 	SubmitOrder(ctx context.Context, in *OrderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	OrderList(ctx context.Context, in *OrderFilterRequest, opts ...grpc.CallOption) (*OrderListResponse, error)
 	OrderDetail(ctx context.Context, in *OrderRequest, opts ...grpc.CallOption) (*OrderInfoDetailResponse, error)
+	GetOrderBySn(ctx context.Context, in *OrderLookupRequest, opts ...grpc.CallOption) (*OrderInfoDetailResponse, error)
 	UpdateOrderStatus(ctx context.Context, in *OrderStatus, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -148,6 +150,16 @@ func (c *orderClient) OrderDetail(ctx context.Context, in *OrderRequest, opts ..
 	return out, nil
 }
 
+func (c *orderClient) GetOrderBySn(ctx context.Context, in *OrderLookupRequest, opts ...grpc.CallOption) (*OrderInfoDetailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OrderInfoDetailResponse)
+	err := c.cc.Invoke(ctx, Order_GetOrderBySn_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *orderClient) UpdateOrderStatus(ctx context.Context, in *OrderStatus, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
@@ -173,6 +185,7 @@ type OrderServer interface {
 	SubmitOrder(context.Context, *OrderRequest) (*emptypb.Empty, error)
 	OrderList(context.Context, *OrderFilterRequest) (*OrderListResponse, error)
 	OrderDetail(context.Context, *OrderRequest) (*OrderInfoDetailResponse, error)
+	GetOrderBySn(context.Context, *OrderLookupRequest) (*OrderInfoDetailResponse, error)
 	UpdateOrderStatus(context.Context, *OrderStatus) (*emptypb.Empty, error)
 	mustEmbedUnimplementedOrderServer()
 }
@@ -210,6 +223,9 @@ func (UnimplementedOrderServer) OrderList(context.Context, *OrderFilterRequest) 
 }
 func (UnimplementedOrderServer) OrderDetail(context.Context, *OrderRequest) (*OrderInfoDetailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method OrderDetail not implemented")
+}
+func (UnimplementedOrderServer) GetOrderBySn(context.Context, *OrderLookupRequest) (*OrderInfoDetailResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOrderBySn not implemented")
 }
 func (UnimplementedOrderServer) UpdateOrderStatus(context.Context, *OrderStatus) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateOrderStatus not implemented")
@@ -397,6 +413,24 @@ func _Order_OrderDetail_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Order_GetOrderBySn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OrderLookupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).GetOrderBySn(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_GetOrderBySn_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).GetOrderBySn(ctx, req.(*OrderLookupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Order_UpdateOrderStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(OrderStatus)
 	if err := dec(in); err != nil {
@@ -457,6 +491,10 @@ var Order_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "OrderDetail",
 			Handler:    _Order_OrderDetail_Handler,
+		},
+		{
+			MethodName: "GetOrderBySn",
+			Handler:    _Order_GetOrderBySn_Handler,
 		},
 		{
 			MethodName: "UpdateOrderStatus",

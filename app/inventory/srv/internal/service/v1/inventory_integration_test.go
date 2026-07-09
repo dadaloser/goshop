@@ -351,8 +351,36 @@ func mustNewInventoryIntegrationService(t *testing.T, dsn string) *inventoryServ
 func prepareInventoryIntegrationSchema(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
-	if err := db.AutoMigrate(&do.InventoryDO{}, &do.StockSellDetailDO{}); err != nil {
-		t.Fatalf("AutoMigrate(inventory integration schema) error = %v", err)
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS inventory (
+			id int NOT NULL AUTO_INCREMENT,
+			add_time datetime(3) NULL,
+			update_time datetime(3) NULL,
+			deleted_at datetime(3) NULL,
+			is_deleted tinyint(1) DEFAULT 0,
+			goods int DEFAULT 0,
+			stocks int DEFAULT 0,
+			total int DEFAULT 0,
+			available int DEFAULT 0,
+			locked int DEFAULT 0,
+			sold int DEFAULT 0,
+			version int DEFAULT 0,
+			PRIMARY KEY (id),
+			KEY idx_inventory_goods (goods),
+			KEY idx_inventory_deleted_at (deleted_at)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+		`CREATE TABLE IF NOT EXISTS stockselldetail (
+			order_sn varchar(200) NOT NULL,
+			status int NOT NULL,
+			detail varchar(200) NOT NULL,
+			UNIQUE KEY idx_order_sn (order_sn)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+	}
+
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			t.Fatalf("prepare inventory integration schema error = %v", err)
+		}
 	}
 }
 
