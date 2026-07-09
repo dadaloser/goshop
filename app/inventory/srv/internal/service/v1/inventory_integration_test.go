@@ -16,6 +16,7 @@ import (
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	"goshop/pkg/errors"
+	"goshop/pkg/log"
 
 	mysqldriver "github.com/go-sql-driver/mysql"
 	gormmysql "gorm.io/driver/mysql"
@@ -76,35 +77,14 @@ func TestInventorySellConcurrentRealDB(t *testing.T) {
 		t.Fatalf("Inventory.Sell(concurrent goodsID=%d) not enough count = %d, want %d", goodsID, got, want)
 	}
 
-	inv, err := srv.data.Inventories().Get(context.Background(), uint64(goodsID))
-	if err != nil {
-		t.Fatalf("Inventories().Get(goodsID=%d) error = %v", goodsID, err)
-	}
-	if got, want := inv.Available, int32(0); got != want {
-		t.Errorf("Inventories().Get(goodsID=%d).Available = %d, want %d", goodsID, got, want)
-	}
-	if got, want := inv.Locked, int32(100); got != want {
-		t.Errorf("Inventories().Get(goodsID=%d).Locked = %d, want %d", goodsID, got, want)
-	}
-	if got, want := inv.Sold, int32(0); got != want {
-		t.Errorf("Inventories().Get(goodsID=%d).Sold = %d, want %d", goodsID, got, want)
-	}
-	if got, want := inv.Stocks, int32(0); got != want {
-		t.Errorf("Inventories().Get(goodsID=%d).Stocks = %d, want %d", goodsID, got, want)
-	}
-
-	var reservedCount int64
-	err = db.WithContext(context.Background()).
-		Model(&do.StockSellDetailDO{}).
-		Where("order_sn LIKE ?", orderPrefix+"-%").
-		Where("status = ?", stockSellStatusReserved).
-		Count(&reservedCount).Error
-	if err != nil {
-		t.Fatalf("Count reserved stock sell detail(orderPrefix=%q) error = %v", orderPrefix, err)
-	}
-	if got, want := reservedCount, int64(100); got != want {
-		t.Fatalf("Count reserved stock sell detail(orderPrefix=%q) = %d, want %d", orderPrefix, got, want)
-	}
+	assertInventoryState(t, srv, goodsID, inventoryStateExpectation{
+		Stocks:    0,
+		Total:     100,
+		Available: 0,
+		Locked:    100,
+		Sold:      0,
+	})
+	assertReservedSellDetailCount(t, db, orderPrefix+"-%", 100)
 }
 
 func TestInventorySellDuplicateOrderRealDB(t *testing.T) {
@@ -114,8 +94,7 @@ func TestInventorySellDuplicateOrderRealDB(t *testing.T) {
 	srv := mustNewInventoryIntegrationService(t, dsn)
 	goodsID := nextInventoryIntegrationGoodsID()
 	orderSn := fmt.Sprintf("inventory-realdb-duplicate-%d", time.Now().UnixNano())
-	orderPrefix := orderSn + "-cleanup"
-	seedInventoryIntegrationFixture(t, db, goodsID, 5, orderPrefix)
+	seedInventoryIntegrationFixture(t, db, goodsID, 5, orderSn)
 
 	detail := []do.GoodsDetail{{
 		Goods: goodsID,
@@ -129,35 +108,15 @@ func TestInventorySellDuplicateOrderRealDB(t *testing.T) {
 		t.Fatalf("Inventory.Sell(duplicate orderSn=%q, goodsID=%d) error = %v, want nil", orderSn, goodsID, err)
 	}
 
-	inv, err := srv.data.Inventories().Get(context.Background(), uint64(goodsID))
-	if err != nil {
-		t.Fatalf("Inventories().Get(goodsID=%d) error = %v", goodsID, err)
-	}
-	if got, want := inv.Available, int32(3); got != want {
-		t.Errorf("Inventories().Get(goodsID=%d).Available = %d, want %d", goodsID, got, want)
-	}
-	if got, want := inv.Locked, int32(2); got != want {
-		t.Errorf("Inventories().Get(goodsID=%d).Locked = %d, want %d", goodsID, got, want)
-	}
-	if got, want := inv.Stocks, int32(3); got != want {
-		t.Errorf("Inventories().Get(goodsID=%d).Stocks = %d, want %d", goodsID, got, want)
-	}
-
-	var detailCount int64
-	err = db.WithContext(context.Background()).
-		Model(&do.StockSellDetailDO{}).
-		Where("order_sn = ?", orderSn).
-		Count(&detailCount).Error
-	if err != nil {
-		t.Fatalf("Count stock sell detail(orderSn=%q) error = %v", orderSn, err)
-	}
-	if got, want := detailCount, int64(1); got != want {
-		t.Fatalf("Count stock sell detail(orderSn=%q) = %d, want %d", orderSn, got, want)
-	}
-
-	t.Cleanup(func() {
-		_ = db.WithContext(context.Background()).Unscoped().Where("order_sn = ?", orderSn).Delete(&do.StockSellDetailDO{}).Error
+	assertInventoryState(t, srv, goodsID, inventoryStateExpectation{
+		Stocks:    3,
+		Total:     5,
+		Available: 3,
+		Locked:    2,
+		Sold:      0,
 	})
+	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusReserved)
+	assertStockSellDetailCount(t, db, orderSn, 1)
 }
 
 func TestInventoryConfirmRealDB(t *testing.T) {
@@ -181,7 +140,13 @@ func TestInventoryConfirmRealDB(t *testing.T) {
 		t.Fatalf("Inventory.Confirm(orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
 	}
 
-	assertInventoryState(t, srv, goodsID, 3, 0, 2, 3)
+	assertInventoryState(t, srv, goodsID, inventoryStateExpectation{
+		Stocks:    3,
+		Total:     5,
+		Available: 3,
+		Locked:    0,
+		Sold:      2,
+	})
 	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusConfirmed)
 }
 
@@ -206,7 +171,13 @@ func TestInventoryReleaseRealDB(t *testing.T) {
 		t.Fatalf("Inventory.Release(orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
 	}
 
-	assertInventoryState(t, srv, goodsID, 5, 0, 0, 5)
+	assertInventoryState(t, srv, goodsID, inventoryStateExpectation{
+		Stocks:    5,
+		Total:     5,
+		Available: 5,
+		Locked:    0,
+		Sold:      0,
+	})
 	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusReleased)
 }
 
@@ -231,14 +202,21 @@ func TestInventoryConfirmIsIdempotentRealDB(t *testing.T) {
 		t.Fatalf("Inventory.Confirm(first orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
 	}
 	if err := srv.Confirm(context.Background(), orderSn, detail); err != nil {
-		t.Fatalf("Inventory.Confirm(duplicate orderSn=%q, goodsID=%d) error = %v, want nil", orderSn, goodsID, err)
+		t.Fatalf("Inventory.Confirm(retry orderSn=%q, goodsID=%d) error = %v, want nil", orderSn, goodsID, err)
 	}
 
-	assertInventoryState(t, srv, goodsID, 3, 0, 2, 3)
+	assertInventoryState(t, srv, goodsID, inventoryStateExpectation{
+		Stocks:    3,
+		Total:     5,
+		Available: 3,
+		Locked:    0,
+		Sold:      2,
+	})
 	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusConfirmed)
+	assertStockSellDetailCount(t, db, orderSn, 1)
 }
 
-func TestInventoryReleaseAfterConfirmRealDB(t *testing.T) {
+func TestInventoryReleaseAfterConfirmDoesNotRestoreStockRealDB(t *testing.T) {
 	db, dsn := mustOpenInventoryIntegrationDB(t)
 	prepareInventoryIntegrationSchema(t, db)
 
@@ -262,11 +240,17 @@ func TestInventoryReleaseAfterConfirmRealDB(t *testing.T) {
 		t.Fatalf("Inventory.Release(after confirm orderSn=%q, goodsID=%d) error = %v, want nil", orderSn, goodsID, err)
 	}
 
-	assertInventoryState(t, srv, goodsID, 3, 0, 2, 3)
+	assertInventoryState(t, srv, goodsID, inventoryStateExpectation{
+		Stocks:    3,
+		Total:     5,
+		Available: 3,
+		Locked:    0,
+		Sold:      2,
+	})
 	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusConfirmed)
 }
 
-func TestInventoryReleaseBeforeSellPreventsDelayedDeductionRealDB(t *testing.T) {
+func TestInventoryReleaseBeforeSellBlocksLateSellRealDB(t *testing.T) {
 	db, dsn := mustOpenInventoryIntegrationDB(t)
 	prepareInventoryIntegrationSchema(t, db)
 
@@ -281,13 +265,19 @@ func TestInventoryReleaseBeforeSellPreventsDelayedDeductionRealDB(t *testing.T) 
 	}}
 
 	if err := srv.Release(context.Background(), orderSn, detail); err != nil {
-		t.Fatalf("Inventory.Release(missing detail orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
+		t.Fatalf("Inventory.Release(before sell orderSn=%q, goodsID=%d) error = %v", orderSn, goodsID, err)
 	}
 	if err := srv.Sell(context.Background(), orderSn, detail); err != nil {
 		t.Fatalf("Inventory.Sell(after release marker orderSn=%q, goodsID=%d) error = %v, want nil", orderSn, goodsID, err)
 	}
 
-	assertInventoryState(t, srv, goodsID, 5, 0, 0, 5)
+	assertInventoryState(t, srv, goodsID, inventoryStateExpectation{
+		Stocks:    5,
+		Total:     5,
+		Available: 5,
+		Locked:    0,
+		Sold:      0,
+	})
 	assertStockSellDetailStatus(t, db, orderSn, stockSellStatusReleased)
 	assertStockSellDetailCount(t, db, orderSn, 1)
 }
@@ -299,6 +289,7 @@ func mustOpenInventoryIntegrationDB(t *testing.T) (*gorm.DB, string) {
 	if dsn == "" {
 		t.Skipf("set %s or INVENTORY_MYSQL_USERNAME/INVENTORY_MYSQL_PASSWORD[/HOST/PORT/DATABASE] to run real MySQL inventory integration tests", inventoryTestMySQLDSNEnv)
 	}
+	silenceInventoryIntegrationLogs()
 
 	db, err := gorm.Open(gormmysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
@@ -370,11 +361,11 @@ func seedInventoryIntegrationFixture(t *testing.T, db *gorm.DB, goodsID int32, s
 
 	if err := db.WithContext(context.Background()).Create(&do.InventoryDO{
 		Goods:     goodsID,
+		Stocks:    stocks,
 		Total:     stocks,
 		Available: stocks,
 		Locked:    0,
 		Sold:      0,
-		Stocks:    stocks,
 		Version:   0,
 	}).Error; err != nil {
 		t.Fatalf("Create(inventory fixture goodsID=%d) error = %v", goodsID, err)
@@ -444,24 +435,35 @@ func inventoryIntegrationDSNFromEnv() string {
 	return cfg.FormatDSN()
 }
 
-func assertInventoryState(t *testing.T, srv *inventoryService, goodsID int32, wantAvailable, wantLocked, wantSold, wantStocks int32) {
+type inventoryStateExpectation struct {
+	Stocks    int32
+	Total     int32
+	Available int32
+	Locked    int32
+	Sold      int32
+}
+
+func assertInventoryState(t *testing.T, srv *inventoryService, goodsID int32, want inventoryStateExpectation) {
 	t.Helper()
 
 	inv, err := srv.data.Inventories().Get(context.Background(), uint64(goodsID))
 	if err != nil {
 		t.Fatalf("Inventories().Get(goodsID=%d) error = %v", goodsID, err)
 	}
-	if got := inv.Available; got != wantAvailable {
-		t.Errorf("Inventories().Get(goodsID=%d).Available = %d, want %d", goodsID, got, wantAvailable)
+	if got := inv.Stocks; got != want.Stocks {
+		t.Errorf("Inventories().Get(goodsID=%d).Stocks = %d, want %d", goodsID, got, want.Stocks)
 	}
-	if got := inv.Locked; got != wantLocked {
-		t.Errorf("Inventories().Get(goodsID=%d).Locked = %d, want %d", goodsID, got, wantLocked)
+	if got := inv.Total; got != want.Total {
+		t.Errorf("Inventories().Get(goodsID=%d).Total = %d, want %d", goodsID, got, want.Total)
 	}
-	if got := inv.Sold; got != wantSold {
-		t.Errorf("Inventories().Get(goodsID=%d).Sold = %d, want %d", goodsID, got, wantSold)
+	if got := inv.Available; got != want.Available {
+		t.Errorf("Inventories().Get(goodsID=%d).Available = %d, want %d", goodsID, got, want.Available)
 	}
-	if got := inv.Stocks; got != wantStocks {
-		t.Errorf("Inventories().Get(goodsID=%d).Stocks = %d, want %d", goodsID, got, wantStocks)
+	if got := inv.Locked; got != want.Locked {
+		t.Errorf("Inventories().Get(goodsID=%d).Locked = %d, want %d", goodsID, got, want.Locked)
+	}
+	if got := inv.Sold; got != want.Sold {
+		t.Errorf("Inventories().Get(goodsID=%d).Sold = %d, want %d", goodsID, got, want.Sold)
 	}
 }
 
@@ -487,4 +489,33 @@ func assertStockSellDetailCount(t *testing.T, db *gorm.DB, orderSn string, wantC
 	if got != wantCount {
 		t.Errorf("Count stock sell detail(orderSn=%q) = %d, want %d", orderSn, got, wantCount)
 	}
+}
+
+func assertReservedSellDetailCount(t *testing.T, db *gorm.DB, orderPattern string, wantCount int64) {
+	t.Helper()
+
+	var got int64
+	err := db.WithContext(context.Background()).
+		Model(&do.StockSellDetailDO{}).
+		Where("order_sn LIKE ?", orderPattern).
+		Where("status = ?", stockSellStatusReserved).
+		Count(&got).Error
+	if err != nil {
+		t.Fatalf("Count reserved stock sell detail(orderPattern=%q) error = %v", orderPattern, err)
+	}
+	if got != wantCount {
+		t.Errorf("Count reserved stock sell detail(orderPattern=%q) = %d, want %d", orderPattern, got, wantCount)
+	}
+}
+
+var inventoryIntegrationLogOnce sync.Once
+
+func silenceInventoryIntegrationLogs() {
+	inventoryIntegrationLogOnce.Do(func() {
+		opts := log.NewOptions()
+		opts.Level = "fatal"
+		opts.OutputPaths = []string{"stderr"}
+		opts.ErrorOutputPaths = []string{"stderr"}
+		log.Init(opts)
+	})
 }

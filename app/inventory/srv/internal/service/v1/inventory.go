@@ -65,7 +65,7 @@ func (is *inventoryService) beginTxn() txExecutor {
 }
 
 func (is *inventoryService) Create(ctx context.Context, inv *dto.InventoryDTO) error {
-	if inv == nil || inv.Goods <= 0 || inv.Stocks < 0 {
+	if inv == nil || inv.Goods <= 0 || inv.Stocks < 0 || inv.Total < 0 || inv.Available < 0 || inv.Locked < 0 || inv.Sold < 0 {
 		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
 	}
 	return is.data.Inventories().Create(ctx, &inv.InventoryDO)
@@ -240,6 +240,20 @@ func (is *inventoryService) Confirm(ctx context.Context, ordersn string, details
 		if sellDetail.Status == stockSellStatusConfirmed {
 			log.Infof("订单%s库存记录已确认, 忽略重复确认", ordersn)
 			return nil
+		}
+
+		detail := append(do.GoodsDetailList(nil), sellDetail.Detail...)
+		if len(detail) == 0 {
+			log.Errorf("订单%s扣减库存记录明细为空", ordersn)
+			return errors.WithCode(code2.ErrDatabase, "inventory sell detail is empty")
+		}
+		sort.Sort(detail)
+
+		for _, goodsInfo := range detail {
+			if err := is.data.Inventories().ConfirmSell(ctx, txn.DB(), uint64(goodsInfo.Goods), int(goodsInfo.Num)); err != nil {
+				log.Errorf("订单%s确认库存失败", ordersn)
+				return err
+			}
 		}
 
 		if err := is.data.Inventories().UpdateStockSellDetailStatus(ctx, txn.DB(), ordersn, stockSellStatusConfirmed); err != nil {

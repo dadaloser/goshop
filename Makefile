@@ -1,4 +1,4 @@
-.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check
+.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test
 
 # Fixed protobuf workflow.
 #
@@ -26,6 +26,7 @@ help:
 	@echo "  make migration-check  Fail on unsafe application-managed schema migration"
 	@echo "  make config-secret-check  Fail if configs contain known secrets or unsafe defaults"
 	@echo "  make startup-validation-check  Fail if startup validation can be bypassed by log.development"
+	@echo "  make inventory-integration-test  Run inventory real-DB integration tests"
 
 proto:
 	go generate ./api
@@ -47,3 +48,6 @@ config-secret-check:
 
 startup-validation-check:
 	bash ./scripts/startup-validation-check.sh
+
+inventory-integration-test:
+	bash ./scripts/run-inventory-integration-tests.sh

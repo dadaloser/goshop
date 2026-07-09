@@ -127,6 +127,7 @@ func TestInventoryServiceRejectsInvalidCreateAndGet(t *testing.T) {
 
 func TestConfirmMarksSellDetailConfirmed(t *testing.T) {
 	var gotStatus int32
+	var confirmed []do.GoodsDetail
 	srv := &inventoryService{
 		pool:    nil,
 		testTxn: fakeTxn{},
@@ -138,6 +139,10 @@ func TestConfirmMarksSellDetailConfirmed(t *testing.T) {
 						Status:  stockSellStatusReserved,
 						Detail:  do.GoodsDetailList{{Goods: 1, Num: 1}},
 					}, nil
+				},
+				confirmSell: func(_ context.Context, _ *gorm.DB, goodsID uint64, num int) error {
+					confirmed = append(confirmed, do.GoodsDetail{Goods: int32(goodsID), Num: int32(num)})
+					return nil
 				},
 				updateSellDetailStatus: func(_ context.Context, _ *gorm.DB, _ string, status int32) error {
 					gotStatus = status
@@ -151,6 +156,9 @@ func TestConfirmMarksSellDetailConfirmed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Confirm() error = %v", err)
 	}
+	if !reflect.DeepEqual(confirmed, []do.GoodsDetail{{Goods: 1, Num: 1}}) {
+		t.Fatalf("Confirm() confirmed detail = %+v, want %+v", confirmed, []do.GoodsDetail{{Goods: 1, Num: 1}})
+	}
 	if gotStatus != stockSellStatusConfirmed {
 		t.Fatalf("Confirm() status = %d, want %d", gotStatus, stockSellStatusConfirmed)
 	}
@@ -158,6 +166,7 @@ func TestConfirmMarksSellDetailConfirmed(t *testing.T) {
 
 func TestConfirmIsIdempotentForConfirmedSellDetail(t *testing.T) {
 	var updateCalled bool
+	var confirmCalled bool
 	srv := &inventoryService{
 		pool:    nil,
 		testTxn: fakeTxn{},
@@ -169,6 +178,10 @@ func TestConfirmIsIdempotentForConfirmedSellDetail(t *testing.T) {
 						Status:  stockSellStatusConfirmed,
 						Detail:  do.GoodsDetailList{{Goods: 1, Num: 1}},
 					}, nil
+				},
+				confirmSell: func(_ context.Context, _ *gorm.DB, _ uint64, _ int) error {
+					confirmCalled = true
+					return nil
 				},
 				updateSellDetailStatus: func(_ context.Context, _ *gorm.DB, _ string, status int32) error {
 					updateCalled = true
@@ -182,8 +195,52 @@ func TestConfirmIsIdempotentForConfirmedSellDetail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Confirm() error = %v", err)
 	}
+	if confirmCalled {
+		t.Fatal("Confirm() confirmed stock for already confirmed detail")
+	}
 	if updateCalled {
 		t.Fatal("Confirm() updated status for already confirmed detail")
+	}
+}
+
+func TestConfirmUsesPersistedDetailSorted(t *testing.T) {
+	var confirmed []do.GoodsDetail
+	srv := &inventoryService{
+		pool:    nil,
+		testTxn: fakeTxn{},
+		data: fakeInventoryDataFactory{
+			store: fakeInventoryStore{
+				getSellDetail: func(context.Context, *gorm.DB, string) (*do.StockSellDetailDO, error) {
+					return &do.StockSellDetailDO{
+						OrderSn: "order-1",
+						Status:  stockSellStatusReserved,
+						Detail: do.GoodsDetailList{
+							{Goods: 3, Num: 1},
+							{Goods: 1, Num: 2},
+							{Goods: 2, Num: 1},
+						},
+					}, nil
+				},
+				confirmSell: func(_ context.Context, _ *gorm.DB, goodsID uint64, num int) error {
+					confirmed = append(confirmed, do.GoodsDetail{Goods: int32(goodsID), Num: int32(num)})
+					return nil
+				},
+			},
+		},
+	}
+
+	err := srv.Confirm(context.Background(), "order-1", []do.GoodsDetail{{Goods: 99, Num: 99}})
+	if err != nil {
+		t.Fatalf("Confirm() error = %v", err)
+	}
+
+	want := []do.GoodsDetail{
+		{Goods: 1, Num: 2},
+		{Goods: 2, Num: 1},
+		{Goods: 3, Num: 1},
+	}
+	if !reflect.DeepEqual(confirmed, want) {
+		t.Fatalf("Confirm() confirmed detail = %+v, want %+v", confirmed, want)
 	}
 }
 
@@ -452,6 +509,7 @@ type fakeInventoryStore struct {
 	getSellDetail          func(context.Context, *gorm.DB, string) (*do.StockSellDetailDO, error)
 	reduce                 func(context.Context, *gorm.DB, uint64, int) error
 	increase               func(context.Context, *gorm.DB, uint64, int) error
+	confirmSell            func(context.Context, *gorm.DB, uint64, int) error
 	createStockSellDetail  func(context.Context, *gorm.DB, *do.StockSellDetailDO) error
 	createStockIfAbsent    func(context.Context, *gorm.DB, *do.StockSellDetailDO) (bool, error)
 	updateSellDetailStatus func(context.Context, *gorm.DB, string, int32) error
@@ -488,6 +546,13 @@ func (f fakeInventoryStore) Reduce(ctx context.Context, txn *gorm.DB, goodsID ui
 func (f fakeInventoryStore) Increase(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {
 	if f.increase != nil {
 		return f.increase(ctx, txn, goodsID, num)
+	}
+	return nil
+}
+
+func (f fakeInventoryStore) ConfirmSell(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {
+	if f.confirmSell != nil {
+		return f.confirmSell(ctx, txn, goodsID, num)
 	}
 	return nil
 }

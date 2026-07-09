@@ -48,6 +48,20 @@ func TestInventoryStoreRejectsInvalidInputBeforeDatabase(t *testing.T) {
 			code: code2.ErrValidation,
 		},
 		{
+			name: "confirm sell zero goods",
+			run: func() error {
+				return store.ConfirmSell(context.Background(), nil, 0, 1)
+			},
+			code: code.ErrInventoryNotFound,
+		},
+		{
+			name: "confirm sell zero quantity",
+			run: func() error {
+				return store.ConfirmSell(context.Background(), nil, 1, 0)
+			},
+			code: code2.ErrValidation,
+		},
+		{
 			name: "create nil inventory",
 			run: func() error {
 				return store.Create(context.Background(), nil)
@@ -119,6 +133,105 @@ func TestInventoryStoreRejectsInvalidInputBeforeDatabase(t *testing.T) {
 			err := tt.run()
 			if !errors.IsCode(err, tt.code) {
 				t.Fatalf("error = %v, want code %d", err, tt.code)
+			}
+		})
+	}
+}
+
+func TestNormalizeInventory(t *testing.T) {
+	tests := []struct {
+		name    string
+		inv     *do.InventoryDO
+		want    do.InventoryDO
+		wantErr bool
+	}{
+		{
+			name: "compat stocks initializes lifecycle fields",
+			inv: &do.InventoryDO{
+				Goods:  1,
+				Stocks: 5,
+			},
+			want: do.InventoryDO{
+				Goods:     1,
+				Stocks:    5,
+				Total:     5,
+				Available: 5,
+				Locked:    0,
+				Sold:      0,
+			},
+		},
+		{
+			name: "available becomes stocks when lifecycle provided",
+			inv: &do.InventoryDO{
+				Goods:     2,
+				Stocks:    9,
+				Total:     10,
+				Available: 6,
+				Locked:    2,
+				Sold:      2,
+			},
+			want: do.InventoryDO{
+				Goods:     2,
+				Stocks:    6,
+				Total:     10,
+				Available: 6,
+				Locked:    2,
+				Sold:      2,
+			},
+		},
+		{
+			name: "total defaults from lifecycle sum",
+			inv: &do.InventoryDO{
+				Goods:     3,
+				Available: 4,
+				Locked:    1,
+				Sold:      2,
+			},
+			want: do.InventoryDO{
+				Goods:     3,
+				Stocks:    4,
+				Total:     7,
+				Available: 4,
+				Locked:    1,
+				Sold:      2,
+			},
+		},
+		{
+			name: "total less than lifecycle sum rejects",
+			inv: &do.InventoryDO{
+				Goods:     4,
+				Total:     5,
+				Available: 4,
+				Locked:    1,
+				Sold:      1,
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative lifecycle rejects",
+			inv: &do.InventoryDO{
+				Goods:     5,
+				Available: -1,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := normalizeInventory(tt.inv)
+			if tt.wantErr {
+				if !errors.IsCode(err, code2.ErrValidation) {
+					t.Fatalf("normalizeInventory() error = %v, want ErrValidation", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("normalizeInventory() error = %v", err)
+			}
+
+			if got := *tt.inv; got.Goods != tt.want.Goods || got.Stocks != tt.want.Stocks || got.Total != tt.want.Total || got.Available != tt.want.Available || got.Locked != tt.want.Locked || got.Sold != tt.want.Sold {
+				t.Fatalf("normalizeInventory() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}

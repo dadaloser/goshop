@@ -3,7 +3,7 @@
 /logs/
 .DS_Store
 /docs/*
-!/docs/rules/
-!/docs/rules/*.md
+/docs/rules/
+/docs/rules/*.md
 /cache/
 /docs/rules/api-contracts.md

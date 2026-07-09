@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -106,3 +107,28 @@ jobs:
         with:
           go-version-input: ${{ env.GO_VERSION }}
           go-package: ./...
+
+  inventory-integration:
+    name: Inventory Integration
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      INVENTORY_MYSQL_USERNAME: ${{ secrets.INVENTORY_INTEGRATION_MYSQL_USERNAME }}
+      INVENTORY_MYSQL_PASSWORD: ${{ secrets.INVENTORY_INTEGRATION_MYSQL_PASSWORD }}
+      INVENTORY_MYSQL_HOST: ${{ secrets.INVENTORY_INTEGRATION_MYSQL_HOST }}
+      INVENTORY_MYSQL_PORT: ${{ secrets.INVENTORY_INTEGRATION_MYSQL_PORT }}
+      INVENTORY_MYSQL_DATABASE: ${{ secrets.INVENTORY_INTEGRATION_MYSQL_DATABASE }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run inventory real DB integration tests
+        run: make inventory-integration-test
