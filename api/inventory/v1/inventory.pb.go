@@ -26,6 +26,10 @@ type GoodsInvInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	GoodsId       int32                  `protobuf:"varint,1,opt,name=goodsId,proto3" json:"goodsId,omitempty"`
 	Num           int32                  `protobuf:"varint,2,opt,name=num,proto3" json:"num,omitempty"`
+	Total         int32                  `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	Available     int32                  `protobuf:"varint,4,opt,name=available,proto3" json:"available,omitempty"`
+	Locked        int32                  `protobuf:"varint,5,opt,name=locked,proto3" json:"locked,omitempty"`
+	Sold          int32                  `protobuf:"varint,6,opt,name=sold,proto3" json:"sold,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -70,6 +74,34 @@ func (x *GoodsInvInfo) GetGoodsId() int32 {
 func (x *GoodsInvInfo) GetNum() int32 {
 	if x != nil {
 		return x.Num
+	}
+	return 0
+}
+
+func (x *GoodsInvInfo) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *GoodsInvInfo) GetAvailable() int32 {
+	if x != nil {
+		return x.Available
+	}
+	return 0
+}
+
+func (x *GoodsInvInfo) GetLocked() int32 {
+	if x != nil {
+		return x.Locked
+	}
+	return 0
+}
+
+func (x *GoodsInvInfo) GetSold() int32 {
+	if x != nil {
+		return x.Sold
 	}
 	return 0
 }
@@ -130,10 +162,14 @@ var File_inventory_proto protoreflect.FileDescriptor
 
 const file_inventory_proto_rawDesc = "" +
 	"\n" +
-	"\x0finventory.proto\x1a\x1bgoogle/protobuf/empty.proto\":\n" +
+	"\x0finventory.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x9a\x01\n" +
 	"\fGoodsInvInfo\x12\x18\n" +
 	"\agoodsId\x18\x01 \x01(\x05R\agoodsId\x12\x10\n" +
-	"\x03num\x18\x02 \x01(\x05R\x03num\"Q\n" +
+	"\x03num\x18\x02 \x01(\x05R\x03num\x12\x14\n" +
+	"\x05total\x18\x03 \x01(\x05R\x05total\x12\x1c\n" +
+	"\tavailable\x18\x04 \x01(\x05R\tavailable\x12\x16\n" +
+	"\x06locked\x18\x05 \x01(\x05R\x06locked\x12\x12\n" +
+	"\x04sold\x18\x06 \x01(\x05R\x04sold\"Q\n" +
 	"\bSellInfo\x12+\n" +
 	"\tgoodsInfo\x18\x01 \x03(\v2\r.GoodsInvInfoR\tgoodsInfo\x12\x18\n" +
 	"\aorderSn\x18\x02 \x01(\tR\aorderSn2\xa6\x03\n" +

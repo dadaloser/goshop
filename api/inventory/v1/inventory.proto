@@ -19,6 +19,10 @@ service Inventory {
 message GoodsInvInfo {
     int32 goodsId = 1;
     int32 num = 2;
+    int32 total = 3;
+    int32 available = 4;
+    int32 locked = 5;
+    int32 sold = 6;
 }
 
 message SellInfo {

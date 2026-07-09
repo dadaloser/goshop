@@ -30,6 +30,10 @@ func (is *inventoryServer) SetInv(ctx context.Context, info *invpb.GoodsInvInfo)
 	invDTO := &dto.InventoryDTO{}
 	invDTO.Goods = info.GoodsId
 	invDTO.Stocks = info.Num
+	invDTO.Total = info.Total
+	invDTO.Available = info.Available
+	invDTO.Locked = info.Locked
+	invDTO.Sold = info.Sold
 	err := is.srv.Inventory().Create(ctx, invDTO)
 	if err != nil {
 		return nil, err
@@ -51,8 +55,12 @@ func (is *inventoryServer) InvDetail(ctx context.Context, info *invpb.GoodsInvIn
 		return nil, err
 	}
 	return &invpb.GoodsInvInfo{
-		GoodsId: inv.Goods,
-		Num:     inv.Stocks,
+		GoodsId:   inv.Goods,
+		Num:       inv.Stocks,
+		Total:     inv.Total,
+		Available: inv.Available,
+		Locked:    inv.Locked,
+		Sold:      inv.Sold,
 	}, nil
 }
 
