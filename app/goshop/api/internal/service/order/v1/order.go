@@ -11,6 +11,7 @@ import (
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
+	"goshop/pkg/log"
 )
 
 type PayCallbackRequest struct {
@@ -295,26 +296,38 @@ func (os *orderService) OrderStatusLogs(ctx context.Context, userID uint64, orde
 }
 
 func (os *orderService) SimulatePayCallback(ctx context.Context, req *PayCallbackRequest) error {
+	startedAt := time.Now()
+	targetStatus := orderStatusTradeClosed
+	var callbackErr error
+	defer func() {
+		observePayCallback(targetStatus, payCallbackMetricResult(callbackErr), startedAt)
+	}()
+
 	if os == nil || os.data == nil {
-		return errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		callbackErr = errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		return callbackErr
 	}
 	if req == nil {
-		return errors.WithCode(code.ErrOrderStatusInvalid, "pay callback request is required")
+		callbackErr = errors.WithCode(code.ErrOrderStatusInvalid, "pay callback request is required")
+		return callbackErr
 	}
 	req.OrderSn = strings.TrimSpace(req.OrderSn)
 	req.PayType = strings.TrimSpace(req.PayType)
 	req.TradeNo = strings.TrimSpace(req.TradeNo)
 	if req.UserID == 0 || req.OrderSn == "" {
-		return errors.WithCode(code.ErrOrderStatusInvalid, "user_id and order_sn are required")
+		callbackErr = errors.WithCode(code.ErrOrderStatusInvalid, "user_id and order_sn are required")
+		return callbackErr
 	}
 
 	client := os.data.Orders()
 	if client == nil {
-		return errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		callbackErr = errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		return callbackErr
 	}
 	inventoryClient := os.data.Inventory()
 	if inventoryClient == nil {
-		return errors.WithCode(code.ErrConnectGRPC, "inventory grpc client is not initialized")
+		callbackErr = errors.WithCode(code.ErrConnectGRPC, "inventory grpc client is not initialized")
+		return callbackErr
 	}
 
 	orderDetail, err := client.OrderDetail(ctx, &opb.OrderRequest{
@@ -322,37 +335,43 @@ func (os *orderService) SimulatePayCallback(ctx context.Context, req *PayCallbac
 		OrderSn: req.OrderSn,
 	})
 	if err != nil {
-		return err
+		callbackErr = err
+		return callbackErr
 	}
 	if orderDetail == nil || orderDetail.OrderInfo == nil {
-		return errors.WithCode(code.ErrOrderNotFound, "order not found")
+		callbackErr = errors.WithCode(code.ErrOrderNotFound, "order not found")
+		return callbackErr
 	}
 
-	targetStatus := orderStatusTradeClosed
 	if req.Success {
 		if req.TradeNo == "" {
-			return errors.WithCode(code.ErrOrderStatusInvalid, "trade_no is required for paid callback")
+			callbackErr = errors.WithCode(code.ErrOrderStatusInvalid, "trade_no is required for paid callback")
+			return callbackErr
 		}
 		targetStatus = orderStatusTradeSuccess
 	}
 
 	currentStatus := strings.TrimSpace(orderDetail.OrderInfo.Status)
 	if !canApplyPayCallback(currentStatus, targetStatus) {
-		return errors.WithCode(code.ErrOrderStatusInvalid, "invalid order status transition")
+		callbackErr = errors.WithCode(code.ErrOrderStatusInvalid, "invalid order status transition")
+		return callbackErr
 	}
 
 	sellInfo, err := sellInfoFromOrder(req.OrderSn, orderDetail.Goods)
 	if err != nil {
-		return err
+		callbackErr = err
+		return callbackErr
 	}
 
 	if req.Success {
 		if _, err := inventoryClient.Confirm(ctx, sellInfo); err != nil {
-			return err
+			callbackErr = err
+			return callbackErr
 		}
 	} else {
 		if _, err := inventoryClient.Release(ctx, sellInfo); err != nil {
-			return err
+			callbackErr = err
+			return callbackErr
 		}
 	}
 
@@ -367,7 +386,20 @@ func (os *orderService) SimulatePayCallback(ctx context.Context, req *PayCallbac
 	}
 
 	_, err = client.UpdateOrderStatus(ctx, status)
-	return err
+	if err != nil {
+		callbackErr = err
+		return callbackErr
+	}
+
+	log.InfoC(ctx, "order pay callback processed",
+		log.Uint64("user_id", req.UserID),
+		log.String("order_sn", req.OrderSn),
+		log.String("current_status", currentStatus),
+		log.String("target_status", targetStatus),
+		log.Bool("success", req.Success),
+		log.String("pay_type", req.PayType),
+	)
+	return nil
 }
 
 var _ OrderSrv = &orderService{}

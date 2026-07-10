@@ -823,6 +823,50 @@ func TestProcessFinishedOrdersMarksFinished(t *testing.T) {
 	}
 }
 
+func TestTransitionMetricName(t *testing.T) {
+	tests := []struct {
+		name       string
+		fromStatus string
+		toStatus   string
+		want       string
+	}{
+		{name: "create", toStatus: OrderStatusWaitBuyerPay, want: "create"},
+		{name: "noop", fromStatus: OrderStatusTradeSuccess, toStatus: OrderStatusTradeSuccess, want: "noop"},
+		{name: "pay success", fromStatus: OrderStatusWaitBuyerPay, toStatus: OrderStatusTradeSuccess, want: "pay_success"},
+		{name: "close", fromStatus: OrderStatusWaitBuyerPay, toStatus: OrderStatusTradeClosed, want: "close"},
+		{name: "finish", fromStatus: OrderStatusTradeSuccess, toStatus: OrderStatusTradeFinished, want: "finish"},
+		{name: "change", fromStatus: OrderStatusWaitBuyerPay, toStatus: OrderStatusPaying, want: "change"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := transitionMetricName(tt.fromStatus, tt.toStatus); got != tt.want {
+				t.Fatalf("transitionMetricName(%q, %q) = %q, want %q", tt.fromStatus, tt.toStatus, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeTransitionTrigger(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{input: "", want: "update"},
+		{input: "order.create", want: "create"},
+		{input: "order.payment", want: "payment"},
+		{input: "order.timeout_worker", want: "timeout_worker"},
+		{input: "order.finish_worker", want: "finish_worker"},
+		{input: "something-else", want: "custom"},
+	}
+
+	for _, tt := range tests {
+		if got := normalizeTransitionTrigger(tt.input); got != tt.want {
+			t.Fatalf("normalizeTransitionTrigger(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
 type fakeOrderDataFactory struct {
 	orders          datav1.OrderStore
 	orderStatusLogs datav1.OrderStatusLogStore

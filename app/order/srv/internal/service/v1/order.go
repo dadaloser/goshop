@@ -494,11 +494,20 @@ func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 	if err != nil {
 		return err
 	}
+	trigger := normalizeTransitionTrigger(defaultStatusLogSource(order.StatusSource, existing.Status, order.Status))
+	transition := transitionMetricName(existing.Status, order.Status)
+	result := "success"
+	startedAt := time.Now()
+	defer func() {
+		observeOrderTransition(trigger, transition, result, startedAt)
+	}()
 	if !canTransitionOrderStatus(existing.Status, order.Status) {
+		result = "invalid"
 		return errors.WithCode(code.ErrOrderStatusInvalid, "invalid order status transition")
 	}
 	if order.Status == OrderStatusTradeSuccess {
 		if strings.TrimSpace(order.TradeNo) == "" {
+			result = "invalid"
 			return errors.WithCode(code.ErrOrderStatusInvalid, "trade_no is required when order is paid")
 		}
 		if order.PayTime == nil {
@@ -510,33 +519,47 @@ func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 	txn := os.data.Begin()
 	if txn == nil {
 		if err := os.data.Orders().Update(ctx, nil, &order.OrderInfoDO); err != nil {
+			result = "failed"
 			return err
 		}
 		if strings.TrimSpace(existing.Status) != strings.TrimSpace(order.Status) {
 			if err := os.createStatusLog(ctx, nil, os.buildStatusLog(existing, order)); err != nil {
+				result = "failed"
 				return fmt.Errorf("create order status log: %w", err)
 			}
+			logOrderTransitionSuccess(ctx, existing, order)
+			return nil
 		}
+		result = "noop"
 		return nil
 	}
 	if txn.Error != nil {
+		result = "failed"
 		return fmt.Errorf("begin update order transaction: %w", txn.Error)
 	}
 
 	if err := os.data.Orders().Update(ctx, txn, &order.OrderInfoDO); err != nil {
+		result = "failed"
 		_ = txn.Rollback()
 		return err
 	}
 
 	if strings.TrimSpace(existing.Status) != strings.TrimSpace(order.Status) {
 		if err := os.createStatusLog(ctx, txn, os.buildStatusLog(existing, order)); err != nil {
+			result = "failed"
 			_ = txn.Rollback()
 			return fmt.Errorf("create order status log: %w", err)
 		}
 	}
 
 	if err := txn.Commit().Error; err != nil {
+		result = "failed"
 		return fmt.Errorf("commit update order transaction: %w", err)
+	}
+	if strings.TrimSpace(existing.Status) != strings.TrimSpace(order.Status) {
+		logOrderTransitionSuccess(ctx, existing, order)
+	} else {
+		result = "noop"
 	}
 	return nil
 }
@@ -658,4 +681,21 @@ func defaultStatusLogOperator(operator string, userID int32) string {
 		return fmt.Sprintf("user:%d", userID)
 	}
 	return "system"
+}
+
+func logOrderTransitionSuccess(ctx context.Context, existing *do.OrderInfoDO, order *dto.OrderDTO) {
+	if existing == nil || order == nil {
+		return
+	}
+
+	log.InfoC(ctx, "order status transition applied",
+		log.Int32("order_id", existing.ID),
+		log.Int32("user_id", existing.User),
+		log.String("order_sn", existing.OrderSn),
+		log.String("from_status", strings.TrimSpace(existing.Status)),
+		log.String("to_status", strings.TrimSpace(order.Status)),
+		log.String("reason", defaultStatusLogReason(order.StatusReason, existing.Status, order.Status)),
+		log.String("source", defaultStatusLogSource(order.StatusSource, existing.Status, order.Status)),
+		log.String("operator", defaultStatusLogOperator(order.StatusOperator, existing.User)),
+	)
 }

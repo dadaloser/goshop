@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	stderrors "errors"
 	"testing"
 
 	gpb "goshop/api/goods/v1"
@@ -478,4 +479,26 @@ func orderDetailResponse(_ context.Context, _ *opb.OrderRequest, _ ...grpc.CallO
 			{GoodsId: 101, Nums: 2},
 		},
 	}, nil
+}
+
+func TestPayCallbackMetricResult(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "success", want: "success"},
+		{name: "rejected invalid", err: errors.WithCode(code.ErrOrderStatusInvalid, "invalid"), want: "rejected"},
+		{name: "rejected missing order", err: errors.WithCode(code.ErrOrderNotFound, "missing"), want: "rejected"},
+		{name: "dependency", err: errors.WithCode(code.ErrConnectGRPC, "connect"), want: "dependency_error"},
+		{name: "failed", err: stderrors.New("boom"), want: "failed"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := payCallbackMetricResult(tt.err); got != tt.want {
+				t.Fatalf("payCallbackMetricResult(%v) = %q, want %q", tt.err, got, tt.want)
+			}
+		})
+	}
 }

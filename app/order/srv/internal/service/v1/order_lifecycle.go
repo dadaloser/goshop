@@ -47,18 +47,29 @@ func (s *service) processExpiredOrdersOnce(ctx context.Context) error {
 	if s == nil || s.data == nil {
 		return nil
 	}
+	startedAt := time.Now()
+	result := "success"
+	defer func() {
+		observeLifecycleSweep("auto_close", result, startedAt)
+	}()
 
 	candidates, err := s.data.Orders().ListCloseCandidates(ctx, []string{OrderStatusWaitBuyerPay, OrderStatusPaying}, s.currentTime().Add(-s.lifecycle.TimeoutCloseAfter), s.lifecycle.BatchSize)
 	if err != nil {
+		result = "failed"
 		return fmt.Errorf("list close candidates: %w", err)
 	}
+	metricOrderLifecycleCandidatesTotal.Add(float64(len(candidates)), "auto_close")
 
 	orderSrv := newOrderService(s)
+	var closedCount int
+	var failedCount int
 	for _, order := range candidates {
 		if order == nil {
 			continue
 		}
 		if err := s.releaseOrderInventory(ctx, order); err != nil {
+			failedCount++
+			metricOrderLifecycleProcessedTotal.Inc("auto_close", "failed")
 			log.Errorf("release inventory for expired order %s: %v", order.OrderSn, err)
 			continue
 		}
@@ -71,9 +82,25 @@ func (s *service) processExpiredOrdersOnce(ctx context.Context) error {
 			StatusSource:   "order.timeout_worker",
 			StatusOperator: "system",
 		}); err != nil {
+			failedCount++
+			metricOrderLifecycleProcessedTotal.Inc("auto_close", "failed")
 			log.Errorf("close expired order %s: %v", order.OrderSn, err)
+			continue
 		}
+		closedCount++
+		metricOrderLifecycleProcessedTotal.Inc("auto_close", "success")
 	}
+	if failedCount > 0 {
+		result = "failed"
+	}
+	log.InfoC(ctx, "order lifecycle auto close sweep completed",
+		log.Int("candidates", len(candidates)),
+		log.Int("closed", closedCount),
+		log.Int("failed", failedCount),
+		log.Duration("timeout_close_after", s.lifecycle.TimeoutCloseAfter),
+		log.Int("batch_size", s.lifecycle.BatchSize),
+		log.Duration("duration", time.Since(startedAt)),
+	)
 	return nil
 }
 
@@ -81,13 +108,22 @@ func (s *service) processFinishedOrdersOnce(ctx context.Context) error {
 	if s == nil || s.data == nil {
 		return nil
 	}
+	startedAt := time.Now()
+	result := "success"
+	defer func() {
+		observeLifecycleSweep("auto_finish", result, startedAt)
+	}()
 
 	candidates, err := s.data.Orders().ListFinishCandidates(ctx, OrderStatusTradeSuccess, s.currentTime().Add(-s.lifecycle.FinishAfterPayment), s.lifecycle.BatchSize)
 	if err != nil {
+		result = "failed"
 		return fmt.Errorf("list finish candidates: %w", err)
 	}
+	metricOrderLifecycleCandidatesTotal.Add(float64(len(candidates)), "auto_finish")
 
 	orderSrv := newOrderService(s)
+	var finishedCount int
+	var failedCount int
 	for _, order := range candidates {
 		if order == nil {
 			continue
@@ -101,9 +137,25 @@ func (s *service) processFinishedOrdersOnce(ctx context.Context) error {
 			StatusSource:   "order.finish_worker",
 			StatusOperator: "system",
 		}); err != nil {
+			failedCount++
+			metricOrderLifecycleProcessedTotal.Inc("auto_finish", "failed")
 			log.Errorf("finish paid order %s: %v", order.OrderSn, err)
+			continue
 		}
+		finishedCount++
+		metricOrderLifecycleProcessedTotal.Inc("auto_finish", "success")
 	}
+	if failedCount > 0 {
+		result = "failed"
+	}
+	log.InfoC(ctx, "order lifecycle auto finish sweep completed",
+		log.Int("candidates", len(candidates)),
+		log.Int("finished", finishedCount),
+		log.Int("failed", failedCount),
+		log.Duration("finish_after_payment", s.lifecycle.FinishAfterPayment),
+		log.Int("batch_size", s.lifecycle.BatchSize),
+		log.Duration("duration", time.Since(startedAt)),
+	)
 	return nil
 }
 
