@@ -39,7 +39,7 @@ func NewHistogramVec(cfg *HistogramVecOpts) HistogramVec {
 		Help:      cfg.Help,
 		Buckets:   cfg.Buckets,
 	}, cfg.Labels)
-	prom.MustRegister(vec)
+	vec = registerHistogramVec(vec)
 	hv := &promHistogramVec{
 		histogram: vec,
 	}
@@ -48,5 +48,8 @@ func NewHistogramVec(cfg *HistogramVecOpts) HistogramVec {
 }
 
 func (hv *promHistogramVec) Observe(v int64, labels ...string) {
+	if hv == nil || hv.histogram == nil {
+		return
+	}
 	hv.histogram.WithLabelValues(labels...).Observe(float64(v))
 }

@@ -33,7 +33,7 @@ func NewCounterVec(cfg *CounterVecOpts) CounterVec {
 		Name:      cfg.Name,
 		Help:      cfg.Help,
 	}, cfg.Labels)
-	prom.MustRegister(vec)
+	vec = registerCounterVec(vec)
 	cv := &promCounterVec{
 		counter: vec,
 	}
@@ -42,9 +42,15 @@ func NewCounterVec(cfg *CounterVecOpts) CounterVec {
 }
 
 func (cv *promCounterVec) Inc(labels ...string) {
+	if cv == nil || cv.counter == nil {
+		return
+	}
 	cv.counter.WithLabelValues(labels...).Inc()
 }
 
 func (cv *promCounterVec) Add(v float64, labels ...string) {
+	if cv == nil || cv.counter == nil {
+		return
+	}
 	cv.counter.WithLabelValues(labels...).Add(v)
 }

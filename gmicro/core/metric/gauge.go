@@ -36,7 +36,7 @@ func NewGaugeVec(cfg *GaugeVecOpts) GaugeVec {
 			Name:      cfg.Name,
 			Help:      cfg.Help,
 		}, cfg.Labels)
-	prom.MustRegister(vec)
+	vec = registerGaugeVec(vec)
 	gv := &promGaugeVec{
 		gauge: vec,
 	}
@@ -45,13 +45,22 @@ func NewGaugeVec(cfg *GaugeVecOpts) GaugeVec {
 }
 
 func (gv *promGaugeVec) Inc(labels ...string) {
+	if gv == nil || gv.gauge == nil {
+		return
+	}
 	gv.gauge.WithLabelValues(labels...).Inc()
 }
 
 func (gv *promGaugeVec) Add(v float64, labels ...string) {
+	if gv == nil || gv.gauge == nil {
+		return
+	}
 	gv.gauge.WithLabelValues(labels...).Add(v)
 }
 
 func (gv *promGaugeVec) Set(v float64, labels ...string) {
+	if gv == nil || gv.gauge == nil {
+		return
+	}
 	gv.gauge.WithLabelValues(labels...).Set(v)
 }
