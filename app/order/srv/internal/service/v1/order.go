@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/dtm-labs/client/dtmgrpc"
+	"gorm.io/gorm"
 )
 
 var (
@@ -129,6 +130,15 @@ func (os *orderService) CreateCom(ctx context.Context, order *dto.OrderDTO) erro
 	}
 
 	txn := os.data.Begin()
+	if txn == nil {
+		if err := os.data.ShopCarts().RestoreCheckedItems(ctx, nil, uint64(existing.User), existing.OrderGoods); err != nil {
+			return fmt.Errorf("restore selected shop carts: %w", err)
+		}
+		if err := os.data.Orders().DeleteByOrderSn(ctx, nil, existing.OrderSn); err != nil {
+			return fmt.Errorf("delete compensated order: %w", err)
+		}
+		return nil
+	}
 	if txn.Error != nil {
 		return fmt.Errorf("begin create order compensation transaction: %w", txn.Error)
 	}
@@ -214,6 +224,26 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 	order.OrderMount = orderAmount
 
 	txn := os.data.Begin() //开启事务
+	if txn == nil {
+		if err := os.data.Orders().Create(ctx, nil, &order.OrderInfoDO); err != nil {
+			return fmt.Errorf("create order: %w", err)
+		}
+		if err := os.data.ShopCarts().DeleteByGoodsIDs(ctx, nil, uint64(order.User), goodsIds); err != nil {
+			return fmt.Errorf("delete selected shop carts: %w", err)
+		}
+		if err := os.createStatusLog(ctx, nil, &do.OrderStatusLogDO{
+			OrderID:    order.ID,
+			OrderSn:    order.OrderSn,
+			FromStatus: "",
+			ToStatus:   order.Status,
+			Reason:     "order created",
+			Source:     "order.create",
+			Operator:   fmt.Sprintf("user:%d", order.User),
+		}); err != nil {
+			return fmt.Errorf("create order status log: %w", err)
+		}
+		return nil
+	}
 	if txn.Error != nil {
 		return fmt.Errorf("begin order transaction: %w", txn.Error)
 	}
@@ -237,6 +267,18 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 	err = os.data.ShopCarts().DeleteByGoodsIDs(ctx, txn, uint64(order.User), goodsIds)
 	if err != nil {
 		return rollback(fmt.Errorf("delete selected shop carts: %w", err))
+	}
+
+	if err := os.createStatusLog(ctx, txn, &do.OrderStatusLogDO{
+		OrderID:    order.ID,
+		OrderSn:    order.OrderSn,
+		FromStatus: "",
+		ToStatus:   order.Status,
+		Reason:     "order created",
+		Source:     "order.create",
+		Operator:   fmt.Sprintf("user:%d", order.User),
+	}); err != nil {
+		return rollback(fmt.Errorf("create order status log: %w", err))
 	}
 
 	if err := txn.Commit().Error; err != nil {
@@ -337,7 +379,7 @@ func (os *orderService) List(ctx context.Context, userID uint64, meta v1.ListMet
 	ret.TotalCount = orders.TotalCount
 	for _, value := range orders.Items {
 		ret.Items = append(ret.Items, &dto.OrderDTO{
-			*value,
+			OrderInfoDO: *value,
 		})
 	}
 	return &ret, nil
@@ -443,7 +485,38 @@ func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 		}
 	}
 
-	return os.data.Orders().Update(ctx, nil, &order.OrderInfoDO)
+	txn := os.data.Begin()
+	if txn == nil {
+		if err := os.data.Orders().Update(ctx, nil, &order.OrderInfoDO); err != nil {
+			return err
+		}
+		if strings.TrimSpace(existing.Status) != strings.TrimSpace(order.Status) {
+			if err := os.createStatusLog(ctx, nil, os.buildStatusLog(existing, order)); err != nil {
+				return fmt.Errorf("create order status log: %w", err)
+			}
+		}
+		return nil
+	}
+	if txn.Error != nil {
+		return fmt.Errorf("begin update order transaction: %w", txn.Error)
+	}
+
+	if err := os.data.Orders().Update(ctx, txn, &order.OrderInfoDO); err != nil {
+		_ = txn.Rollback()
+		return err
+	}
+
+	if strings.TrimSpace(existing.Status) != strings.TrimSpace(order.Status) {
+		if err := os.createStatusLog(ctx, txn, os.buildStatusLog(existing, order)); err != nil {
+			_ = txn.Rollback()
+			return fmt.Errorf("create order status log: %w", err)
+		}
+	}
+
+	if err := txn.Commit().Error; err != nil {
+		return fmt.Errorf("commit update order transaction: %w", err)
+	}
+	return nil
 }
 
 func isValidOrderStatus(status string) bool {
@@ -489,3 +562,78 @@ func newOrderService(sv *service) *orderService {
 }
 
 var _ OrderSrv = &orderService{}
+
+func (os *orderService) createStatusLog(ctx context.Context, txn *gorm.DB, entry *do.OrderStatusLogDO) error {
+	if os == nil || os.data == nil || entry == nil {
+		return nil
+	}
+	store := os.data.OrderStatusLogs()
+	if store == nil {
+		return nil
+	}
+	return store.Create(ctx, txn, entry)
+}
+
+func (os *orderService) buildStatusLog(existing *do.OrderInfoDO, order *dto.OrderDTO) *do.OrderStatusLogDO {
+	if existing == nil || order == nil {
+		return nil
+	}
+	return &do.OrderStatusLogDO{
+		OrderID:    existing.ID,
+		OrderSn:    existing.OrderSn,
+		FromStatus: existing.Status,
+		ToStatus:   order.Status,
+		Reason:     defaultStatusLogReason(order.StatusReason, existing.Status, order.Status),
+		Source:     defaultStatusLogSource(order.StatusSource, existing.Status, order.Status),
+		Operator:   defaultStatusLogOperator(order.StatusOperator, existing.User),
+	}
+}
+
+func defaultStatusLogReason(reason, fromStatus, toStatus string) string {
+	reason = strings.TrimSpace(reason)
+	if reason != "" {
+		return reason
+	}
+	switch {
+	case fromStatus == "" && toStatus == OrderStatusWaitBuyerPay:
+		return "order created"
+	case toStatus == OrderStatusTradeSuccess:
+		return "payment confirmed"
+	case toStatus == OrderStatusTradeClosed:
+		return "order closed"
+	case toStatus == OrderStatusTradeFinished:
+		return "order finished"
+	default:
+		return "order status changed"
+	}
+}
+
+func defaultStatusLogSource(source, fromStatus, toStatus string) string {
+	source = strings.TrimSpace(source)
+	if source != "" {
+		return source
+	}
+	switch {
+	case fromStatus == "" && toStatus == OrderStatusWaitBuyerPay:
+		return "order.create"
+	case toStatus == OrderStatusTradeSuccess:
+		return "order.payment"
+	case toStatus == OrderStatusTradeClosed:
+		return "order.close"
+	case toStatus == OrderStatusTradeFinished:
+		return "order.finish"
+	default:
+		return "order.update"
+	}
+}
+
+func defaultStatusLogOperator(operator string, userID int32) string {
+	operator = strings.TrimSpace(operator)
+	if operator != "" {
+		return operator
+	}
+	if userID > 0 {
+		return fmt.Sprintf("user:%d", userID)
+	}
+	return "system"
+}

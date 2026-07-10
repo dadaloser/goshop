@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"strings"
+	"time"
 
 	"goshop/app/pkg/code"
 	code2 "goshop/gmicro/code"
@@ -172,6 +173,52 @@ func (o *orders) Update(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO
 		return errors.WithCode(code.ErrOrderNotFound, "order not found")
 	}
 	return nil
+}
+
+func (o *orders) ListCloseCandidates(ctx context.Context, statuses []string, createdBefore time.Time, limit int) ([]*do.OrderInfoDO, error) {
+	if len(statuses) == 0 {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+
+	var orders []*do.OrderInfoDO
+	tx := o.db.WithContext(ctx).
+		Preload("OrderGoods").
+		Where("status IN ?", statuses).
+		Where("add_time <= ?", createdBefore).
+		Order("add_time asc").
+		Limit(limit).
+		Find(&orders)
+	if tx.Error != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	return orders, nil
+}
+
+func (o *orders) ListFinishCandidates(ctx context.Context, status string, paidBefore time.Time, limit int) ([]*do.OrderInfoDO, error) {
+	status = strings.TrimSpace(status)
+	if status == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+
+	var orders []*do.OrderInfoDO
+	tx := o.db.WithContext(ctx).
+		Preload("OrderGoods").
+		Where("status = ?", status).
+		Where("pay_time IS NOT NULL").
+		Where("pay_time <= ?", paidBefore).
+		Order("pay_time asc").
+		Limit(limit).
+		Find(&orders)
+	if tx.Error != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	return orders, nil
 }
 
 var _ v1.OrderStore = &orders{}

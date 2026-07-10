@@ -13,17 +13,16 @@ import (
 	"goshop/gmicro/server/rpcserver"
 )
 
-func NewOrderRPCServer(ctx context.Context, cfg *config.Config) (*rpcserver.Server, error) {
-	//初始化open-telemetry的exporter
-	if err := trace.InitAgent(trace.Options{
+func initOrderTrace(cfg *config.Config) error {
+	return trace.InitAgent(trace.Options{
 		Name:     cfg.Telemetry.Name,
 		Endpoint: cfg.Telemetry.Endpoint,
 		Sampler:  cfg.Telemetry.Sampler,
 		Batcher:  cfg.Telemetry.Batcher,
-	}); err != nil {
-		return nil, err
-	}
+	})
+}
 
+func newOrderServiceFactory(ctx context.Context, cfg *config.Config) (v13.ServiceFactory, error) {
 	dataFactory, err := db2.GetDataFactoryOr(cfg.MySQLOptions)
 	if err != nil {
 		return nil, err
@@ -33,8 +32,15 @@ func NewOrderRPCServer(ctx context.Context, cfg *config.Config) (*rpcserver.Serv
 	if err != nil {
 		return nil, err
 	}
+	inventoryGateway, err := boundary.NewInventoryRPCGatewayContext(ctx, cfg.Registry)
+	if err != nil {
+		return nil, err
+	}
 
-	orderSrvFactory := v13.NewService(dataFactory, cfg.Dtm, goodsGateway)
+	return v13.NewService(dataFactory, cfg.Dtm, goodsGateway, inventoryGateway), nil
+}
+
+func newOrderRPCServerWithFactory(cfg *config.Config, orderSrvFactory v13.ServiceFactory) (*rpcserver.Server, error) {
 	orderServer := order.NewOrderServer(orderSrvFactory)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	grpcServer, err := rpcserver.NewServerE(rpcserver.WithAddress(rpcAddr))
@@ -43,4 +49,16 @@ func NewOrderRPCServer(ctx context.Context, cfg *config.Config) (*rpcserver.Serv
 	}
 	gpb.RegisterOrderServer(grpcServer.Server, orderServer)
 	return grpcServer, nil
+}
+
+func NewOrderRPCServer(ctx context.Context, cfg *config.Config) (*rpcserver.Server, error) {
+	if err := initOrderTrace(cfg); err != nil {
+		return nil, err
+	}
+
+	orderSrvFactory, err := newOrderServiceFactory(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return newOrderRPCServerWithFactory(cfg, orderSrvFactory)
 }

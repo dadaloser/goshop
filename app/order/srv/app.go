@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"goshop/app/order/srv/config"
+	v1 "goshop/app/order/srv/internal/service/v1"
 	"goshop/app/pkg/options"
 	gapp "goshop/gmicro/app"
 	"goshop/gmicro/registry"
@@ -12,6 +13,7 @@ import (
 	"goshop/pkg/log"
 
 	"github.com/hashicorp/consul/api"
+	"golang.org/x/sync/errgroup"
 )
 
 func NewApp(basename string) *app.App {
@@ -38,6 +40,17 @@ func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error)
 }
 
 func NeworderApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
+	if err := initOrderTrace(cfg); err != nil {
+		return nil, err
+	}
+	orderSrvFactory, err := newOrderServiceFactory(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return newOrderAppWithServiceFactory(cfg, orderSrvFactory)
+}
+
+func newOrderAppWithServiceFactory(cfg *config.Config, orderSrvFactory v1.ServiceFactory) (*gapp.App, error) {
 	//服务注册
 	register, err := NewRegistrar(cfg.Registry)
 	if err != nil {
@@ -45,7 +58,7 @@ func NeworderApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	}
 
 	//生成rpc服务
-	rpcServer, err := NewOrderRPCServer(ctx, cfg)
+	rpcServer, err := newOrderRPCServerWithFactory(cfg, orderSrvFactory)
 	if err != nil {
 		return nil, err
 	}
@@ -62,12 +75,27 @@ func run(cfg *config.Config) app.RunFunc {
 		log.Init(cfg.Log)
 		defer log.Flush()
 
-		orderApp, err := NeworderApp(ctx, cfg)
+		if err := initOrderTrace(cfg); err != nil {
+			return err
+		}
+
+		orderSrvFactory, err := newOrderServiceFactory(ctx, cfg)
 		if err != nil {
 			return err
 		}
 
-		//启动
-		return orderApp.RunContext(ctx)
+		orderApp, err := newOrderAppWithServiceFactory(cfg, orderSrvFactory)
+		if err != nil {
+			return err
+		}
+
+		group, groupCtx := errgroup.WithContext(ctx)
+		group.Go(func() error {
+			return orderSrvFactory.RunBackground(groupCtx)
+		})
+		group.Go(func() error {
+			return orderApp.RunContext(groupCtx)
+		})
+		return group.Wait()
 	}
 }

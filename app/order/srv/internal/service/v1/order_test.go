@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"reflect"
 	"testing"
+	"time"
 
+	"goshop/app/order/srv/internal/boundary"
 	datav1 "goshop/app/order/srv/internal/data/v1"
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
@@ -119,6 +122,61 @@ func TestCreateIsIdempotentForSameOrder(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("Create() error = %v, want nil", err)
+	}
+}
+
+func TestCreateWritesInitialStatusLog(t *testing.T) {
+	var logs []*do.OrderStatusLogDO
+	svc := &orderService{
+		data: fakeOrderDataFactory{
+			orders: fakeOrderStore{
+				get: func(context.Context, string) (*do.OrderInfoDO, error) {
+					return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+				},
+				create: func(_ context.Context, _ *gorm.DB, order *do.OrderInfoDO) error {
+					order.ID = 42
+					return nil
+				},
+			},
+			orderStatusLogs: fakeOrderStatusLogStore{
+				create: func(_ context.Context, _ *gorm.DB, entry *do.OrderStatusLogDO) error {
+					logs = append(logs, entry)
+					return nil
+				},
+			},
+			shopCarts: fakeShopCartStore{},
+		},
+		upstream: upstream{
+			goods: fakeGoodsGateway{
+				batchGetGoods: func(_ context.Context, ids []int32) (map[int32]boundary.GoodsInfo, error) {
+					return map[int32]boundary.GoodsInfo{
+						101: {ID: 101, Name: "goods-101", ShopPrice: 10, GoodsFrontImage: "img-101"},
+					}, nil
+				},
+			},
+		},
+	}
+
+	err := svc.Create(context.Background(), &dto.OrderDTO{
+		OrderInfoDO: do.OrderInfoDO{
+			User:         9,
+			OrderSn:      "order-1",
+			Address:      "addr",
+			SignerName:   "buyer",
+			SingerMobile: "13800138000",
+			OrderGoods: []*do.OrderGoods{
+				{Goods: 101, Nums: 2},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if len(logs) != 1 {
+		t.Fatalf("status logs = %d, want 1", len(logs))
+	}
+	if logs[0].OrderID != 42 || logs[0].OrderSn != "order-1" || logs[0].ToStatus != OrderStatusWaitBuyerPay || logs[0].Reason != "order created" {
+		t.Fatalf("status log = %+v", logs[0])
 	}
 }
 
@@ -499,13 +557,218 @@ func TestUpdateRequiresOrderStatusFields(t *testing.T) {
 	}
 }
 
+func TestUpdateCreatesStatusLogOnTransition(t *testing.T) {
+	var logs []*do.OrderStatusLogDO
+	svc := &orderService{
+		data: fakeOrderDataFactory{
+			orders: fakeOrderStore{
+				get: func(context.Context, string) (*do.OrderInfoDO, error) {
+					return &do.OrderInfoDO{
+						User:    9,
+						OrderSn: "order-1",
+						Status:  OrderStatusWaitBuyerPay,
+					}, nil
+				},
+				update: func(_ context.Context, _ *gorm.DB, order *do.OrderInfoDO) error {
+					return nil
+				},
+			},
+			orderStatusLogs: fakeOrderStatusLogStore{
+				create: func(_ context.Context, _ *gorm.DB, entry *do.OrderStatusLogDO) error {
+					logs = append(logs, entry)
+					return nil
+				},
+			},
+		},
+	}
+
+	err := svc.Update(context.Background(), &dto.OrderDTO{
+		OrderInfoDO: do.OrderInfoDO{
+			OrderSn: "order-1",
+			Status:  OrderStatusTradeClosed,
+		},
+		StatusReason:   "order timeout auto close",
+		StatusSource:   "order.timeout_worker",
+		StatusOperator: "system",
+	})
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if len(logs) != 1 {
+		t.Fatalf("status logs = %d, want 1", len(logs))
+	}
+	if logs[0].FromStatus != OrderStatusWaitBuyerPay || logs[0].ToStatus != OrderStatusTradeClosed || logs[0].Reason != "order timeout auto close" || logs[0].Source != "order.timeout_worker" || logs[0].Operator != "system" {
+		t.Fatalf("status log = %+v", logs[0])
+	}
+}
+
+func TestUpdateSkipsStatusLogWhenStatusUnchanged(t *testing.T) {
+	var logCreated bool
+	svc := &orderService{
+		data: fakeOrderDataFactory{
+			orders: fakeOrderStore{
+				get: func(context.Context, string) (*do.OrderInfoDO, error) {
+					return &do.OrderInfoDO{
+						User:    9,
+						OrderSn: "order-1",
+						Status:  OrderStatusTradeSuccess,
+					}, nil
+				},
+				update: func(_ context.Context, _ *gorm.DB, order *do.OrderInfoDO) error {
+					return nil
+				},
+			},
+			orderStatusLogs: fakeOrderStatusLogStore{
+				create: func(_ context.Context, _ *gorm.DB, entry *do.OrderStatusLogDO) error {
+					logCreated = true
+					return nil
+				},
+			},
+		},
+	}
+
+	now := time.Unix(1700000000, 0)
+	err := svc.Update(context.Background(), &dto.OrderDTO{
+		OrderInfoDO: do.OrderInfoDO{
+			OrderSn: "order-1",
+			Status:  OrderStatusTradeSuccess,
+			TradeNo: "trade-1",
+			PayTime: &now,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if logCreated {
+		t.Fatal("Update() created status log for unchanged status")
+	}
+}
+
+func TestProcessExpiredOrdersReleasesInventoryAndClosesOrder(t *testing.T) {
+	var released []boundary.InventoryItem
+	var updated []*dto.OrderDTO
+	now := time.Unix(1700000000, 0)
+	svcFactory := &service{
+		data: fakeOrderDataFactory{
+			orders: fakeOrderStore{
+				listClose: func(_ context.Context, statuses []string, createdBefore time.Time, limit int) ([]*do.OrderInfoDO, error) {
+					if limit != orderLifecycleBatchSize {
+						t.Fatalf("limit = %d, want %d", limit, orderLifecycleBatchSize)
+					}
+					if !reflect.DeepEqual(statuses, []string{OrderStatusWaitBuyerPay, OrderStatusPaying}) {
+						t.Fatalf("statuses = %v", statuses)
+					}
+					if !createdBefore.Equal(now.Add(-orderTimeoutCloseAfter)) {
+						t.Fatalf("createdBefore = %v, want %v", createdBefore, now.Add(-orderTimeoutCloseAfter))
+					}
+					return []*do.OrderInfoDO{
+						{
+							User:    9,
+							OrderSn: "order-1",
+							Status:  OrderStatusWaitBuyerPay,
+							OrderGoods: []*do.OrderGoods{
+								{Goods: 101, Nums: 2},
+							},
+						},
+					}, nil
+				},
+				get: func(context.Context, string) (*do.OrderInfoDO, error) {
+					return &do.OrderInfoDO{
+						User:    9,
+						OrderSn: "order-1",
+						Status:  OrderStatusWaitBuyerPay,
+					}, nil
+				},
+				update: func(_ context.Context, _ *gorm.DB, order *do.OrderInfoDO) error {
+					updated = append(updated, &dto.OrderDTO{OrderInfoDO: *order})
+					return nil
+				},
+			},
+			orderStatusLogs: fakeOrderStatusLogStore{},
+		},
+		upstream: upstream{
+			inventory: fakeInventoryGateway{
+				release: func(_ context.Context, orderSn string, items []boundary.InventoryItem) error {
+					if orderSn != "order-1" {
+						t.Fatalf("orderSn = %s, want order-1", orderSn)
+					}
+					released = append(released, items...)
+					return nil
+				},
+			},
+		},
+		now: func() time.Time { return now },
+	}
+
+	if err := svcFactory.processExpiredOrdersOnce(context.Background()); err != nil {
+		t.Fatalf("processExpiredOrdersOnce() error = %v", err)
+	}
+	if !reflect.DeepEqual(released, []boundary.InventoryItem{{GoodsID: 101, Num: 2}}) {
+		t.Fatalf("released = %+v", released)
+	}
+	if len(updated) != 1 || updated[0].Status != OrderStatusTradeClosed {
+		t.Fatalf("updated = %+v", updated)
+	}
+}
+
+func TestProcessFinishedOrdersMarksFinished(t *testing.T) {
+	var updated []*dto.OrderDTO
+	now := time.Unix(1700000000, 0)
+	svcFactory := &service{
+		data: fakeOrderDataFactory{
+			orders: fakeOrderStore{
+				listFinish: func(_ context.Context, status string, paidBefore time.Time, limit int) ([]*do.OrderInfoDO, error) {
+					if status != OrderStatusTradeSuccess {
+						t.Fatalf("status = %s, want %s", status, OrderStatusTradeSuccess)
+					}
+					if !paidBefore.Equal(now) {
+						t.Fatalf("paidBefore = %v, want %v", paidBefore, now)
+					}
+					return []*do.OrderInfoDO{
+						{
+							User:    9,
+							OrderSn: "order-2",
+							Status:  OrderStatusTradeSuccess,
+						},
+					}, nil
+				},
+				get: func(context.Context, string) (*do.OrderInfoDO, error) {
+					return &do.OrderInfoDO{
+						User:    9,
+						OrderSn: "order-2",
+						Status:  OrderStatusTradeSuccess,
+					}, nil
+				},
+				update: func(_ context.Context, _ *gorm.DB, order *do.OrderInfoDO) error {
+					updated = append(updated, &dto.OrderDTO{OrderInfoDO: *order})
+					return nil
+				},
+			},
+			orderStatusLogs: fakeOrderStatusLogStore{},
+		},
+		now: func() time.Time { return now },
+	}
+
+	if err := svcFactory.processFinishedOrdersOnce(context.Background()); err != nil {
+		t.Fatalf("processFinishedOrdersOnce() error = %v", err)
+	}
+	if len(updated) != 1 || updated[0].Status != OrderStatusTradeFinished {
+		t.Fatalf("updated = %+v", updated)
+	}
+}
+
 type fakeOrderDataFactory struct {
-	orders    datav1.OrderStore
-	shopCarts datav1.ShopCartStore
+	orders          datav1.OrderStore
+	orderStatusLogs datav1.OrderStatusLogStore
+	shopCarts       datav1.ShopCartStore
 }
 
 func (f fakeOrderDataFactory) Orders() datav1.OrderStore {
 	return f.orders
+}
+
+func (f fakeOrderDataFactory) OrderStatusLogs() datav1.OrderStatusLogStore {
+	return f.orderStatusLogs
 }
 
 func (f fakeOrderDataFactory) ShopCarts() datav1.ShopCartStore {
@@ -513,12 +776,15 @@ func (f fakeOrderDataFactory) ShopCarts() datav1.ShopCartStore {
 }
 
 func (fakeOrderDataFactory) Begin() *gorm.DB {
-	return &gorm.DB{}
+	return nil
 }
 
 type fakeOrderStore struct {
-	get    func(context.Context, string) (*do.OrderInfoDO, error)
-	update func(context.Context, *gorm.DB, *do.OrderInfoDO) error
+	get        func(context.Context, string) (*do.OrderInfoDO, error)
+	create     func(context.Context, *gorm.DB, *do.OrderInfoDO) error
+	update     func(context.Context, *gorm.DB, *do.OrderInfoDO) error
+	listClose  func(context.Context, []string, time.Time, int) ([]*do.OrderInfoDO, error)
+	listFinish func(context.Context, string, time.Time, int) ([]*do.OrderInfoDO, error)
 }
 
 func (f fakeOrderStore) Get(ctx context.Context, orderSn string) (*do.OrderInfoDO, error) {
@@ -532,7 +798,10 @@ func (fakeOrderStore) List(context.Context, uint64, metav1.ListMeta, []string) (
 	return nil, nil
 }
 
-func (fakeOrderStore) Create(context.Context, *gorm.DB, *do.OrderInfoDO) error {
+func (f fakeOrderStore) Create(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO) error {
+	if f.create != nil {
+		return f.create(ctx, txn, order)
+	}
 	return nil
 }
 
@@ -545,6 +814,53 @@ func (f fakeOrderStore) Update(ctx context.Context, txn *gorm.DB, order *do.Orde
 		return f.update(ctx, txn, order)
 	}
 	return nil
+}
+
+func (f fakeOrderStore) ListCloseCandidates(ctx context.Context, statuses []string, createdBefore time.Time, limit int) ([]*do.OrderInfoDO, error) {
+	if f.listClose != nil {
+		return f.listClose(ctx, statuses, createdBefore, limit)
+	}
+	return nil, nil
+}
+
+func (f fakeOrderStore) ListFinishCandidates(ctx context.Context, status string, paidBefore time.Time, limit int) ([]*do.OrderInfoDO, error) {
+	if f.listFinish != nil {
+		return f.listFinish(ctx, status, paidBefore, limit)
+	}
+	return nil, nil
+}
+
+type fakeOrderStatusLogStore struct {
+	create func(context.Context, *gorm.DB, *do.OrderStatusLogDO) error
+}
+
+func (f fakeOrderStatusLogStore) Create(ctx context.Context, txn *gorm.DB, entry *do.OrderStatusLogDO) error {
+	if f.create != nil {
+		return f.create(ctx, txn, entry)
+	}
+	return nil
+}
+
+type fakeInventoryGateway struct {
+	release func(context.Context, string, []boundary.InventoryItem) error
+}
+
+func (f fakeInventoryGateway) Release(ctx context.Context, orderSn string, items []boundary.InventoryItem) error {
+	if f.release != nil {
+		return f.release(ctx, orderSn, items)
+	}
+	return nil
+}
+
+type fakeGoodsGateway struct {
+	batchGetGoods func(context.Context, []int32) (map[int32]boundary.GoodsInfo, error)
+}
+
+func (f fakeGoodsGateway) BatchGetGoods(ctx context.Context, ids []int32) (map[int32]boundary.GoodsInfo, error) {
+	if f.batchGetGoods != nil {
+		return f.batchGetGoods(ctx, ids)
+	}
+	return map[int32]boundary.GoodsInfo{}, nil
 }
 
 type fakeShopCartStore struct {

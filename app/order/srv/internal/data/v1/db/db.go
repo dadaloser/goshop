@@ -25,6 +25,10 @@ func (df *dataFactory) Orders() v1.OrderStore {
 	return newOrders(df)
 }
 
+func (df *dataFactory) OrderStatusLogs() v1.OrderStatusLogStore {
+	return newOrderStatusLogs(df)
+}
+
 func (df *dataFactory) ShopCarts() v1.ShopCartStore {
 	return newShopCarts(df)
 }
