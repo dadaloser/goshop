@@ -29,6 +29,7 @@ const (
 	Order_SubmitOrder_FullMethodName       = "/Order/SubmitOrder"
 	Order_OrderList_FullMethodName         = "/Order/OrderList"
 	Order_OrderDetail_FullMethodName       = "/Order/OrderDetail"
+	Order_OrderStatusLogs_FullMethodName   = "/Order/OrderStatusLogs"
 	Order_GetOrderBySn_FullMethodName      = "/Order/GetOrderBySn"
 	Order_UpdateOrderStatus_FullMethodName = "/Order/UpdateOrderStatus"
 )
@@ -48,6 +49,7 @@ type OrderClient interface {
 	SubmitOrder(ctx context.Context, in *OrderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	OrderList(ctx context.Context, in *OrderFilterRequest, opts ...grpc.CallOption) (*OrderListResponse, error)
 	OrderDetail(ctx context.Context, in *OrderRequest, opts ...grpc.CallOption) (*OrderInfoDetailResponse, error)
+	OrderStatusLogs(ctx context.Context, in *OrderRequest, opts ...grpc.CallOption) (*OrderStatusLogListResponse, error)
 	GetOrderBySn(ctx context.Context, in *OrderLookupRequest, opts ...grpc.CallOption) (*OrderInfoDetailResponse, error)
 	UpdateOrderStatus(ctx context.Context, in *OrderStatus, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
@@ -150,6 +152,16 @@ func (c *orderClient) OrderDetail(ctx context.Context, in *OrderRequest, opts ..
 	return out, nil
 }
 
+func (c *orderClient) OrderStatusLogs(ctx context.Context, in *OrderRequest, opts ...grpc.CallOption) (*OrderStatusLogListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OrderStatusLogListResponse)
+	err := c.cc.Invoke(ctx, Order_OrderStatusLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *orderClient) GetOrderBySn(ctx context.Context, in *OrderLookupRequest, opts ...grpc.CallOption) (*OrderInfoDetailResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(OrderInfoDetailResponse)
@@ -185,6 +197,7 @@ type OrderServer interface {
 	SubmitOrder(context.Context, *OrderRequest) (*emptypb.Empty, error)
 	OrderList(context.Context, *OrderFilterRequest) (*OrderListResponse, error)
 	OrderDetail(context.Context, *OrderRequest) (*OrderInfoDetailResponse, error)
+	OrderStatusLogs(context.Context, *OrderRequest) (*OrderStatusLogListResponse, error)
 	GetOrderBySn(context.Context, *OrderLookupRequest) (*OrderInfoDetailResponse, error)
 	UpdateOrderStatus(context.Context, *OrderStatus) (*emptypb.Empty, error)
 	mustEmbedUnimplementedOrderServer()
@@ -223,6 +236,9 @@ func (UnimplementedOrderServer) OrderList(context.Context, *OrderFilterRequest) 
 }
 func (UnimplementedOrderServer) OrderDetail(context.Context, *OrderRequest) (*OrderInfoDetailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method OrderDetail not implemented")
+}
+func (UnimplementedOrderServer) OrderStatusLogs(context.Context, *OrderRequest) (*OrderStatusLogListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method OrderStatusLogs not implemented")
 }
 func (UnimplementedOrderServer) GetOrderBySn(context.Context, *OrderLookupRequest) (*OrderInfoDetailResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetOrderBySn not implemented")
@@ -413,6 +429,24 @@ func _Order_OrderDetail_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Order_OrderStatusLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OrderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).OrderStatusLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_OrderStatusLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).OrderStatusLogs(ctx, req.(*OrderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Order_GetOrderBySn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(OrderLookupRequest)
 	if err := dec(in); err != nil {
@@ -491,6 +525,10 @@ var Order_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "OrderDetail",
 			Handler:    _Order_OrderDetail_Handler,
+		},
+		{
+			MethodName: "OrderStatusLogs",
+			Handler:    _Order_OrderStatusLogs_Handler,
 		},
 		{
 			MethodName: "GetOrderBySn",

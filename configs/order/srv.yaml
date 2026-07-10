@@ -45,3 +45,9 @@ mysql:
 dtm:
   grpc: "127.0.0.1:36790"
   http: "http://127.0.0.1:36789/api/dtmsvr"
+
+lifecycle:
+  poll-interval: 5s
+  timeout-close-after: 30m
+  finish-after-payment: 0s
+  batch-size: 20

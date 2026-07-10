@@ -19,7 +19,7 @@ const (
 )
 
 func (s *service) runLifecycleWorker(ctx context.Context) error {
-	ticker := time.NewTicker(orderLifecyclePollInterval)
+	ticker := time.NewTicker(s.lifecycle.PollInterval)
 	defer ticker.Stop()
 
 	s.runLifecycleSweep(ctx)
@@ -48,7 +48,7 @@ func (s *service) processExpiredOrdersOnce(ctx context.Context) error {
 		return nil
 	}
 
-	candidates, err := s.data.Orders().ListCloseCandidates(ctx, []string{OrderStatusWaitBuyerPay, OrderStatusPaying}, s.currentTime().Add(-orderTimeoutCloseAfter), orderLifecycleBatchSize)
+	candidates, err := s.data.Orders().ListCloseCandidates(ctx, []string{OrderStatusWaitBuyerPay, OrderStatusPaying}, s.currentTime().Add(-s.lifecycle.TimeoutCloseAfter), s.lifecycle.BatchSize)
 	if err != nil {
 		return fmt.Errorf("list close candidates: %w", err)
 	}
@@ -82,7 +82,7 @@ func (s *service) processFinishedOrdersOnce(ctx context.Context) error {
 		return nil
 	}
 
-	candidates, err := s.data.Orders().ListFinishCandidates(ctx, OrderStatusTradeSuccess, s.currentTime().Add(-orderFinishAfterPayment), orderLifecycleBatchSize)
+	candidates, err := s.data.Orders().ListFinishCandidates(ctx, OrderStatusTradeSuccess, s.currentTime().Add(-s.lifecycle.FinishAfterPayment), s.lifecycle.BatchSize)
 	if err != nil {
 		return fmt.Errorf("list finish candidates: %w", err)
 	}

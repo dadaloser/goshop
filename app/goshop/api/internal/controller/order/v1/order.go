@@ -248,6 +248,39 @@ func (oc *orderController) OrderDetail(ctx *gin.Context) {
 	})
 }
 
+func (oc *orderController) OrderStatusLogs(ctx *gin.Context) {
+	userID, orderSrv, err := oc.authenticatedOrderService(ctx)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+
+	var uri request.OrderStatusLogsURI
+	if err := ctx.ShouldBindUri(&uri); err != nil {
+		gin2.HandleValidatorError(ctx, err, oc.trans)
+		return
+	}
+
+	resp, err := orderSrv.OrderStatusLogs(ctx, userID, uri.OrderSn)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+
+	data := make([]gin.H, 0, len(resp.GetData()))
+	for _, item := range resp.GetData() {
+		if item == nil {
+			continue
+		}
+		data = append(data, orderStatusLogResponse(item))
+	}
+
+	core.WriteResponse(ctx, nil, gin.H{
+		"total": resp.GetTotal(),
+		"data":  data,
+	})
+}
+
 func (oc *orderController) SimulatePayCallback(ctx *gin.Context) {
 	var form SimulatePayCallbackForm
 	if err := ctx.ShouldBind(&form); err != nil {
@@ -378,6 +411,30 @@ func orderItemResponse(item interface {
 		"goods_image": item.GetGoodsImage(),
 		"goods_price": item.GetGoodsPrice(),
 		"nums":        item.GetNums(),
+	}
+}
+
+func orderStatusLogResponse(item interface {
+	GetId() int32
+	GetOrderId() int32
+	GetOrderSn() string
+	GetFromStatus() string
+	GetToStatus() string
+	GetReason() string
+	GetSource() string
+	GetOperator() string
+	GetAddTime() string
+}) gin.H {
+	return gin.H{
+		"id":          item.GetId(),
+		"order_id":    item.GetOrderId(),
+		"order_sn":    item.GetOrderSn(),
+		"from_status": item.GetFromStatus(),
+		"to_status":   item.GetToStatus(),
+		"reason":      item.GetReason(),
+		"source":      item.GetSource(),
+		"operator":    item.GetOperator(),
+		"add_time":    item.GetAddTime(),
 	}
 }
 

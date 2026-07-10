@@ -286,6 +286,61 @@ func TestGetRequiresUserOwnership(t *testing.T) {
 	}
 }
 
+func TestStatusLogsRequiresUserOwnership(t *testing.T) {
+	svc := &orderService{
+		data: fakeOrderDataFactory{
+			orders: fakeOrderStore{
+				get: func(context.Context, string) (*do.OrderInfoDO, error) {
+					return &do.OrderInfoDO{
+						User:    10,
+						OrderSn: "order-1",
+					}, nil
+				},
+			},
+			orderStatusLogs: fakeOrderStatusLogStore{
+				listByOrderSn: func(context.Context, string) ([]*do.OrderStatusLogDO, error) {
+					return []*do.OrderStatusLogDO{
+						{
+							OrderSn:    "order-1",
+							FromStatus: OrderStatusWaitBuyerPay,
+							ToStatus:   OrderStatusTradeSuccess,
+						},
+					}, nil
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name    string
+		userID  uint64
+		orderSn string
+		wantErr bool
+	}{
+		{name: "owner can read", userID: 10, orderSn: "order-1"},
+		{name: "missing user", orderSn: "order-1", wantErr: true},
+		{name: "other user", userID: 11, orderSn: "order-1", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := svc.StatusLogs(context.Background(), tt.userID, tt.orderSn)
+			if tt.wantErr {
+				if !errors.IsCode(err, code.ErrOrderNotFound) {
+					t.Fatalf("StatusLogs() error = %v, want code %d", err, code.ErrOrderNotFound)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("StatusLogs() error = %v", err)
+			}
+			if got.TotalCount != 1 || len(got.Items) != 1 || got.Items[0].OrderSn != "order-1" {
+				t.Fatalf("StatusLogs() = %+v", got)
+			}
+		})
+	}
+}
+
 func TestListIgnoresMissingUser(t *testing.T) {
 	svc := &orderService{}
 
@@ -697,6 +752,11 @@ func TestProcessExpiredOrdersReleasesInventoryAndClosesOrder(t *testing.T) {
 				},
 			},
 		},
+		lifecycle: LifecycleConfig{
+			PollInterval:      orderLifecyclePollInterval,
+			TimeoutCloseAfter: orderTimeoutCloseAfter,
+			BatchSize:         orderLifecycleBatchSize,
+		},
 		now: func() time.Time { return now },
 	}
 
@@ -745,6 +805,12 @@ func TestProcessFinishedOrdersMarksFinished(t *testing.T) {
 				},
 			},
 			orderStatusLogs: fakeOrderStatusLogStore{},
+		},
+		lifecycle: LifecycleConfig{
+			PollInterval:       orderLifecyclePollInterval,
+			TimeoutCloseAfter:  orderTimeoutCloseAfter,
+			FinishAfterPayment: orderFinishAfterPayment,
+			BatchSize:          orderLifecycleBatchSize,
 		},
 		now: func() time.Time { return now },
 	}
@@ -831,7 +897,8 @@ func (f fakeOrderStore) ListFinishCandidates(ctx context.Context, status string,
 }
 
 type fakeOrderStatusLogStore struct {
-	create func(context.Context, *gorm.DB, *do.OrderStatusLogDO) error
+	create        func(context.Context, *gorm.DB, *do.OrderStatusLogDO) error
+	listByOrderSn func(context.Context, string) ([]*do.OrderStatusLogDO, error)
 }
 
 func (f fakeOrderStatusLogStore) Create(ctx context.Context, txn *gorm.DB, entry *do.OrderStatusLogDO) error {
@@ -839,6 +906,13 @@ func (f fakeOrderStatusLogStore) Create(ctx context.Context, txn *gorm.DB, entry
 		return f.create(ctx, txn, entry)
 	}
 	return nil
+}
+
+func (f fakeOrderStatusLogStore) ListByOrderSn(ctx context.Context, orderSn string) ([]*do.OrderStatusLogDO, error) {
+	if f.listByOrderSn != nil {
+		return f.listByOrderSn(ctx, orderSn)
+	}
+	return nil, nil
 }
 
 type fakeInventoryGateway struct {

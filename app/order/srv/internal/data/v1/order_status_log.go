@@ -9,4 +9,5 @@ import (
 
 type OrderStatusLogStore interface {
 	Create(ctx context.Context, txn *gorm.DB, entry *do.OrderStatusLogDO) error
+	ListByOrderSn(ctx context.Context, orderSn string) ([]*do.OrderStatusLogDO, error)
 }

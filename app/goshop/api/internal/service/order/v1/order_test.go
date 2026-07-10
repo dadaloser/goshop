@@ -281,6 +281,7 @@ func TestOrderQueriesForwardRequests(t *testing.T) {
 	var gotCartList *opb.UserInfo
 	var gotList *opb.OrderFilterRequest
 	var gotDetail *opb.OrderRequest
+	var gotLogs *opb.OrderRequest
 	svc := NewOrderService(fakeDataFactory{
 		orderClient: fakeOrderClient{
 			cartItemList: func(_ context.Context, in *opb.UserInfo, _ ...grpc.CallOption) (*opb.CartItemListResponse, error) {
@@ -304,6 +305,15 @@ func TestOrderQueriesForwardRequests(t *testing.T) {
 			detail: func(_ context.Context, in *opb.OrderRequest, _ ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
 				gotDetail = in
 				return orderDetailResponse(nil, nil)
+			},
+			statusLogs: func(_ context.Context, in *opb.OrderRequest, _ ...grpc.CallOption) (*opb.OrderStatusLogListResponse, error) {
+				gotLogs = in
+				return &opb.OrderStatusLogListResponse{
+					Total: 1,
+					Data: []*opb.OrderStatusLogResponse{
+						{OrderSn: in.OrderSn, ToStatus: orderStatusTradeSuccess},
+					},
+				}, nil
 			},
 		},
 	})
@@ -330,6 +340,14 @@ func TestOrderQueriesForwardRequests(t *testing.T) {
 	}
 	if gotDetail == nil || gotDetail.UserId != 9 || gotDetail.OrderSn != "order-1" || detailResp.GetOrderInfo().GetOrderSn() != "order-9" {
 		t.Fatalf("OrderDetail() request=%+v response=%+v", gotDetail, detailResp)
+	}
+
+	logResp, err := svc.OrderStatusLogs(context.Background(), 9, " order-1 ")
+	if err != nil {
+		t.Fatalf("OrderStatusLogs() error = %v", err)
+	}
+	if gotLogs == nil || gotLogs.UserId != 9 || gotLogs.OrderSn != "order-1" || logResp.GetTotal() != 1 || len(logResp.GetData()) != 1 {
+		t.Fatalf("OrderStatusLogs() request=%+v response=%+v", gotLogs, logResp)
 	}
 }
 
@@ -363,6 +381,7 @@ type fakeOrderClient struct {
 	submitOrder    func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*emptypb.Empty, error)
 	list           func(context.Context, *opb.OrderFilterRequest, ...grpc.CallOption) (*opb.OrderListResponse, error)
 	detail         func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error)
+	statusLogs     func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*opb.OrderStatusLogListResponse, error)
 	update         func(context.Context, *opb.OrderStatus, ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -413,6 +432,13 @@ func (f fakeOrderClient) OrderDetail(ctx context.Context, in *opb.OrderRequest, 
 		return f.detail(ctx, in, opts...)
 	}
 	return orderDetailResponse(ctx, in, opts...)
+}
+
+func (f fakeOrderClient) OrderStatusLogs(ctx context.Context, in *opb.OrderRequest, opts ...grpc.CallOption) (*opb.OrderStatusLogListResponse, error) {
+	if f.statusLogs != nil {
+		return f.statusLogs(ctx, in, opts...)
+	}
+	return &opb.OrderStatusLogListResponse{}, nil
 }
 
 func (f fakeOrderClient) UpdateOrderStatus(ctx context.Context, in *opb.OrderStatus, opts ...grpc.CallOption) (*emptypb.Empty, error) {

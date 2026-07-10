@@ -218,6 +218,26 @@ func (os *orderServer) OrderDetail(ctx context.Context, request *pb.OrderRequest
 	}, nil
 }
 
+func (os *orderServer) OrderStatusLogs(ctx context.Context, request *pb.OrderRequest) (*pb.OrderStatusLogListResponse, error) {
+	if request == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "order request is required")
+	}
+
+	list, err := os.srv.Orders().StatusLogs(ctx, uint64(request.UserId), request.OrderSn)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := &pb.OrderStatusLogListResponse{Total: int32(list.TotalCount)}
+	for _, item := range list.Items {
+		if item == nil {
+			continue
+		}
+		ret.Data = append(ret.Data, orderStatusLogToResponse(item))
+	}
+	return ret, nil
+}
+
 func (os *orderServer) UpdateOrderStatus(ctx context.Context, status *pb.OrderStatus) (*emptypb.Empty, error) {
 	if status == nil {
 		return nil, errors.WithCode(code2.ErrValidation, "order status is required")
@@ -292,4 +312,22 @@ func orderGoodsToResponse(goods []*do.OrderGoods) []*pb.OrderItemResponse {
 		})
 	}
 	return ret
+}
+
+func orderStatusLogToResponse(item *dto.OrderStatusLogDTO) *pb.OrderStatusLogResponse {
+	if item == nil {
+		return nil
+	}
+
+	return &pb.OrderStatusLogResponse{
+		Id:         item.ID,
+		OrderId:    item.OrderID,
+		OrderSn:    item.OrderSn,
+		FromStatus: item.FromStatus,
+		ToStatus:   item.ToStatus,
+		Reason:     item.Reason,
+		Source:     item.Source,
+		Operator:   item.Operator,
+		AddTime:    item.CreatedAt.Format("2006-01-02 15:04:05"),
+	}
 }

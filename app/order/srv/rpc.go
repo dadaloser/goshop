@@ -37,7 +37,7 @@ func newOrderServiceFactory(ctx context.Context, cfg *config.Config) (v13.Servic
 		return nil, err
 	}
 
-	return v13.NewService(dataFactory, cfg.Dtm, goodsGateway, inventoryGateway), nil
+	return v13.NewService(dataFactory, cfg.Dtm, goodsGateway, inventoryGateway, cfg.Lifecycle.ToServiceConfig()), nil
 }
 
 func newOrderRPCServerWithFactory(cfg *config.Config, orderSrvFactory v13.ServiceFactory) (*rpcserver.Server, error) {

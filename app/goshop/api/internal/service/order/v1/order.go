@@ -54,6 +54,7 @@ type OrderSrv interface {
 	SubmitOrder(ctx context.Context, userID uint64, req *SubmitOrderRequest) (string, error)
 	OrderList(ctx context.Context, userID uint64, filter *OrderListFilter) (*opb.OrderListResponse, error)
 	OrderDetail(ctx context.Context, userID uint64, orderSn string) (*opb.OrderInfoDetailResponse, error)
+	OrderStatusLogs(ctx context.Context, userID uint64, orderSn string) (*opb.OrderStatusLogListResponse, error)
 	SimulatePayCallback(ctx context.Context, req *PayCallbackRequest) error
 }
 
@@ -262,6 +263,33 @@ func (os *orderService) OrderDetail(ctx context.Context, userID uint64, orderSn 
 	}
 	if resp.OrderInfo == nil {
 		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+	}
+	return resp, nil
+}
+
+func (os *orderService) OrderStatusLogs(ctx context.Context, userID uint64, orderSn string) (*opb.OrderStatusLogListResponse, error) {
+	if os == nil || os.data == nil {
+		return nil, errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+	}
+	orderSn = strings.TrimSpace(orderSn)
+	if userID == 0 || orderSn == "" {
+		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+	}
+
+	client := os.data.Orders()
+	if client == nil {
+		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+	}
+
+	resp, err := client.OrderStatusLogs(ctx, &opb.OrderRequest{
+		UserId:  int32(userID),
+		OrderSn: orderSn,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc response is empty")
 	}
 	return resp, nil
 }

@@ -17,6 +17,7 @@ service Order {
     rpc SubmitOrder(OrderRequest) returns (google.protobuf.Empty); //提交订单
     rpc OrderList(OrderFilterRequest) returns (OrderListResponse); // 订单列表
     rpc OrderDetail(OrderRequest) returns (OrderInfoDetailResponse); // 订单详情
+    rpc OrderStatusLogs(OrderRequest) returns (OrderStatusLogListResponse); // 订单状态日志
     rpc GetOrderBySn(OrderLookupRequest) returns (OrderInfoDetailResponse); // 按订单号查询订单详情
     rpc UpdateOrderStatus(OrderStatus) returns (google.protobuf.Empty); // 修改订单状态
 }
@@ -98,6 +99,23 @@ message OrderItemResponse {
 message OrderInfoDetailResponse {
     OrderInfoResponse orderInfo = 1;
     repeated OrderItemResponse goods = 2;
+}
+
+message OrderStatusLogResponse {
+    int32 id = 1;
+    int32 orderId = 2;
+    string orderSn = 3;
+    string fromStatus = 4;
+    string toStatus = 5;
+    string reason = 6;
+    string source = 7;
+    string operator = 8;
+    string addTime = 9;
+}
+
+message OrderStatusLogListResponse {
+    int32 total = 1;
+    repeated OrderStatusLogResponse data = 2;
 }
 
 message OrderFilterRequest {

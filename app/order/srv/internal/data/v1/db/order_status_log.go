@@ -34,4 +34,20 @@ func (o *orderStatusLogs) Create(ctx context.Context, txn *gorm.DB, entry *do.Or
 	return nil
 }
 
+func (o *orderStatusLogs) ListByOrderSn(ctx context.Context, orderSn string) ([]*do.OrderStatusLogDO, error) {
+	orderSn = strings.TrimSpace(orderSn)
+	if orderSn == "" {
+		return nil, errors.WithCode(code2.ErrValidation, "order_sn is required")
+	}
+
+	var entries []*do.OrderStatusLogDO
+	if err := o.db.WithContext(ctx).
+		Where("order_sn = ?", orderSn).
+		Order("add_time asc, id asc").
+		Find(&entries).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return entries, nil
+}
+
 var _ v1.OrderStatusLogStore = &orderStatusLogs{}

@@ -62,6 +62,7 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 		uGroup.POST("orders", jwtAuth.AuthFunc(), orderController.SubmitOrder)
 		uGroup.GET("orders", jwtAuth.AuthFunc(), orderController.OrderList)
 		uGroup.GET("orders/:order_sn", jwtAuth.AuthFunc(), orderController.OrderDetail)
+		uGroup.GET("orders/:order_sn/status_logs", jwtAuth.AuthFunc(), orderController.OrderStatusLogs)
 		uGroup.POST("orders/pay/callback", jwtAuth.AuthFunc(), orderController.SimulatePayCallback)
 	}
 

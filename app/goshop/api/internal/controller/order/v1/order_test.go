@@ -207,6 +207,57 @@ func TestOrderControllerReturnsOrderDetail(t *testing.T) {
 	}
 }
 
+func TestOrderControllerReturnsOrderStatusLogs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	var gotOrderSn string
+	controller := NewOrderController(&fakeOrderServiceFactory{
+		orders: &fakeOrderSrv{
+			orderStatusLogs: func(_ context.Context, userID uint64, orderSn string) (*opb.OrderStatusLogListResponse, error) {
+				if userID != 7 {
+					t.Fatalf("userID = %d, want 7", userID)
+				}
+				gotOrderSn = orderSn
+				return &opb.OrderStatusLogListResponse{
+					Total: 1,
+					Data: []*opb.OrderStatusLogResponse{
+						{
+							OrderSn:    "order-1",
+							FromStatus: "WAIT_BUYER_PAY",
+							ToStatus:   "TRADE_SUCCESS",
+							Reason:     "payment callback",
+						},
+					},
+				}, nil
+			},
+		},
+	}, nil)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set(middlewares.KeyUserID, float64(7))
+	ctx.Params = gin.Params{{Key: "order_sn", Value: "order-1"}}
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/user/orders/order-1/status_logs", nil)
+
+	controller.OrderStatusLogs(ctx)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+	if gotOrderSn != "order-1" {
+		t.Fatalf("orderSn = %s, want order-1", gotOrderSn)
+	}
+	body, err := decodeJSONBody(recorder.Body.Bytes())
+	if err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["total"] != float64(1) {
+		t.Fatalf("response body = %+v", body)
+	}
+	data, ok := body["data"].([]any)
+	if !ok || len(data) != 1 {
+		t.Fatalf("response data = %+v", body["data"])
+	}
+}
+
 func assertOrderErrorCode(t *testing.T, body []byte, want int) {
 	t.Helper()
 	var got struct {
@@ -247,14 +298,15 @@ func (f *fakeOrderServiceFactory) Sms() smsv1.SmsSrv {
 var _ service.ServiceFactory = &fakeOrderServiceFactory{}
 
 type fakeOrderSrv struct {
-	listCartItems  func(context.Context, uint64) (*opb.CartItemListResponse, error)
-	createCartItem func(context.Context, uint64, *orderv1.CartItemRequest) (*opb.ShopCartInfoResponse, error)
-	updateCartItem func(context.Context, uint64, *orderv1.CartItemRequest) error
-	deleteCartItem func(context.Context, uint64, uint64) error
-	submitOrder    func(context.Context, uint64, *orderv1.SubmitOrderRequest) (string, error)
-	orderList      func(context.Context, uint64, *orderv1.OrderListFilter) (*opb.OrderListResponse, error)
-	orderDetail    func(context.Context, uint64, string) (*opb.OrderInfoDetailResponse, error)
-	simulate       func(context.Context, *orderv1.PayCallbackRequest) error
+	listCartItems   func(context.Context, uint64) (*opb.CartItemListResponse, error)
+	createCartItem  func(context.Context, uint64, *orderv1.CartItemRequest) (*opb.ShopCartInfoResponse, error)
+	updateCartItem  func(context.Context, uint64, *orderv1.CartItemRequest) error
+	deleteCartItem  func(context.Context, uint64, uint64) error
+	submitOrder     func(context.Context, uint64, *orderv1.SubmitOrderRequest) (string, error)
+	orderList       func(context.Context, uint64, *orderv1.OrderListFilter) (*opb.OrderListResponse, error)
+	orderDetail     func(context.Context, uint64, string) (*opb.OrderInfoDetailResponse, error)
+	orderStatusLogs func(context.Context, uint64, string) (*opb.OrderStatusLogListResponse, error)
+	simulate        func(context.Context, *orderv1.PayCallbackRequest) error
 }
 
 func (f *fakeOrderSrv) CartItemList(ctx context.Context, userID uint64) (*opb.CartItemListResponse, error) {
@@ -304,6 +356,13 @@ func (f *fakeOrderSrv) OrderDetail(ctx context.Context, userID uint64, orderSn s
 		return f.orderDetail(ctx, userID, orderSn)
 	}
 	return &opb.OrderInfoDetailResponse{}, nil
+}
+
+func (f *fakeOrderSrv) OrderStatusLogs(ctx context.Context, userID uint64, orderSn string) (*opb.OrderStatusLogListResponse, error) {
+	if f.orderStatusLogs != nil {
+		return f.orderStatusLogs(ctx, userID, orderSn)
+	}
+	return &opb.OrderStatusLogListResponse{}, nil
 }
 
 func (f *fakeOrderSrv) SimulatePayCallback(ctx context.Context, req *orderv1.PayCallbackRequest) error {

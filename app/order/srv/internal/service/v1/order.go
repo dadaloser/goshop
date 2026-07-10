@@ -48,6 +48,7 @@ type OrderSrv interface {
 	UpdateCartItem(ctx context.Context, cartItem *dto.ShopCartDTO) error
 	DeleteCartItem(ctx context.Context, userID, id uint64) error
 	Get(ctx context.Context, userID uint64, orderSn string) (*dto.OrderDTO, error)
+	StatusLogs(ctx context.Context, userID uint64, orderSn string) (*dto.OrderStatusLogDTOList, error)
 	List(ctx context.Context, userID uint64, meta v1.ListMeta, orderBy []string) (*dto.OrderDTOList, error)
 	Submit(ctx context.Context, order *dto.OrderDTO) error
 	Create(ctx context.Context, order *dto.OrderDTO) error
@@ -364,6 +365,27 @@ func (os *orderService) Get(ctx context.Context, userID uint64, orderSn string) 
 		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
 	}
 	return &dto.OrderDTO{OrderInfoDO: *order}, nil
+}
+
+func (os *orderService) StatusLogs(ctx context.Context, userID uint64, orderSn string) (*dto.OrderStatusLogDTOList, error) {
+	order, err := os.Get(ctx, userID, orderSn)
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := os.data.OrderStatusLogs().ListByOrderSn(ctx, order.OrderSn)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := &dto.OrderStatusLogDTOList{TotalCount: int64(len(entries))}
+	for _, entry := range entries {
+		if entry == nil {
+			continue
+		}
+		ret.Items = append(ret.Items, &dto.OrderStatusLogDTO{OrderStatusLogDO: *entry})
+	}
+	return ret, nil
 }
 
 func (os *orderService) List(ctx context.Context, userID uint64, meta v1.ListMeta, orderBy []string) (*dto.OrderDTOList, error) {

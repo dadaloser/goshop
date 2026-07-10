@@ -3,8 +3,11 @@ package order
 import (
 	"context"
 	"testing"
+	"time"
 
 	pb "goshop/api/order/v1"
+	"goshop/app/order/srv/internal/domain/do"
+	"goshop/app/order/srv/internal/domain/dto"
 	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
 )
@@ -80,6 +83,13 @@ func TestOrderServerRejectsNilRequests(t *testing.T) {
 			},
 		},
 		{
+			name: "order status logs",
+			run: func() error {
+				_, err := server.OrderStatusLogs(context.Background(), nil)
+				return err
+			},
+		},
+		{
 			name: "update order status",
 			run: func() error {
 				_, err := server.UpdateOrderStatus(context.Background(), nil)
@@ -106,5 +116,46 @@ func TestOrderServerRejectsNilOrderItem(t *testing.T) {
 	})
 	if !errors.IsCode(err, code2.ErrValidation) {
 		t.Fatalf("error = %v, want code %d", err, code2.ErrValidation)
+	}
+}
+
+func TestOrderServerReturnsOrderStatusLogs(t *testing.T) {
+	now := time.Unix(1700000000, 0)
+	server := NewOrderServer(fakeOrderServiceFactory{
+		orders: fakeOrderSrv{
+			statusLogs: func(context.Context, uint64, string) (*dto.OrderStatusLogDTOList, error) {
+				return &dto.OrderStatusLogDTOList{
+					TotalCount: 1,
+					Items: []*dto.OrderStatusLogDTO{
+						{
+							OrderStatusLogDO: do.OrderStatusLogDO{
+								BaseModel:  doBaseModel(1, now),
+								OrderID:    2,
+								OrderSn:    "order-1",
+								FromStatus: "WAIT_BUYER_PAY",
+								ToStatus:   "TRADE_SUCCESS",
+								Reason:     "payment callback",
+								Source:     "order.pay_callback",
+								Operator:   "system",
+							},
+						},
+					},
+				}, nil
+			},
+		},
+	})
+
+	resp, err := server.OrderStatusLogs(context.Background(), &pb.OrderRequest{
+		UserId:  9,
+		OrderSn: "order-1",
+	})
+	if err != nil {
+		t.Fatalf("OrderStatusLogs() error = %v", err)
+	}
+	if resp.GetTotal() != 1 || len(resp.GetData()) != 1 {
+		t.Fatalf("OrderStatusLogs() response = %+v", resp)
+	}
+	if got := resp.GetData()[0]; got.GetOrderSn() != "order-1" || got.GetToStatus() != "TRADE_SUCCESS" || got.GetAddTime() == "" {
+		t.Fatalf("OrderStatusLogs() item = %+v", got)
 	}
 }
