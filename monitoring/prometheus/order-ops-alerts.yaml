@@ -1,0 +1,86 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: goshop-order-ops-alerts
+  labels:
+    app.kubernetes.io/name: goshop
+    app.kubernetes.io/component: order-observability
+spec:
+  groups:
+    - name: goshop-order-ops
+      rules:
+        - alert: OrderPaymentCallbackDependencyErrorsHigh
+          expr: |
+            sum(rate(goshop_api_order_payment_callback_total{job="goshop-api",result="dependency_error"}[5m])) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+            team: commerce
+          annotations:
+            summary: "Payment callback dependency errors are elevated"
+            description: "The API payment callback path is hitting downstream dependency failures for at least 10 minutes."
+
+        - alert: OrderPaymentCallbackRejectedSpike
+          expr: |
+            sum(rate(goshop_api_order_payment_callback_total{job="goshop-api",result="rejected"}[10m]))
+              /
+            clamp_min(sum(rate(goshop_api_order_payment_callback_total{job="goshop-api"}[10m])), 0.001)
+            > 0.20
+          for: 15m
+          labels:
+            severity: warning
+            team: commerce
+          annotations:
+            summary: "Payment callback rejected ratio is high"
+            description: "More than 20% of payment callbacks are being rejected. Check order existence, request validity, and state transition conflicts."
+
+        - alert: OrderTimeoutAutoCloseFailures
+          expr: |
+            sum(rate(order_service_lifecycle_processed_total{job="goshop-order-srv",operation="auto_close",result="failed"}[15m])) > 0
+          for: 15m
+          labels:
+            severity: critical
+            team: commerce
+          annotations:
+            summary: "Timeout auto-close worker is failing"
+            description: "The order lifecycle worker is discovering unpaid orders but failing to close at least some of them."
+
+        - alert: OrderAutoFinishFailures
+          expr: |
+            sum(rate(order_service_lifecycle_processed_total{job="goshop-order-srv",operation="auto_finish",result="failed"}[15m])) > 0
+          for: 15m
+          labels:
+            severity: warning
+            team: commerce
+          annotations:
+            summary: "Auto-finish worker is failing"
+            description: "The order lifecycle worker is failing to complete paid orders."
+
+        - alert: OrderLifecycleSweepSlow
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le, operation) (
+                rate(order_service_lifecycle_sweep_duration_ms_bucket{job="goshop-order-srv"}[15m])
+              )
+            ) > 3000
+          for: 15m
+          labels:
+            severity: warning
+            team: commerce
+          annotations:
+            summary: "Lifecycle worker sweep latency is elevated"
+            description: "The p95 lifecycle sweep duration is above 3s. Check DB latency and downstream inventory/order update calls."
+
+        - alert: OrderPaymentTransitionMissing
+          expr: |
+            sum(rate(goshop_api_order_payment_callback_total{job="goshop-api",target_status="trade_success",result="success"}[10m])) > 0
+            and
+            sum(rate(order_service_state_transition_total{job="goshop-order-srv",trigger="payment",transition="pay_success",result="success"}[10m])) == 0
+          for: 10m
+          labels:
+            severity: critical
+            team: commerce
+          annotations:
+            summary: "Payment callbacks succeed at the API edge but no pay-success transitions are recorded"
+            description: "The API sees successful payment callbacks, but the order service is not emitting matching pay-success transitions."
