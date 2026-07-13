@@ -25,7 +25,7 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	v1 := g.Group("/v1")
 	uGroup := v1.Group("/user")
 
-	data, err := rpc.GetDataFactoryOr(ctx, cfg.Registry, cfg.RPC)
+	data, err := rpc.GetDataFactoryOr(ctx, cfg.Registry, cfg.RPC, cfg.RPCClientResilience)
 	if err != nil {
 		return err
 	}

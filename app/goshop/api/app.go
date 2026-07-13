@@ -61,6 +61,7 @@ func NewAPIApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 		UseSSL:                cfg.Redis.UseSSL,
 		SSLInsecureSkipVerify: cfg.Redis.SSLInsecureSkipVerify,
 		EnableTracing:         cfg.Redis.EnableTracing,
+		Resilience:            cfg.Redis.Resilience,
 	}
 	go storage.ConnectToRedis(ctx, redisConfig)
 

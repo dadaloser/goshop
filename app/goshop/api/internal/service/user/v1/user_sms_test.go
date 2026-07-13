@@ -2,6 +2,8 @@ package v1
 
 import (
 	"context"
+	stderrors "errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	"goshop/pkg/errors"
+	"goshop/pkg/storage"
 )
 
 func TestSmsLoginRejectsLockedMobileBeforeCodeLookup(t *testing.T) {
@@ -85,6 +88,59 @@ func TestRegisterResetsSmsFailuresOnSuccess(t *testing.T) {
 	}
 }
 
+func TestRegisterReturnsContextDeadlineWhenSmsCodeLookupTimesOut(t *testing.T) {
+	var active int32
+	done := make(chan struct{})
+	codes := &fakeSmsCodeStore{
+		get: func(ctx context.Context, _ string) (string, error) {
+			atomic.AddInt32(&active, 1)
+			defer func() {
+				atomic.AddInt32(&active, -1)
+				close(done)
+			}()
+			<-ctx.Done()
+			return "", ctx.Err()
+		},
+	}
+	attempts := &fakeSmsAttempts{}
+	svc := newSmsTestService(&fakeUserData{}, codes, attempts)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	_, err := svc.Register(ctx, "13800138000", "user@example.com", "user_001", "Strong1!", "tester", "123456")
+
+	if !stderrors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Register() error = %v, want context deadline exceeded", err)
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("sms code lookup did not stop after context timeout")
+	}
+	if got := atomic.LoadInt32(&active); got != 0 {
+		t.Fatalf("active sms code lookups = %d, want 0", got)
+	}
+	if attempts.recordMobile != "" {
+		t.Fatalf("record mobile = %q, want empty when backend timed out", attempts.recordMobile)
+	}
+}
+
+func TestSmsLoginReturnsCodeNotExistForMissingSmsCode(t *testing.T) {
+	codes := &fakeSmsCodeStore{getErr: storage.ErrKeyNotFound}
+	attempts := &fakeSmsAttempts{}
+	svc := newSmsTestService(&fakeUserData{}, codes, attempts)
+
+	_, err := svc.SmsLogin(context.Background(), "13800138000", "123456")
+
+	if !errors.IsCode(err, code.ErrCodeNotExist) {
+		t.Fatalf("SmsLogin() error = %v, want ErrCodeNotExist", err)
+	}
+	if attempts.recordMobile != "13800138000" {
+		t.Fatalf("record mobile = %q, want 13800138000", attempts.recordMobile)
+	}
+}
+
 func newSmsTestService(users *fakeUserData, codes *fakeSmsCodeStore, attempts *fakeSmsAttempts) UserSrv {
 	return NewUserService(
 		&fakeDataFactory{users: users},
@@ -106,10 +162,14 @@ type fakeSmsCodeStore struct {
 	getErr       error
 	getCalled    bool
 	deleteCalled bool
+	get          func(context.Context, string) (string, error)
 }
 
 func (f *fakeSmsCodeStore) Get(context.Context, string) (string, error) {
 	f.getCalled = true
+	if f.get != nil {
+		return f.get(context.Background(), "")
+	}
 	if f.getErr != nil {
 		return "", f.getErr
 	}

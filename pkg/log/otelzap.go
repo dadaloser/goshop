@@ -144,7 +144,7 @@ func (l *Logger) WarnContext(ctx context.Context, msg string, fields ...zapcore.
 func (l *Logger) WarnfContext(ctx context.Context, format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
 	fields := l.logFields(ctx, zap.WarnLevel, msg, []zapcore.Field{})
-	l.skipCaller.Info(msg, fields...)
+	l.skipCaller.Warn(msg, fields...)
 }
 
 func (l *Logger) ErrorContext(ctx context.Context, msg string, fields ...zapcore.Field) {
@@ -155,7 +155,7 @@ func (l *Logger) ErrorContext(ctx context.Context, msg string, fields ...zapcore
 func (l *Logger) ErrorfContext(ctx context.Context, format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
 	fields := l.logFields(ctx, zap.ErrorLevel, msg, []zapcore.Field{})
-	l.skipCaller.Info(msg, fields...)
+	l.skipCaller.Error(msg, fields...)
 }
 
 func (l *Logger) Flush() {
@@ -170,7 +170,7 @@ func (l *Logger) DPanicContext(ctx context.Context, msg string, fields ...zapcor
 func (l *Logger) DPanicfContext(ctx context.Context, format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
 	fields := l.logFields(ctx, zap.DPanicLevel, msg, []zapcore.Field{})
-	l.skipCaller.Info(msg, fields...)
+	l.skipCaller.DPanic(msg, fields...)
 }
 
 func (l *Logger) PanicContext(ctx context.Context, msg string, fields ...zapcore.Field) {
@@ -181,7 +181,7 @@ func (l *Logger) PanicContext(ctx context.Context, msg string, fields ...zapcore
 func (l *Logger) PanicfContext(ctx context.Context, format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
 	fields := l.logFields(ctx, zap.PanicLevel, msg, []zapcore.Field{})
-	l.skipCaller.Info(msg, fields...)
+	l.skipCaller.Panic(msg, fields...)
 }
 
 func (l *Logger) FatalContext(ctx context.Context, msg string, fields ...zapcore.Field) {
@@ -192,7 +192,7 @@ func (l *Logger) FatalContext(ctx context.Context, msg string, fields ...zapcore
 func (l *Logger) FatalfContext(ctx context.Context, format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
 	fields := l.logFields(ctx, zap.FatalLevel, msg, []zapcore.Field{})
-	l.skipCaller.Info(msg, fields...)
+	l.skipCaller.Fatal(msg, fields...)
 }
 
 func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, fields []zapcore.Field) []zapcore.Field {
@@ -204,10 +204,10 @@ func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, f
 	case *gin.Context:
 		requestID, _ := ctx.Value(KeyRequestID).(string)
 		username, _ := ctx.Value(KeyUsername).(string)
-		if requestID == "" {
+		if requestID != "" {
 			fields = append(fields, zap.String(KeyRequestID, requestID))
 		}
-		if username == "" {
+		if username != "" {
 			fields = append(fields, zap.String(KeyUsername, username))
 		}
 		ctx = ctx.(*gin.Context).Request.Context()

@@ -50,6 +50,7 @@ Important production settings:
 | pprof | Disabled or protected with an explicit bearer token. |
 | Secrets | Injected by environment, secret manager, or deployment platform. |
 | Logs | JSON format preferred for production ingestion. |
+| Dependency resilience | Positive timeout and concurrency, error ratio in `(0,1]`, positive minimum requests, statistic window, and recovery window. |
 
 ## Lifecycle
 
@@ -80,6 +81,9 @@ startup context and exit on cancellation.
 - Tracing uses OpenTelemetry configuration from service config.
 - Logs should include stable operation names and useful IDs such as request ID,
   user ID, order SN, service name, and duration.
+- Outbound gRPC, Redis, and MySQL protection exports
+  `dependency_resilience_*` metrics. See `docs/dependency-resilience.md` and
+  `monitoring/prometheus/dependency-resilience-alerts.yaml`.
 - Do not log JWTs, passwords, SMS secrets, full DSNs, private keys, or user
   private payloads.
 

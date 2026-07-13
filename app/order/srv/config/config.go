@@ -2,7 +2,9 @@ package config
 
 import (
 	"encoding/json"
+
 	"goshop/app/pkg/options"
+	"goshop/gmicro/resilience"
 	"goshop/pkg/app"
 
 	cliflag "goshop/pkg/common/cli/flag"
@@ -10,27 +12,29 @@ import (
 )
 
 type Config struct {
-	MySQLOptions *options.MySQLOptions       `json:"mysql"     mapstructure:"mysql"`
-	Log          *log.Options                `json:"log"     mapstructure:"log"`
-	Server       *options.ServerOptions      `json:"server"     mapstructure:"server"`
-	Telemetry    *options.TelemetryOptions   `json:"telemetry" mapstructure:"telemetry"`
-	Registry     *options.RegistryOptions    `json:"registry" mapstructure:"registry"`
-	RPC          *options.RPCSecurityOptions `json:"rpc-security" mapstructure:"rpc-security"`
-	Dtm          *options.DtmOptions         `json:"dtm" mapstructure:"dtm"`
-	Lifecycle    *LifecycleOptions           `json:"lifecycle" mapstructure:"lifecycle"`
+	MySQLOptions        *options.MySQLOptions       `json:"mysql"     mapstructure:"mysql"`
+	Log                 *log.Options                `json:"log"     mapstructure:"log"`
+	Server              *options.ServerOptions      `json:"server"     mapstructure:"server"`
+	Telemetry           *options.TelemetryOptions   `json:"telemetry" mapstructure:"telemetry"`
+	Registry            *options.RegistryOptions    `json:"registry" mapstructure:"registry"`
+	RPC                 *options.RPCSecurityOptions `json:"rpc-security" mapstructure:"rpc-security"`
+	Dtm                 *options.DtmOptions         `json:"dtm" mapstructure:"dtm"`
+	Lifecycle           *LifecycleOptions           `json:"lifecycle" mapstructure:"lifecycle"`
+	RPCClientResilience *resilience.Options         `json:"rpc-client-resilience" mapstructure:"rpc-client-resilience"`
 }
 
 func New() *Config {
 	//配置默认初始化
 	return &Config{
-		MySQLOptions: options.NewMySQLOptions(),
-		Log:          log.NewOptions(),
-		Server:       options.NewServerOptions(),
-		Telemetry:    options.NewTelemetryOptions(),
-		Registry:     options.NewRegistryOptions(),
-		RPC:          options.NewRPCSecurityOptions(),
-		Dtm:          options.NewDtmOptions(),
-		Lifecycle:    NewLifecycleOptions(),
+		MySQLOptions:        options.NewMySQLOptions(),
+		Log:                 log.NewOptions(),
+		Server:              options.NewServerOptions(),
+		Telemetry:           options.NewTelemetryOptions(),
+		Registry:            options.NewRegistryOptions(),
+		RPC:                 options.NewRPCSecurityOptions(),
+		Dtm:                 options.NewDtmOptions(),
+		Lifecycle:           NewLifecycleOptions(),
+		RPCClientResilience: resilience.NewOptions(),
 	}
 }
 
@@ -44,6 +48,7 @@ func (o *Config) Flags() (fss cliflag.NamedFlagSets) {
 	o.MySQLOptions.AddFlags(fss.FlagSet("mysql"))
 	o.Dtm.AddFlags(fss.FlagSet("dtm"))
 	o.Lifecycle.AddFlags(fss.FlagSet("lifecycle"))
+	o.RPCClientResilience.AddFlags(fss.FlagSet("rpc-client-resilience"), "rpc-client-resilience")
 	return fss
 }
 
@@ -87,5 +92,6 @@ func (o *Config) Validate() []error {
 	errs = append(errs, o.RPC.Validate()...)
 	errs = append(errs, o.Dtm.Validate()...)
 	errs = append(errs, o.Lifecycle.Validate()...)
+	errs = append(errs, o.RPCClientResilience.Validate()...)
 	return errs
 }

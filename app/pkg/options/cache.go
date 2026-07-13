@@ -4,24 +4,27 @@ import (
 	"errors"
 	"fmt"
 
+	"goshop/gmicro/resilience"
+
 	"github.com/spf13/pflag"
 )
 
 type RedisOptions struct {
-	Host                  string   `mapstructure:"host" json:"host"`
-	Port                  int      `mapstructure:"port" json:"port"`
-	Addrs                 []string `mapstructure:"addrs" json:"addrs"`
-	Username              string   `mapstructure:"username" json:"username"`
-	Password              string   `mapstructure:"password" json:"password"`
-	Database              int      `mapstructure:"database" json:"database"`
-	MasterName            string   `mapstructure:"master-name" json:"master-name"`
-	MaxIdle               int      `mapstructure:"optimisation-max-idle" json:"optimisation-max-idle"`
-	MaxActive             int      `mapstructure:"optimisation-max-active" json:"optimisation-max-active"`
-	Timeout               int      `mapstructure:"timeout" json:"timeout"`
-	EnableCluster         bool     `mapstructure:"enable-cluster" json:"enable-cluster"`
-	UseSSL                bool     `mapstructure:"use-ssl" json:"use-ssl"`
-	SSLInsecureSkipVerify bool     `mapstructure:"ssl-insecure-skip-verify" json:"ssl-insecure-skip-verify"`
-	EnableTracing         bool     `mapstructure:"enabletracing" json:"enabletracing"`
+	Host                  string              `mapstructure:"host" json:"host"`
+	Port                  int                 `mapstructure:"port" json:"port"`
+	Addrs                 []string            `mapstructure:"addrs" json:"addrs"`
+	Username              string              `mapstructure:"username" json:"username"`
+	Password              string              `mapstructure:"password" json:"password"`
+	Database              int                 `mapstructure:"database" json:"database"`
+	MasterName            string              `mapstructure:"master-name" json:"master-name"`
+	MaxIdle               int                 `mapstructure:"optimisation-max-idle" json:"optimisation-max-idle"`
+	MaxActive             int                 `mapstructure:"optimisation-max-active" json:"optimisation-max-active"`
+	Timeout               int                 `mapstructure:"timeout" json:"timeout"`
+	EnableCluster         bool                `mapstructure:"enable-cluster" json:"enable-cluster"`
+	UseSSL                bool                `mapstructure:"use-ssl" json:"use-ssl"`
+	SSLInsecureSkipVerify bool                `mapstructure:"ssl-insecure-skip-verify" json:"ssl-insecure-skip-verify"`
+	EnableTracing         bool                `mapstructure:"enabletracing" json:"enabletracing"`
+	Resilience            *resilience.Options `mapstructure:"resilience" json:"resilience"`
 }
 
 // NewRedisOptions create a `zero` value instance.
@@ -40,6 +43,7 @@ func NewRedisOptions() *RedisOptions {
 		EnableCluster:         false,
 		UseSSL:                false,
 		SSLInsecureSkipVerify: false,
+		Resilience:            resilience.NewOptions(),
 	}
 }
 
@@ -48,6 +52,9 @@ func (o *RedisOptions) Validate() []error {
 
 	if o.EnableCluster && o.Database != 0 {
 		errs = append(errs, errors.New("redis.database must be 0 when redis.enable-cluster is true"))
+	}
+	if o.Resilience != nil {
+		errs = append(errs, o.Resilience.Validate()...)
 	}
 
 	return errs
@@ -104,4 +111,5 @@ func (o *RedisOptions) AddFlags(fs *pflag.FlagSet) {
 
 	fs.BoolVar(&o.SSLInsecureSkipVerify, "redis.ssl-insecure-skip-verify", o.SSLInsecureSkipVerify, ""+
 		"Allows usage of self-signed certificates when connecting to an encrypted Redis database.")
+	o.Resilience.AddFlags(fs, "redis.resilience")
 }

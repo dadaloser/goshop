@@ -53,6 +53,8 @@ that changes must preserve.
    into local interfaces.
 6. `pkg/` and `gmicro/` must not import service-private `app/*/internal` code.
 7. New reusable code goes to `pkg/` only when it has a stable API responsibility.
+8. Outbound gRPC, Redis, and MySQL operations use `gmicro/resilience` for
+   timeout, Sentinel isolation/circuit breaking, fail-fast fallback, and metrics.
 
 ## Request Lifecycle
 
@@ -111,6 +113,9 @@ cmd/{service}
 | `gmicro/app/app.go` | Service lifecycle, signal handling, registration, shutdown, and trace cleanup. |
 | `gmicro/server/restserver/server.go` | Gin HTTP server, health, metrics, pprof, and production startup checks. |
 | `gmicro/server/rpcserver/server.go` | gRPC server startup and shutdown. |
+| `gmicro/resilience/` | Shared dependency policies, Sentinel guards, circuit state listeners, and Prometheus metrics. |
+| `app/pkg/gorm/resilience.go` | GORM callback plugin for MySQL dependency protection. |
+| `pkg/storage/redis_resilience.go` | go-redis hook for Redis dependency protection. |
 | `app/goshop/api/router.go` | Public HTTP API routing. |
 | `app/order/srv/internal/service/v1/order.go` | Order creation and DTM Saga orchestration. |
 | `app/*/srv/config/config.go` | Per-service configuration structure, validation, and safe printing. |

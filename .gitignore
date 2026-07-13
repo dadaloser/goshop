@@ -3,6 +3,7 @@
 /logs/
 .DS_Store
 /docs/*
+!/docs/dependency-resilience.md
 /docs/rules/
 /docs/rules/*.md
 /cache/

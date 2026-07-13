@@ -3,6 +3,7 @@ package mysql
 import (
 	"fmt"
 	"goshop/app/pkg/code"
+	appgorm "goshop/app/pkg/gorm"
 	"goshop/app/pkg/options"
 	"log"
 	"os"
@@ -63,8 +64,15 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (v12.DataFactory, error) {
 		if err != nil {
 			return
 		}
+		if err = db.Use(appgorm.NewResiliencePlugin(mysqlOpts.Resilience)); err != nil {
+			return
+		}
 
-		sqlDB, _ := db.DB()
+		sqlDB, dbErr := db.DB()
+		if dbErr != nil {
+			err = dbErr
+			return
+		}
 		dbFactory = &mysqlStore{
 			db: db,
 		}

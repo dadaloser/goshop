@@ -4,15 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type Test struct {
@@ -316,6 +320,155 @@ func TestOtelZap(t *testing.T) {
 			test.require(t, event)
 		})
 	}
+}
+
+func TestLoggerFormattedContextLevels(t *testing.T) {
+	tests := []struct {
+		name   string
+		level  zapcore.Level
+		panics bool
+		log    func(*Logger)
+	}{
+		{
+			name:  "warn",
+			level: zap.WarnLevel,
+			log: func(logger *Logger) {
+				logger.WarnfContext(context.Background(), "hello %s", "world")
+			},
+		},
+		{
+			name:  "error",
+			level: zap.ErrorLevel,
+			log: func(logger *Logger) {
+				logger.ErrorfContext(context.Background(), "hello %s", "world")
+			},
+		},
+		{
+			name:  "dpanic",
+			level: zap.DPanicLevel,
+			log: func(logger *Logger) {
+				logger.DPanicfContext(context.Background(), "hello %s", "world")
+			},
+		},
+		{
+			name:   "panic",
+			level:  zap.PanicLevel,
+			panics: true,
+			log: func(logger *Logger) {
+				logger.PanicfContext(context.Background(), "hello %s", "world")
+			},
+		},
+		{
+			name:   "fatal",
+			level:  zap.FatalLevel,
+			panics: true,
+			log: func(logger *Logger) {
+				logger.FatalfContext(context.Background(), "hello %s", "world")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			core, logs := observer.New(zap.DebugLevel)
+			base := zap.New(core, zap.WithFatalHook(zapcore.WriteThenPanic))
+			logger := &Logger{
+				Logger:           base,
+				skipCaller:       base,
+				minLevel:         zap.DebugLevel,
+				errorStatusLevel: zap.ErrorLevel,
+			}
+
+			if tt.panics {
+				require.Panics(t, func() { tt.log(logger) })
+			} else {
+				require.NotPanics(t, func() { tt.log(logger) })
+			}
+
+			entries := logs.All()
+			require.Len(t, entries, 1)
+			require.Equal(t, tt.level, entries[0].Level)
+			require.Equal(t, "hello world", entries[0].Message)
+		})
+	}
+}
+
+func TestLoggerGinContextFields(t *testing.T) {
+	tests := []struct {
+		name      string
+		requestID string
+		username  string
+		want      map[string]interface{}
+	}{
+		{
+			name:      "non-empty values are logged",
+			requestID: "req-123",
+			username:  "alice",
+			want: map[string]interface{}{
+				KeyRequestID: "req-123",
+				KeyUsername:  "alice",
+			},
+		},
+		{
+			name: "empty values are omitted",
+			want: map[string]interface{}{},
+		},
+	}
+
+	gin.SetMode(gin.TestMode)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			core, logs := observer.New(zap.InfoLevel)
+			base := zap.New(core)
+			logger := &Logger{
+				Logger:           base,
+				skipCaller:       base,
+				minLevel:         zap.InfoLevel,
+				errorStatusLevel: zap.ErrorLevel,
+			}
+
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("GET", "/", nil)
+			ctx.Set(KeyRequestID, tt.requestID)
+			ctx.Set(KeyUsername, tt.username)
+
+			logger.InfoContext(ctx, "hello")
+
+			entries := logs.All()
+			require.Len(t, entries, 1)
+			fields := entries[0].ContextMap()
+			for _, key := range []string{KeyRequestID, KeyUsername} {
+				value, ok := tt.want[key]
+				if !ok {
+					require.NotContains(t, fields, key)
+					continue
+				}
+				require.Equal(t, value, fields[key])
+			}
+		})
+	}
+}
+
+func TestFatalCUsesFatalLevel(t *testing.T) {
+	core, logs := observer.New(zap.DebugLevel)
+	base := zap.New(core, zap.WithFatalHook(zapcore.WriteThenPanic))
+	logger := &Logger{
+		Logger:           base,
+		skipCaller:       base,
+		minLevel:         zap.DebugLevel,
+		errorStatusLevel: zap.ErrorLevel,
+	}
+
+	previous := std
+	std = logger
+	t.Cleanup(func() { std = previous })
+
+	require.Panics(t, func() {
+		FatalC(context.Background(), "fatal")
+	})
+	entries := logs.All()
+	require.Len(t, entries, 1)
+	require.Equal(t, zap.FatalLevel, entries[0].Level)
 }
 
 func requireCodeAttrs(t *testing.T, m map[attribute.Key]attribute.Value) {

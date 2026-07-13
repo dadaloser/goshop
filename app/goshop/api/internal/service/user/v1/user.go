@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	stderrors "errors"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"goshop/app/pkg/options"
 	code2 "goshop/gmicro/code"
 	"goshop/gmicro/server/restserver/middlewares"
+	"goshop/pkg/storage"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -116,6 +118,12 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 	key := smscode.LoginKey(mobile)
 	value, err := us.codeStore.Get(ctx, key)
 	if err != nil {
+		if isContextError(err) {
+			return nil, err
+		}
+		if !stderrors.Is(err, storage.ErrKeyNotFound) {
+			return nil, err
+		}
 		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeLogin); lockedErr != nil {
 			return nil, lockedErr
 		}
@@ -165,6 +173,12 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 	key := smscode.RegisterKey(mobile)
 	value, err := us.codeStore.Get(ctx, key)
 	if err != nil {
+		if isContextError(err) {
+			return nil, err
+		}
+		if !stderrors.Is(err, storage.ErrKeyNotFound) {
+			return nil, err
+		}
 		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeRegister); lockedErr != nil {
 			return nil, lockedErr
 		}
@@ -366,6 +380,10 @@ func (us *userService) bumpTokenVersion(ctx context.Context, userID uint64) erro
 		return err
 	}
 	return nil
+}
+
+func isContextError(err error) bool {
+	return stderrors.Is(err, context.Canceled) || stderrors.Is(err, context.DeadlineExceeded)
 }
 
 func (us *userService) ensurePasswordLoginAllowed(ctx context.Context, username string) error {

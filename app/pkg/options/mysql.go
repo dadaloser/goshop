@@ -6,20 +6,23 @@ import (
 	"strconv"
 	"time"
 
+	"goshop/gmicro/resilience"
+
 	"github.com/spf13/pflag"
 )
 
 type MySQLOptions struct {
-	Host                  string        `mapstructure:"host" json:"host,omitempty"`
-	Port                  string        `mapstructure:"port" json:"port,omitempty"`
-	Username              string        `mapstructure:"username" json:"username,omitempty"`
-	Password              string        `mapstructure:"password" json:"password,omitempty"`
-	Database              string        `mapstructure:"database" json:"database"`
-	MaxIdleConnections    int           `mapstructure:"max-idle-connections" json:"max-idle-connections,omitempty"`
-	MaxOpenConnections    int           `mapstructure:"max-open-connections" json:"max-open-connections,omitempty"`
-	MaxConnectionLifetime time.Duration `mapstructure:"max-connection-life-time" json:"max-connection-life-time,omitempty"`
-	LogLevel              int           `mapstructure:"log-level" json:"log-level"`
-	AutoMigrate           bool          `mapstructure:"auto-migrate" json:"auto-migrate,omitempty"`
+	Host                  string              `mapstructure:"host" json:"host,omitempty"`
+	Port                  string              `mapstructure:"port" json:"port,omitempty"`
+	Username              string              `mapstructure:"username" json:"username,omitempty"`
+	Password              string              `mapstructure:"password" json:"password,omitempty"`
+	Database              string              `mapstructure:"database" json:"database"`
+	MaxIdleConnections    int                 `mapstructure:"max-idle-connections" json:"max-idle-connections,omitempty"`
+	MaxOpenConnections    int                 `mapstructure:"max-open-connections" json:"max-open-connections,omitempty"`
+	MaxConnectionLifetime time.Duration       `mapstructure:"max-connection-life-time" json:"max-connection-life-time,omitempty"`
+	LogLevel              int                 `mapstructure:"log-level" json:"log-level"`
+	AutoMigrate           bool                `mapstructure:"auto-migrate" json:"auto-migrate,omitempty"`
+	Resilience            *resilience.Options `mapstructure:"resilience" json:"resilience"`
 }
 
 // NewMySQLOptions create a `zero` value instance.
@@ -34,6 +37,7 @@ func NewMySQLOptions() *MySQLOptions {
 		MaxOpenConnections:    100,
 		MaxConnectionLifetime: time.Duration(10) * time.Second,
 		LogLevel:              1, // Silent
+		Resilience:            resilience.NewOptions(),
 	}
 }
 
@@ -59,6 +63,9 @@ func (o *MySQLOptions) Validate() []error {
 	}
 	if o.MaxConnectionLifetime <= 0 {
 		errs = append(errs, errors.New("mysql.max-connection-life-time must be positive"))
+	}
+	if o.Resilience != nil {
+		errs = append(errs, o.Resilience.Validate()...)
 	}
 
 	return errs
@@ -131,4 +138,5 @@ func (mo *MySQLOptions) AddFlags(fs *pflag.FlagSet) {
 
 	fs.BoolVar(&mo.AutoMigrate, "mysql.auto-migrate", mo.AutoMigrate, ""+
 		"Run GORM AutoMigrate on startup. Keep disabled in production and use reviewed SQL migrations instead.")
+	mo.Resilience.AddFlags(fs, "mysql.resilience")
 }

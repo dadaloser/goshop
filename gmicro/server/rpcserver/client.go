@@ -3,20 +3,19 @@ package rpcserver
 import (
 	"context"
 	"fmt"
-	"goshop/gmicro/server/rpcserver/clientinterceptors"
-	"goshop/gmicro/server/rpcserver/resolver/discovery"
-
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-
-	grpcinsecure "google.golang.org/grpc/credentials/insecure"
-
-	"goshop/gmicro/registry"
-	"goshop/pkg/log"
 	"time"
 
+	"goshop/gmicro/registry"
+	"goshop/gmicro/resilience"
+	"goshop/gmicro/server/rpcserver/clientinterceptors"
+	"goshop/gmicro/server/rpcserver/resolver/discovery"
+	"goshop/pkg/log"
+
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
+	grpcinsecure "google.golang.org/grpc/credentials/insecure"
 )
 
 const selectorBalancerName = "selector"
@@ -37,6 +36,7 @@ type clientOptions struct {
 	enableMetrics  bool
 	connectProbe   bool
 	connectTimeout time.Duration
+	resilience     *resilience.Options
 
 	transportCredentials credentials.TransportCredentials
 }
@@ -73,6 +73,13 @@ func WithEndpoint(endpoint string) ClientOption {
 func WithClientTimeout(timeout time.Duration) ClientOption {
 	return func(o *clientOptions) {
 		o.timeout = timeout
+	}
+}
+
+// WithClientResilience configures outbound RPC timeout, isolation, and circuit breaking.
+func WithClientResilience(options *resilience.Options) ClientOption {
+	return func(o *clientOptions) {
+		o.resilience = options
 	}
 }
 
@@ -164,10 +171,16 @@ func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.Clien
 		o(&options)
 	}
 
-	//TODO 客户端默认拦截器
-	ints := []grpc.UnaryClientInterceptor{
-		clientinterceptors.TimeoutInterceptor(options.timeout),
+	resilienceOptions := options.resilience
+	if resilienceOptions == nil {
+		resilienceOptions = resilience.NewOptions()
+		resilienceOptions.Timeout = options.timeout
 	}
+	sentinelInterceptor, err := clientinterceptors.SentinelInterceptor(resilienceOptions)
+	if err != nil {
+		return nil, fmt.Errorf("create rpc resilience interceptor: %w", err)
+	}
+	ints := []grpc.UnaryClientInterceptor{sentinelInterceptor}
 
 	if options.enableMetrics {
 		ints = append(ints, clientinterceptors.PrometheusInterceptor())

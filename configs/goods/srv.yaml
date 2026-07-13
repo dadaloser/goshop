@@ -47,6 +47,14 @@ mysql:
   max-connection-life-time: 10s # 空闲连接最大存活时间，默认 10s
   log-level: 4 # GORM log level, 1: silent, 2:error, 3:warn, 4:info
   auto-migrate: false # 生产环境禁止应用启动时自动改表，使用 migration 工具
+  resilience:
+    enabled: true
+    timeout: 2s
+    max-concurrency: 100
+    error-ratio: 0.5
+    min-request-amount: 20
+    stat-interval: 10s
+    recovery-timeout: 30s
 
 es:
   host: "192.168.1.119" # redis 地址，默认 127.0.0.1:9200

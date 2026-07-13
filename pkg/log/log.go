@@ -217,7 +217,7 @@ func Fatal(msg string, fields ...Field) {
 }
 
 func FatalC(ctx context.Context, msg string, fields ...Field) {
-	std.PanicContext(ctx, msg, fields...)
+	std.FatalContext(ctx, msg, fields...)
 }
 
 // Fatalf method output fatal level log.

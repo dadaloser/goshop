@@ -5,6 +5,8 @@ import (
 	goodspb "goshop/api/goods/v1"
 	"goshop/app/pkg/client"
 	"goshop/app/pkg/options"
+	"goshop/gmicro/resilience"
+	"goshop/gmicro/server/rpcserver"
 )
 
 type GoodsInfo struct {
@@ -24,11 +26,21 @@ type goodsRPCGateway struct {
 
 // NewGoodsRPCGatewayContext creates a goods gateway using ctx for the initial
 // gRPC dial and discovery probe.
-func NewGoodsRPCGatewayContext(ctx context.Context, registry *options.RegistryOptions, rpcSecurity *options.RPCSecurityOptions) (GoodsGateway, error) {
+func NewGoodsRPCGatewayContext(
+	ctx context.Context,
+	registry *options.RegistryOptions,
+	rpcSecurity *options.RPCSecurityOptions,
+	rpcResilience *resilience.Options,
+) (GoodsGateway, error) {
 	if ctx == nil {
 		ctx = context.TODO()
 	}
-	goodsClient, _, err := client.NewGoodsClient(ctx, registry, rpcSecurity)
+	goodsClient, _, err := client.NewGoodsClient(
+		ctx,
+		registry,
+		rpcSecurity,
+		rpcserver.WithClientResilience(rpcResilience),
+	)
 	if err != nil {
 		return nil, err
 	}

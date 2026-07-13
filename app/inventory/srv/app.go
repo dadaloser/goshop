@@ -62,6 +62,7 @@ func NewInventoryApp(ctx context.Context, cfg *config.Config) (*gapp.App, error)
 		UseSSL:                cfg.RedisOptions.UseSSL,
 		SSLInsecureSkipVerify: cfg.RedisOptions.SSLInsecureSkipVerify,
 		EnableTracing:         cfg.RedisOptions.EnableTracing,
+		Resilience:            cfg.RedisOptions.Resilience,
 	}
 	go storage.ConnectToRedis(ctx, redisConfig)
 

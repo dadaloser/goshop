@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"goshop/app/pkg/options"
+	"goshop/gmicro/resilience"
 	"goshop/pkg/app"
 	cliflag "goshop/pkg/common/cli/flag"
 	"goshop/pkg/log"
@@ -12,12 +13,13 @@ import (
 type Config struct {
 	Log *log.Options `json:"log" mapstructure:"log"`
 
-	Server   *options.ServerOptions      `json:"server" mapstructure:"server"`
-	Registry *options.RegistryOptions    `json:"registry" mapstructure:"registry"`
-	RPC      *options.RPCSecurityOptions `json:"rpc-security" mapstructure:"rpc-security"`
-	Jwt      *options.JwtOptions         `json:"jwt" mapstructure:"jwt"`
-	Sms      *options.SmsOptions         `json:"sms" mapstructure:"sms"`
-	Redis    *options.RedisOptions       `json:"redis" mapstructure:"redis"`
+	Server              *options.ServerOptions      `json:"server" mapstructure:"server"`
+	Registry            *options.RegistryOptions    `json:"registry" mapstructure:"registry"`
+	RPC                 *options.RPCSecurityOptions `json:"rpc-security" mapstructure:"rpc-security"`
+	Jwt                 *options.JwtOptions         `json:"jwt" mapstructure:"jwt"`
+	Sms                 *options.SmsOptions         `json:"sms" mapstructure:"sms"`
+	Redis               *options.RedisOptions       `json:"redis" mapstructure:"redis"`
+	RPCClientResilience *resilience.Options         `json:"rpc-client-resilience" mapstructure:"rpc-client-resilience"`
 }
 
 func (c *Config) Validate() []error {
@@ -29,6 +31,7 @@ func (c *Config) Validate() []error {
 	errors = append(errors, c.Jwt.Validate()...)
 	errors = append(errors, c.Sms.Validate()...)
 	errors = append(errors, c.Redis.Validate()...)
+	errors = append(errors, c.RPCClientResilience.Validate()...)
 	return errors
 }
 
@@ -74,18 +77,20 @@ func (c *Config) Flags() (fss cliflag.NamedFlagSets) {
 	c.Jwt.AddFlags(fss.FlagSet("jwt"))
 	c.Sms.AddFlags(fss.FlagSet("sms"))
 	c.Redis.AddFlags(fss.FlagSet("redis"))
+	c.RPCClientResilience.AddFlags(fss.FlagSet("rpc-client-resilience"), "rpc-client-resilience")
 	return fss
 }
 
 func New() *Config {
 	//配置默认初始化
 	return &Config{
-		Log:      log.NewOptions(),
-		Server:   options.NewServerOptions(),
-		Registry: options.NewRegistryOptions(),
-		RPC:      options.NewRPCSecurityOptions(),
-		Jwt:      options.NewJwtOptions(),
-		Sms:      options.NewSmsOptions(),
-		Redis:    options.NewRedisOptions(),
+		Log:                 log.NewOptions(),
+		Server:              options.NewServerOptions(),
+		Registry:            options.NewRegistryOptions(),
+		RPC:                 options.NewRPCSecurityOptions(),
+		Jwt:                 options.NewJwtOptions(),
+		Sms:                 options.NewSmsOptions(),
+		Redis:               options.NewRedisOptions(),
+		RPCClientResilience: resilience.NewOptions(),
 	}
 }

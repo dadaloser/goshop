@@ -28,11 +28,11 @@ func newOrderServiceFactory(ctx context.Context, cfg *config.Config) (v13.Servic
 		return nil, err
 	}
 
-	goodsGateway, err := boundary.NewGoodsRPCGatewayContext(ctx, cfg.Registry, cfg.RPC)
+	goodsGateway, err := boundary.NewGoodsRPCGatewayContext(ctx, cfg.Registry, cfg.RPC, cfg.RPCClientResilience)
 	if err != nil {
 		return nil, err
 	}
-	inventoryGateway, err := boundary.NewInventoryRPCGatewayContext(ctx, cfg.Registry, cfg.RPC)
+	inventoryGateway, err := boundary.NewInventoryRPCGatewayContext(ctx, cfg.Registry, cfg.RPC, cfg.RPCClientResilience)
 	if err != nil {
 		return nil, err
 	}

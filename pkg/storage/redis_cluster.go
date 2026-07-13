@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"goshop/gmicro/resilience"
 	"goshop/pkg/errors"
 
 	"github.com/redis/go-redis/extra/redisotel/v9"
@@ -36,6 +37,7 @@ type Config struct {
 	UseSSL                bool
 	SSLInsecureSkipVerify bool
 	EnableTracing         bool //是否开启tracing
+	Resilience            *resilience.Options
 }
 
 // ErrRedisIsDown is returned when we can't communicate with redis.
@@ -239,6 +241,12 @@ func NewRedisClusterPool(isCache bool, config *Config) redis.UniversalClient {
 		if err != nil {
 			log.Errorf("Error instrumenting redis tracing: %s", err.Error())
 		}
+	}
+	hook, err := newRedisResilienceHook(config.Resilience)
+	if err != nil {
+		log.Errorf("failed to configure redis resilience: %s", err.Error())
+	} else {
+		client.AddHook(hook)
 	}
 	return client
 }

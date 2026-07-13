@@ -11,6 +11,7 @@ import (
 	appclient "goshop/app/pkg/client"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
+	"goshop/gmicro/resilience"
 	"goshop/gmicro/server/rpcserver"
 	errors2 "goshop/pkg/errors"
 	"sync"
@@ -45,7 +46,12 @@ var (
 )
 
 // rpc的连接， 基于服务发现
-func GetDataFactoryOr(ctx context.Context, options *options.RegistryOptions, rpcSecurity *options.RPCSecurityOptions) (data.DataFactory, error) {
+func GetDataFactoryOr(
+	ctx context.Context,
+	options *options.RegistryOptions,
+	rpcSecurity *options.RPCSecurityOptions,
+	rpcResilience *resilience.Options,
+) (data.DataFactory, error) {
 	if ctx == nil {
 		ctx = context.TODO()
 	}
@@ -58,6 +64,7 @@ func GetDataFactoryOr(ctx context.Context, options *options.RegistryOptions, rpc
 
 	dialOpts := []rpcserver.ClientOption{
 		rpcserver.WithConnectProbe(false),
+		rpcserver.WithClientResilience(rpcResilience),
 	}
 
 	userClient, _, err := appclient.NewUserClient(ctx, options, rpcSecurity, dialOpts...)

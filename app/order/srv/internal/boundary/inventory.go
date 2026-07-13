@@ -5,6 +5,8 @@ import (
 	ipb "goshop/api/inventory/v1"
 	"goshop/app/pkg/client"
 	"goshop/app/pkg/options"
+	"goshop/gmicro/resilience"
+	"goshop/gmicro/server/rpcserver"
 )
 
 type InventoryItem struct {
@@ -20,11 +22,21 @@ type inventoryRPCGateway struct {
 	client ipb.InventoryClient
 }
 
-func NewInventoryRPCGatewayContext(ctx context.Context, registry *options.RegistryOptions, rpcSecurity *options.RPCSecurityOptions) (InventoryGateway, error) {
+func NewInventoryRPCGatewayContext(
+	ctx context.Context,
+	registry *options.RegistryOptions,
+	rpcSecurity *options.RPCSecurityOptions,
+	rpcResilience *resilience.Options,
+) (InventoryGateway, error) {
 	if ctx == nil {
 		ctx = context.TODO()
 	}
-	inventoryClient, _, err := client.NewInventoryClient(ctx, registry, rpcSecurity)
+	inventoryClient, _, err := client.NewInventoryClient(
+		ctx,
+		registry,
+		rpcSecurity,
+		rpcserver.WithClientResilience(rpcResilience),
+	)
 	if err != nil {
 		return nil, err
 	}
