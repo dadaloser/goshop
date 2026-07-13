@@ -74,6 +74,7 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 
 	var opts []rpcserver.ServerOption
 	opts = append(opts, rpcserver.WithAddress(rpcAddr))
+	opts = append(opts, rpcserver.WithMetrics(serverOpts != nil && serverOpts.EnableMetrics))
 	opts = append(opts, rpcserver.WithServerTLSConfig(tlsConfig))
 	if serverOpts.EnableLimit {
 		log.Infof("initializing sentinel limit rules from nacos")

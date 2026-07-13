@@ -165,10 +165,10 @@ type fakeSmsCodeStore struct {
 	get          func(context.Context, string) (string, error)
 }
 
-func (f *fakeSmsCodeStore) Get(context.Context, string) (string, error) {
+func (f *fakeSmsCodeStore) Get(ctx context.Context, key string) (string, error) {
 	f.getCalled = true
 	if f.get != nil {
-		return f.get(context.Background(), "")
+		return f.get(ctx, key)
 	}
 	if f.getErr != nil {
 		return "", f.getErr

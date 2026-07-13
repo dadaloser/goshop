@@ -67,9 +67,10 @@ func NewServer(opts ...ServerOption) *Server {
 
 func NewServerE(opts ...ServerOption) (*Server, error) {
 	srv := &Server{
-		address: ":0",
-		health:  health.NewServer(),
-		ready:   make(chan struct{}),
+		address:       ":0",
+		health:        health.NewServer(),
+		ready:         make(chan struct{}),
+		enableMetrics: true,
 		//timeout: 1 * time.Second,
 	}
 

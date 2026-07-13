@@ -196,6 +196,41 @@ func TestNewServerEAddsProductionGRPCOptions(t *testing.T) {
 	}
 }
 
+func TestNewServerEEnablesMetricsByDefault(t *testing.T) {
+	srv, err := NewServerE(WithAddress("127.0.0.1:0"))
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	})
+
+	if !srv.enableMetrics {
+		t.Fatal("enableMetrics = false, want true by default")
+	}
+}
+
+func TestWithMetricsCanDisableMetrics(t *testing.T) {
+	srv, err := NewServerE(
+		WithAddress("127.0.0.1:0"),
+		WithMetrics(false),
+	)
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	})
+
+	if srv.enableMetrics {
+		t.Fatal("enableMetrics = true, want false when explicitly disabled")
+	}
+}
+
 func TestNewServerEMarksSecureEndpointWhenTLSEnabled(t *testing.T) {
 	serverTLS, _ := newTestMutualTLSConfigs(t, "goshop.internal")
 
