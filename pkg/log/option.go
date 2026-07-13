@@ -135,7 +135,10 @@ func (o *Options) Build() error {
 		OutputPaths:      o.OutputPaths,
 		ErrorOutputPaths: o.ErrorOutputPaths,
 	}
-	logger, err := zc.Build(zap.AddStacktrace(zapcore.PanicLevel))
+	logger, err := zc.Build(
+		zap.AddStacktrace(zapcore.PanicLevel),
+		zap.WrapCore(wrapSensitiveFieldCore),
+	)
 	if err != nil {
 		return err
 	}

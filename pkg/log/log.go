@@ -70,7 +70,11 @@ func New(opts *Options) *Logger {
 	}
 
 	var err error
-	l, err := loggerConfig.Build(zap.AddStacktrace(zapcore.PanicLevel), zap.AddCallerSkip(1))
+	l, err := loggerConfig.Build(
+		zap.AddStacktrace(zapcore.PanicLevel),
+		zap.AddCallerSkip(1),
+		zap.WrapCore(wrapSensitiveFieldCore),
+	)
 	if err != nil {
 		panic(err)
 	}

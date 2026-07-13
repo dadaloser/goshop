@@ -215,9 +215,11 @@ func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, f
 
 	span := trace.SpanFromContext(ctx)
 	if !span.IsRecording() {
+		fields = sanitizeFields(fields)
 		return fields
 	}
 
+	fields = sanitizeFields(fields)
 	attrs := make([]attribute.KeyValue, 0, numAttr+len(fields)+len(l.extraFields))
 
 	for _, f := range fields {
@@ -233,7 +235,7 @@ func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, f
 			// should this be a prefix?
 			continue
 		}
-		attrs = appendField(attrs, f)
+		attrs = appendField(attrs, sanitizeField(f))
 	}
 
 	l.log(span, lvl, msg, attrs)
@@ -601,6 +603,11 @@ func (s *SugaredLogger) logKVs(
 
 	for i := 0; i < len(kvs); i += 2 {
 		if key, ok := kvs[i].(string); ok {
+			if isSensitiveFieldKey(key) {
+				attrs = append(attrs, maskedAttribute(key))
+				kvs[i+1] = redactedFieldValue
+				continue
+			}
 			attrs = append(attrs, otelutil.Attribute(key, kvs[i+1]))
 		}
 	}
@@ -730,6 +737,10 @@ func (s SugaredLoggerWithCtx) Fatalw(msg string, keysAndValues ...interface{}) {
 //------------------------------------------------------------------------------
 
 func appendField(attrs []attribute.KeyValue, f zapcore.Field) []attribute.KeyValue {
+	if isSensitiveFieldKey(f.Key) {
+		return append(attrs, maskedAttribute(f.Key))
+	}
+
 	switch f.Type {
 	case zapcore.BoolType:
 		attr := attribute.Bool(f.Key, f.Integer == 1)

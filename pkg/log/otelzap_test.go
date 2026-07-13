@@ -86,6 +86,20 @@ func TestOtelZap(t *testing.T) {
 		},
 		{
 			log: func(ctx context.Context, log *Logger) {
+				log.Ctx(ctx).Warn("hello", zap.String("password", "secret-123"))
+			},
+			require: func(t *testing.T, event sdktrace.Event) {
+				m := attrMap(event.Attributes)
+
+				password, ok := m["password"]
+				require.True(t, ok)
+				require.Equal(t, redactedFieldValue, password.AsString())
+
+				requireCodeAttrs(t, m)
+			},
+		},
+		{
+			log: func(ctx context.Context, log *Logger) {
 				log.Ctx(ctx).Warn("hello", zap.Strings("foo", []string{"bar1", "bar2", "bar3"}))
 			},
 			require: func(t *testing.T, event sdktrace.Event) {
@@ -221,6 +235,20 @@ func TestOtelZap(t *testing.T) {
 				foo, ok := m["foo"]
 				require.True(t, ok)
 				require.NotZero(t, foo.AsString())
+
+				requireCodeAttrs(t, m)
+			},
+		},
+		{
+			log: func(ctx context.Context, log *Logger) {
+				log.Sugar().ErrorwContext(ctx, "hello", "authorization", "Bearer secret")
+			},
+			require: func(t *testing.T, event sdktrace.Event) {
+				m := attrMap(event.Attributes)
+
+				auth, ok := m["authorization"]
+				require.True(t, ok)
+				require.Equal(t, redactedFieldValue, auth.AsString())
 
 				requireCodeAttrs(t, m)
 			},
@@ -469,6 +497,24 @@ func TestFatalCUsesFatalLevel(t *testing.T) {
 	entries := logs.All()
 	require.Len(t, entries, 1)
 	require.Equal(t, zap.FatalLevel, entries[0].Level)
+}
+
+func TestLoggerMasksSensitiveFieldsBeforeWrite(t *testing.T) {
+	core, logs := observer.New(zap.DebugLevel)
+	base := zap.New(wrapSensitiveFieldCore(core))
+
+	base.Info("hello",
+		zap.String("password", "secret-123"),
+		zap.String("username", "alice"),
+	)
+	base.Sugar().Infow("hello", "authorization", "Bearer secret", "request_id", "req-1")
+
+	entries := logs.All()
+	require.Len(t, entries, 2)
+	require.Equal(t, redactedFieldValue, entries[0].ContextMap()["password"])
+	require.Equal(t, "alice", entries[0].ContextMap()["username"])
+	require.Equal(t, redactedFieldValue, entries[1].ContextMap()["authorization"])
+	require.Equal(t, "req-1", entries[1].ContextMap()["request_id"])
 }
 
 func requireCodeAttrs(t *testing.T, m map[attribute.Key]attribute.Value) {
