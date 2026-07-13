@@ -59,7 +59,7 @@ func run(cfg *config.Config) app.RunFunc {
 		defer log.Flush()
 
 		log.Infof("initializing user service dependencies")
-		userApp, err := initApp(cfg.Nacos, cfg.Server, cfg.Registry, cfg.Telemetry, cfg.MySQLOptions)
+		userApp, err := initApp(cfg.Nacos, cfg.Server, cfg.Registry, cfg.RPC, cfg.Telemetry, cfg.MySQLOptions)
 		if err != nil {
 			return err
 		}

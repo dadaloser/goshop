@@ -34,12 +34,16 @@ registry:
   address: 192.168.1.92:8500
   scheme: http
 
-
+rpc-security:
+  cert-file: "configs/tls/dev/internal.crt" # dev only; replace with per-service cert in production
+  key-file: "configs/tls/dev/internal.key" # dev only
+  ca-file: "configs/tls/dev/internal.crt" # dev only
+  server-name: "goshop.internal"
 
 redis:
   host: "192.168.1.119"
   port: 6888
-  password: ""
+  password: "admin@admin"
   database: 0
 
 sms:
@@ -49,6 +53,6 @@ sms:
 # JWT 配置
 jwt:
   realm: JWT # jwt 标识
-  key: "" # use API_JWT_KEY or secret manager in production
+  key: "SSDEERUSJHAIKHIJKLSJKAOSIXKDEHKS" # use API_JWT_KEY or secret manager in production
   timeout: 2400h # token 过期时间(小时)
   max-refresh: 240h # token 更新时间(小时)

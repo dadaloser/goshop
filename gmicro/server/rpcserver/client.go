@@ -16,6 +16,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
 )
 
 const selectorBalancerName = "selector"
@@ -36,6 +37,8 @@ type clientOptions struct {
 	enableMetrics  bool
 	connectProbe   bool
 	connectTimeout time.Duration
+
+	transportCredentials credentials.TransportCredentials
 }
 
 func WithEnableTracing(enable bool) ClientOption {
@@ -201,7 +204,15 @@ func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.Clien
 	}
 
 	if insecure {
+		if options.transportCredentials != nil {
+			return nil, fmt.Errorf("rpc TLS credentials cannot be combined with insecure dial")
+		}
 		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(grpcinsecure.NewCredentials()))
+	} else {
+		if options.transportCredentials == nil {
+			return nil, fmt.Errorf("rpc TLS credentials are required for secure dial")
+		}
+		grpcOpts = append(grpcOpts, grpc.WithTransportCredentials(options.transportCredentials))
 	}
 
 	if len(options.rpcOpts) > 0 {

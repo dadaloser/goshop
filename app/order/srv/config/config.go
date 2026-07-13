@@ -10,13 +10,14 @@ import (
 )
 
 type Config struct {
-	MySQLOptions *options.MySQLOptions     `json:"mysql"     mapstructure:"mysql"`
-	Log          *log.Options              `json:"log"     mapstructure:"log"`
-	Server       *options.ServerOptions    `json:"server"     mapstructure:"server"`
-	Telemetry    *options.TelemetryOptions `json:"telemetry" mapstructure:"telemetry"`
-	Registry     *options.RegistryOptions  `json:"registry" mapstructure:"registry"`
-	Dtm          *options.DtmOptions       `json:"dtm" mapstructure:"dtm"`
-	Lifecycle    *LifecycleOptions         `json:"lifecycle" mapstructure:"lifecycle"`
+	MySQLOptions *options.MySQLOptions       `json:"mysql"     mapstructure:"mysql"`
+	Log          *log.Options                `json:"log"     mapstructure:"log"`
+	Server       *options.ServerOptions      `json:"server"     mapstructure:"server"`
+	Telemetry    *options.TelemetryOptions   `json:"telemetry" mapstructure:"telemetry"`
+	Registry     *options.RegistryOptions    `json:"registry" mapstructure:"registry"`
+	RPC          *options.RPCSecurityOptions `json:"rpc-security" mapstructure:"rpc-security"`
+	Dtm          *options.DtmOptions         `json:"dtm" mapstructure:"dtm"`
+	Lifecycle    *LifecycleOptions           `json:"lifecycle" mapstructure:"lifecycle"`
 }
 
 func New() *Config {
@@ -27,6 +28,7 @@ func New() *Config {
 		Server:       options.NewServerOptions(),
 		Telemetry:    options.NewTelemetryOptions(),
 		Registry:     options.NewRegistryOptions(),
+		RPC:          options.NewRPCSecurityOptions(),
 		Dtm:          options.NewDtmOptions(),
 		Lifecycle:    NewLifecycleOptions(),
 	}
@@ -38,6 +40,7 @@ func (o *Config) Flags() (fss cliflag.NamedFlagSets) {
 	o.Log.AddFlags(fss.FlagSet("logs"))
 	o.Telemetry.AddFlags(fss.FlagSet("telemetry"))
 	o.Registry.AddFlags(fss.FlagSet("registry"))
+	o.RPC.AddFlags(fss.FlagSet("rpc-security"))
 	o.MySQLOptions.AddFlags(fss.FlagSet("mysql"))
 	o.Dtm.AddFlags(fss.FlagSet("dtm"))
 	o.Lifecycle.AddFlags(fss.FlagSet("lifecycle"))
@@ -65,6 +68,11 @@ func (o *Config) ValidateStartup() error {
 			return err
 		}
 	}
+	if o.RPC != nil {
+		if err := o.RPC.ValidateStartup(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -76,6 +84,7 @@ func (o *Config) Validate() []error {
 	errs = append(errs, o.Server.Validate()...)
 	errs = append(errs, o.Telemetry.Validate()...)
 	errs = append(errs, o.Registry.Validate()...)
+	errs = append(errs, o.RPC.Validate()...)
 	errs = append(errs, o.Dtm.Validate()...)
 	errs = append(errs, o.Lifecycle.Validate()...)
 	return errs

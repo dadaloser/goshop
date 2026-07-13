@@ -20,11 +20,11 @@ type inventoryRPCGateway struct {
 	client ipb.InventoryClient
 }
 
-func NewInventoryRPCGatewayContext(ctx context.Context, registry *options.RegistryOptions) (InventoryGateway, error) {
+func NewInventoryRPCGatewayContext(ctx context.Context, registry *options.RegistryOptions, rpcSecurity *options.RPCSecurityOptions) (InventoryGateway, error) {
 	if ctx == nil {
 		ctx = context.TODO()
 	}
-	inventoryClient, _, err := client.NewInventoryClient(ctx, registry)
+	inventoryClient, _, err := client.NewInventoryClient(ctx, registry, rpcSecurity)
 	if err != nil {
 		return nil, err
 	}

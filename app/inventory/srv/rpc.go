@@ -30,7 +30,14 @@ func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	invService := v13.NewService(dataFactory, cfg.RedisOptions)
 	invServer := v12.NewInventoryServer(invService)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	grpcServer, err := rpcserver.NewServerE(rpcserver.WithAddress(rpcAddr))
+	tlsConfig, err := cfg.RPC.LoadServerTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+	grpcServer, err := rpcserver.NewServerE(
+		rpcserver.WithAddress(rpcAddr),
+		rpcserver.WithServerTLSConfig(tlsConfig),
+	)
 	if err != nil {
 		return nil, err
 	}

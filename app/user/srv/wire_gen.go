@@ -16,7 +16,7 @@ import (
 
 // Injectors from wire.go:
 
-func initApp(nacosOptions *options.NacosOptions, serverOptions *options.ServerOptions, registryOptions *options.RegistryOptions, telemetryOptions *options.TelemetryOptions, mySQLOptions *options.MySQLOptions) (*app.App, error) {
+func initApp(nacosOptions *options.NacosOptions, serverOptions *options.ServerOptions, registryOptions *options.RegistryOptions, rpcSecurityOptions *options.RPCSecurityOptions, telemetryOptions *options.TelemetryOptions, mySQLOptions *options.MySQLOptions) (*app.App, error) {
 	registrar, err := NewRegistrar(registryOptions)
 	if err != nil {
 		return nil, err
@@ -28,7 +28,7 @@ func initApp(nacosOptions *options.NacosOptions, serverOptions *options.ServerOp
 	userStore := db.NewUsers(gormDB)
 	userSrv := v1.NewUserService(userStore)
 	userServer := user.NewUserServer(userSrv)
-	server, err := NewUserRPCServer(telemetryOptions, serverOptions, nacosOptions, userServer)
+	server, err := NewUserRPCServer(telemetryOptions, serverOptions, nacosOptions, rpcSecurityOptions, userServer)
 	if err != nil {
 		return nil, err
 	}

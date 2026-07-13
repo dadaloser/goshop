@@ -13,7 +13,7 @@ import (
 	"github.com/google/wire"
 )
 
-func initApp(*options.NacosOptions, *options.ServerOptions, *options.RegistryOptions, *options.TelemetryOptions, *options.MySQLOptions) (*gapp.App, error) {
+func initApp(*options.NacosOptions, *options.ServerOptions, *options.RegistryOptions, *options.RPCSecurityOptions, *options.TelemetryOptions, *options.MySQLOptions) (*gapp.App, error) {
 	wire.Build(ProviderSet, v1.ProviderSet, db.ProviderSet, user.ProviderSet)
 	return &gapp.App{}, nil
 }

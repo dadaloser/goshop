@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -192,5 +193,29 @@ func TestNewServerEAddsProductionGRPCOptions(t *testing.T) {
 
 	if len(srv.grpcOpts) < 5 {
 		t.Fatalf("grpc options = %d, want production options included", len(srv.grpcOpts))
+	}
+}
+
+func TestNewServerEMarksSecureEndpointWhenTLSEnabled(t *testing.T) {
+	serverTLS, _ := newTestMutualTLSConfigs(t, "goshop.internal")
+
+	srv, err := NewServerE(
+		WithAddress("127.0.0.1:0"),
+		WithServerTLSConfig(serverTLS),
+	)
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	})
+
+	if srv.Endpoint() == nil {
+		t.Fatal("Endpoint() = nil, want secure endpoint")
+	}
+	if !strings.Contains(srv.Endpoint().String(), "isSecure=true") {
+		t.Fatalf("Endpoint() = %s, want secure endpoint query", srv.Endpoint().String())
 	}
 }

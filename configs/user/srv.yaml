@@ -25,6 +25,12 @@ registry:
   address: 192.168.1.92:8500
   scheme: http
 
+rpc-security:
+  cert-file: "configs/tls/dev/internal.crt" # dev only; replace with per-service cert in production
+  key-file: "configs/tls/dev/internal.key" # dev only
+  ca-file: "configs/tls/dev/internal.crt" # dev only
+  server-name: "goshop.internal"
+
 telemetry:
   name: goshop-user-srv
   endpoint: "http://127.0.0.1:14268/api/traces" # 单独本地启动 user 服务时关闭 trace 导出；需要链路追踪时改为 collector 地址

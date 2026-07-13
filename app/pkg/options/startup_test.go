@@ -81,3 +81,37 @@ func TestServerOptionsValidateStartupRejectsWildcardCORS(t *testing.T) {
 		t.Fatal("ValidateStartup() error = nil, want wildcard CORS error")
 	}
 }
+
+func TestRPCSecurityOptionsValidateStartup(t *testing.T) {
+	opts := NewRPCSecurityOptions()
+	opts.CertFile = "client.crt"
+	opts.KeyFile = "client.key"
+	opts.CAFile = "ca.crt"
+	opts.ServerName = "goshop.internal"
+
+	if err := opts.ValidateStartup(); err != nil {
+		t.Fatalf("ValidateStartup() error = %v", err)
+	}
+}
+
+func TestRPCSecurityOptionsValidateServerStartupAllowsMissingServerName(t *testing.T) {
+	opts := NewRPCSecurityOptions()
+	opts.CertFile = "server.crt"
+	opts.KeyFile = "server.key"
+	opts.CAFile = "ca.crt"
+
+	if err := opts.ValidateServerStartup(); err != nil {
+		t.Fatalf("ValidateServerStartup() error = %v", err)
+	}
+}
+
+func TestRPCSecurityOptionsValidateStartupRejectsMissingServerName(t *testing.T) {
+	opts := NewRPCSecurityOptions()
+	opts.CertFile = "client.crt"
+	opts.KeyFile = "client.key"
+	opts.CAFile = "ca.crt"
+
+	if err := opts.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want missing server name error")
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"goshop/gmicro/server/rpcserver/resolver/discovery"
 	srvintc "goshop/gmicro/server/rpcserver/serverinterceptors"
 	"goshop/pkg/host"
 	"goshop/pkg/log"
@@ -39,6 +40,7 @@ type Server struct {
 	ready     chan struct{}
 	readyOnce sync.Once
 
+	tlsEnabled       bool
 	enableMetrics    bool
 	enableReflection bool
 }
@@ -233,7 +235,7 @@ func (s *Server) listenAndEndpoint() error {
 		_ = s.lis.Close()
 		return err
 	}
-	s.endpoint = &url.URL{Scheme: "grpc", Host: addr}
+	s.endpoint = discovery.NewEndpoint("grpc", addr, s.tlsEnabled)
 	return nil
 }
 

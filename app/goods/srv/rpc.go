@@ -38,7 +38,14 @@ func NewGoodsRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	srvFactory := v1.NewService(dataFactory, searchFactory)
 	goodsServer := v12.NewGoodsServer(srvFactory)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	grpcServer, err := rpcserver.NewServerE(rpcserver.WithAddress(rpcAddr))
+	tlsConfig, err := cfg.RPC.LoadServerTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+	grpcServer, err := rpcserver.NewServerE(
+		rpcserver.WithAddress(rpcAddr),
+		rpcserver.WithServerTLSConfig(tlsConfig),
+	)
 	if err != nil {
 		return nil, err
 	}

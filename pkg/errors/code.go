@@ -93,7 +93,10 @@ func MustRegister(coder Coder) {
 	codeMux.Lock()
 	defer codeMux.Unlock()
 
-	if _, ok := codes[coder.Code()]; ok {
+	if existing, ok := codes[coder.Code()]; ok {
+		if sameCoder(existing, coder) {
+			return
+		}
 		panic(fmt.Sprintf("code: %d already exist", coder.Code()))
 	}
 
@@ -136,4 +139,15 @@ func IsCode(err error, code int) bool {
 
 func init() {
 	codes[unknownCoder.Code()] = unknownCoder
+}
+
+func sameCoder(left, right Coder) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return left.Code() == right.Code() &&
+		left.HTTPStatus() == right.HTTPStatus() &&
+		left.String() == right.String() &&
+		left.Reference() == right.Reference()
 }

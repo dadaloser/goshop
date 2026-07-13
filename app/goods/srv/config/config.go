@@ -13,10 +13,11 @@ type Config struct {
 	Log       *log.Options       `json:"log" mapstructure:"log"`
 	EsOptions *options.EsOptions `json:"es" mapstructure:"es"`
 
-	Server       *options.ServerOptions    `json:"server" mapstructure:"server"`
-	Registry     *options.RegistryOptions  `json:"registry" mapstructure:"registry"`
-	Telemetry    *options.TelemetryOptions `json:"telemetry" mapstructure:"telemetry"`
-	MySQLOptions *options.MySQLOptions     `json:"mysql" mapstructure:"mysql"`
+	Server       *options.ServerOptions      `json:"server" mapstructure:"server"`
+	Registry     *options.RegistryOptions    `json:"registry" mapstructure:"registry"`
+	RPC          *options.RPCSecurityOptions `json:"rpc-security" mapstructure:"rpc-security"`
+	Telemetry    *options.TelemetryOptions   `json:"telemetry" mapstructure:"telemetry"`
+	MySQLOptions *options.MySQLOptions       `json:"mysql" mapstructure:"mysql"`
 }
 
 func (c *Config) Validate() []error {
@@ -24,6 +25,7 @@ func (c *Config) Validate() []error {
 	errors = append(errors, c.Log.Validate()...)
 	errors = append(errors, c.Server.Validate()...)
 	errors = append(errors, c.Registry.Validate()...)
+	errors = append(errors, c.RPC.Validate()...)
 	errors = append(errors, c.Telemetry.Validate()...)
 	errors = append(errors, c.MySQLOptions.Validate()...)
 	errors = append(errors, c.EsOptions.Validate()...)
@@ -46,6 +48,11 @@ func (c *Config) ValidateStartup() error {
 			return err
 		}
 	}
+	if c.RPC != nil {
+		if err := c.RPC.ValidateServerStartup(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -63,6 +70,7 @@ func (c *Config) Flags() (fss cliflag.NamedFlagSets) {
 	c.Log.AddFlags(fss.FlagSet("logs"))
 	c.Server.AddFlags(fss.FlagSet("server"))
 	c.Registry.AddFlags(fss.FlagSet("registry"))
+	c.RPC.AddFlags(fss.FlagSet("rpc-security"))
 	c.Telemetry.AddFlags(fss.FlagSet("telemetry"))
 	c.MySQLOptions.AddFlags(fss.FlagSet("mysql"))
 	c.EsOptions.AddFlags(fss.FlagSet("es"))
@@ -75,6 +83,7 @@ func New() *Config {
 		Log:          log.NewOptions(),
 		Server:       options.NewServerOptions(),
 		Registry:     options.NewRegistryOptions(),
+		RPC:          options.NewRPCSecurityOptions(),
 		Telemetry:    options.NewTelemetryOptions(),
 		MySQLOptions: options.NewMySQLOptions(),
 		EsOptions:    options.NewEsOptions(),

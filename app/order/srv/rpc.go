@@ -28,11 +28,11 @@ func newOrderServiceFactory(ctx context.Context, cfg *config.Config) (v13.Servic
 		return nil, err
 	}
 
-	goodsGateway, err := boundary.NewGoodsRPCGatewayContext(ctx, cfg.Registry)
+	goodsGateway, err := boundary.NewGoodsRPCGatewayContext(ctx, cfg.Registry, cfg.RPC)
 	if err != nil {
 		return nil, err
 	}
-	inventoryGateway, err := boundary.NewInventoryRPCGatewayContext(ctx, cfg.Registry)
+	inventoryGateway, err := boundary.NewInventoryRPCGatewayContext(ctx, cfg.Registry, cfg.RPC)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,14 @@ func newOrderServiceFactory(ctx context.Context, cfg *config.Config) (v13.Servic
 func newOrderRPCServerWithFactory(cfg *config.Config, orderSrvFactory v13.ServiceFactory) (*rpcserver.Server, error) {
 	orderServer := order.NewOrderServer(orderSrvFactory)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	grpcServer, err := rpcserver.NewServerE(rpcserver.WithAddress(rpcAddr))
+	tlsConfig, err := cfg.RPC.LoadServerTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+	grpcServer, err := rpcserver.NewServerE(
+		rpcserver.WithAddress(rpcAddr),
+		rpcserver.WithServerTLSConfig(tlsConfig),
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -54,7 +54,7 @@ func NewNacosDataSource(opts *options.NacosOptions) (*nacos.NacosDataSource, err
 	return nds, nil
 }
 
-func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.ServerOptions, nacosOpts *options.NacosOptions, uServer upb.UserServer) (*rpcserver.Server, error) {
+func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.ServerOptions, nacosOpts *options.NacosOptions, rpcSecurity *options.RPCSecurityOptions, uServer upb.UserServer) (*rpcserver.Server, error) {
 	//初始化open-telemetry的exporter
 	log.Infof("initializing telemetry: name=%s endpoint=%s batcher=%s", telemetry.Name, telemetry.Endpoint, telemetry.Batcher)
 	if err := trace.InitAgent(trace.Options{
@@ -67,9 +67,14 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 	}
 
 	rpcAddr := fmt.Sprintf("%s:%d", serverOpts.Host, serverOpts.Port)
+	tlsConfig, err := rpcSecurity.LoadServerTLSConfig()
+	if err != nil {
+		return nil, err
+	}
 
 	var opts []rpcserver.ServerOption
 	opts = append(opts, rpcserver.WithAddress(rpcAddr))
+	opts = append(opts, rpcserver.WithServerTLSConfig(tlsConfig))
 	if serverOpts.EnableLimit {
 		log.Infof("initializing sentinel limit rules from nacos")
 		dataNacos, err := NewNacosDataSource(nacosOpts)

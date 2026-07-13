@@ -10,6 +10,7 @@ import (
 	"goshop/gmicro/registry"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func TestDialInsecureWithConnectProbeFailsWhenEndpointUnavailable(t *testing.T) {
@@ -79,6 +80,50 @@ func TestDialDiscoveryInsecureUsesDiscoveryDefaults(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("DialDiscoveryInsecure() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		_ = conn.Close()
+	})
+}
+
+func TestDialSecureRequiresTLSCredentials(t *testing.T) {
+	conn, err := Dial(
+		context.Background(),
+		WithEndpoint("127.0.0.1:1"),
+		WithConnectProbe(false),
+	)
+	if err == nil {
+		_ = conn.Close()
+		t.Fatal("Dial() error = nil, want missing TLS credentials error")
+	}
+	if !strings.Contains(err.Error(), "TLS credentials are required") {
+		t.Fatalf("Dial() error = %v, want missing TLS credentials error", err)
+	}
+}
+
+func TestDialSecureWithTLSConfigSucceedsWhenEndpointReady(t *testing.T) {
+	serverTLS, clientTLS := newTestMutualTLSConfigs(t, "goshop.internal")
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen tcp failed: %v", err)
+	}
+
+	server := grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLS)))
+	go func() {
+		_ = server.Serve(lis)
+	}()
+	t.Cleanup(server.Stop)
+
+	conn, err := Dial(
+		context.Background(),
+		WithEndpoint(lis.Addr().String()),
+		WithClientTLSConfig(clientTLS),
+		WithConnectProbe(true),
+		WithConnectTimeout(time.Second),
+	)
+	if err != nil {
+		t.Fatalf("Dial() error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		_ = conn.Close()

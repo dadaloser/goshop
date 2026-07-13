@@ -9,12 +9,13 @@ import (
 )
 
 type Config struct {
-	MySQLOptions *options.MySQLOptions     `json:"mysql"     mapstructure:"mysql"`
-	Log          *log.Options              `json:"log"     mapstructure:"log"`
-	Server       *options.ServerOptions    `json:"server"     mapstructure:"server"`
-	Telemetry    *options.TelemetryOptions `json:"telemetry" mapstructure:"telemetry"`
-	Registry     *options.RegistryOptions  `json:"registry" mapstructure:"registry"`
-	RedisOptions *options.RedisOptions     `json:"redis" mapstructure:"redis"` //涉及到分布式锁功能，后续会用到redis
+	MySQLOptions *options.MySQLOptions       `json:"mysql"     mapstructure:"mysql"`
+	Log          *log.Options                `json:"log"     mapstructure:"log"`
+	Server       *options.ServerOptions      `json:"server"     mapstructure:"server"`
+	Telemetry    *options.TelemetryOptions   `json:"telemetry" mapstructure:"telemetry"`
+	Registry     *options.RegistryOptions    `json:"registry" mapstructure:"registry"`
+	RPC          *options.RPCSecurityOptions `json:"rpc-security" mapstructure:"rpc-security"`
+	RedisOptions *options.RedisOptions       `json:"redis" mapstructure:"redis"` //涉及到分布式锁功能，后续会用到redis
 }
 
 func New() *Config {
@@ -25,6 +26,7 @@ func New() *Config {
 		Server:       options.NewServerOptions(),
 		Telemetry:    options.NewTelemetryOptions(),
 		Registry:     options.NewRegistryOptions(),
+		RPC:          options.NewRPCSecurityOptions(),
 		RedisOptions: options.NewRedisOptions(),
 	}
 }
@@ -35,6 +37,7 @@ func (o *Config) Flags() (fss cliflag.NamedFlagSets) {
 	o.Log.AddFlags(fss.FlagSet("logs"))
 	o.Telemetry.AddFlags(fss.FlagSet("telemetry"))
 	o.Registry.AddFlags(fss.FlagSet("registry"))
+	o.RPC.AddFlags(fss.FlagSet("rpc-security"))
 	o.MySQLOptions.AddFlags(fss.FlagSet("mysql"))
 	o.RedisOptions.AddFlags(fss.FlagSet("redis"))
 
@@ -67,6 +70,11 @@ func (o *Config) ValidateStartup() error {
 			return err
 		}
 	}
+	if o.RPC != nil {
+		if err := o.RPC.ValidateServerStartup(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -78,6 +86,7 @@ func (o *Config) Validate() []error {
 	errs = append(errs, o.Server.Validate()...)
 	errs = append(errs, o.Telemetry.Validate()...)
 	errs = append(errs, o.Registry.Validate()...)
+	errs = append(errs, o.RPC.Validate()...)
 	errs = append(errs, o.RedisOptions.Validate()...)
 	return errs
 }

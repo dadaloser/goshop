@@ -45,7 +45,7 @@ var (
 )
 
 // rpc的连接， 基于服务发现
-func GetDataFactoryOr(ctx context.Context, options *options.RegistryOptions) (data.DataFactory, error) {
+func GetDataFactoryOr(ctx context.Context, options *options.RegistryOptions, rpcSecurity *options.RPCSecurityOptions) (data.DataFactory, error) {
 	if ctx == nil {
 		ctx = context.TODO()
 	}
@@ -60,19 +60,19 @@ func GetDataFactoryOr(ctx context.Context, options *options.RegistryOptions) (da
 		rpcserver.WithConnectProbe(false),
 	}
 
-	userClient, _, err := appclient.NewUserClient(ctx, options, dialOpts...)
+	userClient, _, err := appclient.NewUserClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
 		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
 	}
-	goodsClient, _, err := appclient.NewGoodsClient(ctx, options, dialOpts...)
+	goodsClient, _, err := appclient.NewGoodsClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
 		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
 	}
-	inventoryClient, _, err := appclient.NewInventoryClient(ctx, options, dialOpts...)
+	inventoryClient, _, err := appclient.NewInventoryClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
 		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
 	}
-	orderClient, _, err := appclient.NewOrderClient(ctx, options, dialOpts...)
+	orderClient, _, err := appclient.NewOrderClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
 		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
 	}

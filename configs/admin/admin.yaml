@@ -35,7 +35,7 @@ registry:
   scheme: http
 
 admin-auth:
-  token: "" # local only; prefer GOSHOP_ADMIN_TOKEN or secret manager in production
+  token: "dev-admin-token-change-me" # local only; prefer GOSHOP_ADMIN_TOKEN or secret manager in production
   role: admin # basic < admin < primary_admin < super_admin
   permissions:
     - user:list

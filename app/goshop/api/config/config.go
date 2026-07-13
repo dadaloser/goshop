@@ -12,11 +12,12 @@ import (
 type Config struct {
 	Log *log.Options `json:"log" mapstructure:"log"`
 
-	Server   *options.ServerOptions   `json:"server" mapstructure:"server"`
-	Registry *options.RegistryOptions `json:"registry" mapstructure:"registry"`
-	Jwt      *options.JwtOptions      `json:"jwt" mapstructure:"jwt"`
-	Sms      *options.SmsOptions      `json:"sms" mapstructure:"sms"`
-	Redis    *options.RedisOptions    `json:"redis" mapstructure:"redis"`
+	Server   *options.ServerOptions      `json:"server" mapstructure:"server"`
+	Registry *options.RegistryOptions    `json:"registry" mapstructure:"registry"`
+	RPC      *options.RPCSecurityOptions `json:"rpc-security" mapstructure:"rpc-security"`
+	Jwt      *options.JwtOptions         `json:"jwt" mapstructure:"jwt"`
+	Sms      *options.SmsOptions         `json:"sms" mapstructure:"sms"`
+	Redis    *options.RedisOptions       `json:"redis" mapstructure:"redis"`
 }
 
 func (c *Config) Validate() []error {
@@ -24,6 +25,7 @@ func (c *Config) Validate() []error {
 	errors = append(errors, c.Log.Validate()...)
 	errors = append(errors, c.Server.Validate()...)
 	errors = append(errors, c.Registry.Validate()...)
+	errors = append(errors, c.RPC.Validate()...)
 	errors = append(errors, c.Jwt.Validate()...)
 	errors = append(errors, c.Sms.Validate()...)
 	errors = append(errors, c.Redis.Validate()...)
@@ -38,6 +40,11 @@ func (c *Config) ValidateStartup() error {
 	}
 	if c.Jwt != nil {
 		if err := c.Jwt.ValidateStartup(); err != nil {
+			return err
+		}
+	}
+	if c.RPC != nil {
+		if err := c.RPC.ValidateStartup(); err != nil {
 			return err
 		}
 	}
@@ -63,6 +70,7 @@ func (c *Config) Flags() (fss cliflag.NamedFlagSets) {
 	c.Log.AddFlags(fss.FlagSet("logs"))
 	c.Server.AddFlags(fss.FlagSet("server"))
 	c.Registry.AddFlags(fss.FlagSet("registry"))
+	c.RPC.AddFlags(fss.FlagSet("rpc-security"))
 	c.Jwt.AddFlags(fss.FlagSet("jwt"))
 	c.Sms.AddFlags(fss.FlagSet("sms"))
 	c.Redis.AddFlags(fss.FlagSet("redis"))
@@ -75,6 +83,7 @@ func New() *Config {
 		Log:      log.NewOptions(),
 		Server:   options.NewServerOptions(),
 		Registry: options.NewRegistryOptions(),
+		RPC:      options.NewRPCSecurityOptions(),
 		Jwt:      options.NewJwtOptions(),
 		Sms:      options.NewSmsOptions(),
 		Redis:    options.NewRedisOptions(),

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goshop/api/user/v1"
 	appclient "goshop/app/pkg/client"
+	"goshop/app/pkg/options"
 	"goshop/gmicro/registry/consul"
 	rpc "goshop/gmicro/server/rpcserver"
 	_ "goshop/gmicro/server/rpcserver/resolver/direct"
@@ -29,10 +30,21 @@ func main() {
 		panic(err)
 	}
 	r := consul.New(client, consul.WithHealthCheck(true))
+	rpcSecurity := &options.RPCSecurityOptions{
+		CertFile:   "configs/tls/dev/internal.crt",
+		KeyFile:    "configs/tls/dev/internal.key",
+		CAFile:     "configs/tls/dev/internal.crt",
+		ServerName: "goshop.internal",
+	}
+	tlsConfig, err := rpcSecurity.LoadClientTLSConfig()
+	if err != nil {
+		panic(err)
+	}
 
-	conn, err := rpc.DialInsecure(context.Background(),
+	conn, err := rpc.Dial(context.Background(),
 		rpc.WithBalancerName("selector"),
 		rpc.WithDiscovery(r),
+		rpc.WithClientTLSConfig(tlsConfig),
 		rpc.WithClientTimeout(time.Second*5000),
 		rpc.WithConnectProbe(true),
 		rpc.WithEndpoint(appclient.ServiceEndpoint(appclient.ServiceUser)),
