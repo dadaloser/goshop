@@ -17,7 +17,7 @@ import (
 func DialService(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	security *options.RPCSecurityOptions,
+	security *rpcserver.SecurityPolicy,
 	service string,
 	opts ...rpcserver.ClientOption,
 ) (*grpc.ClientConn, error) {
@@ -28,15 +28,11 @@ func DialService(
 	if security == nil {
 		return nil, fmt.Errorf("rpc security for %s is required", service)
 	}
-	tlsConfig, err := security.LoadClientTLSConfig()
-	if err != nil {
-		return nil, fmt.Errorf("load rpc TLS config for %s: %w", service, err)
-	}
 
 	dialOpts := []rpcserver.ClientOption{
 		rpcserver.WithEndpoint(ServiceEndpoint(service)),
 		rpcserver.WithDiscovery(discovery),
-		rpcserver.WithClientTLSConfig(tlsConfig),
+		rpcserver.WithClientSecurityPolicy(security),
 		rpcserver.WithClientUnaryInterceptor(clientinterceptors.UnaryTracingInterceptor),
 	}
 	dialOpts = append(dialOpts, opts...)
@@ -50,7 +46,7 @@ func DialService(
 func NewGoodsClient(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	security *options.RPCSecurityOptions,
+	security *rpcserver.SecurityPolicy,
 	opts ...rpcserver.ClientOption,
 ) (goodspb.GoodsClient, *grpc.ClientConn, error) {
 	conn, err := DialService(ctx, registry, security, ServiceGoods, opts...)
@@ -63,7 +59,7 @@ func NewGoodsClient(
 func NewInventoryClient(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	security *options.RPCSecurityOptions,
+	security *rpcserver.SecurityPolicy,
 	opts ...rpcserver.ClientOption,
 ) (inventorypb.InventoryClient, *grpc.ClientConn, error) {
 	conn, err := DialService(ctx, registry, security, ServiceInventory, opts...)
@@ -76,7 +72,7 @@ func NewInventoryClient(
 func NewOrderClient(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	security *options.RPCSecurityOptions,
+	security *rpcserver.SecurityPolicy,
 	opts ...rpcserver.ClientOption,
 ) (orderpb.OrderClient, *grpc.ClientConn, error) {
 	conn, err := DialService(ctx, registry, security, ServiceOrder, opts...)
@@ -89,7 +85,7 @@ func NewOrderClient(
 func NewUserClient(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	security *options.RPCSecurityOptions,
+	security *rpcserver.SecurityPolicy,
 	opts ...rpcserver.ClientOption,
 ) (userpb.UserClient, *grpc.ClientConn, error) {
 	conn, err := DialService(ctx, registry, security, ServiceUser, opts...)

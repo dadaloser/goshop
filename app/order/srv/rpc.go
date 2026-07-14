@@ -43,14 +43,10 @@ func newOrderServiceFactory(ctx context.Context, cfg *config.Config) (v13.Servic
 func newOrderRPCServerWithFactory(cfg *config.Config, orderSrvFactory v13.ServiceFactory) (*rpcserver.Server, error) {
 	orderServer := order.NewOrderServer(orderSrvFactory)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	tlsConfig, err := cfg.RPC.LoadServerTLSConfig()
-	if err != nil {
-		return nil, err
-	}
 	grpcServer, err := rpcserver.NewServerE(
 		rpcserver.WithAddress(rpcAddr),
 		rpcserver.WithMetrics(cfg.Server != nil && cfg.Server.EnableMetrics),
-		rpcserver.WithServerTLSConfig(tlsConfig),
+		rpcserver.WithServerSecurityPolicy(cfg.RPC),
 	)
 	if err != nil {
 		return nil, err

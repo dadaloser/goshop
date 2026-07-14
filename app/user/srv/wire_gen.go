@@ -12,11 +12,12 @@ import (
 	"goshop/app/user/srv/internal/data/v1/db"
 	"goshop/app/user/srv/internal/service/v1"
 	"goshop/gmicro/app"
+	"goshop/gmicro/server/rpcserver"
 )
 
 // Injectors from wire.go:
 
-func initApp(nacosOptions *options.NacosOptions, serverOptions *options.ServerOptions, registryOptions *options.RegistryOptions, rpcSecurityOptions *options.RPCSecurityOptions, telemetryOptions *options.TelemetryOptions, mySQLOptions *options.MySQLOptions) (*app.App, error) {
+func initApp(nacosOptions *options.NacosOptions, serverOptions *options.ServerOptions, registryOptions *options.RegistryOptions, rpcSecurityOptions *rpcserver.SecurityPolicy, telemetryOptions *options.TelemetryOptions, mySQLOptions *options.MySQLOptions) (*app.App, error) {
 	registrar, err := NewRegistrar(registryOptions)
 	if err != nil {
 		return nil, err

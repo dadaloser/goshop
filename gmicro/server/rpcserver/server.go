@@ -43,6 +43,8 @@ type Server struct {
 	tlsEnabled       bool
 	enableMetrics    bool
 	enableReflection bool
+
+	securityPolicy *SecurityPolicy
 }
 
 func (s *Server) Endpoint() *url.URL {
@@ -76,6 +78,17 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 
 	for _, o := range opts {
 		o(srv)
+	}
+
+	if srv.securityPolicy != nil {
+		if srv.tlsEnabled {
+			return nil, errServerSecurityAlreadyConfigured
+		}
+		tlsConfig, loadErr := srv.securityPolicy.LoadServerTLSConfig()
+		if loadErr != nil {
+			return nil, loadErr
+		}
+		applyServerTLSConfig(srv, tlsConfig)
 	}
 
 	//TODO 我们现在希望用户不设置拦截器的情况下，我们会自动默认加上一些必须的拦截器， crash，tracing

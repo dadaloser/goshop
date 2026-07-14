@@ -9,11 +9,64 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
 
 func newTestMutualTLSConfigs(t *testing.T, serverName string) (*tls.Config, *tls.Config) {
+	t.Helper()
+
+	certPEM, keyPEM := newTestMutualTLSPEM(t, serverName)
+
+	pair, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		t.Fatalf("load key pair failed: %v", err)
+	}
+
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(certPEM) {
+		t.Fatal("append cert to pool failed")
+	}
+
+	serverTLS := &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{pair},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    pool,
+	}
+	clientTLS := &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{pair},
+		RootCAs:      pool,
+		ServerName:   serverName,
+	}
+	return serverTLS, clientTLS
+}
+
+func newTestSecurityPolicy(t *testing.T, serverName string) *SecurityPolicy {
+	t.Helper()
+
+	certPEM, keyPEM := newTestMutualTLSPEM(t, serverName)
+	dir := t.TempDir()
+	certFile := filepath.Join(dir, "internal.crt")
+	keyFile := filepath.Join(dir, "internal.key")
+	if err := os.WriteFile(certFile, certPEM, 0o600); err != nil {
+		t.Fatalf("write cert file failed: %v", err)
+	}
+	if err := os.WriteFile(keyFile, keyPEM, 0o600); err != nil {
+		t.Fatalf("write key file failed: %v", err)
+	}
+	return &SecurityPolicy{
+		CertFile:   certFile,
+		KeyFile:    keyFile,
+		CAFile:     certFile,
+		ServerName: serverName,
+	}
+}
+
+func newTestMutualTLSPEM(t *testing.T, serverName string) ([]byte, []byte) {
 	t.Helper()
 
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -44,28 +97,5 @@ func newTestMutualTLSConfigs(t *testing.T, serverName string) (*tls.Config, *tls
 		t.Fatalf("marshal private key failed: %v", err)
 	}
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
-
-	pair, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		t.Fatalf("load key pair failed: %v", err)
-	}
-
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(certPEM) {
-		t.Fatal("append cert to pool failed")
-	}
-
-	serverTLS := &tls.Config{
-		MinVersion:   tls.VersionTLS12,
-		Certificates: []tls.Certificate{pair},
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    pool,
-	}
-	clientTLS := &tls.Config{
-		MinVersion:   tls.VersionTLS12,
-		Certificates: []tls.Certificate{pair},
-		RootCAs:      pool,
-		ServerName:   serverName,
-	}
-	return serverTLS, clientTLS
+	return certPEM, keyPEM
 }

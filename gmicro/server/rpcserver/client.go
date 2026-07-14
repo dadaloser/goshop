@@ -39,6 +39,7 @@ type clientOptions struct {
 	resilience     *resilience.Options
 
 	transportCredentials credentials.TransportCredentials
+	securityPolicy       *SecurityPolicy
 }
 
 func WithEnableTracing(enable bool) ClientOption {
@@ -169,6 +170,17 @@ func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.Clien
 
 	for _, o := range opts {
 		o(&options)
+	}
+
+	if options.securityPolicy != nil {
+		if options.transportCredentials != nil {
+			return nil, errClientSecurityAlreadyConfigured
+		}
+		tlsConfig, err := options.securityPolicy.LoadClientTLSConfig()
+		if err != nil {
+			return nil, err
+		}
+		applyClientTLSConfig(&options, tlsConfig)
 	}
 
 	resilienceOptions := options.resilience

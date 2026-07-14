@@ -130,6 +130,40 @@ func TestDialSecureWithTLSConfigSucceedsWhenEndpointReady(t *testing.T) {
 	})
 }
 
+func TestDialSecureWithSecurityPolicySucceedsWhenEndpointReady(t *testing.T) {
+	policy := newTestSecurityPolicy(t, "goshop.internal")
+
+	server, err := NewServerE(
+		WithAddress("127.0.0.1:0"),
+		WithServerSecurityPolicy(policy),
+	)
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	go func() {
+		_ = server.Start(context.Background())
+	}()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = server.Stop(ctx)
+	})
+
+	conn, err := Dial(
+		context.Background(),
+		WithEndpoint(server.Endpoint().Host),
+		WithClientSecurityPolicy(policy),
+		WithConnectProbe(true),
+		WithConnectTimeout(time.Second),
+	)
+	if err != nil {
+		t.Fatalf("Dial() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		_ = conn.Close()
+	})
+}
+
 type fakeDiscovery struct{}
 
 func (fakeDiscovery) GetService(context.Context, string) ([]*registry.ServiceInstance, error) {

@@ -35,15 +35,11 @@ func main() {
 		CAFile:     "configs/tls/dev/internal.crt",
 		ServerName: "goshop.internal",
 	}
-	tlsConfig, err := rpcSecurity.LoadClientTLSConfig()
-	if err != nil {
-		panic(err)
-	}
 
 	conn, err := rpc.Dial(context.Background(),
 		rpc.WithBalancerName("selector"),
 		rpc.WithDiscovery(r),
-		rpc.WithClientTLSConfig(tlsConfig),
+		rpc.WithClientSecurityPolicy(rpcSecurity),
 		rpc.WithClientTimeout(time.Second*5000),
 		rpc.WithConnectProbe(true),
 		rpc.WithEndpoint(appclient.ServiceEndpoint(appclient.ServiceGoods)),

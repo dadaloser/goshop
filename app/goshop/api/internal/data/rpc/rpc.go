@@ -49,7 +49,7 @@ var (
 func GetDataFactoryOr(
 	ctx context.Context,
 	options *options.RegistryOptions,
-	rpcSecurity *options.RPCSecurityOptions,
+	rpcSecurity *rpcserver.SecurityPolicy,
 	rpcResilience *resilience.Options,
 ) (data.DataFactory, error) {
 	if ctx == nil {

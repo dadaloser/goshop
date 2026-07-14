@@ -9,11 +9,12 @@ import (
 	"goshop/app/user/srv/internal/data/v1/db"
 	"goshop/app/user/srv/internal/service/v1"
 	gapp "goshop/gmicro/app"
+	"goshop/gmicro/server/rpcserver"
 
 	"github.com/google/wire"
 )
 
-func initApp(*options.NacosOptions, *options.ServerOptions, *options.RegistryOptions, *options.RPCSecurityOptions, *options.TelemetryOptions, *options.MySQLOptions) (*gapp.App, error) {
+func initApp(*options.NacosOptions, *options.ServerOptions, *options.RegistryOptions, *rpcserver.SecurityPolicy, *options.TelemetryOptions, *options.MySQLOptions) (*gapp.App, error) {
 	wire.Build(ProviderSet, v1.ProviderSet, db.ProviderSet, user.ProviderSet)
 	return &gapp.App{}, nil
 }

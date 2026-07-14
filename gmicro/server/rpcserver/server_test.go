@@ -254,3 +254,27 @@ func TestNewServerEMarksSecureEndpointWhenTLSEnabled(t *testing.T) {
 		t.Fatalf("Endpoint() = %s, want secure endpoint query", srv.Endpoint().String())
 	}
 }
+
+func TestNewServerEWithServerSecurityPolicyMarksSecureEndpoint(t *testing.T) {
+	policy := newTestSecurityPolicy(t, "goshop.internal")
+
+	srv, err := NewServerE(
+		WithAddress("127.0.0.1:0"),
+		WithServerSecurityPolicy(policy),
+	)
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	})
+
+	if srv.Endpoint() == nil {
+		t.Fatal("Endpoint() = nil, want secure endpoint")
+	}
+	if !strings.Contains(srv.Endpoint().String(), "isSecure=true") {
+		t.Fatalf("Endpoint() = %s, want secure endpoint query", srv.Endpoint().String())
+	}
+}

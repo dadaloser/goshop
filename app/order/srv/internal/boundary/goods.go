@@ -29,7 +29,7 @@ type goodsRPCGateway struct {
 func NewGoodsRPCGatewayContext(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	rpcSecurity *options.RPCSecurityOptions,
+	rpcSecurity *rpcserver.SecurityPolicy,
 	rpcResilience *resilience.Options,
 ) (GoodsGateway, error) {
 	if ctx == nil {
