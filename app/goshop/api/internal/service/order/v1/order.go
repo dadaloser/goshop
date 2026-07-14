@@ -392,12 +392,12 @@ func (os *orderService) SimulatePayCallback(ctx context.Context, req *PayCallbac
 	}
 
 	log.InfoC(ctx, "order pay callback processed",
-		log.Uint64("user_id", req.UserID),
-		log.String("order_sn", req.OrderSn),
-		log.String("current_status", currentStatus),
-		log.String("target_status", targetStatus),
-		log.Bool("success", req.Success),
-		log.String("pay_type", req.PayType),
+		log.Uint64(log.KeyUserID, req.UserID),
+		log.String(log.KeyOrderSN, req.OrderSn),
+		log.String(log.KeyCurrentStatus, currentStatus),
+		log.String(log.KeyTargetStatus, targetStatus),
+		log.Bool(log.KeySuccess, req.Success),
+		log.String(log.KeyPayType, req.PayType),
 	)
 	return nil
 }

@@ -202,13 +202,13 @@ func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, f
 
 	switch ctx.(type) {
 	case *gin.Context:
-		requestID, _ := ctx.Value(KeyRequestID).(string)
-		username, _ := ctx.Value(KeyUsername).(string)
+		requestID := contextStringValue(ctx, KeyRequestID, "requestID")
+		userID := contextStringValue(ctx, KeyUserID, "userid", "username")
 		if requestID != "" {
 			fields = append(fields, zap.String(KeyRequestID, requestID))
 		}
-		if username != "" {
-			fields = append(fields, zap.String(KeyUsername, username))
+		if userID != "" {
+			fields = append(fields, zap.String(KeyUserID, userID))
 		}
 		ctx = ctx.(*gin.Context).Request.Context()
 	}
@@ -242,10 +242,40 @@ func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, f
 
 	if l.withTraceID {
 		traceID := span.SpanContext().TraceID().String()
-		fields = append(fields, zap.String("trace_id", traceID))
+		fields = append(fields, zap.String(KeyTraceID, traceID))
 	}
 
 	return fields
+}
+
+func contextStringValue(ctx context.Context, keys ...string) string {
+	for _, key := range keys {
+		if key == "" || ctx == nil {
+			continue
+		}
+		value := ctx.Value(key)
+		switch v := value.(type) {
+		case string:
+			if v != "" {
+				return v
+			}
+		case fmt.Stringer:
+			if s := v.String(); s != "" {
+				return s
+			}
+		case int:
+			return strconv.Itoa(v)
+		case int8, int16, int32, int64:
+			return fmt.Sprintf("%d", v)
+		case uint, uint8, uint16, uint32, uint64:
+			return fmt.Sprintf("%d", v)
+		case float32:
+			return strconv.FormatFloat(float64(v), 'f', -1, 32)
+		case float64:
+			return strconv.FormatFloat(v, 'f', -1, 64)
+		}
+	}
+	return ""
 }
 
 func (l *Logger) log(span trace.Span, lvl zapcore.Level, msg string, attrs []attribute.KeyValue) {
@@ -616,7 +646,7 @@ func (s *SugaredLogger) logKVs(
 
 	if s.l.withTraceID {
 		traceID := span.SpanContext().TraceID().String()
-		kvs = append(kvs, "trace_id", traceID)
+		kvs = append(kvs, KeyTraceID, traceID)
 	}
 
 	return kvs

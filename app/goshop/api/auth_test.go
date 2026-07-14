@@ -56,8 +56,8 @@ func TestJWTAuthorizerRejectsTokenVersionMismatch(t *testing.T) {
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/user/detail", nil)
 	ctx.Set("JWT_TOKEN", token)
 	ctx.Set("JWT_PAYLOAD", ginjwt.MapClaims{
-		"userid": float64(1),
-		"tv":     float64(1),
+		"user_id": float64(1),
+		"tv":      float64(1),
 	})
 
 	if jwtStrategy.Authorizator(nil, ctx) {

@@ -142,7 +142,10 @@ func (o *Options) Build() error {
 	if err != nil {
 		return err
 	}
-	zap.RedirectStdLog(logger.Named(o.Name))
+	if o.Name != "" {
+		logger = logger.With(zap.String(KeyService, o.Name))
+	}
+	zap.RedirectStdLog(logger)
 	zap.ReplaceGlobals(logger)
 
 	return nil

@@ -425,16 +425,16 @@ func TestLoggerGinContextFields(t *testing.T) {
 	tests := []struct {
 		name      string
 		requestID string
-		username  string
+		userID    interface{}
 		want      map[string]interface{}
 	}{
 		{
 			name:      "non-empty values are logged",
 			requestID: "req-123",
-			username:  "alice",
+			userID:    float64(42),
 			want: map[string]interface{}{
 				KeyRequestID: "req-123",
-				KeyUsername:  "alice",
+				KeyUserID:    "42",
 			},
 		},
 		{
@@ -458,14 +458,16 @@ func TestLoggerGinContextFields(t *testing.T) {
 			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 			ctx.Request = httptest.NewRequest("GET", "/", nil)
 			ctx.Set(KeyRequestID, tt.requestID)
-			ctx.Set(KeyUsername, tt.username)
+			if tt.userID != nil {
+				ctx.Set(KeyUserID, tt.userID)
+			}
 
 			logger.InfoContext(ctx, "hello")
 
 			entries := logs.All()
 			require.Len(t, entries, 1)
 			fields := entries[0].ContextMap()
-			for _, key := range []string{KeyRequestID, KeyUsername} {
+			for _, key := range []string{KeyRequestID, KeyUserID} {
 				value, ok := tt.want[key]
 				if !ok {
 					require.NotContains(t, fields, key)
@@ -514,7 +516,28 @@ func TestLoggerMasksSensitiveFieldsBeforeWrite(t *testing.T) {
 	require.Equal(t, redactedFieldValue, entries[0].ContextMap()["password"])
 	require.Equal(t, "alice", entries[0].ContextMap()["username"])
 	require.Equal(t, redactedFieldValue, entries[1].ContextMap()["authorization"])
-	require.Equal(t, "req-1", entries[1].ContextMap()["request_id"])
+	require.Equal(t, "req-1", entries[1].ContextMap()[KeyRequestID])
+}
+
+func TestLoggerAddsServiceFieldFromOptions(t *testing.T) {
+	previous := std
+	t.Cleanup(func() { std = previous })
+
+	core, logs := observer.New(zap.InfoLevel)
+	opts := NewOptions()
+	opts.Name = "goshop-user-srv"
+
+	logger := New(opts)
+	logger.Logger = zap.New(core).With(zap.String(KeyService, opts.Name))
+	logger.skipCaller = logger.Logger
+	logger.extraFields = []zap.Field{zap.String(KeyService, opts.Name)}
+	std = logger
+
+	Info("hello")
+
+	entries := logs.All()
+	require.Len(t, entries, 1)
+	require.Equal(t, opts.Name, entries[0].ContextMap()[KeyService])
 }
 
 func requireCodeAttrs(t *testing.T, m map[attribute.Key]attribute.Value) {

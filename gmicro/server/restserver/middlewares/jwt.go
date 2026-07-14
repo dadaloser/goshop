@@ -8,7 +8,7 @@ import (
 )
 
 type CustomClaims struct {
-	ID           uint `json:"userid"`
+	ID           uint `json:"user_id"`
 	NickName     string
 	AuthorityId  uint
 	TokenVersion uint64 `json:"tv"`

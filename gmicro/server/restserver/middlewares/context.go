@@ -6,7 +6,7 @@ import (
 
 const (
 	UsernameKey = "username"
-	KeyUserID   = "userid"
+	KeyUserID   = "user_id"
 	UserIP      = "ip"
 )
 

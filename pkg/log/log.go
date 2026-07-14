@@ -78,6 +78,12 @@ func New(opts *Options) *Logger {
 	if err != nil {
 		panic(err)
 	}
+	extraFields := []zap.Field{}
+	if opts.Name != "" {
+		serviceField := zap.String(KeyService, opts.Name)
+		l = l.With(serviceField)
+		extraFields = append(extraFields, serviceField)
+	}
 	logger := &Logger{
 		Logger: l,
 
@@ -88,6 +94,7 @@ func New(opts *Options) *Logger {
 		errorStatusLevel: zap.ErrorLevel,
 		caller:           true,
 		withTraceID:      true,
+		extraFields:      extraFields,
 		//stackTrace:       true,
 	}
 	zap.RedirectStdLog(l)

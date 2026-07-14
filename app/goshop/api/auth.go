@@ -81,6 +81,10 @@ func newJWTAuth(opts *options.JwtOptions, revokedTokens tokenrevocation.Store, t
 
 func claimHandlerFun(c *gin.Context) interface{} {
 	claims := ginjwt.ExtractClaims(c)
-	c.Set(middlewares.KeyUserID, claims[middlewares.KeyUserID])
-	return claims[ginjwt.IdentityKey]
+	userID, ok := claims[middlewares.KeyUserID]
+	if !ok {
+		userID = claims["userid"]
+	}
+	c.Set(middlewares.KeyUserID, userID)
+	return userID
 }

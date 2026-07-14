@@ -689,13 +689,13 @@ func logOrderTransitionSuccess(ctx context.Context, existing *do.OrderInfoDO, or
 	}
 
 	log.InfoC(ctx, "order status transition applied",
-		log.Int32("order_id", existing.ID),
-		log.Int32("user_id", existing.User),
-		log.String("order_sn", existing.OrderSn),
-		log.String("from_status", strings.TrimSpace(existing.Status)),
-		log.String("to_status", strings.TrimSpace(order.Status)),
-		log.String("reason", defaultStatusLogReason(order.StatusReason, existing.Status, order.Status)),
-		log.String("source", defaultStatusLogSource(order.StatusSource, existing.Status, order.Status)),
-		log.String("operator", defaultStatusLogOperator(order.StatusOperator, existing.User)),
+		log.Int32(log.KeyOrderID, existing.ID),
+		log.Int32(log.KeyUserID, existing.User),
+		log.String(log.KeyOrderSN, existing.OrderSn),
+		log.String(log.KeyFromStatus, strings.TrimSpace(existing.Status)),
+		log.String(log.KeyToStatus, strings.TrimSpace(order.Status)),
+		log.String(log.KeyReason, defaultStatusLogReason(order.StatusReason, existing.Status, order.Status)),
+		log.String(log.KeySource, defaultStatusLogSource(order.StatusSource, existing.Status, order.Status)),
+		log.String(log.KeyOperator, defaultStatusLogOperator(order.StatusOperator, existing.User)),
 	)
 }

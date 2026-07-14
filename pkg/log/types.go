@@ -7,9 +7,21 @@ import (
 
 // Defines common log fields.
 const (
-	KeyRequestID string = "requestID"
-	KeyUsername  string = "username"
-	KeyUserID    string = "userid"
+	KeyTraceID       string = "trace_id"
+	KeyRequestID     string = "request_id"
+	KeyUserID        string = "user_id"
+	KeyService       string = "service"
+	KeyOrderID       string = "order_id"
+	KeyOrderSN       string = "order_sn"
+	KeyFromStatus    string = "from_status"
+	KeyToStatus      string = "to_status"
+	KeyReason        string = "reason"
+	KeySource        string = "source"
+	KeyOperator      string = "operator"
+	KeyCurrentStatus string = "current_status"
+	KeyTargetStatus  string = "target_status"
+	KeySuccess       string = "success"
+	KeyPayType       string = "pay_type"
 )
 
 // Field is an alias for the field structure in the underlying log frame.
