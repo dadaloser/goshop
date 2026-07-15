@@ -34,7 +34,12 @@ func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error)
 	if err != nil {
 		return nil, err
 	}
-	r := consul.New(cli, consul.WithHealthCheck(true), consul.WithHeartbeat(false))
+	r := consul.New(
+		cli,
+		consul.WithHealthCheck(true),
+		consul.WithHeartbeat(false),
+		consul.WithHTTPHealthCheckPath("/livez"),
+	)
 	return r, nil
 }
 
@@ -71,11 +76,17 @@ func NewAPIApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 		return nil, err
 	}
 
-	return gapp.New(
+	managementServer := NewAPIManagementServer(cfg)
+	opts := []gapp.Option{
 		gapp.WithName(cfg.Server.Name),
 		gapp.WithRestServer(rpcServer),
 		gapp.WithRegistrar(register),
-	), nil
+	}
+	if managementServer != nil {
+		opts = append(opts, gapp.WithServer(managementServer))
+	}
+
+	return gapp.New(opts...), nil
 }
 
 func run(cfg *config.Config) app.RunFunc {

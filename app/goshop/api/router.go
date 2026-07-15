@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net/http"
 
 	"goshop/app/goshop/api/config"
 	"goshop/app/goshop/api/internal/controller/goods/v1"
@@ -18,10 +19,15 @@ import (
 	"goshop/app/goshop/api/internal/tokenrevocation"
 	"goshop/app/goshop/api/internal/tokenversion"
 	"goshop/gmicro/server/restserver"
+
+	"github.com/gin-gonic/gin"
 )
 
 // 初始化路由
 func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) error {
+	if cfg != nil && cfg.Server != nil && cfg.Server.ManagementPort > 0 {
+		registerBusinessLivez(g)
+	}
 	v1 := g.Group("/v1")
 	uGroup := v1.Group("/user")
 
@@ -88,4 +94,10 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	}
 
 	return nil
+}
+
+func registerBusinessLivez(g *restserver.Server) {
+	g.GET("/livez", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 }

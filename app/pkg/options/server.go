@@ -39,6 +39,8 @@ type ServerOptions struct {
 	//http port
 	HttpPort int `json:"http-port,omitempty"                     mapstructure:"http-port"`
 
+	ManagementPort int `json:"management-port,omitempty"             mapstructure:"management-port"`
+
 	//名称
 	Name string `json:"name,omitempty"                 mapstructure:"name"`
 
@@ -67,6 +69,7 @@ func NewServerOptions() *ServerOptions {
 		Host:                  "127.0.0.1",
 		Port:                  8078,
 		HttpPort:              8079,
+		ManagementPort:        0,
 		Name:                  "goshop-user-srv",
 		BuiltInRouteCIDRs: []string{
 			"127.0.0.0/8",
@@ -101,6 +104,12 @@ func (so *ServerOptions) Validate() []error {
 	if so.HttpPort < 0 || so.HttpPort > 65535 {
 		errs = append(errs, fmt.Errorf("server.http-port must be between 0 and 65535, got %d", so.HttpPort))
 	}
+	if so.ManagementPort < 0 || so.ManagementPort > 65535 {
+		errs = append(errs, fmt.Errorf("server.management-port must be between 0 and 65535, got %d", so.ManagementPort))
+	}
+	if so.ManagementPort > 0 && so.ManagementPort == so.HttpPort {
+		errs = append(errs, fmt.Errorf("server.management-port must differ from server.http-port"))
+	}
 	if so.EnableProfiling && so.ProfilingToken == "" {
 		errs = append(errs, fmt.Errorf("server.profiling-token is required when profiling is enabled"))
 	}
@@ -127,6 +136,12 @@ func (so *ServerOptions) ValidateStartup() error {
 	}
 	if so.HttpPort < 0 || so.HttpPort > 65535 {
 		return fmt.Errorf("server.http-port must be between 0 and 65535, got %d", so.HttpPort)
+	}
+	if so.ManagementPort < 0 || so.ManagementPort > 65535 {
+		return fmt.Errorf("server.management-port must be between 0 and 65535, got %d", so.ManagementPort)
+	}
+	if so.ManagementPort > 0 && so.ManagementPort == so.HttpPort {
+		return errors.New("server.management-port must differ from server.http-port")
 	}
 	if so.EnableProfiling && so.ProfilingToken == "" {
 		return errors.New("server.profiling-token is required when profiling is enabled")
@@ -175,6 +190,7 @@ func (so *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&so.Port, "server.port", so.Port, "server port default is 8078")
 
 	fs.IntVar(&so.HttpPort, "server.http-port", so.HttpPort, "server http port default is 8079")
+	fs.IntVar(&so.ManagementPort, "server.management-port", so.ManagementPort, "server management port for /metrics, /readyz and /debug/pprof; set 0 to serve built-in routes on the main http port")
 
 	fs.StringVar(&so.Name, "server.name", so.Name, "server name default is goshop-user-srv")
 	fs.StringSliceVar(&so.CorsAllowOrigins, "server.cors-allow-origins", so.CorsAllowOrigins,

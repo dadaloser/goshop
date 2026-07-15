@@ -13,6 +13,9 @@ import (
 
 // 初始化路由
 func initRouter(g *restserver.Server, cfg *config.Config) {
+	if cfg != nil && cfg.Server != nil && cfg.Server.ManagementPort > 0 {
+		registerBusinessLivez(g)
+	}
 	v1 := g.Group("/v1")
 	adminAuth := requireAdminToken(cfg.AdminAuth)
 	ugroup := v1.Group("/user", adminAuth)
@@ -82,4 +85,10 @@ func adminTokenEqual(expected, got string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(expected), []byte(got)) == 1
+}
+
+func registerBusinessLivez(g *restserver.Server) {
+	g.GET("/livez", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 }

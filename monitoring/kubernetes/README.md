@@ -21,7 +21,7 @@ The manifests assume the workload Services or Pods carry:
 - `app.kubernetes.io/name: goshop-api` or `goshop-admin`
 
 `ServiceMonitor` assumes the selected Services ultimately expose pod target ports
-`8049` and `8050`.
+`8149` and `8150`.
 
 ## ServiceMonitor vs PodMonitor
 
@@ -33,12 +33,6 @@ workload unless you intentionally want duplicate scrapes.
 
 ## Important Limitation
 
-`goshop-api` and `goshop-admin` currently serve business traffic and
-observability routes on the same HTTP ports. This NetworkPolicy narrows direct
-pod and ClusterIP access to internal sources, but it cannot filter individual
-paths. If a public Ingress still routes `/metrics`, `/readyz`, `/healthz`, or
-`/debug/pprof`, external callers may still traverse that Ingress path.
-
-Keep the application-level route guard enabled and ensure public Ingress rules
-do not expose these observability paths. A future dedicated management port
-would let the NetworkPolicy become fully path-agnostic and stricter.
+`goshop-api` and `goshop-admin` now expose observability endpoints on dedicated
+management ports. Keep public Ingress rules pointed only at the business HTTP
+ports and do not route traffic to the management ports.

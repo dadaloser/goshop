@@ -26,18 +26,18 @@ spec:
               kubernetes.io/metadata.name: monitoring
       ports:
         - protocol: TCP
-          port: 8049
+          port: 8149
         - protocol: TCP
-          port: 8050
+          port: 8150
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: goshop
       ports:
         - protocol: TCP
-          port: 8049
+          port: 8149
         - protocol: TCP
-          port: 8050
+          port: 8150
     - from:
         - ipBlock:
             cidr: 10.0.0.0/8
@@ -49,6 +49,6 @@ spec:
             cidr: 100.64.0.0/10
       ports:
         - protocol: TCP
-          port: 8049
+          port: 8149
         - protocol: TCP
-          port: 8050
+          port: 8150

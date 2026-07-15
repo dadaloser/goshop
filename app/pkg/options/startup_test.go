@@ -82,6 +82,16 @@ func TestServerOptionsValidateStartupRejectsWildcardCORS(t *testing.T) {
 	}
 }
 
+func TestServerOptionsValidateStartupRejectsManagementPortEqualHTTPPort(t *testing.T) {
+	opts := NewServerOptions()
+	opts.HttpPort = 8049
+	opts.ManagementPort = 8049
+
+	if err := opts.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want management-port conflict")
+	}
+}
+
 func TestRPCSecurityOptionsValidateStartup(t *testing.T) {
 	opts := NewRPCSecurityOptions()
 	opts.CertFile = "client.crt"

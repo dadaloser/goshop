@@ -3,6 +3,7 @@ server:
   host: "0.0.0.0" #host, 默认使用 0.0.0.0
   port: 8010 # grpc 安全模式的端口号，默认 8081
   http-port: 8050
+  management-port: 8150
   healthz: true # 是否开启健康检查，如果开启会安装 /healthz 路由，默认 true
   enable-metrics: true # 开启 metrics, router:  /metrics
   profiling: false # 开启性能分析时必须同时配置 profiling-token

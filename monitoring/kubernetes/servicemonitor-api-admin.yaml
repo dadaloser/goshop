@@ -15,7 +15,7 @@ spec:
     - path: /metrics
       interval: 30s
       scrapeTimeout: 10s
-      targetPort: 8049
+      targetPort: 8149
       honorLabels: false
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -35,5 +35,5 @@ spec:
     - path: /metrics
       interval: 30s
       scrapeTimeout: 10s
-      targetPort: 8050
+      targetPort: 8150
       honorLabels: false
