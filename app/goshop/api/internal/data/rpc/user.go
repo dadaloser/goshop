@@ -5,7 +5,6 @@ import (
 	"goshop/app/pkg/code"
 	code2 "goshop/gmicro/code"
 	"goshop/gmicro/server/rpcserver"
-	"goshop/gmicro/server/rpcserver/clientinterceptors"
 	"goshop/pkg/errors"
 	"strings"
 	"time"
@@ -34,12 +33,10 @@ func NewUserServiceClientContext(ctx context.Context, r registry.Discovery) (upb
 	if ctx == nil {
 		ctx = context.TODO()
 	}
-	conn, err := rpcserver.DialInsecure(
+	conn, err := rpcserver.DialDiscoveryInsecure(
 		ctx,
 		rpcserver.WithEndpoint(serviceName),
 		rpcserver.WithDiscovery(r),
-		rpcserver.WithConnectProbe(true),
-		rpcserver.WithClientUnaryInterceptor(clientinterceptors.UnaryTracingInterceptor),
 	)
 	if err != nil {
 		return nil, err

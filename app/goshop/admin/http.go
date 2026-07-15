@@ -16,6 +16,7 @@ func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 		restserver.WithEnableProfiling(cfg.Server.EnableProfiling),
 		restserver.WithProfilingToken(cfg.Server.ProfilingToken),
 		restserver.WithMetrics(cfg.Server.EnableMetrics),
+		restserver.WithBuiltInRouteCIDRs(cfg.Server.BuiltInRouteCIDRs),
 		restserver.WithReadHeaderTimeout(cfg.Server.ReadHeaderTimeout),
 		restserver.WithReadTimeout(cfg.Server.ReadTimeout),
 		restserver.WithWriteTimeout(cfg.Server.WriteTimeout),

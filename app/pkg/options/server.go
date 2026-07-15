@@ -28,6 +28,8 @@ type ServerOptions struct {
 	//是否开启health check
 	EnableHealthCheck bool `json:"enable-health-check" mapstructure:"enable-health-check"`
 
+	BuiltInRouteCIDRs []string `json:"built-in-route-cidrs,omitempty" mapstructure:"built-in-route-cidrs"`
+
 	//host
 	Host string `json:"host,omitempty"                     mapstructure:"host"`
 
@@ -66,10 +68,21 @@ func NewServerOptions() *ServerOptions {
 		Port:                  8078,
 		HttpPort:              8079,
 		Name:                  "goshop-user-srv",
-		ReadHeaderTimeout:     5 * time.Second,
-		ReadTimeout:           15 * time.Second,
-		WriteTimeout:          30 * time.Second,
-		IdleTimeout:           60 * time.Second,
+		BuiltInRouteCIDRs: []string{
+			"127.0.0.0/8",
+			"10.0.0.0/8",
+			"172.16.0.0/12",
+			"192.168.0.0/16",
+			"169.254.0.0/16",
+			"100.64.0.0/10",
+			"::1/128",
+			"fc00::/7",
+			"fe80::/10",
+		},
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 }
 
@@ -154,6 +167,8 @@ func (so *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 
 	fs.BoolVar(&so.EnableHealthCheck, "server.enable-health-check", so.EnableHealthCheck,
 		"enable-health-check, if true, will add health check route, default is true")
+	fs.StringSliceVar(&so.BuiltInRouteCIDRs, "server.built-in-route-cidrs", so.BuiltInRouteCIDRs,
+		"CIDR ranges allowed to access built-in observability routes such as /metrics, /readyz and /debug/pprof")
 
 	fs.StringVar(&so.Host, "server.host", so.Host, "server host default is 127.0.0.1")
 

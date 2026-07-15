@@ -40,9 +40,10 @@ type Server struct {
 	ready     chan struct{}
 	readyOnce sync.Once
 
-	tlsEnabled       bool
-	enableMetrics    bool
-	enableReflection bool
+	tlsEnabled         bool
+	enableMetrics      bool
+	enableReflection   bool
+	productionDefaults bool
 
 	securityPolicy *SecurityPolicy
 }
@@ -69,10 +70,11 @@ func NewServer(opts ...ServerOption) *Server {
 
 func NewServerE(opts ...ServerOption) (*Server, error) {
 	srv := &Server{
-		address:       ":0",
-		health:        health.NewServer(),
-		ready:         make(chan struct{}),
-		enableMetrics: true,
+		address:            ":0",
+		health:             health.NewServer(),
+		ready:              make(chan struct{}),
+		enableMetrics:      true,
+		productionDefaults: true,
 		//timeout: 1 * time.Second,
 	}
 
@@ -122,6 +124,10 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 		grpc.ChainStreamInterceptor(streamInts...),
 		//注意:链路追踪拦截器需要独立出来
 		grpc.StatsHandler(otelgrpc.NewServerHandler())}
+
+	if srv.productionDefaults {
+		grpcOpts = append(grpcOpts, productionServerOptions()...)
+	}
 
 	//把用户自己传入的grpc.ServerOption放在一起
 	if len(srv.grpcOpts) > 0 {
@@ -221,17 +227,21 @@ func WithKeepaliveEnforcementPolicy(policy keepalive.EnforcementPolicy) ServerOp
 
 func WithProductionDefaults() ServerOption {
 	return func(s *Server) {
-		s.grpcOpts = append(s.grpcOpts,
-			grpc.MaxConcurrentStreams(1024),
-			grpc.KeepaliveParams(keepalive.ServerParameters{
-				Time:    30 * time.Second,
-				Timeout: 10 * time.Second,
-			}),
-			grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-				MinTime:             10 * time.Second,
-				PermitWithoutStream: true,
-			}),
-		)
+		s.productionDefaults = true
+	}
+}
+
+func productionServerOptions() []grpc.ServerOption {
+	return []grpc.ServerOption{
+		grpc.MaxConcurrentStreams(1024),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    30 * time.Second,
+			Timeout: 10 * time.Second,
+		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	}
 }
 

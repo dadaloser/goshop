@@ -13,9 +13,11 @@ import (
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	grpcinsecure "google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 )
 
 const selectorBalancerName = "selector"
@@ -26,25 +28,42 @@ type clientOptions struct {
 	endpoint string
 	timeout  time.Duration
 	// discovery接口
-	discovery      registry.Discovery
-	unaryInts      []grpc.UnaryClientInterceptor
-	streamInts     []grpc.StreamClientInterceptor
-	rpcOpts        []grpc.DialOption
-	balancerName   string
-	log            log.LogHelper
-	enableTracing  bool
-	enableMetrics  bool
-	connectProbe   bool
-	connectTimeout time.Duration
-	resilience     *resilience.Options
+	discovery          registry.Discovery
+	unaryInts          []grpc.UnaryClientInterceptor
+	streamInts         []grpc.StreamClientInterceptor
+	rpcOpts            []grpc.DialOption
+	balancerName       string
+	log                log.LogHelper
+	enableTracing      bool
+	enableMetrics      bool
+	connectProbe       bool
+	connectTimeout     time.Duration
+	resilience         *resilience.Options
+	productionDefaults bool
 
 	transportCredentials credentials.TransportCredentials
 	securityPolicy       *SecurityPolicy
 }
 
+func defaultClientOptions() clientOptions {
+	return clientOptions{
+		timeout:            2 * time.Second,
+		connectTimeout:     5 * time.Second,
+		balancerName:       "round_robin",
+		enableTracing:      true,
+		productionDefaults: true,
+	}
+}
+
 func WithEnableTracing(enable bool) ClientOption {
 	return func(o *clientOptions) {
 		o.enableTracing = enable
+	}
+}
+
+func WithClientProductionDefaults() ClientOption {
+	return func(o *clientOptions) {
+		o.productionDefaults = true
 	}
 }
 
@@ -139,10 +158,9 @@ func DialDiscovery(ctx context.Context, opts ...ClientOption) (*grpc.ClientConn,
 }
 
 func dialDiscovery(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.ClientConn, error) {
-	options := clientOptions{
-		connectProbe: true,
-		balancerName: selectorBalancerName,
-	}
+	options := defaultClientOptions()
+	options.connectProbe = true
+	options.balancerName = selectorBalancerName
 	for _, opt := range opts {
 		opt(&options)
 	}
@@ -161,12 +179,7 @@ func dialDiscovery(ctx context.Context, insecure bool, opts ...ClientOption) (*g
 }
 
 func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.ClientConn, error) {
-	options := clientOptions{
-		timeout:        2000 * time.Millisecond,
-		connectTimeout: 5 * time.Second,
-		balancerName:   "round_robin",
-		enableTracing:  true,
-	}
+	options := defaultClientOptions()
 
 	for _, o := range opts {
 		o(&options)
@@ -213,6 +226,10 @@ func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.Clien
 		grpc.WithChainStreamInterceptor(streamInts...),
 	}
 
+	if options.productionDefaults {
+		grpcOpts = append(grpcOpts, productionClientDialOptions(options.connectTimeout)...)
+	}
+
 	//是否开启链路追踪
 	if options.enableTracing {
 		grpcOpts = append(grpcOpts, grpc.WithStatsHandler(otelgrpc.NewClientHandler())) // OpenTelemetry 的 StatsHandler 在这里，作为独立的 DialOption
@@ -256,6 +273,28 @@ func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.Clien
 	}
 	return conn, nil
 	//return grpc.DialContext(ctx, options.endpoint, grpcOpts...)
+}
+
+func productionClientDialOptions(connectTimeout time.Duration) []grpc.DialOption {
+	if connectTimeout <= 0 {
+		connectTimeout = 5 * time.Second
+	}
+	return []grpc.DialOption{
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                30 * time.Second,
+			Timeout:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff: backoff.Config{
+				BaseDelay:  100 * time.Millisecond,
+				Multiplier: 1.6,
+				Jitter:     0.2,
+				MaxDelay:   3 * time.Second,
+			},
+			MinConnectTimeout: connectTimeout,
+		}),
+	}
 }
 
 func waitForReady(ctx context.Context, conn *grpc.ClientConn, timeout time.Duration) error {

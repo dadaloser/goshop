@@ -13,6 +13,26 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+func TestDefaultClientOptionsEnableProductionDefaults(t *testing.T) {
+	opts := defaultClientOptions()
+	if !opts.productionDefaults {
+		t.Fatal("productionDefaults = false, want true by default")
+	}
+	if opts.connectTimeout != 5*time.Second {
+		t.Fatalf("connectTimeout = %s, want 5s", opts.connectTimeout)
+	}
+	if opts.balancerName != "round_robin" {
+		t.Fatalf("balancerName = %q, want round_robin", opts.balancerName)
+	}
+}
+
+func TestProductionClientDialOptionsIncludeKeepaliveAndBackoff(t *testing.T) {
+	opts := productionClientDialOptions(5 * time.Second)
+	if len(opts) != 2 {
+		t.Fatalf("productionClientDialOptions() len = %d, want 2", len(opts))
+	}
+}
+
 func TestDialInsecureWithConnectProbeFailsWhenEndpointUnavailable(t *testing.T) {
 	ctx := context.Background()
 	conn, err := DialInsecure(

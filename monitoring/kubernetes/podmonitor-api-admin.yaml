@@ -1,0 +1,39 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: goshop-api-observability
+  labels:
+    app.kubernetes.io/name: goshop
+    app.kubernetes.io/component: observability
+spec:
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: goshop
+      app.kubernetes.io/name: goshop-api
+  podMetricsEndpoints:
+    - path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      targetPort: 8049
+      honorLabels: false
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: goshop-admin-observability
+  labels:
+    app.kubernetes.io/name: goshop
+    app.kubernetes.io/component: observability
+spec:
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: goshop
+      app.kubernetes.io/name: goshop-admin
+  podMetricsEndpoints:
+    - path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      targetPort: 8050
+      honorLabels: false

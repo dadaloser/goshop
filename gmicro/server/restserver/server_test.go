@@ -23,6 +23,7 @@ func TestReadyzReturnsUnavailableAfterStop(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	req.RemoteAddr = "10.0.0.2:1234"
 	srv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("readyz before stop status = %d, want 200", rec.Code)
@@ -34,6 +35,7 @@ func TestReadyzReturnsUnavailableAfterStop(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	req.RemoteAddr = "10.0.0.2:1234"
 	srv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("readyz after stop status = %d, want 503", rec.Code)
@@ -61,6 +63,7 @@ func TestRegisterBuiltInRoutesIsIdempotent(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	req.RemoteAddr = "10.0.0.2:1234"
 	req.Header.Set("Authorization", "Bearer secret-token")
 	srv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -195,6 +198,7 @@ func TestRegisterProfilingRequiresBearerToken(t *testing.T) {
 	srv.registerProfilingRoutes()
 
 	req := httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	req.RemoteAddr = "10.0.0.2:1234"
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
@@ -202,11 +206,103 @@ func TestRegisterProfilingRequiresBearerToken(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	req.RemoteAddr = "10.0.0.2:1234"
 	req.Header.Set("Authorization", "Bearer secret-token")
 	rec = httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("pprof with token status = %d, want 200", rec.Code)
+	}
+}
+
+func TestValidateStartupConfigRejectsInvalidBuiltInRouteCIDR(t *testing.T) {
+	srv := NewServer(WithBuiltInRouteCIDRs([]string{"not-a-cidr"}))
+
+	if err := srv.ValidateStartupConfig(); err == nil {
+		t.Fatal("ValidateStartupConfig() error = nil, want invalid built-in route cidr error")
+	}
+}
+
+func TestReadyzAllowsInternalAndRejectsPublicClients(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	srv := NewServer(WithHealthCheck(true))
+	srv.registerHealthRoutes()
+	srv.readyOnce.Do(func() {
+		close(srv.ready)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	req.RemoteAddr = "8.8.8.8:1234"
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("readyz public client status = %d, want 403", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	req.RemoteAddr = "10.1.2.3:1234"
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("readyz internal client status = %d, want 200", rec.Code)
+	}
+}
+
+func TestMetricsAllowInternalAndRejectPublicClients(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	srv := NewServer(WithMetrics(true))
+	srv.registerBuiltInRoutes()
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req.RemoteAddr = "1.2.3.4:5678"
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("metrics public client status = %d, want 403", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req.RemoteAddr = "192.168.1.10:5678"
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("metrics internal client status = %d, want 200", rec.Code)
+	}
+}
+
+func TestProfilingRequiresInternalClientAndBearerToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	srv := NewServer(
+		WithMode(gin.TestMode),
+		WithEnableProfiling(true),
+		WithProfilingToken("secret-token"),
+	)
+	srv.registerProfilingRoutes()
+
+	req := httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	req.RemoteAddr = "203.0.113.5:4321"
+	req.Header.Set("Authorization", "Bearer secret-token")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("pprof public client status = %d, want 403", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	req.RemoteAddr = "10.0.0.8:4321"
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("pprof internal client without token status = %d, want 401", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	req.RemoteAddr = "10.0.0.8:4321"
+	req.Header.Set("Authorization", "Bearer secret-token")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("pprof internal client with token status = %d, want 200", rec.Code)
 	}
 }
 

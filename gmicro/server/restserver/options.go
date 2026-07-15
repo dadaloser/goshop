@@ -21,6 +21,20 @@ func WithProfilingToken(token string) ServerOption {
 	}
 }
 
+func WithBuiltInRouteCIDRs(cidrs []string) ServerOption {
+	return func(s *Server) {
+		if len(cidrs) == 0 {
+			return
+		}
+		nets, err := withBuiltInRouteCIDRs(cidrs)
+		if err != nil {
+			s.builtInRouteErr = err
+			return
+		}
+		s.builtInRouteCIDRs = nets
+	}
+}
+
 func WithMode(mode string) ServerOption {
 	return func(s *Server) {
 		s.mode = mode

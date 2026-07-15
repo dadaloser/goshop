@@ -70,6 +70,8 @@ type Server struct {
 	rateLimitBurst    int
 	maxConcurrentReqs int
 	profilingToken    string
+	builtInRouteCIDRs []*net.IPNet
+	builtInRouteErr   error
 
 	//中间件
 	middlewares []string
@@ -110,10 +112,11 @@ func NewServer(opts ...ServerOption) *Server {
 			7 * 24 * time.Hour,
 			7 * 24 * time.Hour,
 		},
-		Engine:      gin.Default(),
-		transName:   "zh",
-		serviceName: "gmicro",
-		ready:       make(chan struct{}),
+		Engine:            gin.Default(),
+		transName:         "zh",
+		serviceName:       "gmicro",
+		ready:             make(chan struct{}),
+		builtInRouteCIDRs: mustParseCIDRs(defaultBuiltInRouteCIDRs()),
 	}
 
 	for _, o := range opts {
@@ -151,6 +154,9 @@ func (s *Server) middleware(name string) (gin.HandlerFunc, bool) {
 
 // ValidateStartupConfig validates server configuration before startup.
 func (s *Server) ValidateStartupConfig() error {
+	if s.builtInRouteErr != nil {
+		return s.builtInRouteErr
+	}
 	if s.mode != gin.DebugMode && s.mode != gin.ReleaseMode && s.mode != gin.TestMode {
 		return errors.New("mode must be one of debug/release/test")
 	}
@@ -295,17 +301,19 @@ func (s *Server) registerBuiltInRoutes() {
 			// +optional set request duration, default {0.1, 0.3, 1.2, 5, 10}
 			// used to p95, p99
 			m.SetDuration([]float64{0.1, 0.3, 1.2, 5, 10})
-			m.Use(s)
+			m.UseWithoutExposingEndpoint(s)
+			m.Expose(s.Group("", s.builtInRouteMiddleware()))
 		}
 	})
 }
 
 func (s *Server) registerProfilingRoutes() {
+	group := s.Group("", s.builtInRouteMiddleware())
 	if s.profilingToken == "" {
-		pprof.Register(s.Engine)
+		pprof.RouteRegister(group)
 		return
 	}
-	pprof.RegisterWithMiddleware(s.Engine, bearerTokenMiddleware(s.profilingToken))
+	pprof.RouteRegisterWithMiddleware(group, bearerTokenMiddleware(s.profilingToken))
 }
 
 func (s *Server) Stop(ctx context.Context) error {
@@ -374,6 +382,78 @@ func (s *Server) registerHealthRoutes() {
 	}
 
 	s.GET("/livez", livez)
-	s.GET("/readyz", readyz)
-	s.GET("/healthz", readyz)
+	internalRoutes := s.Group("", s.builtInRouteMiddleware())
+	internalRoutes.GET("/readyz", readyz)
+	internalRoutes.GET("/healthz", readyz)
+}
+
+func (s *Server) builtInRouteMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if isAllowedBuiltInRouteClientIP(clientIPFromRemoteAddr(c.Request.RemoteAddr), s.builtInRouteCIDRs) {
+			c.Next()
+			return
+		}
+		c.AbortWithStatus(http.StatusForbidden)
+	}
+}
+
+func clientIPFromRemoteAddr(remoteAddr string) net.IP {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err == nil {
+		return net.ParseIP(host)
+	}
+	return net.ParseIP(remoteAddr)
+}
+
+func isAllowedBuiltInRouteClientIP(ip net.IP, cidrs []*net.IPNet) bool {
+	if ip == nil {
+		return false
+	}
+	for _, cidr := range cidrs {
+		if cidr != nil && cidr.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func withBuiltInRouteCIDRs(cidrs []string) ([]*net.IPNet, error) {
+	if len(cidrs) == 0 {
+		return mustParseCIDRs(defaultBuiltInRouteCIDRs()), nil
+	}
+	return parseCIDRs(cidrs)
+}
+
+func parseCIDRs(cidrs []string) ([]*net.IPNet, error) {
+	nets := make([]*net.IPNet, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid built-in route cidr %q: %w", cidr, err)
+		}
+		nets = append(nets, network)
+	}
+	return nets, nil
+}
+
+func mustParseCIDRs(cidrs []string) []*net.IPNet {
+	nets, err := parseCIDRs(cidrs)
+	if err != nil {
+		panic(err)
+	}
+	return nets
+}
+
+func defaultBuiltInRouteCIDRs() []string {
+	return []string{
+		"127.0.0.0/8",
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		"169.254.0.0/16",
+		"100.64.0.0/10",
+		"::1/128",
+		"fc00::/7",
+		"fe80::/10",
+	}
 }

@@ -9,7 +9,6 @@ import (
 	userpb "goshop/api/user/v1"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/rpcserver"
-	"goshop/gmicro/server/rpcserver/clientinterceptors"
 
 	"google.golang.org/grpc"
 )
@@ -33,7 +32,6 @@ func DialService(
 		rpcserver.WithEndpoint(ServiceEndpoint(service)),
 		rpcserver.WithDiscovery(discovery),
 		rpcserver.WithClientSecurityPolicy(security),
-		rpcserver.WithClientUnaryInterceptor(clientinterceptors.UnaryTracingInterceptor),
 	}
 	dialOpts = append(dialOpts, opts...)
 	conn, err := rpcserver.DialDiscovery(ctx, dialOpts...)

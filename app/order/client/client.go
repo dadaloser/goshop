@@ -54,12 +54,11 @@ func main() {
 		ServerName: "goshop.internal",
 	}
 
-	conn, err := rpc.Dial(context.Background(),
+	conn, err := rpc.DialDiscovery(context.Background(),
 		rpc.WithBalancerName("selector"),
 		rpc.WithDiscovery(r),
 		rpc.WithClientSecurityPolicy(rpcSecurity),
 		rpc.WithClientTimeout(time.Second*5000),
-		rpc.WithConnectProbe(true),
 		rpc.WithEndpoint(appclient.ServiceEndpoint(appclient.ServiceOrder)),
 	)
 	if err != nil {

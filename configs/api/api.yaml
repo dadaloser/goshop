@@ -7,6 +7,16 @@ server:
   enable-metrics: true # 开启 metrics, router:  /metrics
   profiling: false # 开启性能分析时必须同时配置 profiling-token
   profiling-token: ""
+  built-in-route-cidrs: # /metrics /readyz /healthz /debug/pprof 仅允许这些内网网段访问
+    - 127.0.0.0/8
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - 169.254.0.0/16
+    - 100.64.0.0/10
+    - ::1/128
+    - fc00::/7
+    - fe80::/10
   limit: true
   rate-limit-rps: 100
   rate-limit-burst: 200

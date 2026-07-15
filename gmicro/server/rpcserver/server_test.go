@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/keepalive"
 	reflectionv1 "google.golang.org/grpc/reflection/grpc_reflection_v1"
 )
 
@@ -170,18 +169,7 @@ func TestNewServerEEnablesReflectionWhenConfigured(t *testing.T) {
 }
 
 func TestNewServerEAddsProductionGRPCOptions(t *testing.T) {
-	srv, err := NewServerE(
-		WithAddress("127.0.0.1:0"),
-		WithMaxConcurrentStreams(128),
-		WithKeepaliveParams(keepalive.ServerParameters{
-			Time:    30 * time.Second,
-			Timeout: 10 * time.Second,
-		}),
-		WithKeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             10 * time.Second,
-			PermitWithoutStream: true,
-		}),
-	)
+	srv, err := NewServerE(WithAddress("127.0.0.1:0"))
 	if err != nil {
 		t.Fatalf("NewServerE() error = %v, want nil", err)
 	}
@@ -193,6 +181,35 @@ func TestNewServerEAddsProductionGRPCOptions(t *testing.T) {
 
 	if len(srv.grpcOpts) < 5 {
 		t.Fatalf("grpc options = %d, want production options included", len(srv.grpcOpts))
+	}
+}
+
+func TestWithProductionDefaultsDoesNotDuplicateGRPCOptions(t *testing.T) {
+	defaultSrv, err := NewServerE(WithAddress("127.0.0.1:0"))
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = defaultSrv.Stop(ctx)
+	})
+
+	explicitSrv, err := NewServerE(
+		WithAddress("127.0.0.1:0"),
+		WithProductionDefaults(),
+	)
+	if err != nil {
+		t.Fatalf("NewServerE() with WithProductionDefaults error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = explicitSrv.Stop(ctx)
+	})
+
+	if got, want := len(explicitSrv.grpcOpts), len(defaultSrv.grpcOpts); got != want {
+		t.Fatalf("grpc options = %d, want %d without duplicate production defaults", got, want)
 	}
 }
 
