@@ -3,6 +3,7 @@ package config
 import (
 	"testing"
 
+	"goshop/app/pkg/authz"
 	"goshop/pkg/log"
 )
 
@@ -10,7 +11,7 @@ func TestAdminAuthOptionsHasPermission(t *testing.T) {
 	tests := []struct {
 		name        string
 		permissions []string
-		permission  string
+		permission  authz.Permission
 		want        bool
 	}{
 		{
@@ -106,7 +107,7 @@ func TestAdminAuthOptionsHasAccessRequiresPermissionAndRole(t *testing.T) {
 	tests := []struct {
 		name       string
 		opts       *AdminAuthOptions
-		permission string
+		permission authz.Permission
 		minRole    string
 		want       bool
 	}{

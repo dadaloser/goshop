@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"goshop/app/goshop/admin/config"
+	"goshop/app/pkg/authz"
 
 	"github.com/gin-gonic/gin"
 )
@@ -69,7 +70,7 @@ func TestRequireAdminPermission(t *testing.T) {
 	tests := []struct {
 		name       string
 		opts       *config.AdminAuthOptions
-		permission string
+		permission authz.Permission
 		wantStatus int
 	}{
 		{
@@ -127,7 +128,7 @@ func TestRequireAdminAccess(t *testing.T) {
 	tests := []struct {
 		name       string
 		opts       *config.AdminAuthOptions
-		permission string
+		permission authz.Permission
 		minRole    string
 		wantStatus int
 	}{
@@ -161,9 +162,9 @@ func TestRequireAdminAccess(t *testing.T) {
 			name: "permission and role pass",
 			opts: &config.AdminAuthOptions{
 				Role:        config.AdminRoleAdmin,
-				Permissions: []string{"user:list"},
+				Permissions: []string{string(authz.PermissionUserListAny)},
 			},
-			permission: "user:list",
+			permission: authz.PermissionUserListAny,
 			minRole:    config.AdminRoleAdmin,
 			wantStatus: http.StatusOK,
 		},
@@ -204,13 +205,13 @@ func TestAdminAuthChain(t *testing.T) {
 		},
 		{
 			name:       "wrong token with permission rejects",
-			opts:       &config.AdminAuthOptions{Token: "secret", Permissions: []string{"user:list"}},
+			opts:       &config.AdminAuthOptions{Token: "secret", Permissions: []string{string(authz.PermissionUserListAny)}},
 			header:     "wrong",
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "valid token and permission passes",
-			opts:       &config.AdminAuthOptions{Token: "secret", Permissions: []string{"user:list"}},
+			opts:       &config.AdminAuthOptions{Token: "secret", Permissions: []string{string(authz.PermissionUserListAny)}},
 			header:     "secret",
 			wantStatus: http.StatusOK,
 		},
@@ -221,7 +222,7 @@ func TestAdminAuthChain(t *testing.T) {
 			router := gin.New()
 			router.GET("/admin",
 				requireAdminToken(tt.opts),
-				requireAdminPermission(tt.opts, "user:list"),
+				requireAdminPermission(tt.opts, authz.PermissionUserListAny),
 				func(c *gin.Context) {
 					c.Status(http.StatusOK)
 				},

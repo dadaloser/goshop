@@ -41,13 +41,9 @@ cmd启动添加配置文件路径:
 
 
 
-准备
-nacos
-consul
-mysql
-redis
-es
-
+前期准备:
+    工具:nacos,consul,mysql,redis,es
+    
 
 运行启动流程:
 cmd开始启动服务

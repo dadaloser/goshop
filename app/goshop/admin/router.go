@@ -6,6 +6,7 @@ import (
 
 	"goshop/app/goshop/admin/config"
 	"goshop/app/goshop/admin/controller"
+	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver"
 
 	"github.com/gin-gonic/gin"
@@ -20,7 +21,7 @@ func initRouter(g *restserver.Server, cfg *config.Config) {
 	adminAuth := requireAdminToken(cfg.AdminAuth)
 	ugroup := v1.Group("/user", adminAuth)
 	ucontroller := controller.NewUserController()
-	ugroup.GET("list", requireAdminAccess(cfg.AdminAuth, "user:list", config.AdminRoleAdmin), ucontroller.List)
+	ugroup.GET("list", requireAdminAccess(cfg.AdminAuth, authz.PermissionUserListAny, config.AdminRoleAdmin), ucontroller.List)
 }
 
 func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {
@@ -51,7 +52,7 @@ func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {
 	}
 }
 
-func requireAdminPermission(opts *config.AdminAuthOptions, permission string) gin.HandlerFunc {
+func requireAdminPermission(opts *config.AdminAuthOptions, permission authz.Permission) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if opts == nil || !opts.HasPermission(permission) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
@@ -65,7 +66,7 @@ func requireAdminPermission(opts *config.AdminAuthOptions, permission string) gi
 	}
 }
 
-func requireAdminAccess(opts *config.AdminAuthOptions, permission, minRole string) gin.HandlerFunc {
+func requireAdminAccess(opts *config.AdminAuthOptions, permission authz.Permission, minRole string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if opts == nil || !opts.HasAccess(permission, minRole) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{

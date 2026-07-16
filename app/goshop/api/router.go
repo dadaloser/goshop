@@ -69,7 +69,6 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 		uGroup.GET("orders", jwtAuth.AuthFunc(), orderController.OrderList)
 		uGroup.GET("orders/:order_sn", jwtAuth.AuthFunc(), orderController.OrderDetail)
 		uGroup.GET("orders/:order_sn/status_logs", jwtAuth.AuthFunc(), orderController.OrderStatusLogs)
-		uGroup.POST("orders/pay/callback", jwtAuth.AuthFunc(), orderController.SimulatePayCallback)
 	}
 
 	baseRouter := v1.Group("base")
@@ -89,7 +88,6 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	inventoryRouter := v1.Group("inventory")
 	{
 		inventoryController := inventory.NewInventoryController(serviceFactory, g.Translator())
-		inventoryRouter.GET("/orders/:order_sn", inventoryController.OrderDetail)
 		inventoryRouter.GET("/:goods_id", inventoryController.Detail)
 	}
 

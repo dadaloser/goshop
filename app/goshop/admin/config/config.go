@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	"goshop/pkg/app"
 	cliflag "goshop/pkg/common/cli/flag"
@@ -67,18 +68,18 @@ func (o *AdminAuthOptions) EffectiveRole() string {
 	return normalizeRole(os.Getenv("GOSHOP_ADMIN_ROLE"))
 }
 
-func (o *AdminAuthOptions) HasPermission(permission string) bool {
-	permission = strings.TrimSpace(permission)
-	if permission == "" {
+func (o *AdminAuthOptions) HasPermission(permission authz.Permission) bool {
+	required := strings.TrimSpace(string(permission))
+	if required == "" {
 		return true
 	}
 	for _, candidate := range o.EffectivePermissions() {
-		if candidate == "*" || candidate == permission {
+		if candidate == "*" || candidate == required {
 			return true
 		}
 		if strings.HasSuffix(candidate, ":*") {
 			prefix := strings.TrimSuffix(candidate, "*")
-			if strings.HasPrefix(permission, prefix) {
+			if strings.HasPrefix(required, prefix) {
 				return true
 			}
 		}
@@ -103,7 +104,7 @@ func (o *AdminAuthOptions) HasRoleAtLeast(required string) bool {
 	return currentLevel >= requiredLevel
 }
 
-func (o *AdminAuthOptions) HasAccess(permission, minRole string) bool {
+func (o *AdminAuthOptions) HasAccess(permission authz.Permission, minRole string) bool {
 	return o != nil && o.HasPermission(permission) && o.HasRoleAtLeast(minRole)
 }
 
@@ -151,7 +152,7 @@ func (o *AdminAuthOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 	fs.StringVar(&o.Token, "admin-auth.token", o.Token, "shared token required for admin routes until full RBAC is enabled")
 	fs.StringVar(&o.Role, "admin-auth.role", o.Role, "bootstrap admin role: basic, admin, primary_admin, or super_admin")
-	fs.StringSliceVar(&o.Permissions, "admin-auth.permissions", o.Permissions, "permissions granted to the bootstrap admin token, for example user:list or user:*")
+	fs.StringSliceVar(&o.Permissions, "admin-auth.permissions", o.Permissions, "permissions granted to the bootstrap admin token, for example user:list:any or user:*")
 }
 
 func (c *Config) Validate() []error {
