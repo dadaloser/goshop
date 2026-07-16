@@ -70,3 +70,6 @@ cmd开始启动服务
 "statIntervalInMs":1000         #统计时间窗口，单位毫秒
 }
 ]
+
+
+生产上线时,K8s/Consul 上线时确认 /readyz、/metrics 的来源 IP 在 built-in-route-cidrs 内

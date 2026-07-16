@@ -19,6 +19,11 @@ type JWT struct {
 	SigningKey []byte
 }
 
+const (
+	JWTTokenKey   = "JWT_TOKEN"
+	JWTPayloadKey = "JWT_PAYLOAD"
+)
+
 var (
 	TokenExpired     = errors.New("token is expired")
 	TokenNotValidYet = errors.New("token not active yet")

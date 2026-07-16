@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	ginjwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
+
+	"goshop/gmicro/server/restserver/middlewares"
 )
 
 func TestLogoutRevokesCurrentToken(t *testing.T) {
@@ -18,8 +19,8 @@ func TestLogoutRevokesCurrentToken(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/user/logout", nil)
 	expiresAt := time.Now().Add(time.Hour).Truncate(time.Second)
-	ctx.Set("JWT_TOKEN", "raw-token")
-	ctx.Set("JWT_PAYLOAD", ginjwt.MapClaims{
+	ctx.Request.Header.Set("Authorization", "Bearer raw-token")
+	ctx.Set(middlewares.JWTPayloadKey, map[string]any{
 		"exp": float64(expiresAt.Unix()),
 	})
 
@@ -36,7 +37,7 @@ func TestLogoutRevokesCurrentToken(t *testing.T) {
 func TestJWTExpiresAtRejectsMissingExp(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
-	ctx.Set("JWT_PAYLOAD", ginjwt.MapClaims{})
+	ctx.Set(middlewares.JWTPayloadKey, map[string]any{})
 
 	if _, err := jwtExpiresAt(ctx); err == nil {
 		t.Fatal("jwtExpiresAt() error = nil, want error")

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	jwt "github.com/dgrijalva/jwt-go/v4"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 
 	"goshop/gmicro/code"
 	pkgerrors "goshop/pkg/errors"

@@ -13,7 +13,6 @@ import (
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/gmicro/server/restserver/middlewares/auth"
 
-	ginjwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -54,11 +53,7 @@ func TestJWTAuthorizerRejectsTokenVersionMismatch(t *testing.T) {
 
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/user/detail", nil)
-	ctx.Set("JWT_TOKEN", token)
-	ctx.Set("JWT_PAYLOAD", ginjwt.MapClaims{
-		"user_id": float64(1),
-		"tv":      float64(1),
-	})
+	ctx.Set(middlewares.JWTTokenKey, token)
 
 	if jwtStrategy.Authorizator(nil, ctx) {
 		t.Fatal("Authorizator() = true, want false")

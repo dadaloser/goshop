@@ -144,6 +144,63 @@ func TestRegisterUsesTLSGRPCHealthCheckForSecureGRPCEndpoints(t *testing.T) {
 	}
 }
 
+func TestRegisterSecureGRPCEndpointWithHeartbeatUsesTTLInsteadOfActiveGRPCCheck(t *testing.T) {
+	var got struct {
+		Checks []struct {
+			GRPC string `json:"GRPC"`
+			TTL  string `json:"TTL"`
+			TCP  string `json:"TCP"`
+		} `json:"Checks"`
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode register request failed: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+
+	apiClient, err := api.NewClient(&api.Config{Address: server.URL})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	client := NewClient(apiClient)
+	client.heartbeat = true
+	client.healthcheckInterval = 1
+	t.Cleanup(client.cancel)
+
+	err = client.Register(context.Background(), &registry.ServiceInstance{
+		ID:        "goods-1",
+		Name:      "goods",
+		Version:   "v1",
+		Endpoints: []string{"grpc://127.0.0.1:9000?isSecure=true"},
+	}, true)
+	if err != nil {
+		t.Fatalf("Register() error = %v, want nil", err)
+	}
+
+	var hasTTL bool
+	var hasGRPC bool
+	for _, check := range got.Checks {
+		if check.TTL != "" {
+			hasTTL = true
+		}
+		if check.GRPC != "" {
+			hasGRPC = true
+		}
+		if check.TCP != "" {
+			t.Fatalf("registered check = %+v, secure grpc heartbeat path should not use TCP check", check)
+		}
+	}
+	if !hasTTL {
+		t.Fatalf("registered checks = %+v, want TTL heartbeat check", got.Checks)
+	}
+	if hasGRPC {
+		t.Fatalf("registered checks = %+v, secure grpc heartbeat path should skip active grpc check", got.Checks)
+	}
+}
+
 func TestRegisterUsesContext(t *testing.T) {
 	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

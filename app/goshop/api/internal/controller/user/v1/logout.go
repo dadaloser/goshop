@@ -5,17 +5,17 @@ import (
 	"time"
 
 	"goshop/gmicro/code"
+	gauth "goshop/gmicro/server/restserver/middlewares/auth"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
 
-	ginjwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
 )
 
 func (us *userServer) Logout(ctx *gin.Context) {
 	if us.revokedTokens != nil {
-		token := ginjwt.GetToken(ctx)
-		if token == "" {
+		token, err := gauth.GetToken(ctx)
+		if err != nil {
 			core.WriteResponse(ctx, errors.WithCode(code.ErrTokenInvalid, "token not found"), nil)
 			return
 		}
@@ -53,7 +53,7 @@ func (us *userServer) LogoutAll(ctx *gin.Context) {
 }
 
 func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
-	exp, ok := ginjwt.ExtractClaims(ctx)["exp"]
+	exp, ok := gauth.ExtractClaims(ctx)["exp"]
 	if !ok {
 		return time.Time{}, errors.WithCode(code.ErrTokenInvalid, "token missing exp")
 	}

@@ -18,7 +18,7 @@ import (
 func NewApp(basename string) *app.App {
 	cfg := config.New()
 	appl := app.NewApp("admin",
-		"goshop",
+		basename,
 		app.WithOptions(cfg),
 		app.WithRunFunc(run(cfg)),
 	)

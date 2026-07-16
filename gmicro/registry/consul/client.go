@@ -126,21 +126,39 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 		checkAddresses = append(checkAddresses, checkAddress)
 		addresses[raw.Scheme] = api.ServiceAddress{Address: endpoint, Port: int(port)}
 		if enableHealthCheck {
-			check := &api.AgentServiceCheck{
-				Interval:                       fmt.Sprintf("%ds", c.healthcheckInterval),
-				DeregisterCriticalServiceAfter: fmt.Sprintf("%ds", c.deregisterCriticalServiceAfter),
-				Timeout:                        "5s",
-			}
 			switch raw.Scheme {
 			case "http", "https":
+				check := &api.AgentServiceCheck{
+					Interval:                       fmt.Sprintf("%ds", c.healthcheckInterval),
+					DeregisterCriticalServiceAfter: fmt.Sprintf("%ds", c.deregisterCriticalServiceAfter),
+					Timeout:                        "5s",
+				}
 				check.HTTP = c.healthCheckURL(raw)
+				checks = append(checks, check)
 			case "grpc":
+				if endpointIsSecure(raw) && c.heartbeat {
+					// Consul active gRPC TLS checks cannot complete a strict mTLS
+					// handshake for internal services, so secure gRPC endpoints rely
+					// on the agent-updated TTL heartbeat as the source of truth.
+					break
+				}
+				check := &api.AgentServiceCheck{
+					Interval:                       fmt.Sprintf("%ds", c.healthcheckInterval),
+					DeregisterCriticalServiceAfter: fmt.Sprintf("%ds", c.deregisterCriticalServiceAfter),
+					Timeout:                        "5s",
+				}
 				check.GRPC = checkAddress
 				check.GRPCUseTLS = endpointIsSecure(raw)
+				checks = append(checks, check)
 			default:
+				check := &api.AgentServiceCheck{
+					Interval:                       fmt.Sprintf("%ds", c.healthcheckInterval),
+					DeregisterCriticalServiceAfter: fmt.Sprintf("%ds", c.deregisterCriticalServiceAfter),
+					Timeout:                        "5s",
+				}
 				check.TCP = checkAddress
+				checks = append(checks, check)
 			}
-			checks = append(checks, check)
 		}
 	}
 	asr := &api.AgentServiceRegistration{

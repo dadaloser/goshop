@@ -51,6 +51,47 @@ func TestUpdateWritesEmptyAddressState(t *testing.T) {
 	}
 }
 
+func TestUpdateDoesNotForceTLSOverrideFromServiceName(t *testing.T) {
+	cc := &recordingClientConn{}
+	r := &discoveryResolver{cc: cc}
+
+	r.update([]*registry.ServiceInstance{
+		{
+			Name:      "goods-srv",
+			Endpoints: []string{"grpc://127.0.0.1:9000?isSecure=true"},
+		},
+	})
+
+	if len(cc.states) != 1 || len(cc.states[0].Addresses) != 1 {
+		t.Fatalf("UpdateState addresses = %v, want one address", cc.states)
+	}
+	if got := cc.states[0].Addresses[0].ServerName; got != "" {
+		t.Fatalf("resolver address server name = %q, want empty so client TLS config can apply", got)
+	}
+}
+
+func TestUpdateUsesMetadataTLSServerNameOverride(t *testing.T) {
+	cc := &recordingClientConn{}
+	r := &discoveryResolver{cc: cc}
+
+	r.update([]*registry.ServiceInstance{
+		{
+			Name:      "goods-srv",
+			Endpoints: []string{"grpc://127.0.0.1:9000?isSecure=true"},
+			Metadata: map[string]string{
+				"tls_server_name": "goshop.internal",
+			},
+		},
+	})
+
+	if len(cc.states) != 1 || len(cc.states[0].Addresses) != 1 {
+		t.Fatalf("UpdateState addresses = %v, want one address", cc.states)
+	}
+	if got := cc.states[0].Addresses[0].ServerName; got != "goshop.internal" {
+		t.Fatalf("resolver address server name = %q, want goshop.internal", got)
+	}
+}
+
 type failingClientConn struct {
 	recordingClientConn
 }

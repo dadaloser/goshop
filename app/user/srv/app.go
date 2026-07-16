@@ -39,7 +39,7 @@ func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error)
 	if err != nil {
 		return nil, err
 	}
-	r := consul.New(cli, consul.WithHealthCheck(true), consul.WithHeartbeat(false))
+	r := consul.New(cli, consul.WithHealthCheck(true), consul.WithHeartbeat(true), consul.WithHealthCheckInterval(1))
 	return r, nil
 }
 

@@ -10,8 +10,8 @@ import (
 
 	"goshop/pkg/errors"
 
-	jwt "github.com/dgrijalva/jwt-go/v4"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // Defined errors.
@@ -59,7 +59,7 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 		// Use own validation logic, see below
 		var secret Secret
 
-		claims := &jwt.MapClaims{}
+		claims := jwt.MapClaims{}
 		// Verify the token
 		parsedT, err := jwt.ParseWithClaims(rawJWT, claims, func(token *jwt.Token) (interface{}, error) {
 			// Validate the alg is HMAC signature

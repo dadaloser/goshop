@@ -4,14 +4,12 @@ import (
 	"context"
 	"goshop/app/pkg/code"
 	code2 "goshop/gmicro/code"
-	"goshop/gmicro/server/rpcserver"
 	"goshop/pkg/errors"
 	"strings"
 	"time"
 
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/api/internal/data"
-	"goshop/gmicro/registry"
 	itime "goshop/pkg/common/time"
 
 	"google.golang.org/grpc/codes"
@@ -26,24 +24,6 @@ type users struct {
 
 func NewUsers(uc upbv1.UserClient) *users {
 	return &users{uc}
-}
-
-// NewUserServiceClientContext creates a user client using ctx for the initial
-// gRPC dial and discovery probe.
-func NewUserServiceClientContext(ctx context.Context, r registry.Discovery) (upbv1.UserClient, error) {
-	if ctx == nil {
-		ctx = context.TODO()
-	}
-	conn, err := rpcserver.DialDiscoveryInsecure(
-		ctx,
-		rpcserver.WithEndpoint(serviceName),
-		rpcserver.WithDiscovery(r),
-	)
-	if err != nil {
-		return nil, err
-	}
-	c := upbv1.NewUserClient(conn)
-	return c, nil
 }
 
 func (u *users) CheckPassWord(ctx context.Context, password, encryptedPwd string) error {

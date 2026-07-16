@@ -8,11 +8,9 @@ require (
 	github.com/alibaba/sentinel-golang/pkg/datasource/nacos v0.0.0-20250702131350-f7a7f9575711
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.107
 	github.com/anaskhan96/go-password-encoder v0.0.0-20201010210601-c765b799fd72
-	github.com/appleboy/gin-jwt/v2 v2.10.3
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/bitly/go-simplejson v0.5.1
 	github.com/buger/jsonparser v1.1.2
-	github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
 	github.com/dtm-labs/client v1.18.7
 	github.com/fatih/color v1.19.0
 	github.com/gin-gonic/gin v1.12.0
@@ -21,6 +19,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-playground/validator/v10 v10.30.2
 	github.com/go-redsync/redsync/v4 v4.16.0
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/google/wire v0.7.0
@@ -94,14 +93,11 @@ require (
 	github.com/go-playground/form/v4 v4.3.0 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-resty/resty/v2 v2.17.2 // indirect
-	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
-	github.com/google/subcommands v1.2.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect

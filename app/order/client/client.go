@@ -4,15 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/consul/api"
 	"google.golang.org/grpc"
 
 	v1 "goshop/api/order/v1"
 	appclient "goshop/app/pkg/client"
 	"goshop/app/pkg/options"
-	"goshop/gmicro/registry/consul"
 	rpc "goshop/gmicro/server/rpcserver"
-	_ "goshop/gmicro/server/rpcserver/resolver/direct"
 	"goshop/gmicro/server/rpcserver/selector"
 	"goshop/gmicro/server/rpcserver/selector/random"
 	"math/rand"
@@ -37,16 +34,10 @@ func generateOrderSn(userId int32) string {
 func main() {
 	//设置全局的负载均衡策略
 	selector.SetGlobalSelector(random.NewBuilder())
-	rpc.InitBuilder()
-
-	conf := api.DefaultConfig()
-	conf.Address = "192.168.1.92:8500"
-	conf.Scheme = "http"
-	cli, err := api.NewClient(conf)
-	if err != nil {
-		panic(err)
+	registry := &options.RegistryOptions{
+		Address: "192.168.1.92:8500",
+		Scheme:  "http",
 	}
-	r := consul.New(cli, consul.WithHealthCheck(true))
 	rpcSecurity := &options.RPCSecurityOptions{
 		CertFile:   "configs/tls/dev/internal.crt",
 		KeyFile:    "configs/tls/dev/internal.key",
@@ -54,12 +45,13 @@ func main() {
 		ServerName: "goshop.internal",
 	}
 
-	conn, err := rpc.DialDiscovery(context.Background(),
+	conn, err := appclient.DialService(
+		context.Background(),
+		registry,
+		rpcSecurity,
+		appclient.ServiceOrder,
 		rpc.WithBalancerName("selector"),
-		rpc.WithDiscovery(r),
-		rpc.WithClientSecurityPolicy(rpcSecurity),
 		rpc.WithClientTimeout(time.Second*5000),
-		rpc.WithEndpoint(appclient.ServiceEndpoint(appclient.ServiceOrder)),
 	)
 	if err != nil {
 		panic(err)

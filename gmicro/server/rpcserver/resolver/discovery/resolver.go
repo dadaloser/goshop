@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"goshop/gmicro/registry"
@@ -63,7 +64,7 @@ func (r *discoveryResolver) update(ins []*registry.ServiceInstance) {
 		}
 		endpoints[endpoint] = struct{}{}
 		addr := resolver.Address{
-			ServerName: in.Name,
+			ServerName: resolverServerName(in.Metadata),
 			Attributes: parseAttributes(in.Metadata),
 			Addr:       endpoint,
 		}
@@ -101,6 +102,19 @@ func parseAttributes(md map[string]string) *attributes.Attributes {
 		}
 	}
 	return a
+}
+
+func resolverServerName(md map[string]string) string {
+	if len(md) == 0 {
+		return ""
+	}
+	if serverName := strings.TrimSpace(md["tls_server_name"]); serverName != "" {
+		return serverName
+	}
+	if serverName := strings.TrimSpace(md["server_name"]); serverName != "" {
+		return serverName
+	}
+	return ""
 }
 
 // NewEndpoint new an Endpoint URL.
