@@ -7,8 +7,10 @@ import (
 
 	gpb "goshop/api/goods/v1"
 	"goshop/app/goshop/api/internal/data"
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
+	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/errors"
 )
 
@@ -85,12 +87,65 @@ func TestPasswordLoginResetsFailuresOnSuccess(t *testing.T) {
 	if got.Token == "" {
 		t.Fatal("PasswordLogin() token is empty")
 	}
+	claims, err := middlewares.NewJWT("01234567890123456789012345678901").ParseToken(got.Token)
+	if err != nil {
+		t.Fatalf("ParseToken() error = %v", err)
+	}
+	if claims.PrincipalType != string(authz.PrincipalCustomer) {
+		t.Fatalf("principal_type = %q, want %q", claims.PrincipalType, authz.PrincipalCustomer)
+	}
+	if claims.AccountStatus != string(authz.AccountStatusActive) {
+		t.Fatalf("status = %q, want %q", claims.AccountStatus, authz.AccountStatusActive)
+	}
+	if !containsScope(claims.Scope, authz.PermissionOrderReadSelf) {
+		t.Fatalf("scope = %#v, want %q", claims.Scope, authz.PermissionOrderReadSelf)
+	}
 	if users.gotUsername != "user_001" {
 		t.Fatalf("queried username = %q, want user_001", users.gotUsername)
 	}
 	if attempts.resetIdentifier != "user_001" {
 		t.Fatalf("reset identifier = %q, want user_001", attempts.resetIdentifier)
 	}
+}
+
+func TestPasswordLoginRejectsInactiveAccount(t *testing.T) {
+	tests := []struct {
+		name   string
+		status authz.AccountStatus
+	}{
+		{name: "disabled", status: authz.AccountStatusDisabled},
+		{name: "locked", status: authz.AccountStatusLocked},
+		{name: "deleted", status: authz.AccountStatusDeleted},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			users := &fakeUserData{user: data.User{
+				ID:       1,
+				NickName: "tester",
+				PassWord: "hashed",
+				Status:   string(tt.status),
+			}}
+			svc := newPasswordLoginTestService(users, &fakeLoginAttempts{})
+
+			got, err := svc.PasswordLogin(context.Background(), "user_001", "secret")
+			if !errors.IsCode(err, code.ErrUserAccountInactive) {
+				t.Fatalf("PasswordLogin() error = %v, want ErrUserAccountInactive", err)
+			}
+			if got != nil {
+				t.Fatal("PasswordLogin() returned a token for inactive account")
+			}
+		})
+	}
+}
+
+func containsScope(scopes []string, permission authz.Permission) bool {
+	for _, scope := range scopes {
+		if scope == string(permission) {
+			return true
+		}
+	}
+	return false
 }
 
 func newPasswordLoginTestService(users *fakeUserData, attempts *fakeLoginAttempts) UserSrv {

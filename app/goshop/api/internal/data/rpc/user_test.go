@@ -91,7 +91,7 @@ func TestUsersRejectInvalidInputBeforeRPC(t *testing.T) {
 
 func TestUsersNormalizeUsernameBeforeRPC(t *testing.T) {
 	client := &fakeUserClient{
-		user: &upbv1.UserInfoResponse{Id: 1, Username: "user_001", NickName: "tester"},
+		user: &upbv1.UserInfoResponse{Id: 1, Username: "user_001", NickName: "tester", Status: "disabled"},
 	}
 	store := NewUsers(client)
 
@@ -105,19 +105,23 @@ func TestUsersNormalizeUsernameBeforeRPC(t *testing.T) {
 	if got.Username != "user_001" {
 		t.Fatalf("GetByUsername() username = %q, want user_001", got.Username)
 	}
+	if got.Status != "disabled" {
+		t.Fatalf("GetByUsername() status = %q, want disabled", got.Status)
+	}
 }
 
 func TestUsersCreateAndUpdateForwardUsername(t *testing.T) {
-	client := &fakeUserClient{}
+	client := &fakeUserClient{createResponse: &upbv1.UserInfoResponse{Id: 1, Status: "active"}}
 	store := NewUsers(client)
 
-	if err := store.Create(context.Background(), &data.User{
+	user := &data.User{
 		Username: "user_001",
 		Mobile:   "13800138000",
 		Email:    "user@example.com",
 		NickName: "tester",
 		PassWord: "Strong1!",
-	}); err != nil {
+	}
+	if err := store.Create(context.Background(), user); err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
 	if client.createRequest == nil {
@@ -125,6 +129,9 @@ func TestUsersCreateAndUpdateForwardUsername(t *testing.T) {
 	}
 	if client.createRequest.Username != "user_001" {
 		t.Fatalf("Create() username = %q, want user_001", client.createRequest.Username)
+	}
+	if user.Status != "active" {
+		t.Fatalf("Create() status = %q, want active", user.Status)
 	}
 
 	if err := store.Update(context.Background(), &data.User{ID: 1, Username: "user_002"}); err != nil {
@@ -189,12 +196,13 @@ func TestUsersHandleNilRPCResponses(t *testing.T) {
 }
 
 type fakeUserClient struct {
-	called        bool
-	returnNil     bool
-	mobileRequest string
-	user          *upbv1.UserInfoResponse
-	createRequest *upbv1.CreateUserInfo
-	updateRequest *upbv1.UpdateUserInfo
+	called         bool
+	returnNil      bool
+	mobileRequest  string
+	user           *upbv1.UserInfoResponse
+	createRequest  *upbv1.CreateUserInfo
+	createResponse *upbv1.UserInfoResponse
+	updateRequest  *upbv1.UpdateUserInfo
 }
 
 func (f *fakeUserClient) GetUserList(context.Context, *upbv1.PageInfo, ...grpc.CallOption) (*upbv1.UserListResponse, error) {
@@ -232,6 +240,9 @@ func (f *fakeUserClient) CreateUser(_ context.Context, in *upbv1.CreateUserInfo,
 	f.createRequest = in
 	if f.returnNil {
 		return nil, nil
+	}
+	if f.createResponse != nil {
+		return f.createResponse, nil
 	}
 	return &upbv1.UserInfoResponse{Id: 1}, nil
 }

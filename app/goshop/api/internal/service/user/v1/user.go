@@ -15,6 +15,7 @@ import (
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/goshop/api/internal/tokenversion"
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	code2 "goshop/gmicro/code"
 	"goshop/gmicro/server/restserver/middlewares"
@@ -231,14 +232,21 @@ func (us *userService) createToken(ctx context.Context, user data.User) (string,
 	if us == nil || us.jwtOpts == nil || strings.TrimSpace(us.jwtOpts.Key) == "" || us.jwtOpts.Timeout <= 0 {
 		return "", 0, errors.WithCode(code.ErrConnectGRPC, "jwt options are not initialized")
 	}
+	status := authz.NormalizeAccountStatus(user.Status)
+	if status != authz.AccountStatusActive {
+		return "", 0, errors.WithCode(code.ErrUserAccountInactive, "用户账户不可用")
+	}
 
 	now := time.Now()
 	j := middlewares.NewJWT(us.jwtOpts.Key)
 	claims := middlewares.CustomClaims{
-		ID:           uint(user.ID),
-		NickName:     user.NickName,
-		AuthorityId:  uint(user.Role),
-		TokenVersion: us.currentTokenVersion(ctx, user.ID),
+		ID:            uint(user.ID),
+		NickName:      user.NickName,
+		AuthorityId:   uint(user.Role),
+		PrincipalType: string(authz.PrincipalCustomer),
+		AccountStatus: string(status),
+		Scope:         authz.CustomerScopes(),
+		TokenVersion:  us.currentTokenVersion(ctx, user.ID),
 		RegisteredClaims: jwt.RegisteredClaims{
 			NotBefore: jwt.NewNumericDate(now), //签名的生效时间
 			ExpiresAt: jwt.NewNumericDate(now.Add(us.jwtOpts.Timeout)),

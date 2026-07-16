@@ -430,6 +430,7 @@ type UserInfoResponse struct {
 	Role          int32                  `protobuf:"varint,7,opt,name=role,proto3" json:"role,omitempty"`
 	Email         string                 `protobuf:"bytes,8,opt,name=email,proto3" json:"email,omitempty"`
 	Username      string                 `protobuf:"bytes,9,opt,name=username,proto3" json:"username,omitempty"`
+	Status        string                 `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -527,6 +528,13 @@ func (x *UserInfoResponse) GetUsername() string {
 	return ""
 }
 
+func (x *UserInfoResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
 type UserListResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Total         int32                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
@@ -609,7 +617,7 @@ const file_user_proto_rawDesc = "" +
 	"\x06gender\x18\x03 \x01(\tR\x06gender\x12\x1a\n" +
 	"\bbirthDay\x18\x04 \x01(\x04R\bbirthDay\x12\x14\n" +
 	"\x05email\x18\x05 \x01(\tR\x05email\x12\x1a\n" +
-	"\busername\x18\x06 \x01(\tR\busername\"\xec\x01\n" +
+	"\busername\x18\x06 \x01(\tR\busername\"\x84\x02\n" +
 	"\x10UserInfoResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x1a\n" +
 	"\bpassWord\x18\x02 \x01(\tR\bpassWord\x12\x16\n" +
@@ -619,7 +627,9 @@ const file_user_proto_rawDesc = "" +
 	"\x06gender\x18\x06 \x01(\tR\x06gender\x12\x12\n" +
 	"\x04role\x18\a \x01(\x05R\x04role\x12\x14\n" +
 	"\x05email\x18\b \x01(\tR\x05email\x12\x1a\n" +
-	"\busername\x18\t \x01(\tR\busername\"O\n" +
+	"\busername\x18\t \x01(\tR\busername\x12\x16\n" +
+	"\x06status\x18\n" +
+	" \x01(\tR\x06status\"O\n" +
 	"\x10UserListResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12%\n" +
 	"\x04data\x18\x02 \x03(\v2\x11.UserInfoResponseR\x04data2\x9e\x04\n" +

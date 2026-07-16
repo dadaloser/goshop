@@ -99,6 +99,7 @@ message UserInfoResponse {
     int32 role = 7;
     string email = 8;
     string username = 9;
+    string status = 10;
 }
 
 message UserListResponse {

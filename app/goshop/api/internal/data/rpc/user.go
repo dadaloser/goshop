@@ -67,6 +67,7 @@ func (u *users) Create(ctx context.Context, user *data.User) error {
 		return errors.WithCode(code.ErrUserAlreadyExists, "用户创建失败")
 	}
 	user.ID = uint64(userRsp.Id)
+	user.Status = userRsp.Status
 	return err
 }
 
@@ -128,6 +129,7 @@ func (u *users) Get(ctx context.Context, userID uint64) (data.User, error) {
 		Birthday: itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
 		Gender:   user.Gender,
 		Role:     user.Role,
+		Status:   user.Status,
 		PassWord: user.PassWord,
 	}, nil
 }
@@ -161,6 +163,7 @@ func (u *users) GetByUsername(ctx context.Context, username string) (data.User, 
 		Birthday: itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
 		Gender:   user.Gender,
 		Role:     user.Role,
+		Status:   user.Status,
 		PassWord: user.PassWord,
 	}, nil
 }

@@ -9,6 +9,7 @@ import (
 
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/smscode"
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	"goshop/pkg/errors"
@@ -57,6 +58,33 @@ func TestSmsLoginReturnsLockedWhenFailureReachesThreshold(t *testing.T) {
 
 	if !errors.IsCode(err, code.ErrSmsVerifyLocked) {
 		t.Fatalf("SmsLogin() error = %v, want ErrSmsVerifyLocked", err)
+	}
+}
+
+func TestSmsLoginRejectsInactiveAccount(t *testing.T) {
+	tests := []struct {
+		name   string
+		status authz.AccountStatus
+	}{
+		{name: "disabled", status: authz.AccountStatusDisabled},
+		{name: "locked", status: authz.AccountStatusLocked},
+		{name: "deleted", status: authz.AccountStatusDeleted},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			codes := &fakeSmsCodeStore{value: "123456"}
+			users := &fakeUserData{user: data.User{ID: 1, Status: string(tt.status)}}
+			svc := newSmsTestService(users, codes, &fakeSmsAttempts{})
+
+			got, err := svc.SmsLogin(context.Background(), "13800138000", "123456")
+			if !errors.IsCode(err, code.ErrUserAccountInactive) {
+				t.Fatalf("SmsLogin() error = %v, want ErrUserAccountInactive", err)
+			}
+			if got != nil {
+				t.Fatal("SmsLogin() returned a token for inactive account")
+			}
+		})
 	}
 }
 

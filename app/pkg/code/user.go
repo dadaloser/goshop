@@ -27,4 +27,7 @@ const (
 
 	// ErrSmsVerifyLocked - 403: Sms verification is temporarily locked.
 	ErrSmsVerifyLocked
+
+	// ErrUserAccountInactive - 403: User account is not active.
+	ErrUserAccountInactive
 )

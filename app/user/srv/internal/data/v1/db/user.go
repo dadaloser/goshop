@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
 	code2 "goshop/gmicro/code"
@@ -154,8 +155,9 @@ func (u *users) Delete(ctx context.Context, id uint64) error {
 	tx := u.db.WithContext(ctx).Model(&dv1.UserDO{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Updates(map[string]interface{}{
-			"is_deleted": true,
-			"deleted_at": now,
+			"is_deleted":     true,
+			"deleted_at":     now,
+			"account_status": string(authz.AccountStatusDeleted),
 		})
 	if tx.Error != nil {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())

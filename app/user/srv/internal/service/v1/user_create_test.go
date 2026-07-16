@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
 	code2 "goshop/gmicro/code"
@@ -41,6 +42,9 @@ func TestUserService_CreateNormalizesOptionalIdentifiers(t *testing.T) {
 	}
 	if store.created.Password == "Secret123!" {
 		t.Fatal("created password was not encrypted")
+	}
+	if store.created.Status != string(authz.AccountStatusActive) {
+		t.Fatalf("created status = %q, want %q", store.created.Status, authz.AccountStatusActive)
 	}
 }
 

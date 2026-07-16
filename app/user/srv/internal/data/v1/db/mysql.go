@@ -109,6 +109,7 @@ func validateUserSchema(db *gorm.DB) error {
 		"birthday",
 		"gender",
 		"role",
+		"account_status",
 	}
 	for _, column := range requiredColumns {
 		if !db.Migrator().HasColumn(&dv1.UserDO{}, column) {

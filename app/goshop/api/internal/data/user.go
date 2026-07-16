@@ -15,6 +15,7 @@ type User struct {
 	Birthday time.Time `gorm:"type:datetime"`
 	Gender   string    `json:"gender"`
 	Role     int32     `json:"role"`
+	Status   string    `json:"status"`
 	PassWord string    `json:"password"`
 }
 

@@ -5,6 +5,8 @@
 // of defining permission strings locally.
 package authz
 
+import "strings"
+
 // PrincipalType identifies the kind of identity making a request.
 type PrincipalType string
 
@@ -53,3 +55,43 @@ const (
 	PermissionPaymentCallbackSimulate Permission = "payment:callback:simulate"
 	PermissionAuditReadAny            Permission = "audit:read:any"
 )
+
+var customerPermissions = []Permission{
+	PermissionUserProfileReadSelf,
+	PermissionUserProfileUpdateSelf,
+	PermissionUserAccountDeleteSelf,
+	PermissionCartReadSelf,
+	PermissionCartWriteSelf,
+	PermissionOrderCreateSelf,
+	PermissionOrderReadSelf,
+	PermissionOrderPaySelf,
+	PermissionOrderStatusLogReadSelf,
+}
+
+// CustomerPermissions returns a copy of the permissions granted to storefront
+// customer sessions.
+func CustomerPermissions() []Permission {
+	permissions := make([]Permission, len(customerPermissions))
+	copy(permissions, customerPermissions)
+	return permissions
+}
+
+// CustomerScopes returns the customer permissions in their JWT string form.
+func CustomerScopes() []string {
+	permissions := CustomerPermissions()
+	scopes := make([]string, len(permissions))
+	for i, permission := range permissions {
+		scopes[i] = string(permission)
+	}
+	return scopes
+}
+
+// NormalizeAccountStatus normalizes persisted and token account status. Empty
+// values are treated as active only for compatibility during the column rollout.
+func NormalizeAccountStatus(status string) AccountStatus {
+	status = strings.ToLower(strings.TrimSpace(status))
+	if status == "" {
+		return AccountStatusActive
+	}
+	return AccountStatus(status)
+}

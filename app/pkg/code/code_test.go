@@ -43,6 +43,7 @@ func TestErrorCodesAreUnique(t *testing.T) {
 		"app.ErrUserLoginLocked":       appcode.ErrUserLoginLocked,
 		"app.ErrSmsRateLimited":        appcode.ErrSmsRateLimited,
 		"app.ErrSmsVerifyLocked":       appcode.ErrSmsVerifyLocked,
+		"app.ErrUserAccountInactive":   appcode.ErrUserAccountInactive,
 		"app.ErrGoodsNotFound":         appcode.ErrGoodsNotFound,
 		"app.ErrCategoryNotFound":      appcode.ErrCategoryNotFound,
 		"app.ErrEsUnmarshal":           appcode.ErrEsUnmarshal,

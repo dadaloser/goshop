@@ -2,13 +2,16 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/tokenrevocation"
 	"goshop/app/goshop/api/internal/tokenversion"
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/gmicro/server/restserver/middlewares/auth"
@@ -28,6 +31,7 @@ func TestJWTAuthorizerRejectsTokenVersionMismatch(t *testing.T) {
 		},
 		&fakeRevocationStore{},
 		&fakeAuthTokenVersionStore{currentVersion: 2},
+		&fakeAuthUserStore{user: data.User{ID: 1, Status: string(authz.AccountStatusActive)}},
 	)
 	if err != nil {
 		t.Fatalf("newJWTAuth() error = %v", err)
@@ -60,6 +64,57 @@ func TestJWTAuthorizerRejectsTokenVersionMismatch(t *testing.T) {
 	}
 }
 
+func TestJWTAuthorizerChecksCurrentAccountStatus(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name   string
+		status authz.AccountStatus
+		getErr error
+		want   bool
+	}{
+		{name: "active account passes", status: authz.AccountStatusActive, want: true},
+		{name: "disabled account rejects", status: authz.AccountStatusDisabled},
+		{name: "locked account rejects", status: authz.AccountStatusLocked},
+		{name: "deleted account rejects", status: authz.AccountStatusDeleted},
+		{name: "user lookup failure rejects", getErr: errors.New("rpc unavailable")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const key = "01234567890123456789012345678901"
+			strategy, err := newJWTAuth(
+				&options.JwtOptions{Realm: "test", Key: key, Timeout: time.Hour, MaxRefresh: time.Hour},
+				&fakeRevocationStore{},
+				&fakeAuthTokenVersionStore{currentVersion: 1},
+				&fakeAuthUserStore{user: data.User{ID: 1, Status: string(tt.status)}, getErr: tt.getErr},
+			)
+			if err != nil {
+				t.Fatalf("newJWTAuth() error = %v", err)
+			}
+			jwtStrategy := strategy.(auth.JWTStrategy)
+			token, err := middlewares.NewJWT(key).CreateToken(middlewares.CustomClaims{
+				ID: 1, TokenVersion: 1,
+				RegisteredClaims: jwt.RegisteredClaims{
+					NotBefore: jwt.NewNumericDate(time.Now()),
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+					Issuer:    "test",
+				},
+			})
+			if err != nil {
+				t.Fatalf("CreateToken() error = %v", err)
+			}
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/user/detail", nil)
+			ctx.Set(middlewares.JWTTokenKey, token)
+
+			if got := jwtStrategy.Authorizator(nil, ctx); got != tt.want {
+				t.Fatalf("Authorizator() = %t, want %t", got, tt.want)
+			}
+		})
+	}
+}
+
 type fakeRevocationStore struct{}
 
 func (f *fakeRevocationStore) Revoke(context.Context, string, time.Time) error {
@@ -76,6 +131,25 @@ var _ tokenversion.Store = &fakeAuthTokenVersionStore{}
 type fakeAuthTokenVersionStore struct {
 	currentVersion uint64
 }
+
+type fakeAuthUserStore struct {
+	user   data.User
+	getErr error
+}
+
+func (f *fakeAuthUserStore) Create(context.Context, *data.User) error { return nil }
+func (f *fakeAuthUserStore) Update(context.Context, *data.User) error { return nil }
+func (f *fakeAuthUserStore) Delete(context.Context, uint64) error     { return nil }
+func (f *fakeAuthUserStore) Get(context.Context, uint64) (data.User, error) {
+	return f.user, f.getErr
+}
+func (f *fakeAuthUserStore) GetByMobile(context.Context, string) (data.User, error) {
+	return f.user, f.getErr
+}
+func (f *fakeAuthUserStore) GetByUsername(context.Context, string) (data.User, error) {
+	return f.user, f.getErr
+}
+func (f *fakeAuthUserStore) CheckPassWord(context.Context, string, string) error { return nil }
 
 func (f *fakeAuthTokenVersionStore) CurrentVersion(context.Context, uint64) (uint64, error) {
 	return f.currentVersion, nil

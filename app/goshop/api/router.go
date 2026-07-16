@@ -18,6 +18,7 @@ import (
 	"goshop/app/goshop/api/internal/smslimit"
 	"goshop/app/goshop/api/internal/tokenrevocation"
 	"goshop/app/goshop/api/internal/tokenversion"
+	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver"
 
 	"github.com/gin-gonic/gin"
@@ -50,25 +51,25 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 		uGroup.POST("sms_login", uController.SmsLogin)
 		uGroup.POST("register", uController.Register)
 
-		jwtAuth, err := newJWTAuth(cfg.Jwt, revokedTokens, tokenVersions)
+		jwtAuth, err := newJWTAuth(cfg.Jwt, revokedTokens, tokenVersions, data.Users())
 		if err != nil {
 			return err
 		}
-		uGroup.GET("detail", jwtAuth.AuthFunc(), uController.GetUserDetail)
-		uGroup.PATCH("update", jwtAuth.AuthFunc(), uController.UpdateUser)
+		uGroup.GET("detail", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionUserProfileReadSelf), uController.GetUserDetail)
+		uGroup.PATCH("update", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionUserProfileUpdateSelf), uController.UpdateUser)
 		uGroup.POST("logout", jwtAuth.AuthFunc(), uController.Logout)
 		uGroup.POST("logout_all", jwtAuth.AuthFunc(), uController.LogoutAll)
-		uGroup.DELETE("account", jwtAuth.AuthFunc(), uController.DeleteAccount)
+		uGroup.DELETE("account", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionUserAccountDeleteSelf), uController.DeleteAccount)
 
 		orderController := orderv1.NewOrderController(serviceFactory, g.Translator())
-		uGroup.GET("cart_items", jwtAuth.AuthFunc(), orderController.ListCartItems)
-		uGroup.POST("cart_items", jwtAuth.AuthFunc(), orderController.CreateCartItem)
-		uGroup.PATCH("cart_items", jwtAuth.AuthFunc(), orderController.UpdateCartItem)
-		uGroup.DELETE("cart_items/:id", jwtAuth.AuthFunc(), orderController.DeleteCartItem)
-		uGroup.POST("orders", jwtAuth.AuthFunc(), orderController.SubmitOrder)
-		uGroup.GET("orders", jwtAuth.AuthFunc(), orderController.OrderList)
-		uGroup.GET("orders/:order_sn", jwtAuth.AuthFunc(), orderController.OrderDetail)
-		uGroup.GET("orders/:order_sn/status_logs", jwtAuth.AuthFunc(), orderController.OrderStatusLogs)
+		uGroup.GET("cart_items", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionCartReadSelf), orderController.ListCartItems)
+		uGroup.POST("cart_items", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionCartWriteSelf), orderController.CreateCartItem)
+		uGroup.PATCH("cart_items", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionCartWriteSelf), orderController.UpdateCartItem)
+		uGroup.DELETE("cart_items/:id", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionCartWriteSelf), orderController.DeleteCartItem)
+		uGroup.POST("orders", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderCreateSelf), orderController.SubmitOrder)
+		uGroup.GET("orders", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderReadSelf), orderController.OrderList)
+		uGroup.GET("orders/:order_sn", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderReadSelf), orderController.OrderDetail)
+		uGroup.GET("orders/:order_sn/status_logs", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderStatusLogReadSelf), orderController.OrderStatusLogs)
 	}
 
 	baseRouter := v1.Group("base")

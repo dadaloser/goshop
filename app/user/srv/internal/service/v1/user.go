@@ -8,6 +8,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
 	code2 "goshop/gmicro/code"
@@ -57,6 +58,9 @@ func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 	}
 	if !isStrongPassword(user.Password) {
 		return errors.WithCode(code2.ErrValidation, "密码必须为8-72字节，并包含大小写字母、数字和特殊字符")
+	}
+	if strings.TrimSpace(user.Status) == "" {
+		user.Status = string(authz.AccountStatusActive)
 	}
 
 	//先判断用户是否存在

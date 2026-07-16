@@ -34,6 +34,7 @@ type UserDO struct {
 	Birthday *time.Time `gorm:"type:datetime"`
 	Gender   string     `gorm:"column:gender;default:male;type:varchar(6) comment 'female表示女, male表示男'"`
 	Role     int        `gorm:"column:role;default:1;type:int comment '1表示普通用户, 2表示管理员'"`
+	Status   string     `gorm:"column:account_status;default:active;type:varchar(16);not null"`
 }
 
 func (u *UserDO) TableName() string {

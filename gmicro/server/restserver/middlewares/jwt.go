@@ -8,10 +8,13 @@ import (
 )
 
 type CustomClaims struct {
-	ID           uint `json:"user_id"`
-	NickName     string
-	AuthorityId  uint
-	TokenVersion uint64 `json:"tv"`
+	ID            uint     `json:"user_id"`
+	NickName      string   `json:"nick_name,omitempty"`
+	AuthorityId   uint     `json:"authority_id,omitempty"`
+	PrincipalType string   `json:"principal_type,omitempty"`
+	AccountStatus string   `json:"status,omitempty"`
+	Scope         []string `json:"scope,omitempty"`
+	TokenVersion  uint64   `json:"token_version"`
 	jwt.RegisteredClaims
 }
 
