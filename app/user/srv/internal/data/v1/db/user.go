@@ -119,12 +119,16 @@ func (u *users) ListRoles(ctx context.Context) ([]dv1.RoleDO, error) {
 	return roles, nil
 }
 
-func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string) (*dv1.UserAuthDO, error) {
+func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {
 	user, err := u.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
+	previousRoles, err := u.listStaffRoles(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
 	normalizedRoles := normalizeRoleNames(roleNames)
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
@@ -137,39 +141,26 @@ func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames [
 		}
 	}()
 
-	var roles []dv1.RoleDO
-	if len(normalizedRoles) > 0 {
-		if err = tx.Where("name IN ?", normalizedRoles).Order("name ASC").Find(&roles).Error; err != nil {
-			tx.Rollback()
-			return nil, errors.WithCode(code2.ErrDatabase, err.Error())
-		}
-		if len(roles) != len(normalizedRoles) {
-			tx.Rollback()
-			return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
-		}
-		loadedNames := make([]string, 0, len(roles))
-		for _, role := range roles {
-			loadedNames = append(loadedNames, role.Name)
-		}
-		slices.Sort(loadedNames)
-		if !slices.Equal(loadedNames, normalizedRoles) {
-			tx.Rollback()
-			return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
-		}
+	roles, err := u.loadRoles(tx, normalizedRoles)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
 	}
 
-	if err = tx.Where("user_id = ?", userID).Delete(&dv1.UserRoleDO{}).Error; err != nil {
+	if err = u.replaceUserRolesTx(tx, user.ID, roles); err != nil {
 		tx.Rollback()
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, err
 	}
-	for _, role := range roles {
-		binding := dv1.UserRoleDO{
-			UserID: user.ID,
-			RoleID: role.ID,
-		}
-		if err = tx.Create(&binding).Error; err != nil {
+	if !slices.Equal(previousRoles, normalizedRoles) {
+		if err = u.appendAuditLogTx(tx, &dv1.UserAuditLogDO{
+			UserID:             user.ID,
+			ActorUserID:        actorUserID(actor),
+			ActorPrincipalType: actorPrincipalType(actor),
+			Action:             dv1.UserAuditActionRolesReplaced,
+			Detail:             buildRolesAuditDetail(previousRoles, normalizedRoles),
+		}); err != nil {
 			tx.Rollback()
-			return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+			return nil, err
 		}
 	}
 	if err = tx.Commit().Error; err != nil {
@@ -196,6 +187,58 @@ func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
 		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
 	}
 	return nil
+}
+
+func (u *users) CreateStaff(ctx context.Context, user *dv1.UserDO, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {
+	if user == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "user is required")
+	}
+
+	normalizedRoles := normalizeRoleNames(roleNames)
+	if len(normalizedRoles) == 0 {
+		return nil, errors.WithCode(code2.ErrValidation, "staff roles are required")
+	}
+
+	tx := u.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	roles, err := u.loadRoles(tx, normalizedRoles)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err = tx.Create(user).Error; err != nil {
+		tx.Rollback()
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if err = u.replaceUserRolesTx(tx, user.ID, roles); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err = u.appendAuditLogTx(tx, &dv1.UserAuditLogDO{
+		UserID:             user.ID,
+		ActorUserID:        actorUserID(actor),
+		ActorPrincipalType: actorPrincipalType(actor),
+		Action:             dv1.UserAuditActionStaffCreated,
+		ToStatus:           user.Status,
+		Detail:             buildRolesAuditDetail(nil, normalizedRoles),
+	}); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err = tx.Commit().Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+
+	return u.buildAuthUser(ctx, user)
 }
 
 // Update
@@ -232,23 +275,53 @@ func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
 	return nil
 }
 
-func (u *users) UpdateStatus(ctx context.Context, id uint64, status string) error {
+func (u *users) UpdateStatus(ctx context.Context, id uint64, status string, actor *dv1.AuditActor) error {
 	if id == 0 {
 		return errors.WithCode(code.ErrUserNotFound, "user not found")
 	}
 
-	tx := u.db.WithContext(ctx).Model(&dv1.UserDO{}).
-		Where("id = ?", id).
-		Update("account_status", status)
-	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	user, err := u.GetByID(ctx, id)
+	if err != nil {
+		return err
 	}
-	if tx.RowsAffected > 0 {
+	previousStatus := user.Status
+	if previousStatus == status {
 		return nil
 	}
 
-	if _, err := u.GetByID(ctx, id); err != nil {
+	tx := u.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	result := tx.Model(&dv1.UserDO{}).Where("id = ?", id).Update("account_status", status)
+	if result.Error != nil {
+		tx.Rollback()
+		return errors.WithCode(code2.ErrDatabase, result.Error.Error())
+	}
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		return errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+	if err = u.appendAuditLogTx(tx, &dv1.UserAuditLogDO{
+		UserID:             user.ID,
+		ActorUserID:        actorUserID(actor),
+		ActorPrincipalType: actorPrincipalType(actor),
+		Action:             dv1.UserAuditActionStatusUpdated,
+		FromStatus:         previousStatus,
+		ToStatus:           status,
+	}); err != nil {
+		tx.Rollback()
 		return err
+	}
+	if err = tx.Commit().Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -273,6 +346,46 @@ func (u *users) Delete(ctx context.Context, id uint64) error {
 		return errors.WithCode(code.ErrUserNotFound, "user not found")
 	}
 	return nil
+}
+
+func (u *users) ListAuditLogs(ctx context.Context, userID uint64, filters dv1.UserAuditLogFilters, opts metav1.ListMeta) (*dv1.UserAuditLogDOList, error) {
+	if userID == 0 {
+		return nil, errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+
+	ret := &dv1.UserAuditLogDOList{}
+	limit := opts.PageSize
+	if limit <= 0 {
+		limit = 10
+	}
+	offset := 0
+	if opts.Page > 0 {
+		offset = (opts.Page - 1) * limit
+	}
+
+	query := u.db.WithContext(ctx).Model(&dv1.UserAuditLogDO{}).Where("user_id = ?", userID)
+	if action := strings.TrimSpace(filters.Action); action != "" {
+		query = query.Where("action = ?", action)
+	}
+	if filters.ActorUserID > 0 {
+		query = query.Where("actor_user_id = ?", filters.ActorUserID)
+	}
+	if principalType := strings.TrimSpace(filters.ActorPrincipalType); principalType != "" {
+		query = query.Where("actor_principal_type = ?", principalType)
+	}
+	if filters.CreatedAfter != nil {
+		query = query.Where("add_time >= ?", *filters.CreatedAfter)
+	}
+	if filters.CreatedBefore != nil {
+		query = query.Where("add_time <= ?", *filters.CreatedBefore)
+	}
+	if err := query.Count(&ret.TotalCount).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if err := query.Order("add_time DESC, id DESC").Offset(offset).Limit(limit).Find(&ret.Items).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return ret, nil
 }
 
 func newUsers(db *gorm.DB) *users {
@@ -380,6 +493,76 @@ func (u *users) listPermissions(ctx context.Context, userID int32) ([]string, er
 		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 	return permissions, nil
+}
+
+func (u *users) loadRoles(tx *gorm.DB, normalizedRoles []string) ([]dv1.RoleDO, error) {
+	if len(normalizedRoles) == 0 {
+		return nil, nil
+	}
+
+	var roles []dv1.RoleDO
+	if err := tx.Where("name IN ?", normalizedRoles).Order("name ASC").Find(&roles).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if len(roles) != len(normalizedRoles) {
+		return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
+	}
+	loadedNames := make([]string, 0, len(roles))
+	for _, role := range roles {
+		loadedNames = append(loadedNames, role.Name)
+	}
+	slices.Sort(loadedNames)
+	if !slices.Equal(loadedNames, normalizedRoles) {
+		return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
+	}
+	return roles, nil
+}
+
+func (u *users) replaceUserRolesTx(tx *gorm.DB, userID int32, roles []dv1.RoleDO) error {
+	if err := tx.Where("user_id = ?", userID).Delete(&dv1.UserRoleDO{}).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	for _, role := range roles {
+		binding := dv1.UserRoleDO{
+			UserID: userID,
+			RoleID: role.ID,
+		}
+		if err := tx.Create(&binding).Error; err != nil {
+			return errors.WithCode(code2.ErrDatabase, err.Error())
+		}
+	}
+	return nil
+}
+
+func (u *users) appendAuditLogTx(tx *gorm.DB, logEntry *dv1.UserAuditLogDO) error {
+	if logEntry == nil || logEntry.UserID <= 0 {
+		return nil
+	}
+	if strings.TrimSpace(logEntry.ActorPrincipalType) == "" {
+		logEntry.ActorPrincipalType = string(authz.PrincipalInternalService)
+	}
+	if err := tx.Create(logEntry).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return nil
+}
+
+func actorUserID(actor *dv1.AuditActor) int32 {
+	if actor == nil {
+		return 0
+	}
+	return actor.UserID
+}
+
+func actorPrincipalType(actor *dv1.AuditActor) string {
+	if actor == nil {
+		return ""
+	}
+	return strings.TrimSpace(actor.PrincipalType)
+}
+
+func buildRolesAuditDetail(previousRoles, nextRoles []string) string {
+	return fmt.Sprintf("roles:%s->%s", strings.Join(previousRoles, ","), strings.Join(nextRoles, ","))
 }
 
 func normalizeRoleNames(roleNames []string) []string {

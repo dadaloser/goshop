@@ -46,6 +46,24 @@ type UserDOList struct {
 	Items      []*UserDO `json:"data"`                 //数据
 }
 
+type AuditActor struct {
+	UserID        int32
+	PrincipalType string
+}
+
+type UserAuditLogDOList struct {
+	TotalCount int64
+	Items      []*UserAuditLogDO
+}
+
+type UserAuditLogFilters struct {
+	Action             string
+	ActorUserID        int32
+	ActorPrincipalType string
+	CreatedAfter       *time.Time
+	CreatedBefore      *time.Time
+}
+
 type UserStore interface {
 	/*
 		有数据访问的方法，一定要有error
@@ -67,14 +85,16 @@ type UserStore interface {
 	GetAuthByUsername(ctx context.Context, username string) (*UserAuthDO, error)
 	GetAuthByID(ctx context.Context, id uint64) (*UserAuthDO, error)
 	ListRoles(ctx context.Context) ([]RoleDO, error)
-	ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string) (*UserAuthDO, error)
+	ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string, actor *AuditActor) (*UserAuthDO, error)
+	ListAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilters, opts metav1.ListMeta) (*UserAuditLogDOList, error)
 
 	//创建用户
 	Create(ctx context.Context, user *UserDO) error
+	CreateStaff(ctx context.Context, user *UserDO, roleNames []string, actor *AuditActor) (*UserAuthDO, error)
 
 	//更新用户
 	Update(ctx context.Context, user *UserDO) error
-	UpdateStatus(ctx context.Context, id uint64, status string) error
+	UpdateStatus(ctx context.Context, id uint64, status string, actor *AuditActor) error
 
 	//删除用户
 	Delete(ctx context.Context, id uint64) error

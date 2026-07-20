@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/code"
@@ -245,7 +246,7 @@ func TestUserService_ReplaceUserRoleBindingValidatesAndReturnsBinding(t *testing
 	}
 	svc := NewUserService(store)
 
-	binding, err := svc.ReplaceUserRoleBinding(context.Background(), 7, []string{" SUPER_ADMIN ", "super_admin"})
+	binding, err := svc.ReplaceUserRoleBinding(context.Background(), 7, []string{" SUPER_ADMIN ", "super_admin"}, AuditActorDTO{UserID: 1, PrincipalType: string(authz.PrincipalStaff)})
 	if err != nil {
 		t.Fatalf("ReplaceUserRoleBinding() error = %v", err)
 	}
@@ -262,8 +263,43 @@ func TestUserService_ReplaceUserRoleBindingValidatesAndReturnsBinding(t *testing
 		t.Fatal("binding permissions is empty")
 	}
 
-	if _, err = svc.ReplaceUserRoleBinding(context.Background(), 7, []string{"owner"}); !errors.IsCode(err, code2.ErrValidation) {
+	if _, err = svc.ReplaceUserRoleBinding(context.Background(), 7, []string{"owner"}, AuditActorDTO{}); !errors.IsCode(err, code2.ErrValidation) {
 		t.Fatalf("ReplaceUserRoleBinding() invalid role error = %v, want ErrValidation", err)
+	}
+}
+
+func TestUserService_CreateStaff(t *testing.T) {
+	store := &fakeUserStore{
+		usersByIdentifier: map[string]*dv1.UserDO{},
+	}
+	svc := NewUserService(store)
+
+	created, err := svc.CreateStaff(context.Background(), &UserDTO{
+		UserDO: dv1.UserDO{
+			Username: stringPtr(" Ops_001 "),
+			Mobile:   "13800138000",
+			Email:    stringPtr(" OPS@example.com "),
+			NickName: "ops",
+			Password: "Secret123!",
+		},
+	}, []string{string(authz.StaffRoleOps)}, "disabled", AuditActorDTO{UserID: 9, PrincipalType: string(authz.PrincipalStaff)})
+	if err != nil {
+		t.Fatalf("CreateStaff() error = %v", err)
+	}
+	if store.createdStaff == nil {
+		t.Fatal("CreateStaff() did not persist staff user")
+	}
+	if store.createdStaff.Role != int(authz.LegacyUserRoleAdmin) {
+		t.Fatalf("created legacy role = %d, want %d", store.createdStaff.Role, authz.LegacyUserRoleAdmin)
+	}
+	if store.createdStaff.Status != string(authz.AccountStatusDisabled) {
+		t.Fatalf("created status = %q, want %q", store.createdStaff.Status, authz.AccountStatusDisabled)
+	}
+	if store.createdStaffActor == nil || store.createdStaffActor.UserID != 9 {
+		t.Fatalf("created staff actor = %#v, want user id 9", store.createdStaffActor)
+	}
+	if len(created.StaffRoles) != 1 || created.StaffRoles[0] != string(authz.StaffRoleOps) {
+		t.Fatalf("created roles = %#v, want ops", created.StaffRoles)
 	}
 }
 
@@ -281,7 +317,7 @@ func TestUserService_UpdateStatus(t *testing.T) {
 	}
 	svc := NewUserService(store)
 
-	user, err := svc.UpdateStatus(context.Background(), 7, "disabled")
+	user, err := svc.UpdateStatus(context.Background(), 7, "disabled", AuditActorDTO{UserID: 5, PrincipalType: string(authz.PrincipalStaff)})
 	if err != nil {
 		t.Fatalf("UpdateStatus() error = %v", err)
 	}
@@ -291,23 +327,65 @@ func TestUserService_UpdateStatus(t *testing.T) {
 	if store.updatedStatusID != 7 || store.updatedStatus != string(authz.AccountStatusDisabled) {
 		t.Fatalf("store updated = (%d, %q), want (7, %q)", store.updatedStatusID, store.updatedStatus, authz.AccountStatusDisabled)
 	}
+	if store.updatedStatusActor == nil || store.updatedStatusActor.UserID != 5 {
+		t.Fatalf("updated status actor = %#v, want user id 5", store.updatedStatusActor)
+	}
 
-	if _, err = svc.UpdateStatus(context.Background(), 7, "deleted"); !errors.IsCode(err, code2.ErrValidation) {
+	if _, err = svc.UpdateStatus(context.Background(), 7, "deleted", AuditActorDTO{}); !errors.IsCode(err, code2.ErrValidation) {
 		t.Fatalf("UpdateStatus() invalid status error = %v, want ErrValidation", err)
 	}
 }
 
+func TestUserService_ListUserAuditLogsPassesFilters(t *testing.T) {
+	after := time.Unix(1700000000, 0)
+	before := time.Unix(1700003600, 0)
+	store := &fakeUserStore{}
+	svc := NewUserService(store)
+
+	if _, err := svc.ListUserAuditLogs(context.Background(), 7, UserAuditLogFilterDTO{
+		Action:             dv1.UserAuditActionStatusUpdated,
+		ActorUserID:        9,
+		ActorPrincipalType: string(authz.PrincipalStaff),
+		CreatedAfter:       &after,
+		CreatedBefore:      &before,
+	}, metav1.ListMeta{Page: 2, PageSize: 20}); err != nil {
+		t.Fatalf("ListUserAuditLogs() error = %v", err)
+	}
+
+	if store.auditFilters.Action != dv1.UserAuditActionStatusUpdated {
+		t.Fatalf("audit action = %q, want %q", store.auditFilters.Action, dv1.UserAuditActionStatusUpdated)
+	}
+	if store.auditFilters.ActorUserID != 9 {
+		t.Fatalf("audit actor user id = %d, want 9", store.auditFilters.ActorUserID)
+	}
+	if store.auditFilters.ActorPrincipalType != string(authz.PrincipalStaff) {
+		t.Fatalf("audit actor principal type = %q, want %q", store.auditFilters.ActorPrincipalType, authz.PrincipalStaff)
+	}
+	if store.auditFilters.CreatedAfter == nil || !store.auditFilters.CreatedAfter.Equal(after) {
+		t.Fatalf("audit created after = %#v, want %v", store.auditFilters.CreatedAfter, after)
+	}
+	if store.auditFilters.CreatedBefore == nil || !store.auditFilters.CreatedBefore.Equal(before) {
+		t.Fatalf("audit created before = %#v, want %v", store.auditFilters.CreatedBefore, before)
+	}
+}
+
 type fakeUserStore struct {
-	usersByIdentifier map[string]*dv1.UserDO
-	userByID          map[uint64]*dv1.UserDO
-	authByID          map[uint64]*dv1.UserAuthDO
-	roles             []dv1.RoleDO
-	replacedUserID    uint64
-	replacedRoles     []string
-	created           *dv1.UserDO
-	updatedStatusID   uint64
-	updatedStatus     string
-	deletedID         uint64
+	usersByIdentifier  map[string]*dv1.UserDO
+	userByID           map[uint64]*dv1.UserDO
+	authByID           map[uint64]*dv1.UserAuthDO
+	roles              []dv1.RoleDO
+	replacedUserID     uint64
+	replacedRoles      []string
+	replacedActor      *dv1.AuditActor
+	created            *dv1.UserDO
+	createdStaff       *dv1.UserDO
+	createdStaffRoles  []string
+	createdStaffActor  *dv1.AuditActor
+	updatedStatusID    uint64
+	updatedStatus      string
+	updatedStatusActor *dv1.AuditActor
+	auditFilters       dv1.UserAuditLogFilters
+	deletedID          uint64
 }
 
 func (f *fakeUserStore) List(context.Context, []string, metav1.ListMeta) (*dv1.UserDOList, error) {
@@ -362,9 +440,10 @@ func (f *fakeUserStore) ListRoles(context.Context) ([]dv1.RoleDO, error) {
 	return append([]dv1.RoleDO(nil), f.roles...), nil
 }
 
-func (f *fakeUserStore) ReplaceUserRoles(_ context.Context, userID uint64, roleNames []string) (*dv1.UserAuthDO, error) {
+func (f *fakeUserStore) ReplaceUserRoles(_ context.Context, userID uint64, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {
 	f.replacedUserID = userID
 	f.replacedRoles = append([]string(nil), roleNames...)
+	f.replacedActor = actor
 	if f.authByID != nil {
 		if user, ok := f.authByID[userID]; ok {
 			user.StaffRoles = append([]string(nil), roleNames...)
@@ -375,18 +454,38 @@ func (f *fakeUserStore) ReplaceUserRoles(_ context.Context, userID uint64, roleN
 	return nil, errors.WithCode(code.ErrUserNotFound, "not found")
 }
 
+func (f *fakeUserStore) ListAuditLogs(_ context.Context, _ uint64, filters dv1.UserAuditLogFilters, _ metav1.ListMeta) (*dv1.UserAuditLogDOList, error) {
+	f.auditFilters = filters
+	return &dv1.UserAuditLogDOList{}, nil
+}
+
 func (f *fakeUserStore) Create(_ context.Context, user *dv1.UserDO) error {
 	f.created = user
 	return nil
+}
+
+func (f *fakeUserStore) CreateStaff(_ context.Context, user *dv1.UserDO, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {
+	f.createdStaff = user
+	f.createdStaffRoles = append([]string(nil), roleNames...)
+	f.createdStaffActor = actor
+	if user.ID == 0 {
+		user.ID = 10
+	}
+	return &dv1.UserAuthDO{
+		UserDO:      *user,
+		StaffRoles:  append([]string(nil), roleNames...),
+		Permissions: []string{string(authz.PermissionUserCreateAny)},
+	}, nil
 }
 
 func (f *fakeUserStore) Update(context.Context, *dv1.UserDO) error {
 	return nil
 }
 
-func (f *fakeUserStore) UpdateStatus(_ context.Context, id uint64, status string) error {
+func (f *fakeUserStore) UpdateStatus(_ context.Context, id uint64, status string, actor *dv1.AuditActor) error {
 	f.updatedStatusID = id
 	f.updatedStatus = status
+	f.updatedStatusActor = actor
 	if f.userByID != nil {
 		if user, ok := f.userByID[id]; ok {
 			user.Status = status

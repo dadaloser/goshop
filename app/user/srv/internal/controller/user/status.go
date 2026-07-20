@@ -13,7 +13,7 @@ func (u *userServer) UpdateUserStatus(ctx context.Context, request *upbv1.Update
 		return nil, errors.WithCode(code2.ErrValidation, "update user status request is required")
 	}
 
-	user, err := u.srv.UpdateStatus(ctx, uint64(request.Id), request.Status)
+	user, err := u.srv.UpdateStatus(ctx, uint64(request.Id), request.Status, auditActorFromProto(request.Actor))
 	if err != nil {
 		return nil, err
 	}

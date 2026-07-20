@@ -44,11 +44,13 @@ func initRouterWithSessionStores(
 
 	ugroup := v1.Group("/user", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff))
 	ucontroller := controller.NewUserController(users, tokenVersions)
+	ugroup.POST("staff", authz.RequirePermission(authz.PermissionUserCreateAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.CreateStaff)
 	ugroup.GET("list", authz.RequirePermission(authz.PermissionUserListAny), ucontroller.List)
 	ugroup.GET(":id", authz.RequirePermission(authz.PermissionUserReadAny), ucontroller.GetByID)
-	ugroup.PUT(":id/status", authz.RequirePermission(authz.PermissionUserDisableAny), ucontroller.UpdateStatus)
+	ugroup.PUT(":id/status", authz.RequirePermission(authz.PermissionUserDisableAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.UpdateStatus)
+	ugroup.GET(":id/audit_logs", authz.RequirePermission(authz.PermissionAuditReadAny), ucontroller.ListAuditLogs)
 	ugroup.GET(":id/roles", authz.RequirePermission(authz.PermissionRoleReadAny), ucontroller.GetUserStaffRoles)
-	ugroup.PUT(":id/roles", authz.RequirePermission(authz.PermissionRoleAssignAny), ucontroller.ReplaceUserStaffRoles)
+	ugroup.PUT(":id/roles", authz.RequirePermission(authz.PermissionRoleAssignAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.ReplaceUserStaffRoles)
 	staffGroup := v1.Group("/staff", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff))
 	staffGroup.GET("roles", authz.RequirePermission(authz.PermissionRoleReadAny), ucontroller.ListStaffRoles)
 	return nil
@@ -104,6 +106,33 @@ func requireAdminAccess(opts *config.AdminAuthOptions, permission authz.Permissi
 				"msg":        "admin access denied",
 				"permission": permission,
 				"min_role":   minRole,
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+func requireAdminConfirmation(opts *config.AdminAuthOptions) gin.HandlerFunc {
+	const headerName = "X-Admin-Confirm-Token"
+
+	return func(c *gin.Context) {
+		expected := ""
+		if opts != nil {
+			expected = opts.EffectiveConfirmationToken()
+		}
+		if expected == "" {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+				"code":   http.StatusServiceUnavailable,
+				"msg":    "admin confirmation is not configured",
+				"detail": "set admin-auth.confirmation-token or GOSHOP_ADMIN_CONFIRMATION_TOKEN before exposing high-risk admin write routes",
+			})
+			return
+		}
+		if !adminTokenEqual(expected, c.GetHeader(headerName)) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code": http.StatusForbidden,
+				"msg":  "admin confirmation required",
 			})
 			return
 		}

@@ -419,17 +419,138 @@ func (x *UpdateUserInfo) GetUsername() string {
 	return ""
 }
 
+type AuditActor struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ActorUserId   int32                  `protobuf:"varint,1,opt,name=actorUserId,proto3" json:"actorUserId,omitempty"`
+	PrincipalType string                 `protobuf:"bytes,2,opt,name=principalType,proto3" json:"principalType,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuditActor) Reset() {
+	*x = AuditActor{}
+	mi := &file_user_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuditActor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuditActor) ProtoMessage() {}
+
+func (x *AuditActor) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuditActor.ProtoReflect.Descriptor instead.
+func (*AuditActor) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *AuditActor) GetActorUserId() int32 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *AuditActor) GetPrincipalType() string {
+	if x != nil {
+		return x.PrincipalType
+	}
+	return ""
+}
+
+type CreateStaffUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *CreateUserInfo        `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	Roles         []string               `protobuf:"bytes,2,rep,name=roles,proto3" json:"roles,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	Actor         *AuditActor            `protobuf:"bytes,4,opt,name=actor,proto3" json:"actor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateStaffUserRequest) Reset() {
+	*x = CreateStaffUserRequest{}
+	mi := &file_user_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateStaffUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateStaffUserRequest) ProtoMessage() {}
+
+func (x *CreateStaffUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateStaffUserRequest.ProtoReflect.Descriptor instead.
+func (*CreateStaffUserRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CreateStaffUserRequest) GetUser() *CreateUserInfo {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *CreateStaffUserRequest) GetRoles() []string {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
+func (x *CreateStaffUserRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *CreateStaffUserRequest) GetActor() *AuditActor {
+	if x != nil {
+		return x.Actor
+	}
+	return nil
+}
+
 type UpdateUserStatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Actor         *AuditActor            `protobuf:"bytes,3,opt,name=actor,proto3" json:"actor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateUserStatusRequest) Reset() {
 	*x = UpdateUserStatusRequest{}
-	mi := &file_user_proto_msgTypes[7]
+	mi := &file_user_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -441,7 +562,7 @@ func (x *UpdateUserStatusRequest) String() string {
 func (*UpdateUserStatusRequest) ProtoMessage() {}
 
 func (x *UpdateUserStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[7]
+	mi := &file_user_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -454,7 +575,7 @@ func (x *UpdateUserStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateUserStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateUserStatusRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{7}
+	return file_user_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *UpdateUserStatusRequest) GetId() int32 {
@@ -469,6 +590,13 @@ func (x *UpdateUserStatusRequest) GetStatus() string {
 		return x.Status
 	}
 	return ""
+}
+
+func (x *UpdateUserStatusRequest) GetActor() *AuditActor {
+	if x != nil {
+		return x.Actor
+	}
+	return nil
 }
 
 type UserInfoResponse struct {
@@ -489,7 +617,7 @@ type UserInfoResponse struct {
 
 func (x *UserInfoResponse) Reset() {
 	*x = UserInfoResponse{}
-	mi := &file_user_proto_msgTypes[8]
+	mi := &file_user_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -501,7 +629,7 @@ func (x *UserInfoResponse) String() string {
 func (*UserInfoResponse) ProtoMessage() {}
 
 func (x *UserInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[8]
+	mi := &file_user_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -514,7 +642,7 @@ func (x *UserInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserInfoResponse.ProtoReflect.Descriptor instead.
 func (*UserInfoResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{8}
+	return file_user_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *UserInfoResponse) GetId() int32 {
@@ -594,7 +722,7 @@ type UserAuthResponse struct {
 
 func (x *UserAuthResponse) Reset() {
 	*x = UserAuthResponse{}
-	mi := &file_user_proto_msgTypes[9]
+	mi := &file_user_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -606,7 +734,7 @@ func (x *UserAuthResponse) String() string {
 func (*UserAuthResponse) ProtoMessage() {}
 
 func (x *UserAuthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[9]
+	mi := &file_user_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -619,7 +747,7 @@ func (x *UserAuthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserAuthResponse.ProtoReflect.Descriptor instead.
 func (*UserAuthResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{9}
+	return file_user_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *UserAuthResponse) GetUser() *UserInfoResponse {
@@ -667,7 +795,7 @@ type UserListResponse struct {
 
 func (x *UserListResponse) Reset() {
 	*x = UserListResponse{}
-	mi := &file_user_proto_msgTypes[10]
+	mi := &file_user_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -679,7 +807,7 @@ func (x *UserListResponse) String() string {
 func (*UserListResponse) ProtoMessage() {}
 
 func (x *UserListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[10]
+	mi := &file_user_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -692,7 +820,7 @@ func (x *UserListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserListResponse.ProtoReflect.Descriptor instead.
 func (*UserListResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{10}
+	return file_user_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UserListResponse) GetTotal() int32 {
@@ -720,7 +848,7 @@ type StaffRole struct {
 
 func (x *StaffRole) Reset() {
 	*x = StaffRole{}
-	mi := &file_user_proto_msgTypes[11]
+	mi := &file_user_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -732,7 +860,7 @@ func (x *StaffRole) String() string {
 func (*StaffRole) ProtoMessage() {}
 
 func (x *StaffRole) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[11]
+	mi := &file_user_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -745,7 +873,7 @@ func (x *StaffRole) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StaffRole.ProtoReflect.Descriptor instead.
 func (*StaffRole) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{11}
+	return file_user_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *StaffRole) GetName() string {
@@ -778,7 +906,7 @@ type StaffRoleListResponse struct {
 
 func (x *StaffRoleListResponse) Reset() {
 	*x = StaffRoleListResponse{}
-	mi := &file_user_proto_msgTypes[12]
+	mi := &file_user_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -790,7 +918,7 @@ func (x *StaffRoleListResponse) String() string {
 func (*StaffRoleListResponse) ProtoMessage() {}
 
 func (x *StaffRoleListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[12]
+	mi := &file_user_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -803,7 +931,7 @@ func (x *StaffRoleListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StaffRoleListResponse.ProtoReflect.Descriptor instead.
 func (*StaffRoleListResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{12}
+	return file_user_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *StaffRoleListResponse) GetRoles() []*StaffRole {
@@ -817,13 +945,14 @@ type ReplaceUserStaffRolesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        int32                  `protobuf:"varint,1,opt,name=userId,proto3" json:"userId,omitempty"`
 	Roles         []string               `protobuf:"bytes,2,rep,name=roles,proto3" json:"roles,omitempty"`
+	Actor         *AuditActor            `protobuf:"bytes,3,opt,name=actor,proto3" json:"actor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ReplaceUserStaffRolesRequest) Reset() {
 	*x = ReplaceUserStaffRolesRequest{}
-	mi := &file_user_proto_msgTypes[13]
+	mi := &file_user_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -835,7 +964,7 @@ func (x *ReplaceUserStaffRolesRequest) String() string {
 func (*ReplaceUserStaffRolesRequest) ProtoMessage() {}
 
 func (x *ReplaceUserStaffRolesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[13]
+	mi := &file_user_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -848,7 +977,7 @@ func (x *ReplaceUserStaffRolesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplaceUserStaffRolesRequest.ProtoReflect.Descriptor instead.
 func (*ReplaceUserStaffRolesRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{13}
+	return file_user_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ReplaceUserStaffRolesRequest) GetUserId() int32 {
@@ -865,6 +994,13 @@ func (x *ReplaceUserStaffRolesRequest) GetRoles() []string {
 	return nil
 }
 
+func (x *ReplaceUserStaffRolesRequest) GetActor() *AuditActor {
+	if x != nil {
+		return x.Actor
+	}
+	return nil
+}
+
 type UserRoleBindingResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        int32                  `protobuf:"varint,1,opt,name=userId,proto3" json:"userId,omitempty"`
@@ -876,7 +1012,7 @@ type UserRoleBindingResponse struct {
 
 func (x *UserRoleBindingResponse) Reset() {
 	*x = UserRoleBindingResponse{}
-	mi := &file_user_proto_msgTypes[14]
+	mi := &file_user_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -888,7 +1024,7 @@ func (x *UserRoleBindingResponse) String() string {
 func (*UserRoleBindingResponse) ProtoMessage() {}
 
 func (x *UserRoleBindingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[14]
+	mi := &file_user_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -901,7 +1037,7 @@ func (x *UserRoleBindingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserRoleBindingResponse.ProtoReflect.Descriptor instead.
 func (*UserRoleBindingResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{14}
+	return file_user_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *UserRoleBindingResponse) GetUserId() int32 {
@@ -921,6 +1057,326 @@ func (x *UserRoleBindingResponse) GetRoles() []string {
 func (x *UserRoleBindingResponse) GetPermissions() []string {
 	if x != nil {
 		return x.Permissions
+	}
+	return nil
+}
+
+type StaffUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	User          *UserInfoResponse      `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	Roles         []string               `protobuf:"bytes,2,rep,name=roles,proto3" json:"roles,omitempty"`
+	Permissions   []string               `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StaffUserResponse) Reset() {
+	*x = StaffUserResponse{}
+	mi := &file_user_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StaffUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StaffUserResponse) ProtoMessage() {}
+
+func (x *StaffUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StaffUserResponse.ProtoReflect.Descriptor instead.
+func (*StaffUserResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *StaffUserResponse) GetUser() *UserInfoResponse {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
+func (x *StaffUserResponse) GetRoles() []string {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
+func (x *StaffUserResponse) GetPermissions() []string {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
+type UserAuditLogPageRequest struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	UserId             int32                  `protobuf:"varint,1,opt,name=userId,proto3" json:"userId,omitempty"`
+	Pn                 uint32                 `protobuf:"varint,2,opt,name=pn,proto3" json:"pn,omitempty"`
+	PSize              uint32                 `protobuf:"varint,3,opt,name=pSize,proto3" json:"pSize,omitempty"`
+	Action             string                 `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"`
+	ActorUserId        int32                  `protobuf:"varint,5,opt,name=actorUserId,proto3" json:"actorUserId,omitempty"`
+	ActorPrincipalType string                 `protobuf:"bytes,6,opt,name=actorPrincipalType,proto3" json:"actorPrincipalType,omitempty"`
+	CreatedAfter       uint64                 `protobuf:"varint,7,opt,name=createdAfter,proto3" json:"createdAfter,omitempty"`
+	CreatedBefore      uint64                 `protobuf:"varint,8,opt,name=createdBefore,proto3" json:"createdBefore,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *UserAuditLogPageRequest) Reset() {
+	*x = UserAuditLogPageRequest{}
+	mi := &file_user_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserAuditLogPageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserAuditLogPageRequest) ProtoMessage() {}
+
+func (x *UserAuditLogPageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserAuditLogPageRequest.ProtoReflect.Descriptor instead.
+func (*UserAuditLogPageRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *UserAuditLogPageRequest) GetUserId() int32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *UserAuditLogPageRequest) GetPn() uint32 {
+	if x != nil {
+		return x.Pn
+	}
+	return 0
+}
+
+func (x *UserAuditLogPageRequest) GetPSize() uint32 {
+	if x != nil {
+		return x.PSize
+	}
+	return 0
+}
+
+func (x *UserAuditLogPageRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *UserAuditLogPageRequest) GetActorUserId() int32 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *UserAuditLogPageRequest) GetActorPrincipalType() string {
+	if x != nil {
+		return x.ActorPrincipalType
+	}
+	return ""
+}
+
+func (x *UserAuditLogPageRequest) GetCreatedAfter() uint64 {
+	if x != nil {
+		return x.CreatedAfter
+	}
+	return 0
+}
+
+func (x *UserAuditLogPageRequest) GetCreatedBefore() uint64 {
+	if x != nil {
+		return x.CreatedBefore
+	}
+	return 0
+}
+
+type UserAuditLog struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Id                 int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId             int32                  `protobuf:"varint,2,opt,name=userId,proto3" json:"userId,omitempty"`
+	ActorUserId        int32                  `protobuf:"varint,3,opt,name=actorUserId,proto3" json:"actorUserId,omitempty"`
+	ActorPrincipalType string                 `protobuf:"bytes,4,opt,name=actorPrincipalType,proto3" json:"actorPrincipalType,omitempty"`
+	Action             string                 `protobuf:"bytes,5,opt,name=action,proto3" json:"action,omitempty"`
+	FromStatus         string                 `protobuf:"bytes,6,opt,name=fromStatus,proto3" json:"fromStatus,omitempty"`
+	ToStatus           string                 `protobuf:"bytes,7,opt,name=toStatus,proto3" json:"toStatus,omitempty"`
+	Detail             string                 `protobuf:"bytes,8,opt,name=detail,proto3" json:"detail,omitempty"`
+	CreatedAt          uint64                 `protobuf:"varint,9,opt,name=createdAt,proto3" json:"createdAt,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *UserAuditLog) Reset() {
+	*x = UserAuditLog{}
+	mi := &file_user_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserAuditLog) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserAuditLog) ProtoMessage() {}
+
+func (x *UserAuditLog) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserAuditLog.ProtoReflect.Descriptor instead.
+func (*UserAuditLog) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *UserAuditLog) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UserAuditLog) GetUserId() int32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *UserAuditLog) GetActorUserId() int32 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *UserAuditLog) GetActorPrincipalType() string {
+	if x != nil {
+		return x.ActorPrincipalType
+	}
+	return ""
+}
+
+func (x *UserAuditLog) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *UserAuditLog) GetFromStatus() string {
+	if x != nil {
+		return x.FromStatus
+	}
+	return ""
+}
+
+func (x *UserAuditLog) GetToStatus() string {
+	if x != nil {
+		return x.ToStatus
+	}
+	return ""
+}
+
+func (x *UserAuditLog) GetDetail() string {
+	if x != nil {
+		return x.Detail
+	}
+	return ""
+}
+
+func (x *UserAuditLog) GetCreatedAt() uint64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+type UserAuditLogListResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Total         int32                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	Data          []*UserAuditLog        `protobuf:"bytes,2,rep,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserAuditLogListResponse) Reset() {
+	*x = UserAuditLogListResponse{}
+	mi := &file_user_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserAuditLogListResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserAuditLogListResponse) ProtoMessage() {}
+
+func (x *UserAuditLogListResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserAuditLogListResponse.ProtoReflect.Descriptor instead.
+func (*UserAuditLogListResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *UserAuditLogListResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *UserAuditLogListResponse) GetData() []*UserAuditLog {
+	if x != nil {
+		return x.Data
 	}
 	return nil
 }
@@ -955,10 +1411,20 @@ const file_user_proto_rawDesc = "" +
 	"\x06gender\x18\x03 \x01(\tR\x06gender\x12\x1a\n" +
 	"\bbirthDay\x18\x04 \x01(\x04R\bbirthDay\x12\x14\n" +
 	"\x05email\x18\x05 \x01(\tR\x05email\x12\x1a\n" +
-	"\busername\x18\x06 \x01(\tR\busername\"A\n" +
+	"\busername\x18\x06 \x01(\tR\busername\"T\n" +
+	"\n" +
+	"AuditActor\x12 \n" +
+	"\vactorUserId\x18\x01 \x01(\x05R\vactorUserId\x12$\n" +
+	"\rprincipalType\x18\x02 \x01(\tR\rprincipalType\"\x8e\x01\n" +
+	"\x16CreateStaffUserRequest\x12#\n" +
+	"\x04user\x18\x01 \x01(\v2\x0f.CreateUserInfoR\x04user\x12\x14\n" +
+	"\x05roles\x18\x02 \x03(\tR\x05roles\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12!\n" +
+	"\x05actor\x18\x04 \x01(\v2\v.AuditActorR\x05actor\"d\n" +
 	"\x17UpdateUserStatusRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x16\n" +
-	"\x06status\x18\x02 \x01(\tR\x06status\"\xf2\x01\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12!\n" +
+	"\x05actor\x18\x03 \x01(\v2\v.AuditActorR\x05actor\"\xf2\x01\n" +
 	"\x10UserInfoResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x16\n" +
 	"\x06mobile\x18\x03 \x01(\tR\x06mobile\x12\x1a\n" +
@@ -989,24 +1455,55 @@ const file_user_proto_rawDesc = "" +
 	"\vpermissions\x18\x03 \x03(\tR\vpermissions\"9\n" +
 	"\x15StaffRoleListResponse\x12 \n" +
 	"\x05roles\x18\x01 \x03(\v2\n" +
-	".StaffRoleR\x05roles\"L\n" +
+	".StaffRoleR\x05roles\"o\n" +
 	"\x1cReplaceUserStaffRolesRequest\x12\x16\n" +
 	"\x06userId\x18\x01 \x01(\x05R\x06userId\x12\x14\n" +
-	"\x05roles\x18\x02 \x03(\tR\x05roles\"i\n" +
+	"\x05roles\x18\x02 \x03(\tR\x05roles\x12!\n" +
+	"\x05actor\x18\x03 \x01(\v2\v.AuditActorR\x05actor\"i\n" +
 	"\x17UserRoleBindingResponse\x12\x16\n" +
 	"\x06userId\x18\x01 \x01(\x05R\x06userId\x12\x14\n" +
 	"\x05roles\x18\x02 \x03(\tR\x05roles\x12 \n" +
-	"\vpermissions\x18\x03 \x03(\tR\vpermissions2\x9a\a\n" +
+	"\vpermissions\x18\x03 \x03(\tR\vpermissions\"r\n" +
+	"\x11StaffUserResponse\x12%\n" +
+	"\x04user\x18\x01 \x01(\v2\x11.UserInfoResponseR\x04user\x12\x14\n" +
+	"\x05roles\x18\x02 \x03(\tR\x05roles\x12 \n" +
+	"\vpermissions\x18\x03 \x03(\tR\vpermissions\"\x8b\x02\n" +
+	"\x17UserAuditLogPageRequest\x12\x16\n" +
+	"\x06userId\x18\x01 \x01(\x05R\x06userId\x12\x0e\n" +
+	"\x02pn\x18\x02 \x01(\rR\x02pn\x12\x14\n" +
+	"\x05pSize\x18\x03 \x01(\rR\x05pSize\x12\x16\n" +
+	"\x06action\x18\x04 \x01(\tR\x06action\x12 \n" +
+	"\vactorUserId\x18\x05 \x01(\x05R\vactorUserId\x12.\n" +
+	"\x12actorPrincipalType\x18\x06 \x01(\tR\x12actorPrincipalType\x12\"\n" +
+	"\fcreatedAfter\x18\a \x01(\x04R\fcreatedAfter\x12$\n" +
+	"\rcreatedBefore\x18\b \x01(\x04R\rcreatedBefore\"\x92\x02\n" +
+	"\fUserAuditLog\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n" +
+	"\x06userId\x18\x02 \x01(\x05R\x06userId\x12 \n" +
+	"\vactorUserId\x18\x03 \x01(\x05R\vactorUserId\x12.\n" +
+	"\x12actorPrincipalType\x18\x04 \x01(\tR\x12actorPrincipalType\x12\x16\n" +
+	"\x06action\x18\x05 \x01(\tR\x06action\x12\x1e\n" +
+	"\n" +
+	"fromStatus\x18\x06 \x01(\tR\n" +
+	"fromStatus\x12\x1a\n" +
+	"\btoStatus\x18\a \x01(\tR\btoStatus\x12\x16\n" +
+	"\x06detail\x18\b \x01(\tR\x06detail\x12\x1c\n" +
+	"\tcreatedAt\x18\t \x01(\x04R\tcreatedAt\"S\n" +
+	"\x18UserAuditLogListResponse\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x05R\x05total\x12!\n" +
+	"\x04data\x18\x02 \x03(\v2\r.UserAuditLogR\x04data2\xa4\b\n" +
 	"\x04User\x12A\n" +
 	"\vGetUserList\x12\t.PageInfo\x1a\x11.UserListResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/users\x12P\n" +
 	"\x0fGetUserByMobile\x12\x0e.MobileRequest\x1a\x11.UserInfoResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/user/mobile\x12D\n" +
 	"\vGetUserById\x12\n" +
-	".IdRequest\x1a\x11.UserInfoResponse\"\x16\x82\xd3\xe4\x93\x02\x10:\x01*\"\v/v1/user/id\x12?\n" +
+	".IdRequest\x1a\x11.UserInfoResponse\"\x16\x82\xd3\xe4\x93\x02\x10:\x01*\"\v/v1/user/id\x12>\n" +
+	"\x0fCreateStaffUser\x12\x17.CreateStaffUserRequest\x1a\x12.StaffUserResponse\x12?\n" +
 	"\x10UpdateUserStatus\x12\x18.UpdateUserStatusRequest\x1a\x11.UserInfoResponse\x12@\n" +
 	"\x0eListStaffRoles\x12\x16.google.protobuf.Empty\x1a\x16.StaffRoleListResponse\x129\n" +
 	"\x11GetUserStaffRoles\x12\n" +
 	".IdRequest\x1a\x18.UserRoleBindingResponse\x12P\n" +
-	"\x15ReplaceUserStaffRoles\x12\x1d.ReplaceUserStaffRolesRequest\x1a\x18.UserRoleBindingResponse\x128\n" +
+	"\x15ReplaceUserStaffRoles\x12\x1d.ReplaceUserStaffRolesRequest\x1a\x18.UserRoleBindingResponse\x12H\n" +
+	"\x11ListUserAuditLogs\x12\x18.UserAuditLogPageRequest\x1a\x19.UserAuditLogListResponse\x128\n" +
 	"\x13GetUserAuthByMobile\x12\x0e.MobileRequest\x1a\x11.UserAuthResponse\x120\n" +
 	"\x0fGetUserAuthById\x12\n" +
 	".IdRequest\x1a\x11.UserAuthResponse\x12L\n" +
@@ -1031,7 +1528,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_user_proto_goTypes = []any{
 	(*PasswordCheckInfo)(nil),            // 0: PasswordCheckInfo
 	(*CheckResponse)(nil),                // 1: CheckResponse
@@ -1040,51 +1537,67 @@ var file_user_proto_goTypes = []any{
 	(*IdRequest)(nil),                    // 4: IdRequest
 	(*CreateUserInfo)(nil),               // 5: CreateUserInfo
 	(*UpdateUserInfo)(nil),               // 6: UpdateUserInfo
-	(*UpdateUserStatusRequest)(nil),      // 7: UpdateUserStatusRequest
-	(*UserInfoResponse)(nil),             // 8: UserInfoResponse
-	(*UserAuthResponse)(nil),             // 9: UserAuthResponse
-	(*UserListResponse)(nil),             // 10: UserListResponse
-	(*StaffRole)(nil),                    // 11: StaffRole
-	(*StaffRoleListResponse)(nil),        // 12: StaffRoleListResponse
-	(*ReplaceUserStaffRolesRequest)(nil), // 13: ReplaceUserStaffRolesRequest
-	(*UserRoleBindingResponse)(nil),      // 14: UserRoleBindingResponse
-	(*emptypb.Empty)(nil),                // 15: google.protobuf.Empty
+	(*AuditActor)(nil),                   // 7: AuditActor
+	(*CreateStaffUserRequest)(nil),       // 8: CreateStaffUserRequest
+	(*UpdateUserStatusRequest)(nil),      // 9: UpdateUserStatusRequest
+	(*UserInfoResponse)(nil),             // 10: UserInfoResponse
+	(*UserAuthResponse)(nil),             // 11: UserAuthResponse
+	(*UserListResponse)(nil),             // 12: UserListResponse
+	(*StaffRole)(nil),                    // 13: StaffRole
+	(*StaffRoleListResponse)(nil),        // 14: StaffRoleListResponse
+	(*ReplaceUserStaffRolesRequest)(nil), // 15: ReplaceUserStaffRolesRequest
+	(*UserRoleBindingResponse)(nil),      // 16: UserRoleBindingResponse
+	(*StaffUserResponse)(nil),            // 17: StaffUserResponse
+	(*UserAuditLogPageRequest)(nil),      // 18: UserAuditLogPageRequest
+	(*UserAuditLog)(nil),                 // 19: UserAuditLog
+	(*UserAuditLogListResponse)(nil),     // 20: UserAuditLogListResponse
+	(*emptypb.Empty)(nil),                // 21: google.protobuf.Empty
 }
 var file_user_proto_depIdxs = []int32{
-	8,  // 0: UserAuthResponse.user:type_name -> UserInfoResponse
-	8,  // 1: UserListResponse.data:type_name -> UserInfoResponse
-	11, // 2: StaffRoleListResponse.roles:type_name -> StaffRole
-	2,  // 3: User.GetUserList:input_type -> PageInfo
-	3,  // 4: User.GetUserByMobile:input_type -> MobileRequest
-	4,  // 5: User.GetUserById:input_type -> IdRequest
-	7,  // 6: User.UpdateUserStatus:input_type -> UpdateUserStatusRequest
-	15, // 7: User.ListStaffRoles:input_type -> google.protobuf.Empty
-	4,  // 8: User.GetUserStaffRoles:input_type -> IdRequest
-	13, // 9: User.ReplaceUserStaffRoles:input_type -> ReplaceUserStaffRolesRequest
-	3,  // 10: User.GetUserAuthByMobile:input_type -> MobileRequest
-	4,  // 11: User.GetUserAuthById:input_type -> IdRequest
-	5,  // 12: User.CreateUser:input_type -> CreateUserInfo
-	6,  // 13: User.UpdateUser:input_type -> UpdateUserInfo
-	4,  // 14: User.DeleteUser:input_type -> IdRequest
-	0,  // 15: User.CheckPassWord:input_type -> PasswordCheckInfo
-	10, // 16: User.GetUserList:output_type -> UserListResponse
-	8,  // 17: User.GetUserByMobile:output_type -> UserInfoResponse
-	8,  // 18: User.GetUserById:output_type -> UserInfoResponse
-	8,  // 19: User.UpdateUserStatus:output_type -> UserInfoResponse
-	12, // 20: User.ListStaffRoles:output_type -> StaffRoleListResponse
-	14, // 21: User.GetUserStaffRoles:output_type -> UserRoleBindingResponse
-	14, // 22: User.ReplaceUserStaffRoles:output_type -> UserRoleBindingResponse
-	9,  // 23: User.GetUserAuthByMobile:output_type -> UserAuthResponse
-	9,  // 24: User.GetUserAuthById:output_type -> UserAuthResponse
-	8,  // 25: User.CreateUser:output_type -> UserInfoResponse
-	15, // 26: User.UpdateUser:output_type -> google.protobuf.Empty
-	15, // 27: User.DeleteUser:output_type -> google.protobuf.Empty
-	1,  // 28: User.CheckPassWord:output_type -> CheckResponse
-	16, // [16:29] is the sub-list for method output_type
-	3,  // [3:16] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	5,  // 0: CreateStaffUserRequest.user:type_name -> CreateUserInfo
+	7,  // 1: CreateStaffUserRequest.actor:type_name -> AuditActor
+	7,  // 2: UpdateUserStatusRequest.actor:type_name -> AuditActor
+	10, // 3: UserAuthResponse.user:type_name -> UserInfoResponse
+	10, // 4: UserListResponse.data:type_name -> UserInfoResponse
+	13, // 5: StaffRoleListResponse.roles:type_name -> StaffRole
+	7,  // 6: ReplaceUserStaffRolesRequest.actor:type_name -> AuditActor
+	10, // 7: StaffUserResponse.user:type_name -> UserInfoResponse
+	19, // 8: UserAuditLogListResponse.data:type_name -> UserAuditLog
+	2,  // 9: User.GetUserList:input_type -> PageInfo
+	3,  // 10: User.GetUserByMobile:input_type -> MobileRequest
+	4,  // 11: User.GetUserById:input_type -> IdRequest
+	8,  // 12: User.CreateStaffUser:input_type -> CreateStaffUserRequest
+	9,  // 13: User.UpdateUserStatus:input_type -> UpdateUserStatusRequest
+	21, // 14: User.ListStaffRoles:input_type -> google.protobuf.Empty
+	4,  // 15: User.GetUserStaffRoles:input_type -> IdRequest
+	15, // 16: User.ReplaceUserStaffRoles:input_type -> ReplaceUserStaffRolesRequest
+	18, // 17: User.ListUserAuditLogs:input_type -> UserAuditLogPageRequest
+	3,  // 18: User.GetUserAuthByMobile:input_type -> MobileRequest
+	4,  // 19: User.GetUserAuthById:input_type -> IdRequest
+	5,  // 20: User.CreateUser:input_type -> CreateUserInfo
+	6,  // 21: User.UpdateUser:input_type -> UpdateUserInfo
+	4,  // 22: User.DeleteUser:input_type -> IdRequest
+	0,  // 23: User.CheckPassWord:input_type -> PasswordCheckInfo
+	12, // 24: User.GetUserList:output_type -> UserListResponse
+	10, // 25: User.GetUserByMobile:output_type -> UserInfoResponse
+	10, // 26: User.GetUserById:output_type -> UserInfoResponse
+	17, // 27: User.CreateStaffUser:output_type -> StaffUserResponse
+	10, // 28: User.UpdateUserStatus:output_type -> UserInfoResponse
+	14, // 29: User.ListStaffRoles:output_type -> StaffRoleListResponse
+	16, // 30: User.GetUserStaffRoles:output_type -> UserRoleBindingResponse
+	16, // 31: User.ReplaceUserStaffRoles:output_type -> UserRoleBindingResponse
+	20, // 32: User.ListUserAuditLogs:output_type -> UserAuditLogListResponse
+	11, // 33: User.GetUserAuthByMobile:output_type -> UserAuthResponse
+	11, // 34: User.GetUserAuthById:output_type -> UserAuthResponse
+	10, // 35: User.CreateUser:output_type -> UserInfoResponse
+	21, // 36: User.UpdateUser:output_type -> google.protobuf.Empty
+	21, // 37: User.DeleteUser:output_type -> google.protobuf.Empty
+	1,  // 38: User.CheckPassWord:output_type -> CheckResponse
+	24, // [24:39] is the sub-list for method output_type
+	9,  // [9:24] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_user_proto_init() }
@@ -1098,7 +1611,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

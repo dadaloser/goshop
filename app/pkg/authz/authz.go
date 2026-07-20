@@ -43,6 +43,7 @@ const (
 	PermissionOrderStatusLogReadSelf Permission = "order:status_log:read:self"
 	PermissionInventoryReadPublic    Permission = "inventory:read:public"
 
+	PermissionUserCreateAny           Permission = "user:create:any"
 	PermissionUserListAny             Permission = "user:list:any"
 	PermissionUserReadAny             Permission = "user:read:any"
 	PermissionUserDisableAny          Permission = "user:disable:any"

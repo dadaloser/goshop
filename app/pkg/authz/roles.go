@@ -87,6 +87,7 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 		Description: "broad backoffice administration",
 		Permissions: []Permission{
 			PermissionRoleReadAny,
+			PermissionUserCreateAny,
 			PermissionUserListAny,
 			PermissionUserReadAny,
 			PermissionUserDisableAny,
@@ -105,6 +106,7 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 		Permissions: []Permission{
 			PermissionRoleReadAny,
 			PermissionRoleAssignAny,
+			PermissionUserCreateAny,
 			PermissionUserListAny,
 			PermissionUserReadAny,
 			PermissionUserDisableAny,

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -208,9 +207,10 @@ func TestInitRouterAllowsStatusUpdateAndInvalidatesSessions(t *testing.T) {
 		Server: options.NewServerOptions(),
 		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
 		AdminAuth: &config.AdminAuthOptions{
-			Token:       "bootstrap-secret",
-			Role:        config.AdminRoleSuperAdmin,
-			Permissions: []string{string(authz.PermissionUserDisableAny)},
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionUserDisableAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -241,10 +241,10 @@ func TestInitRouterAllowsStatusUpdateAndInvalidatesSessions(t *testing.T) {
 		t.Fatalf("CreateToken() error = %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPut, "/v1/user/7/status", http.NoBody)
+	req := httptest.NewRequest(http.MethodPut, "/v1/user/7/status", strings.NewReader(`{"status":"disabled"}`))
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
-	req.Body = io.NopCloser(strings.NewReader(`{"status":"disabled"}`))
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
 
@@ -259,11 +259,237 @@ func TestInitRouterAllowsStatusUpdateAndInvalidatesSessions(t *testing.T) {
 	}
 }
 
+func TestInitRouterRejectsSelfDisable(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionUserDisableAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 9, Username: "admin_001", Status: string(authz.AccountStatusActive)},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleAdmin)}, []string{string(authz.PermissionUserDisableAny)})
+
+	req := httptest.NewRequest(http.MethodPut, "/v1/user/9/status", strings.NewReader(`{"status":"disabled"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("self disable status = %d, want 400", rec.Code)
+	}
+}
+
+func TestInitRouterRejectsCreateSuperAdminForNonSuperAdmin(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionUserCreateAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 9, Username: "admin_001", Status: string(authz.AccountStatusActive)},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleAdmin)}, []string{string(authz.PermissionUserCreateAny)})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/user/staff", strings.NewReader(`{"mobile":"13800138000","password":"Secret123!","roles":["super_admin"]}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("create super admin status = %d, want 403", rec.Code)
+	}
+}
+
+func TestInitRouterAllowsCreateStaff(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionUserCreateAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 9, Username: "admin_001", Status: string(authz.AccountStatusActive)},
+		},
+		createStaffResponse: &upbv1.StaffUserResponse{
+			User:        &upbv1.UserInfoResponse{Id: 11, Username: "ops_001", Status: string(authz.AccountStatusActive)},
+			Roles:       []string{string(authz.StaffRoleOps)},
+			Permissions: []string{string(authz.PermissionOrderReadAny)},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleAdmin)}, []string{string(authz.PermissionUserCreateAny)})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/user/staff", strings.NewReader(`{"username":"ops_001","mobile":"13800138000","email":"ops@example.com","nick_name":"ops","password":"Secret123!","roles":["ops"],"status":"active"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create staff status = %d, want 200", rec.Code)
+	}
+	if client.createStaffReq == nil || client.createStaffReq.GetUser().GetUsername() != "ops_001" {
+		t.Fatalf("create staff request = %#v, want username ops_001", client.createStaffReq)
+	}
+	if client.createStaffReq.GetActor().GetActorUserId() != 9 {
+		t.Fatalf("create staff actor = %#v, want actor user id 9", client.createStaffReq.GetActor())
+	}
+}
+
+func TestInitRouterRejectsHighRiskWriteWithoutConfirmation(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionUserCreateAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 9, Username: "admin_001", Status: string(authz.AccountStatusActive)},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleAdmin)}, []string{string(authz.PermissionUserCreateAny)})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/user/staff", strings.NewReader(`{"mobile":"13800138000","password":"Secret123!","roles":["ops"]}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("missing confirmation status = %d, want 403", rec.Code)
+	}
+}
+
+func TestInitRouterPassesAuditLogFilters(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:       "bootstrap-secret",
+			Role:        config.AdminRoleSuperAdmin,
+			Permissions: []string{string(authz.PermissionAuditReadAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 9, Username: "admin_001", Status: string(authz.AccountStatusActive)},
+		},
+		auditLogsResponse: &upbv1.UserAuditLogListResponse{
+			Total: 1,
+			Data: []*upbv1.UserAuditLog{{
+				Id:          1,
+				UserId:      7,
+				Action:      "staff_user_status_updated",
+				ActorUserId: 9,
+			}},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleAdmin)}, []string{string(authz.PermissionAuditReadAny)})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/user/7/audit_logs?action=staff_user_status_updated&actor_user_id=9&actor_principal_type=staff&created_after=1700000000&created_before=1700003600", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("audit logs status = %d, want 200", rec.Code)
+	}
+	if client.auditLogsReq == nil {
+		t.Fatal("audit logs request was not captured")
+	}
+	if client.auditLogsReq.GetAction() != "staff_user_status_updated" {
+		t.Fatalf("audit action = %q, want staff_user_status_updated", client.auditLogsReq.GetAction())
+	}
+	if client.auditLogsReq.GetActorUserId() != 9 {
+		t.Fatalf("audit actor user id = %d, want 9", client.auditLogsReq.GetActorUserId())
+	}
+	if client.auditLogsReq.GetActorPrincipalType() != "staff" {
+		t.Fatalf("audit actor principal type = %q, want staff", client.auditLogsReq.GetActorPrincipalType())
+	}
+	if client.auditLogsReq.GetCreatedAfter() != 1700000000 || client.auditLogsReq.GetCreatedBefore() != 1700003600 {
+		t.Fatalf("audit time range = (%d, %d), want (1700000000, 1700003600)", client.auditLogsReq.GetCreatedAfter(), client.auditLogsReq.GetCreatedBefore())
+	}
+}
+
+func mustCreateAdminToken(t *testing.T, jwtOpts *options.JwtOptions, userID uint, roles, scope []string) string {
+	t.Helper()
+	token, err := middlewares.NewJWT(jwtOpts.Key).CreateToken(middlewares.CustomClaims{
+		ID:            userID,
+		AuthorityId:   uint(authz.LegacyUserRoleAdmin),
+		Roles:         append([]string(nil), roles...),
+		PrincipalType: string(authz.PrincipalStaff),
+		AccountStatus: string(authz.AccountStatusActive),
+		Scope:         append([]string(nil), scope...),
+		RegisteredClaims: jwt.RegisteredClaims{
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			Issuer:    jwtOpts.Realm,
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateToken() error = %v", err)
+	}
+	return token
+}
+
 type fakeAdminUserClient struct {
-	listResponse     *upbv1.UserListResponse
-	userResponse     *upbv1.UserInfoResponse
-	authUserResponse *upbv1.UserAuthResponse
-	updateStatusReq  *upbv1.UpdateUserStatusRequest
+	listResponse        *upbv1.UserListResponse
+	userResponse        *upbv1.UserInfoResponse
+	authUserResponse    *upbv1.UserAuthResponse
+	updateStatusReq     *upbv1.UpdateUserStatusRequest
+	createStaffReq      *upbv1.CreateStaffUserRequest
+	createStaffResponse *upbv1.StaffUserResponse
+	auditLogsResponse   *upbv1.UserAuditLogListResponse
+	auditLogsReq        *upbv1.UserAuditLogPageRequest
 }
 
 func (f *fakeAdminUserClient) GetUserList(context.Context, *upbv1.PageInfo, ...grpc.CallOption) (*upbv1.UserListResponse, error) {
@@ -313,6 +539,13 @@ func (f *fakeAdminUserClient) ListStaffRoles(context.Context, *emptypb.Empty, ..
 }
 
 func (f *fakeAdminUserClient) GetUserStaffRoles(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*upbv1.UserRoleBindingResponse, error) {
+	if f.authUserResponse != nil {
+		return &upbv1.UserRoleBindingResponse{
+			UserId:      f.authUserResponse.GetUser().GetId(),
+			Roles:       append([]string(nil), f.authUserResponse.GetStaffRoles()...),
+			Permissions: append([]string(nil), f.authUserResponse.GetPermissions()...),
+		}, nil
+	}
 	return &upbv1.UserRoleBindingResponse{}, nil
 }
 
@@ -320,8 +553,24 @@ func (f *fakeAdminUserClient) ReplaceUserStaffRoles(context.Context, *upbv1.Repl
 	return &upbv1.UserRoleBindingResponse{}, nil
 }
 
+func (f *fakeAdminUserClient) ListUserAuditLogs(_ context.Context, req *upbv1.UserAuditLogPageRequest, _ ...grpc.CallOption) (*upbv1.UserAuditLogListResponse, error) {
+	f.auditLogsReq = req
+	if f.auditLogsResponse != nil {
+		return f.auditLogsResponse, nil
+	}
+	return &upbv1.UserAuditLogListResponse{}, nil
+}
+
 func (f *fakeAdminUserClient) CreateUser(context.Context, *upbv1.CreateUserInfo, ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
 	return &upbv1.UserInfoResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) CreateStaffUser(_ context.Context, req *upbv1.CreateStaffUserRequest, _ ...grpc.CallOption) (*upbv1.StaffUserResponse, error) {
+	f.createStaffReq = req
+	if f.createStaffResponse != nil {
+		return f.createStaffResponse, nil
+	}
+	return &upbv1.StaffUserResponse{}, nil
 }
 
 func (f *fakeAdminUserClient) UpdateUser(context.Context, *upbv1.UpdateUserInfo, ...grpc.CallOption) (*emptypb.Empty, error) {

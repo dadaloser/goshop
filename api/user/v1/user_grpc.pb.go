@@ -23,10 +23,12 @@ const (
 	User_GetUserList_FullMethodName           = "/User/GetUserList"
 	User_GetUserByMobile_FullMethodName       = "/User/GetUserByMobile"
 	User_GetUserById_FullMethodName           = "/User/GetUserById"
+	User_CreateStaffUser_FullMethodName       = "/User/CreateStaffUser"
 	User_UpdateUserStatus_FullMethodName      = "/User/UpdateUserStatus"
 	User_ListStaffRoles_FullMethodName        = "/User/ListStaffRoles"
 	User_GetUserStaffRoles_FullMethodName     = "/User/GetUserStaffRoles"
 	User_ReplaceUserStaffRoles_FullMethodName = "/User/ReplaceUserStaffRoles"
+	User_ListUserAuditLogs_FullMethodName     = "/User/ListUserAuditLogs"
 	User_GetUserAuthByMobile_FullMethodName   = "/User/GetUserAuthByMobile"
 	User_GetUserAuthById_FullMethodName       = "/User/GetUserAuthById"
 	User_CreateUser_FullMethodName            = "/User/CreateUser"
@@ -42,10 +44,12 @@ type UserClient interface {
 	GetUserList(ctx context.Context, in *PageInfo, opts ...grpc.CallOption) (*UserListResponse, error)
 	GetUserByMobile(ctx context.Context, in *MobileRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
 	GetUserById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
+	CreateStaffUser(ctx context.Context, in *CreateStaffUserRequest, opts ...grpc.CallOption) (*StaffUserResponse, error)
 	UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
 	ListStaffRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StaffRoleListResponse, error)
 	GetUserStaffRoles(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*UserRoleBindingResponse, error)
 	ReplaceUserStaffRoles(ctx context.Context, in *ReplaceUserStaffRolesRequest, opts ...grpc.CallOption) (*UserRoleBindingResponse, error)
+	ListUserAuditLogs(ctx context.Context, in *UserAuditLogPageRequest, opts ...grpc.CallOption) (*UserAuditLogListResponse, error)
 	GetUserAuthByMobile(ctx context.Context, in *MobileRequest, opts ...grpc.CallOption) (*UserAuthResponse, error)
 	GetUserAuthById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*UserAuthResponse, error)
 	CreateUser(ctx context.Context, in *CreateUserInfo, opts ...grpc.CallOption) (*UserInfoResponse, error)
@@ -92,6 +96,16 @@ func (c *userClient) GetUserById(ctx context.Context, in *IdRequest, opts ...grp
 	return out, nil
 }
 
+func (c *userClient) CreateStaffUser(ctx context.Context, in *CreateStaffUserRequest, opts ...grpc.CallOption) (*StaffUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StaffUserResponse)
+	err := c.cc.Invoke(ctx, User_CreateStaffUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userClient) UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*UserInfoResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UserInfoResponse)
@@ -126,6 +140,16 @@ func (c *userClient) ReplaceUserStaffRoles(ctx context.Context, in *ReplaceUserS
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UserRoleBindingResponse)
 	err := c.cc.Invoke(ctx, User_ReplaceUserStaffRoles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) ListUserAuditLogs(ctx context.Context, in *UserAuditLogPageRequest, opts ...grpc.CallOption) (*UserAuditLogListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserAuditLogListResponse)
+	err := c.cc.Invoke(ctx, User_ListUserAuditLogs_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -199,10 +223,12 @@ type UserServer interface {
 	GetUserList(context.Context, *PageInfo) (*UserListResponse, error)
 	GetUserByMobile(context.Context, *MobileRequest) (*UserInfoResponse, error)
 	GetUserById(context.Context, *IdRequest) (*UserInfoResponse, error)
+	CreateStaffUser(context.Context, *CreateStaffUserRequest) (*StaffUserResponse, error)
 	UpdateUserStatus(context.Context, *UpdateUserStatusRequest) (*UserInfoResponse, error)
 	ListStaffRoles(context.Context, *emptypb.Empty) (*StaffRoleListResponse, error)
 	GetUserStaffRoles(context.Context, *IdRequest) (*UserRoleBindingResponse, error)
 	ReplaceUserStaffRoles(context.Context, *ReplaceUserStaffRolesRequest) (*UserRoleBindingResponse, error)
+	ListUserAuditLogs(context.Context, *UserAuditLogPageRequest) (*UserAuditLogListResponse, error)
 	GetUserAuthByMobile(context.Context, *MobileRequest) (*UserAuthResponse, error)
 	GetUserAuthById(context.Context, *IdRequest) (*UserAuthResponse, error)
 	CreateUser(context.Context, *CreateUserInfo) (*UserInfoResponse, error)
@@ -228,6 +254,9 @@ func (UnimplementedUserServer) GetUserByMobile(context.Context, *MobileRequest) 
 func (UnimplementedUserServer) GetUserById(context.Context, *IdRequest) (*UserInfoResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUserById not implemented")
 }
+func (UnimplementedUserServer) CreateStaffUser(context.Context, *CreateStaffUserRequest) (*StaffUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateStaffUser not implemented")
+}
 func (UnimplementedUserServer) UpdateUserStatus(context.Context, *UpdateUserStatusRequest) (*UserInfoResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateUserStatus not implemented")
 }
@@ -239,6 +268,9 @@ func (UnimplementedUserServer) GetUserStaffRoles(context.Context, *IdRequest) (*
 }
 func (UnimplementedUserServer) ReplaceUserStaffRoles(context.Context, *ReplaceUserStaffRolesRequest) (*UserRoleBindingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReplaceUserStaffRoles not implemented")
+}
+func (UnimplementedUserServer) ListUserAuditLogs(context.Context, *UserAuditLogPageRequest) (*UserAuditLogListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListUserAuditLogs not implemented")
 }
 func (UnimplementedUserServer) GetUserAuthByMobile(context.Context, *MobileRequest) (*UserAuthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUserAuthByMobile not implemented")
@@ -333,6 +365,24 @@ func _User_GetUserById_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_CreateStaffUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateStaffUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).CreateStaffUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_CreateStaffUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).CreateStaffUser(ctx, req.(*CreateStaffUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _User_UpdateUserStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateUserStatusRequest)
 	if err := dec(in); err != nil {
@@ -401,6 +451,24 @@ func _User_ReplaceUserStaffRoles_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(UserServer).ReplaceUserStaffRoles(ctx, req.(*ReplaceUserStaffRolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_ListUserAuditLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserAuditLogPageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).ListUserAuditLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_ListUserAuditLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).ListUserAuditLogs(ctx, req.(*UserAuditLogPageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -533,6 +601,10 @@ var User_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _User_GetUserById_Handler,
 		},
 		{
+			MethodName: "CreateStaffUser",
+			Handler:    _User_CreateStaffUser_Handler,
+		},
+		{
 			MethodName: "UpdateUserStatus",
 			Handler:    _User_UpdateUserStatus_Handler,
 		},
@@ -547,6 +619,10 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReplaceUserStaffRoles",
 			Handler:    _User_ReplaceUserStaffRoles_Handler,
+		},
+		{
+			MethodName: "ListUserAuditLogs",
+			Handler:    _User_ListUserAuditLogs_Handler,
 		},
 		{
 			MethodName: "GetUserAuthByMobile",

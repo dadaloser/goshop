@@ -48,7 +48,7 @@ func (u *userServer) ReplaceUserStaffRoles(ctx context.Context, request *upbv1.R
 		return nil, errors.WithCode(code2.ErrValidation, "replace user staff roles request is required")
 	}
 
-	binding, err := u.srv.ReplaceUserRoleBinding(ctx, uint64(request.UserId), request.Roles)
+	binding, err := u.srv.ReplaceUserRoleBinding(ctx, uint64(request.UserId), request.Roles, auditActorFromProto(request.Actor))
 	if err != nil {
 		return nil, err
 	}

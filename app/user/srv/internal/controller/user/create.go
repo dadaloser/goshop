@@ -45,3 +45,35 @@ func (u *userServer) CreateUser(ctx context.Context, request *upbv1.CreateUserIn
 	userInfoRsp := DTOToResponse(*publicDTO)
 	return userInfoRsp, nil
 }
+
+func (u *userServer) CreateStaffUser(ctx context.Context, request *upbv1.CreateStaffUserRequest) (*upbv1.StaffUserResponse, error) {
+	if request == nil || request.User == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "create staff user request is required")
+	}
+
+	userDO := v12.UserDO{
+		Username: optionalString(request.User.Username),
+		Mobile:   request.User.Mobile,
+		Email:    optionalString(request.User.Email),
+		NickName: request.User.NickName,
+		Password: request.User.PassWord,
+	}
+	userDTO := v1.UserDTO{UserDO: userDO}
+
+	created, err := u.srv.CreateStaff(ctx, &userDTO, request.Roles, request.Status, auditActorFromProto(request.Actor))
+	if err != nil {
+		log.Errorf(
+			"create staff user failed: mobile=%s email=%s error=%v",
+			redactMobileForLog(userDTO.Mobile),
+			redactOptionalEmailForLog(userDTO.Email),
+			err,
+		)
+		return nil, err
+	}
+
+	return &upbv1.StaffUserResponse{
+		User:        DTOToResponse(created.User),
+		Roles:       append([]string(nil), created.StaffRoles...),
+		Permissions: append([]string(nil), created.Permissions...),
+	}, nil
+}

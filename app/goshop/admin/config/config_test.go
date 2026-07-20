@@ -165,6 +165,15 @@ func TestAdminAuthOptionsEffectivePermissionsFromEnv(t *testing.T) {
 	}
 }
 
+func TestAdminAuthOptionsEffectiveConfirmationTokenFromEnv(t *testing.T) {
+	t.Setenv("GOSHOP_ADMIN_CONFIRMATION_TOKEN", "confirm-secret")
+
+	opts := &AdminAuthOptions{}
+	if got := opts.EffectiveConfirmationToken(); got != "confirm-secret" {
+		t.Fatalf("EffectiveConfirmationToken() = %q, want %q", got, "confirm-secret")
+	}
+}
+
 func TestAdminAuthOptionsValidateStartup(t *testing.T) {
 	t.Setenv("GOSHOP_ADMIN_TOKEN", "")
 	t.Setenv("GOSHOP_ADMIN_ROLE", "")

@@ -208,6 +208,7 @@ type fakeUserClient struct {
 	createResponse *upbv1.UserInfoResponse
 	updateRequest  *upbv1.UpdateUserInfo
 	statusRequest  *upbv1.UpdateUserStatusRequest
+	createStaffReq *upbv1.CreateStaffUserRequest
 }
 
 func (f *fakeUserClient) GetUserList(context.Context, *upbv1.PageInfo, ...grpc.CallOption) (*upbv1.UserListResponse, error) {
@@ -280,6 +281,11 @@ func (f *fakeUserClient) ReplaceUserStaffRoles(context.Context, *upbv1.ReplaceUs
 	return &upbv1.UserRoleBindingResponse{}, nil
 }
 
+func (f *fakeUserClient) ListUserAuditLogs(context.Context, *upbv1.UserAuditLogPageRequest, ...grpc.CallOption) (*upbv1.UserAuditLogListResponse, error) {
+	f.called = true
+	return &upbv1.UserAuditLogListResponse{}, nil
+}
+
 func (f *fakeUserClient) CreateUser(_ context.Context, in *upbv1.CreateUserInfo, _ ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
 	f.called = true
 	f.createRequest = in
@@ -290,6 +296,15 @@ func (f *fakeUserClient) CreateUser(_ context.Context, in *upbv1.CreateUserInfo,
 		return f.createResponse, nil
 	}
 	return &upbv1.UserInfoResponse{Id: 1}, nil
+}
+
+func (f *fakeUserClient) CreateStaffUser(_ context.Context, in *upbv1.CreateStaffUserRequest, _ ...grpc.CallOption) (*upbv1.StaffUserResponse, error) {
+	f.called = true
+	f.createStaffReq = in
+	if f.returnNil {
+		return nil, nil
+	}
+	return &upbv1.StaffUserResponse{}, nil
 }
 
 func (f *fakeUserClient) UpdateUser(_ context.Context, in *upbv1.UpdateUserInfo, _ ...grpc.CallOption) (*emptypb.Empty, error) {

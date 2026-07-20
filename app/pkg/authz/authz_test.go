@@ -17,6 +17,7 @@ func TestPermissionsHaveExplicitScope(t *testing.T) {
 		PermissionOrderPaySelf,
 		PermissionOrderStatusLogReadSelf,
 		PermissionInventoryReadPublic,
+		PermissionUserCreateAny,
 		PermissionUserListAny,
 		PermissionUserReadAny,
 		PermissionUserDisableAny,

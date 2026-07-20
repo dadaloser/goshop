@@ -36,19 +36,27 @@ func (u *users) ListRoles(ctx context.Context) ([]dv1.RoleDO, error) {
 	return nil, errors.New("mock users ListRoles not implemented")
 }
 
-func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string) (*dv1.UserAuthDO, error) {
+func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {
 	return nil, errors.New("mock users ReplaceUserRoles not implemented")
+}
+
+func (u *users) ListAuditLogs(ctx context.Context, userID uint64, filters dv1.UserAuditLogFilters, opts metav1.ListMeta) (*dv1.UserAuditLogDOList, error) {
+	return nil, errors.New("mock users ListAuditLogs not implemented")
 }
 
 func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
 	return errors.New("mock users Create not implemented")
 }
 
+func (u *users) CreateStaff(ctx context.Context, user *dv1.UserDO, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {
+	return nil, errors.New("mock users CreateStaff not implemented")
+}
+
 func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
 	return errors.New("mock users Update not implemented")
 }
 
-func (u *users) UpdateStatus(ctx context.Context, id uint64, status string) error {
+func (u *users) UpdateStatus(ctx context.Context, id uint64, status string, actor *dv1.AuditActor) error {
 	return errors.New("mock users UpdateStatus not implemented")
 }
 

@@ -72,6 +72,23 @@ func (s *UserHttpServer) GetUserById_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *UserHttpServer) CreateStaffUser_0(c *gin.Context) {
+	var in CreateStaffUserRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.CreateStaffUser(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *UserHttpServer) UpdateUserStatus_0(c *gin.Context) {
 	var in UpdateUserStatusRequest
 
@@ -132,6 +149,23 @@ func (s *UserHttpServer) ReplaceUserStaffRoles_0(c *gin.Context) {
 	}
 
 	out, err := s.server.ReplaceUserStaffRoles(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) ListUserAuditLogs_0(c *gin.Context) {
+	var in UserAuditLogPageRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListUserAuditLogs(c, &in)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -250,6 +284,8 @@ func (s *UserHttpServer) RegisterService() {
 
 	s.router.Handle("POST", "/v1/user/id", s.GetUserById_0)
 
+	s.router.Handle("POST", "", s.CreateStaffUser_0)
+
 	s.router.Handle("POST", "", s.UpdateUserStatus_0)
 
 	s.router.Handle("POST", "", s.ListStaffRoles_0)
@@ -257,6 +293,8 @@ func (s *UserHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.GetUserStaffRoles_0)
 
 	s.router.Handle("POST", "", s.ReplaceUserStaffRoles_0)
+
+	s.router.Handle("POST", "", s.ListUserAuditLogs_0)
 
 	s.router.Handle("POST", "", s.GetUserAuthByMobile_0)
 

@@ -27,9 +27,10 @@ type Config struct {
 }
 
 type AdminAuthOptions struct {
-	Token       string   `json:"token" mapstructure:"token"`
-	Role        string   `json:"role" mapstructure:"role"`
-	Permissions []string `json:"permissions" mapstructure:"permissions"`
+	Token             string   `json:"token" mapstructure:"token"`
+	ConfirmationToken string   `json:"confirmation-token" mapstructure:"confirmation-token"`
+	Role              string   `json:"role" mapstructure:"role"`
+	Permissions       []string `json:"permissions" mapstructure:"permissions"`
 }
 
 const (
@@ -62,6 +63,13 @@ func (o *AdminAuthOptions) EffectivePermissions() []string {
 		return normalizePermissions(o.Permissions)
 	}
 	return normalizePermissions(strings.Split(os.Getenv("GOSHOP_ADMIN_PERMISSIONS"), ","))
+}
+
+func (o *AdminAuthOptions) EffectiveConfirmationToken() string {
+	if o != nil && o.ConfirmationToken != "" {
+		return o.ConfirmationToken
+	}
+	return os.Getenv("GOSHOP_ADMIN_CONFIRMATION_TOKEN")
 }
 
 func (o *AdminAuthOptions) EffectiveRole() string {
@@ -154,6 +162,7 @@ func (o *AdminAuthOptions) AddFlags(fs *pflag.FlagSet) {
 		return
 	}
 	fs.StringVar(&o.Token, "admin-auth.token", o.Token, "shared token required for admin routes until full RBAC is enabled")
+	fs.StringVar(&o.ConfirmationToken, "admin-auth.confirmation-token", o.ConfirmationToken, "second confirmation token required by high-risk admin write APIs")
 	fs.StringVar(&o.Role, "admin-auth.role", o.Role, "bootstrap admin role: basic, admin, primary_admin, or super_admin")
 	fs.StringSliceVar(&o.Permissions, "admin-auth.permissions", o.Permissions, "permissions granted to the bootstrap admin token, for example user:list:any or user:*")
 }

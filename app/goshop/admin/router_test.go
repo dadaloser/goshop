@@ -188,6 +188,55 @@ func TestRequireAdminAccess(t *testing.T) {
 	}
 }
 
+func TestRequireAdminConfirmation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name       string
+		opts       *config.AdminAuthOptions
+		header     string
+		wantStatus int
+	}{
+		{
+			name:       "missing configured token rejects",
+			opts:       &config.AdminAuthOptions{},
+			wantStatus: http.StatusServiceUnavailable,
+		},
+		{
+			name:       "wrong confirmation rejects",
+			opts:       &config.AdminAuthOptions{ConfirmationToken: "confirm-secret"},
+			header:     "wrong",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "valid confirmation passes",
+			opts:       &config.AdminAuthOptions{ConfirmationToken: "confirm-secret"},
+			header:     "confirm-secret",
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.POST("/admin", requireAdminConfirmation(tt.opts), func(c *gin.Context) {
+				c.Status(http.StatusOK)
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/admin", nil)
+			if tt.header != "" {
+				req.Header.Set("X-Admin-Confirm-Token", tt.header)
+			}
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
 func TestAdminAuthChain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

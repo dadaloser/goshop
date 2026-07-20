@@ -24,10 +24,12 @@ service User{
             body: "*"
         };
     }; //通过id查询用户
+    rpc CreateStaffUser(CreateStaffUserRequest) returns (StaffUserResponse);
     rpc UpdateUserStatus(UpdateUserStatusRequest) returns (UserInfoResponse);
     rpc ListStaffRoles(google.protobuf.Empty) returns (StaffRoleListResponse);
     rpc GetUserStaffRoles(IdRequest) returns (UserRoleBindingResponse);
     rpc ReplaceUserStaffRoles(ReplaceUserStaffRolesRequest) returns (UserRoleBindingResponse);
+    rpc ListUserAuditLogs(UserAuditLogPageRequest) returns (UserAuditLogListResponse);
     rpc GetUserAuthByMobile(MobileRequest) returns (UserAuthResponse); // auth-only by username/mobile/email
     rpc GetUserAuthById(IdRequest) returns (UserAuthResponse); // auth-only by id
     rpc CreateUser(CreateUserInfo) returns (UserInfoResponse){
@@ -95,9 +97,22 @@ message UpdateUserInfo {
     string username = 6;
 }
 
+message AuditActor {
+    int32 actorUserId = 1;
+    string principalType = 2;
+}
+
+message CreateStaffUserRequest {
+    CreateUserInfo user = 1;
+    repeated string roles = 2;
+    string status = 3;
+    AuditActor actor = 4;
+}
+
 message UpdateUserStatusRequest {
     int32 id = 1;
     string status = 2;
+    AuditActor actor = 3;
 }
 
 message UserInfoResponse {
@@ -139,10 +154,45 @@ message StaffRoleListResponse {
 message ReplaceUserStaffRolesRequest {
     int32 userId = 1;
     repeated string roles = 2;
+    AuditActor actor = 3;
 }
 
 message UserRoleBindingResponse {
     int32 userId = 1;
     repeated string roles = 2;
     repeated string permissions = 3;
+}
+
+message StaffUserResponse {
+    UserInfoResponse user = 1;
+    repeated string roles = 2;
+    repeated string permissions = 3;
+}
+
+message UserAuditLogPageRequest {
+    int32 userId = 1;
+    uint32 pn = 2;
+    uint32 pSize = 3;
+    string action = 4;
+    int32 actorUserId = 5;
+    string actorPrincipalType = 6;
+    uint64 createdAfter = 7;
+    uint64 createdBefore = 8;
+}
+
+message UserAuditLog {
+    int64 id = 1;
+    int32 userId = 2;
+    int32 actorUserId = 3;
+    string actorPrincipalType = 4;
+    string action = 5;
+    string fromStatus = 6;
+    string toStatus = 7;
+    string detail = 8;
+    uint64 createdAt = 9;
+}
+
+message UserAuditLogListResponse {
+    int32 total = 1;
+    repeated UserAuditLog data = 2;
 }

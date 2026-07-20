@@ -54,20 +54,58 @@ type UserRoleBindingDTO struct {
 	Permissions []string
 }
 
+type AuditActorDTO struct {
+	UserID        int32
+	PrincipalType string
+}
+
+type StaffUserDTO struct {
+	User        UserPublicDTO
+	StaffRoles  []string
+	Permissions []string
+}
+
+type UserAuditLogDTO struct {
+	ID                 uint64
+	UserID             int32
+	ActorUserID        int32
+	ActorPrincipalType string
+	Action             string
+	FromStatus         string
+	ToStatus           string
+	Detail             string
+	CreatedAt          time.Time
+}
+
+type UserAuditLogDTOList struct {
+	TotalCount int64
+	Items      []*UserAuditLogDTO
+}
+
+type UserAuditLogFilterDTO struct {
+	Action             string
+	ActorUserID        int32
+	ActorPrincipalType string
+	CreatedAfter       *time.Time
+	CreatedBefore      *time.Time
+}
+
 type UserSrv interface {
 	List(ctx context.Context, orderBy []string, opts metav1.ListMeta) (*UserPublicDTOList, error)
 	Create(ctx context.Context, user *UserDTO) error
+	CreateStaff(ctx context.Context, user *UserDTO, roleNames []string, status string, actor AuditActorDTO) (*StaffUserDTO, error)
 	Update(ctx context.Context, user *UserDTO) error
 	Delete(ctx context.Context, id uint64) error
 	GetByID(ctx context.Context, ID uint64) (*UserPublicDTO, error)
 	GetByMobile(ctx context.Context, mobile string) (*UserPublicDTO, error)
 	GetByUsername(ctx context.Context, username string) (*UserPublicDTO, error)
-	UpdateStatus(ctx context.Context, userID uint64, status string) (*UserPublicDTO, error)
+	UpdateStatus(ctx context.Context, userID uint64, status string, actor AuditActorDTO) (*UserPublicDTO, error)
 	GetAuthByID(ctx context.Context, ID uint64) (*UserAuthDTO, error)
 	GetAuthByUsername(ctx context.Context, username string) (*UserAuthDTO, error)
 	ListStaffRoles(ctx context.Context) ([]StaffRoleDTO, error)
 	GetUserRoleBinding(ctx context.Context, userID uint64) (*UserRoleBindingDTO, error)
-	ReplaceUserRoleBinding(ctx context.Context, userID uint64, roleNames []string) (*UserRoleBindingDTO, error)
+	ReplaceUserRoleBinding(ctx context.Context, userID uint64, roleNames []string, actor AuditActorDTO) (*UserRoleBindingDTO, error)
+	ListUserAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilterDTO, opts metav1.ListMeta) (*UserAuditLogDTOList, error)
 }
 
 type userService struct {
@@ -88,11 +126,50 @@ func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 	if user == nil {
 		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
 	}
+	if err := u.prepareNewUser(ctx, user, authz.LegacyUserRoleCustomer, string(authz.AccountStatusActive)); err != nil {
+		return err
+	}
+	return u.userStore.Create(ctx, &user.UserDO)
+}
+
+func (u *userService) CreateStaff(ctx context.Context, user *UserDTO, roleNames []string, status string, actor AuditActorDTO) (*StaffUserDTO, error) {
+	if user == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+	}
+	if len(normalizeRoleNames(roleNames)) == 0 {
+		return nil, errors.WithCode(code2.ErrValidation, "staff roles are required")
+	}
+	for _, roleName := range roleNames {
+		normalized := strings.ToLower(strings.TrimSpace(roleName))
+		if normalized == "" {
+			continue
+		}
+		if !authz.IsValidStaffRole(normalized) {
+			return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
+		}
+	}
+
+	normalizedStatus, err := normalizeMutableAccountStatus(status)
+	if err != nil {
+		return nil, err
+	}
+	if err = u.prepareNewUser(ctx, user, authz.LegacyUserRoleAdmin, string(normalizedStatus)); err != nil {
+		return nil, err
+	}
+
+	authUser, err := u.userStore.CreateStaff(ctx, &user.UserDO, roleNames, newAuditActor(actor))
+	if err != nil {
+		return nil, err
+	}
+	return newStaffUserDTO(authUser)
+}
+
+func (u *userService) prepareNewUser(ctx context.Context, user *UserDTO, legacyRole authz.LegacyUserRole, defaultStatus string) error {
 	if err := normalizeUserIdentifiers(user); err != nil {
 		return err
 	}
 	if user.Role == 0 {
-		user.Role = int(authz.LegacyUserRoleCustomer)
+		user.Role = int(legacyRole)
 	}
 	if err := validateLegacyRole(int32(user.Role)); err != nil {
 		return err
@@ -104,7 +181,7 @@ func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 		return errors.WithCode(code2.ErrValidation, "密码必须为8-72字节，并包含大小写字母、数字和特殊字符")
 	}
 	if strings.TrimSpace(user.Status) == "" {
-		user.Status = string(authz.AccountStatusActive)
+		user.Status = defaultStatus
 	}
 
 	//先判断用户是否存在
@@ -135,7 +212,7 @@ func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 		return errors.WithCode(code2.ErrEncrypt, "加密密码失败")
 	}
 	user.Password = encryptedPassword
-	return u.userStore.Create(ctx, &user.UserDO)
+	return nil
 }
 
 func (u *userService) Update(ctx context.Context, user *UserDTO) error {
@@ -197,19 +274,17 @@ func (u *userService) GetByUsername(ctx context.Context, username string) (*User
 	return newUserPublicDTO(userDO)
 }
 
-func (u *userService) UpdateStatus(ctx context.Context, userID uint64, status string) (*UserPublicDTO, error) {
+func (u *userService) UpdateStatus(ctx context.Context, userID uint64, status string, actor AuditActorDTO) (*UserPublicDTO, error) {
 	if userID == 0 {
 		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
 	}
 
-	normalizedStatus := authz.NormalizeAccountStatus(status)
-	switch normalizedStatus {
-	case authz.AccountStatusActive, authz.AccountStatusDisabled, authz.AccountStatusLocked:
-	default:
-		return nil, errors.WithCode(code2.ErrValidation, "account status must be one of: active, disabled, locked")
+	normalizedStatus, err := normalizeMutableAccountStatus(status)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := u.userStore.UpdateStatus(ctx, userID, string(normalizedStatus)); err != nil {
+	if err = u.userStore.UpdateStatus(ctx, userID, string(normalizedStatus), newAuditActor(actor)); err != nil {
 		return nil, err
 	}
 	return u.GetByID(ctx, userID)
@@ -270,7 +345,7 @@ func (u *userService) GetUserRoleBinding(ctx context.Context, userID uint64) (*U
 	return newUserRoleBindingDTO(authUser)
 }
 
-func (u *userService) ReplaceUserRoleBinding(ctx context.Context, userID uint64, roleNames []string) (*UserRoleBindingDTO, error) {
+func (u *userService) ReplaceUserRoleBinding(ctx context.Context, userID uint64, roleNames []string, actor AuditActorDTO) (*UserRoleBindingDTO, error) {
 	for _, roleName := range roleNames {
 		normalized := strings.ToLower(strings.TrimSpace(roleName))
 		if normalized == "" {
@@ -280,11 +355,45 @@ func (u *userService) ReplaceUserRoleBinding(ctx context.Context, userID uint64,
 			return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
 		}
 	}
-	authUser, err := u.userStore.ReplaceUserRoles(ctx, userID, roleNames)
+	authUser, err := u.userStore.ReplaceUserRoles(ctx, userID, roleNames, newAuditActor(actor))
 	if err != nil {
 		return nil, err
 	}
 	return newUserRoleBindingDTO(authUser)
+}
+
+func (u *userService) ListUserAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilterDTO, opts metav1.ListMeta) (*UserAuditLogDTOList, error) {
+	if userID == 0 {
+		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+	logs, err := u.userStore.ListAuditLogs(ctx, userID, dv1.UserAuditLogFilters{
+		Action:             strings.TrimSpace(filters.Action),
+		ActorUserID:        filters.ActorUserID,
+		ActorPrincipalType: strings.TrimSpace(filters.ActorPrincipalType),
+		CreatedAfter:       filters.CreatedAfter,
+		CreatedBefore:      filters.CreatedBefore,
+	}, opts)
+	if err != nil {
+		return nil, err
+	}
+	result := &UserAuditLogDTOList{TotalCount: logs.TotalCount}
+	for _, item := range logs.Items {
+		if item == nil {
+			continue
+		}
+		result.Items = append(result.Items, &UserAuditLogDTO{
+			ID:                 item.ID,
+			UserID:             item.UserID,
+			ActorUserID:        item.ActorUserID,
+			ActorPrincipalType: item.ActorPrincipalType,
+			Action:             item.Action,
+			FromStatus:         item.FromStatus,
+			ToStatus:           item.ToStatus,
+			Detail:             item.Detail,
+			CreatedAt:          item.CreatedAt,
+		})
+	}
+	return result, nil
 }
 
 func NewUserService(us dv1.UserStore) UserSrv {
@@ -340,6 +449,33 @@ func normalizeEmail(value string) *string {
 func normalizeLoginIdentifier(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	return value
+}
+
+func normalizeRoleNames(roleNames []string) []string {
+	normalized := make([]string, 0, len(roleNames))
+	seen := make(map[string]struct{}, len(roleNames))
+	for _, roleName := range roleNames {
+		value := strings.ToLower(strings.TrimSpace(roleName))
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	return normalized
+}
+
+func normalizeMutableAccountStatus(status string) (authz.AccountStatus, error) {
+	normalizedStatus := authz.NormalizeAccountStatus(status)
+	switch normalizedStatus {
+	case authz.AccountStatusActive, authz.AccountStatusDisabled, authz.AccountStatusLocked:
+		return normalizedStatus, nil
+	default:
+		return "", errors.WithCode(code2.ErrValidation, "account status must be one of: active, disabled, locked")
+	}
 }
 
 func isEmailAddress(value string) bool {
@@ -471,6 +607,31 @@ func newUserRoleBindingDTO(user *dv1.UserAuthDO) (*UserRoleBindingDTO, error) {
 		StaffRoles:  append([]string(nil), user.StaffRoles...),
 		Permissions: append([]string(nil), user.Permissions...),
 	}, nil
+}
+
+func newStaffUserDTO(user *dv1.UserAuthDO) (*StaffUserDTO, error) {
+	if user == nil {
+		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+	publicDTO, err := newUserPublicDTO(&user.UserDO)
+	if err != nil {
+		return nil, err
+	}
+	return &StaffUserDTO{
+		User:        *publicDTO,
+		StaffRoles:  append([]string(nil), user.StaffRoles...),
+		Permissions: append([]string(nil), user.Permissions...),
+	}, nil
+}
+
+func newAuditActor(actor AuditActorDTO) *dv1.AuditActor {
+	if actor.UserID <= 0 && strings.TrimSpace(actor.PrincipalType) == "" {
+		return nil
+	}
+	return &dv1.AuditActor{
+		UserID:        actor.UserID,
+		PrincipalType: strings.TrimSpace(actor.PrincipalType),
+	}
 }
 
 func validateLegacyRole(role int32) error {

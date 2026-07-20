@@ -88,7 +88,7 @@ func migrateUserSchema(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("user schema migration failed: nil db")
 	}
-	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}); err != nil {
+	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}, &dv1.UserAuditLogDO{}); err != nil {
 		return fmt.Errorf("user schema migration failed: %w", err)
 	}
 	return nil
@@ -138,6 +138,10 @@ func validateUserSchema(db *gorm.DB) error {
 		{
 			model:   &dv1.RolePermissionDO{},
 			columns: []string{"id", "role_id", "permission"},
+		},
+		{
+			model:   &dv1.UserAuditLogDO{},
+			columns: []string{"id", "user_id", "actor_user_id", "actor_principal_type", "action", "from_status", "to_status", "detail", "add_time"},
 		},
 	}
 	for _, table := range rbacTables {
