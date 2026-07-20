@@ -155,10 +155,12 @@ func TestUserServiceRejectsMissingCodeStore(t *testing.T) {
 
 func TestUserServiceRejectsMissingJWTOptions(t *testing.T) {
 	users := &fakeUserData{
-		user: data.User{
-			ID:       1,
-			NickName: "tester",
-			PassWord: "hashed",
+		authUser: data.UserAuth{
+			User: data.User{
+				ID:       1,
+				NickName: "tester",
+			},
+			PasswordHash: "hashed",
 		},
 	}
 	svc := NewUserService(&fakeDataFactory{users: users}, nil, nil, nil, nil, nil)

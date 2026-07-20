@@ -33,7 +33,7 @@ type UserDO struct {
 	NickName string     `gorm:"type:varchar(20)"`
 	Birthday *time.Time `gorm:"type:datetime"`
 	Gender   string     `gorm:"column:gender;default:male;type:varchar(6) comment 'female表示女, male表示男'"`
-	Role     int        `gorm:"column:role;default:1;type:int comment '1表示普通用户, 2表示管理员'"`
+	Role     int        `gorm:"column:role;default:1;type:int comment 'legacy numeric role: 1表示普通用户, 2表示管理员(兼容字段)'"`
 	Status   string     `gorm:"column:account_status;default:active;type:varchar(16);not null"`
 }
 
@@ -63,11 +63,18 @@ type UserStore interface {
 	//通过用户ID查询用户
 	GetByID(ctx context.Context, id uint64) (*UserDO, error)
 
+	// auth-only lookups return password hash and staff authorization bindings.
+	GetAuthByUsername(ctx context.Context, username string) (*UserAuthDO, error)
+	GetAuthByID(ctx context.Context, id uint64) (*UserAuthDO, error)
+	ListRoles(ctx context.Context) ([]RoleDO, error)
+	ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string) (*UserAuthDO, error)
+
 	//创建用户
 	Create(ctx context.Context, user *UserDO) error
 
 	//更新用户
 	Update(ctx context.Context, user *UserDO) error
+	UpdateStatus(ctx context.Context, id uint64, status string) error
 
 	//删除用户
 	Delete(ctx context.Context, id uint64) error

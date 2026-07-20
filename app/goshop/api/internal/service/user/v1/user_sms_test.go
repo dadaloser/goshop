@@ -74,7 +74,13 @@ func TestSmsLoginRejectsInactiveAccount(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			codes := &fakeSmsCodeStore{value: "123456"}
-			users := &fakeUserData{user: data.User{ID: 1, Status: string(tt.status)}}
+			users := &fakeUserData{authUser: data.UserAuth{
+				User: data.User{
+					ID:     1,
+					Status: string(tt.status),
+				},
+				PasswordHash: "hashed",
+			}}
 			svc := newSmsTestService(users, codes, &fakeSmsAttempts{})
 
 			got, err := svc.SmsLogin(context.Background(), "13800138000", "123456")

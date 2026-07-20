@@ -3,7 +3,7 @@ package user
 import (
 	"goshop/app/goshop/api/internal/service"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
-	"goshop/app/goshop/api/internal/tokenrevocation"
+	"goshop/app/pkg/authsession/tokenrevocation"
 	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 

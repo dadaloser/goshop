@@ -138,3 +138,62 @@ func TestCustomerScopesReturnsCopy(t *testing.T) {
 		t.Fatal("CustomerScopes returned shared mutable state")
 	}
 }
+
+func TestRequirePrincipalTypes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name       string
+		payload    any
+		allowed    []PrincipalType
+		wantStatus int
+	}{
+		{
+			name:       "missing principal rejects",
+			allowed:    []PrincipalType{PrincipalStaff},
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "staff principal passes",
+			payload: map[string]any{
+				"user_id":        float64(1),
+				"principal_type": string(PrincipalStaff),
+				"status":         string(AccountStatusActive),
+			},
+			allowed:    []PrincipalType{PrincipalStaff},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "bootstrap principal rejected for staff-only route",
+			payload: map[string]any{
+				"user_id":        float64(1),
+				"principal_type": string(PrincipalAdminBootstrap),
+				"status":         string(AccountStatusActive),
+			},
+			allowed:    []PrincipalType{PrincipalStaff},
+			wantStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router := gin.New()
+			router.GET("/resource", func(c *gin.Context) {
+				if tt.payload != nil {
+					c.Set(middlewares.JWTPayloadKey, tt.payload)
+				}
+				c.Next()
+			}, RequirePrincipalTypes(tt.allowed...), func(c *gin.Context) {
+				c.Status(http.StatusNoContent)
+			})
+
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/resource", nil)
+			router.ServeHTTP(recorder, request)
+
+			if recorder.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", recorder.Code, tt.wantStatus)
+			}
+		})
+	}
+}

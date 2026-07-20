@@ -2,12 +2,14 @@ package db
 
 import (
 	"fmt"
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/code"
 	appgorm "goshop/app/pkg/gorm"
 	"goshop/app/pkg/options"
 	dv1 "goshop/app/user/srv/internal/data/v1"
 	errors2 "goshop/pkg/errors"
 	"goshop/pkg/log"
+	"strings"
 	"sync"
 
 	"gorm.io/gorm"
@@ -68,6 +70,11 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 			dbFactory = nil
 			return
 		}
+		if err = seedUserRBAC(dbFactory); err != nil {
+			_ = sqlDB.Close()
+			dbFactory = nil
+			return
+		}
 		log.Infof("mysql connected: host=%s port=%s database=%s", mysqlOpts.Host, mysqlOpts.Port, mysqlOpts.Database)
 	})
 
@@ -81,7 +88,7 @@ func migrateUserSchema(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("user schema migration failed: nil db")
 	}
-	if err := db.AutoMigrate(&dv1.UserDO{}); err != nil {
+	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}); err != nil {
 		return fmt.Errorf("user schema migration failed: %w", err)
 	}
 	return nil
@@ -114,6 +121,67 @@ func validateUserSchema(db *gorm.DB) error {
 	for _, column := range requiredColumns {
 		if !db.Migrator().HasColumn(&dv1.UserDO{}, column) {
 			return fmt.Errorf("user schema validation failed: required column %q.%q does not exist", (&dv1.UserDO{}).TableName(), column)
+		}
+	}
+	rbacTables := []struct {
+		model   interface{ TableName() string }
+		columns []string
+	}{
+		{
+			model:   &dv1.RoleDO{},
+			columns: []string{"id", "name", "description"},
+		},
+		{
+			model:   &dv1.UserRoleDO{},
+			columns: []string{"id", "user_id", "role_id"},
+		},
+		{
+			model:   &dv1.RolePermissionDO{},
+			columns: []string{"id", "role_id", "permission"},
+		},
+	}
+	for _, table := range rbacTables {
+		if !db.Migrator().HasTable(table.model) {
+			return fmt.Errorf("user schema validation failed: required table %q does not exist", table.model.TableName())
+		}
+		for _, column := range table.columns {
+			if !db.Migrator().HasColumn(table.model, column) {
+				return fmt.Errorf("user schema validation failed: required column %q.%q does not exist", table.model.TableName(), column)
+			}
+		}
+	}
+	return nil
+}
+
+func seedUserRBAC(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("seed user RBAC failed: nil db")
+	}
+
+	for _, role := range authz.BuiltinRoleDefinitions() {
+		record := dv1.RoleDO{
+			Name:        string(role.Name),
+			Description: role.Description,
+		}
+		if err := db.Where("name = ?", record.Name).Assign(map[string]interface{}{
+			"description": record.Description,
+		}).FirstOrCreate(&record).Error; err != nil {
+			return fmt.Errorf("seed user RBAC role %q failed: %w", role.Name, err)
+		}
+
+		for _, permission := range role.Permissions {
+			permissionValue := strings.TrimSpace(string(permission))
+			if permissionValue == "" {
+				continue
+			}
+			rolePermission := dv1.RolePermissionDO{
+				RoleID:     record.ID,
+				Permission: permissionValue,
+			}
+			if err := db.Where("role_id = ? AND permission = ?", rolePermission.RoleID, rolePermission.Permission).
+				FirstOrCreate(&rolePermission).Error; err != nil {
+				return fmt.Errorf("seed user RBAC permission %q for role %q failed: %w", permission, role.Name, err)
+			}
 		}
 	}
 	return nil

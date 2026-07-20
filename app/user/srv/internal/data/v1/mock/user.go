@@ -24,12 +24,32 @@ func (u *users) GetByID(ctx context.Context, id uint64) (*dv1.UserDO, error) {
 	return nil, errors.New("mock users GetByID not implemented")
 }
 
+func (u *users) GetAuthByUsername(ctx context.Context, username string) (*dv1.UserAuthDO, error) {
+	return nil, errors.New("mock users GetAuthByUsername not implemented")
+}
+
+func (u *users) GetAuthByID(ctx context.Context, id uint64) (*dv1.UserAuthDO, error) {
+	return nil, errors.New("mock users GetAuthByID not implemented")
+}
+
+func (u *users) ListRoles(ctx context.Context) ([]dv1.RoleDO, error) {
+	return nil, errors.New("mock users ListRoles not implemented")
+}
+
+func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string) (*dv1.UserAuthDO, error) {
+	return nil, errors.New("mock users ReplaceUserRoles not implemented")
+}
+
 func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
 	return errors.New("mock users Create not implemented")
 }
 
 func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
 	return errors.New("mock users Update not implemented")
+}
+
+func (u *users) UpdateStatus(ctx context.Context, id uint64, status string) error {
+	return errors.New("mock users UpdateStatus not implemented")
 }
 
 func (u *users) Delete(ctx context.Context, id uint64) error {

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"goshop/app/goshop/api/internal/data"
-	"goshop/app/goshop/api/internal/tokenrevocation"
-	"goshop/app/goshop/api/internal/tokenversion"
+	"goshop/app/pkg/authsession/tokenrevocation"
+	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver/middlewares"
@@ -137,7 +137,9 @@ type fakeAuthUserStore struct {
 	getErr error
 }
 
-func (f *fakeAuthUserStore) Create(context.Context, *data.User) error { return nil }
+func (f *fakeAuthUserStore) Create(context.Context, *data.UserCreate) (data.User, error) {
+	return data.User{}, nil
+}
 func (f *fakeAuthUserStore) Update(context.Context, *data.User) error { return nil }
 func (f *fakeAuthUserStore) Delete(context.Context, uint64) error     { return nil }
 func (f *fakeAuthUserStore) Get(context.Context, uint64) (data.User, error) {
@@ -148,6 +150,12 @@ func (f *fakeAuthUserStore) GetByMobile(context.Context, string) (data.User, err
 }
 func (f *fakeAuthUserStore) GetByUsername(context.Context, string) (data.User, error) {
 	return f.user, f.getErr
+}
+func (f *fakeAuthUserStore) GetAuth(context.Context, uint64) (data.UserAuth, error) {
+	return data.UserAuth{User: f.user}, f.getErr
+}
+func (f *fakeAuthUserStore) GetAuthByUsername(context.Context, string) (data.UserAuth, error) {
+	return data.UserAuth{User: f.user}, f.getErr
 }
 func (f *fakeAuthUserStore) CheckPassWord(context.Context, string, string) error { return nil }
 

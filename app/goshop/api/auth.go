@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"goshop/app/goshop/api/internal/data"
-	"goshop/app/goshop/api/internal/tokenrevocation"
-	"goshop/app/goshop/api/internal/tokenversion"
+	"goshop/app/pkg/authsession/tokenrevocation"
+	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver/middlewares"

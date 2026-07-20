@@ -4,8 +4,11 @@ import (
 	"crypto/subtle"
 	"net/http"
 
+	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/admin/config"
 	"goshop/app/goshop/admin/controller"
+	"goshop/app/pkg/authsession/tokenrevocation"
+	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver"
 
@@ -13,15 +16,42 @@ import (
 )
 
 // 初始化路由
-func initRouter(g *restserver.Server, cfg *config.Config) {
+func initRouter(g *restserver.Server, cfg *config.Config, users upbv1.UserClient) error {
+	return initRouterWithSessionStores(g, cfg, users, tokenrevocation.NewRedisStore(), tokenversion.NewRedisStore())
+}
+
+func initRouterWithSessionStores(
+	g *restserver.Server,
+	cfg *config.Config,
+	users upbv1.UserClient,
+	revokedTokens tokenrevocation.Store,
+	tokenVersions tokenversion.Store,
+) error {
 	if cfg != nil && cfg.Server != nil && cfg.Server.ManagementPort > 0 {
 		registerBusinessLivez(g)
 	}
 	v1 := g.Group("/v1")
-	adminAuth := requireAdminToken(cfg.AdminAuth)
-	ugroup := v1.Group("/user", adminAuth)
-	ucontroller := controller.NewUserController()
-	ugroup.GET("list", requireAdminAccess(cfg.AdminAuth, authz.PermissionUserListAny, config.AdminRoleAdmin), ucontroller.List)
+	staffAuth, err := newStaffJWTAuth(cfg.Jwt, revokedTokens, tokenVersions, users)
+	if err != nil {
+		return err
+	}
+	authController := newStaffAuthHandler(users, cfg.Jwt, cfg.AdminAuth, revokedTokens, tokenVersions)
+	v1.POST("/auth/login", authController.Login)
+	v1.POST("/auth/logout", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authController.Logout)
+	v1.POST("/auth/logout_all", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authController.LogoutAll)
+	v1.GET("/auth/me", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authController.Me)
+	v1.POST("/break_glass/session", requireAdminToken(cfg.AdminAuth), authController.BootstrapSession)
+
+	ugroup := v1.Group("/user", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff))
+	ucontroller := controller.NewUserController(users, tokenVersions)
+	ugroup.GET("list", authz.RequirePermission(authz.PermissionUserListAny), ucontroller.List)
+	ugroup.GET(":id", authz.RequirePermission(authz.PermissionUserReadAny), ucontroller.GetByID)
+	ugroup.PUT(":id/status", authz.RequirePermission(authz.PermissionUserDisableAny), ucontroller.UpdateStatus)
+	ugroup.GET(":id/roles", authz.RequirePermission(authz.PermissionRoleReadAny), ucontroller.GetUserStaffRoles)
+	ugroup.PUT(":id/roles", authz.RequirePermission(authz.PermissionRoleAssignAny), ucontroller.ReplaceUserStaffRoles)
+	staffGroup := v1.Group("/staff", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff))
+	staffGroup.GET("roles", authz.RequirePermission(authz.PermissionRoleReadAny), ucontroller.ListStaffRoles)
+	return nil
 }
 
 func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {

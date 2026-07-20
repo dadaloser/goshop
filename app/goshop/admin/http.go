@@ -1,7 +1,10 @@
 package admin
 
 import (
+	"context"
+
 	"goshop/app/goshop/admin/config"
+	appclient "goshop/app/pkg/client"
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/restserver/middlewares"
 )
@@ -33,8 +36,15 @@ func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 	}
 	restServer := restserver.NewServer(opts...)
 
+	userClient, _, err := appclient.NewUserClient(context.Background(), cfg.Registry, cfg.RPC)
+	if err != nil {
+		return nil, err
+	}
+
 	//配置好路由
-	initRouter(restServer, cfg)
+	if err := initRouter(restServer, cfg, userClient); err != nil {
+		return nil, err
+	}
 
 	return restServer, nil
 }

@@ -24,6 +24,12 @@ service User{
             body: "*"
         };
     }; //通过id查询用户
+    rpc UpdateUserStatus(UpdateUserStatusRequest) returns (UserInfoResponse);
+    rpc ListStaffRoles(google.protobuf.Empty) returns (StaffRoleListResponse);
+    rpc GetUserStaffRoles(IdRequest) returns (UserRoleBindingResponse);
+    rpc ReplaceUserStaffRoles(ReplaceUserStaffRolesRequest) returns (UserRoleBindingResponse);
+    rpc GetUserAuthByMobile(MobileRequest) returns (UserAuthResponse); // auth-only by username/mobile/email
+    rpc GetUserAuthById(IdRequest) returns (UserAuthResponse); // auth-only by id
     rpc CreateUser(CreateUserInfo) returns (UserInfoResponse){
         option (google.api.http) = {
             post: "/v1/user/create"
@@ -89,20 +95,54 @@ message UpdateUserInfo {
     string username = 6;
 }
 
+message UpdateUserStatusRequest {
+    int32 id = 1;
+    string status = 2;
+}
+
 message UserInfoResponse {
     int32 id = 1;
-    string passWord = 2;
+    reserved 2;
     string mobile = 3;
     string nickName = 4;
     uint64 birthDay = 5;
     string gender = 6;
-    int32 role = 7;
+    int32 role = 7 [deprecated = true];
     string email = 8;
     string username = 9;
     string status = 10;
 }
 
+message UserAuthResponse {
+    UserInfoResponse user = 1;
+    string passwordHash = 2;
+    int32 legacyRole = 3;
+    repeated string staffRoles = 4;
+    repeated string permissions = 5;
+}
+
 message UserListResponse {
     int32 total = 1;
     repeated UserInfoResponse data = 2;
+}
+
+message StaffRole {
+    string name = 1;
+    string description = 2;
+    repeated string permissions = 3;
+}
+
+message StaffRoleListResponse {
+    repeated StaffRole roles = 1;
+}
+
+message ReplaceUserStaffRolesRequest {
+    int32 userId = 1;
+    repeated string roles = 2;
+}
+
+message UserRoleBindingResponse {
+    int32 userId = 1;
+    repeated string roles = 2;
+    repeated string permissions = 3;
 }

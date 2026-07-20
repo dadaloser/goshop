@@ -38,6 +38,10 @@ func (u *userServer) CreateUser(ctx context.Context, request *upbv1.CreateUserIn
 		return nil, err
 	}
 
-	userInfoRsp := DTOToResponse(userDTO)
+	publicDTO, err := v1.PublicDTOFromMutation(&userDTO)
+	if err != nil {
+		return nil, err
+	}
+	userInfoRsp := DTOToResponse(*publicDTO)
 	return userInfoRsp, nil
 }

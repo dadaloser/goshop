@@ -48,10 +48,12 @@ func TestPasswordLoginRecordsFailureForMissingUser(t *testing.T) {
 
 func TestPasswordLoginReturnsLockedWhenFailureReachesThreshold(t *testing.T) {
 	users := &fakeUserData{
-		user: data.User{
-			ID:       1,
-			NickName: "tester",
-			PassWord: "hashed",
+		authUser: data.UserAuth{
+			User: data.User{
+				ID:       1,
+				NickName: "tester",
+			},
+			PasswordHash: "hashed",
 		},
 		checkPasswordErr: errors.WithCode(code.ErrUserPasswordIncorrect, "bad password"),
 	}
@@ -70,10 +72,12 @@ func TestPasswordLoginReturnsLockedWhenFailureReachesThreshold(t *testing.T) {
 
 func TestPasswordLoginResetsFailuresOnSuccess(t *testing.T) {
 	users := &fakeUserData{
-		user: data.User{
-			ID:       1,
-			NickName: "tester",
-			PassWord: "hashed",
+		authUser: data.UserAuth{
+			User: data.User{
+				ID:       1,
+				NickName: "tester",
+			},
+			PasswordHash: "hashed",
 		},
 	}
 	attempts := &fakeLoginAttempts{}
@@ -100,8 +104,8 @@ func TestPasswordLoginResetsFailuresOnSuccess(t *testing.T) {
 	if !containsScope(claims.Scope, authz.PermissionOrderReadSelf) {
 		t.Fatalf("scope = %#v, want %q", claims.Scope, authz.PermissionOrderReadSelf)
 	}
-	if users.gotUsername != "user_001" {
-		t.Fatalf("queried username = %q, want user_001", users.gotUsername)
+	if users.getAuthUsername != "user_001" {
+		t.Fatalf("queried username = %q, want user_001", users.getAuthUsername)
 	}
 	if attempts.resetIdentifier != "user_001" {
 		t.Fatalf("reset identifier = %q, want user_001", attempts.resetIdentifier)
@@ -123,8 +127,14 @@ func TestPasswordLoginRejectsInactiveAccount(t *testing.T) {
 			users := &fakeUserData{user: data.User{
 				ID:       1,
 				NickName: "tester",
-				PassWord: "hashed",
 				Status:   string(tt.status),
+			}, authUser: data.UserAuth{
+				User: data.User{
+					ID:       1,
+					NickName: "tester",
+					Status:   string(tt.status),
+				},
+				PasswordHash: "hashed",
 			}}
 			svc := newPasswordLoginTestService(users, &fakeLoginAttempts{})
 
@@ -178,25 +188,37 @@ func (f *fakeDataFactory) Users() data.UserData {
 
 type fakeUserData struct {
 	user                data.User
+	authUser            data.UserAuth
 	getByUsernameErr    error
 	checkPasswordErr    error
 	updateCalled        bool
 	updatedUser         *data.User
-	created             data.User
+	created             data.UserCreate
 	deleteCalled        bool
 	deletedUserID       uint64
 	getCalled           bool
+	getAuthCalled       bool
+	gotAuthID           uint64
 	gotID               uint64
 	gotUsername         string
 	getByUsernameCalled bool
+	getAuthUsername     string
 }
 
-func (f *fakeUserData) Create(_ context.Context, user *data.User) error {
+func (f *fakeUserData) Create(_ context.Context, user *data.UserCreate) (data.User, error) {
 	if user != nil {
 		f.created = *user
-		user.ID = 1
+		return data.User{
+			ID:         1,
+			Username:   user.Username,
+			Mobile:     user.Mobile,
+			Email:      user.Email,
+			NickName:   user.NickName,
+			LegacyRole: int32(authz.LegacyUserRoleCustomer),
+			Status:     string(authz.AccountStatusActive),
+		}, nil
 	}
-	return nil
+	return data.User{}, nil
 }
 
 func (f *fakeUserData) Update(context.Context, *data.User) error {
@@ -227,6 +249,21 @@ func (f *fakeUserData) GetByUsername(_ context.Context, username string) (data.U
 		return data.User{}, f.getByUsernameErr
 	}
 	return f.user, nil
+}
+
+func (f *fakeUserData) GetAuth(_ context.Context, userID uint64) (data.UserAuth, error) {
+	f.getAuthCalled = true
+	f.gotAuthID = userID
+	return f.authUser, nil
+}
+
+func (f *fakeUserData) GetAuthByUsername(_ context.Context, username string) (data.UserAuth, error) {
+	f.getByUsernameCalled = true
+	f.getAuthUsername = username
+	if f.getByUsernameErr != nil {
+		return data.UserAuth{}, f.getByUsernameErr
+	}
+	return f.authUser, nil
 }
 
 func (f *fakeUserData) CheckPassWord(context.Context, string, string) error {

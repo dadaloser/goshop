@@ -11,6 +11,7 @@ type CustomClaims struct {
 	ID            uint     `json:"user_id"`
 	NickName      string   `json:"nick_name,omitempty"`
 	AuthorityId   uint     `json:"authority_id,omitempty"`
+	Roles         []string `json:"roles,omitempty"`
 	PrincipalType string   `json:"principal_type,omitempty"`
 	AccountStatus string   `json:"status,omitempty"`
 	Scope         []string `json:"scope,omitempty"`

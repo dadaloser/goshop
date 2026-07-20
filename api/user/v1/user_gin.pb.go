@@ -4,6 +4,7 @@ package v1
 
 import (
 	gin "github.com/gin-gonic/gin"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	http "net/http"
 )
 
@@ -63,6 +64,108 @@ func (s *UserHttpServer) GetUserById_0(c *gin.Context) {
 	}
 
 	out, err := s.server.GetUserById(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) UpdateUserStatus_0(c *gin.Context) {
+	var in UpdateUserStatusRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.UpdateUserStatus(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) ListStaffRoles_0(c *gin.Context) {
+	var in emptypb.Empty
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListStaffRoles(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) GetUserStaffRoles_0(c *gin.Context) {
+	var in IdRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.GetUserStaffRoles(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) ReplaceUserStaffRoles_0(c *gin.Context) {
+	var in ReplaceUserStaffRolesRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ReplaceUserStaffRoles(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) GetUserAuthByMobile_0(c *gin.Context) {
+	var in MobileRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.GetUserAuthByMobile(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) GetUserAuthById_0(c *gin.Context) {
+	var in IdRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.GetUserAuthById(c, &in)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -146,6 +249,18 @@ func (s *UserHttpServer) RegisterService() {
 	s.router.Handle("POST", "/v1/user/mobile", s.GetUserByMobile_0)
 
 	s.router.Handle("POST", "/v1/user/id", s.GetUserById_0)
+
+	s.router.Handle("POST", "", s.UpdateUserStatus_0)
+
+	s.router.Handle("POST", "", s.ListStaffRoles_0)
+
+	s.router.Handle("POST", "", s.GetUserStaffRoles_0)
+
+	s.router.Handle("POST", "", s.ReplaceUserStaffRoles_0)
+
+	s.router.Handle("POST", "", s.GetUserAuthByMobile_0)
+
+	s.router.Handle("POST", "", s.GetUserAuthById_0)
 
 	s.router.Handle("POST", "/v1/user/create", s.CreateUser_0)
 

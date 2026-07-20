@@ -17,6 +17,7 @@ func TestUserServerRejectsNilRequests(t *testing.T) {
 	}{
 		{name: "create user", run: func() error { _, err := server.CreateUser(context.Background(), nil); return err }},
 		{name: "update user", run: func() error { _, err := server.UpdateUser(context.Background(), nil); return err }},
+		{name: "update user status", run: func() error { _, err := server.UpdateUserStatus(context.Background(), nil); return err }},
 		{name: "delete user", run: func() error { _, err := server.DeleteUser(context.Background(), nil); return err }},
 		{name: "get user list", run: func() error { _, err := server.GetUserList(context.Background(), nil); return err }},
 		{name: "get user by id", run: func() error { _, err := server.GetUserById(context.Background(), nil); return err }},

@@ -26,7 +26,8 @@ func TestUsersRejectInvalidInputBeforeRPC(t *testing.T) {
 		{
 			name: "create nil user",
 			run: func() error {
-				return store.Create(context.Background(), nil)
+				_, err := store.Create(context.Background(), nil)
+				return err
 			},
 			code: code2.ErrValidation,
 		},
@@ -114,14 +115,15 @@ func TestUsersCreateAndUpdateForwardUsername(t *testing.T) {
 	client := &fakeUserClient{createResponse: &upbv1.UserInfoResponse{Id: 1, Status: "active"}}
 	store := NewUsers(client)
 
-	user := &data.User{
+	user := &data.UserCreate{
 		Username: "user_001",
 		Mobile:   "13800138000",
 		Email:    "user@example.com",
 		NickName: "tester",
 		PassWord: "Strong1!",
 	}
-	if err := store.Create(context.Background(), user); err != nil {
+	created, err := store.Create(context.Background(), user)
+	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
 	if client.createRequest == nil {
@@ -130,8 +132,8 @@ func TestUsersCreateAndUpdateForwardUsername(t *testing.T) {
 	if client.createRequest.Username != "user_001" {
 		t.Fatalf("Create() username = %q, want user_001", client.createRequest.Username)
 	}
-	if user.Status != "active" {
-		t.Fatalf("Create() status = %q, want active", user.Status)
+	if created.Status != "active" {
+		t.Fatalf("Create() status = %q, want active", created.Status)
 	}
 
 	if err := store.Update(context.Background(), &data.User{ID: 1, Username: "user_002"}); err != nil {
@@ -156,7 +158,8 @@ func TestUsersHandleNilRPCResponses(t *testing.T) {
 		{
 			name: "create nil response",
 			run: func() error {
-				return store.Create(context.Background(), &data.User{Mobile: "13800138000"})
+				_, err := store.Create(context.Background(), &data.UserCreate{Mobile: "13800138000"})
+				return err
 			},
 			code: code.ErrUserAlreadyExists,
 		},
@@ -200,9 +203,11 @@ type fakeUserClient struct {
 	returnNil      bool
 	mobileRequest  string
 	user           *upbv1.UserInfoResponse
+	authUser       *upbv1.UserAuthResponse
 	createRequest  *upbv1.CreateUserInfo
 	createResponse *upbv1.UserInfoResponse
 	updateRequest  *upbv1.UpdateUserInfo
+	statusRequest  *upbv1.UpdateUserStatusRequest
 }
 
 func (f *fakeUserClient) GetUserList(context.Context, *upbv1.PageInfo, ...grpc.CallOption) (*upbv1.UserListResponse, error) {
@@ -235,6 +240,46 @@ func (f *fakeUserClient) GetUserById(context.Context, *upbv1.IdRequest, ...grpc.
 	return &upbv1.UserInfoResponse{}, nil
 }
 
+func (f *fakeUserClient) GetUserAuthByMobile(_ context.Context, in *upbv1.MobileRequest, _ ...grpc.CallOption) (*upbv1.UserAuthResponse, error) {
+	f.called = true
+	if in != nil {
+		f.mobileRequest = in.Mobile
+	}
+	if f.returnNil {
+		return nil, nil
+	}
+	if f.authUser != nil {
+		return f.authUser, nil
+	}
+	return &upbv1.UserAuthResponse{}, nil
+}
+
+func (f *fakeUserClient) GetUserAuthById(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*upbv1.UserAuthResponse, error) {
+	f.called = true
+	if f.returnNil {
+		return nil, nil
+	}
+	if f.authUser != nil {
+		return f.authUser, nil
+	}
+	return &upbv1.UserAuthResponse{}, nil
+}
+
+func (f *fakeUserClient) ListStaffRoles(context.Context, *emptypb.Empty, ...grpc.CallOption) (*upbv1.StaffRoleListResponse, error) {
+	f.called = true
+	return &upbv1.StaffRoleListResponse{}, nil
+}
+
+func (f *fakeUserClient) GetUserStaffRoles(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*upbv1.UserRoleBindingResponse, error) {
+	f.called = true
+	return &upbv1.UserRoleBindingResponse{}, nil
+}
+
+func (f *fakeUserClient) ReplaceUserStaffRoles(context.Context, *upbv1.ReplaceUserStaffRolesRequest, ...grpc.CallOption) (*upbv1.UserRoleBindingResponse, error) {
+	f.called = true
+	return &upbv1.UserRoleBindingResponse{}, nil
+}
+
 func (f *fakeUserClient) CreateUser(_ context.Context, in *upbv1.CreateUserInfo, _ ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
 	f.called = true
 	f.createRequest = in
@@ -251,6 +296,15 @@ func (f *fakeUserClient) UpdateUser(_ context.Context, in *upbv1.UpdateUserInfo,
 	f.called = true
 	f.updateRequest = in
 	return &emptypb.Empty{}, nil
+}
+
+func (f *fakeUserClient) UpdateUserStatus(_ context.Context, in *upbv1.UpdateUserStatusRequest, _ ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
+	f.called = true
+	f.statusRequest = in
+	if f.returnNil {
+		return nil, nil
+	}
+	return &upbv1.UserInfoResponse{Id: in.GetId(), Status: in.GetStatus()}, nil
 }
 
 func (f *fakeUserClient) DeleteUser(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*emptypb.Empty, error) {

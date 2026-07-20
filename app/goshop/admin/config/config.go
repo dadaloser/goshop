@@ -18,9 +18,12 @@ import (
 type Config struct {
 	Log *log.Options `json:"log" mapstructure:"log"`
 
-	Server    *options.ServerOptions   `json:"server" mapstructure:"server"`
-	Registry  *options.RegistryOptions `json:"registry" mapstructure:"registry"`
-	AdminAuth *AdminAuthOptions        `json:"admin-auth" mapstructure:"admin-auth"`
+	Server    *options.ServerOptions      `json:"server" mapstructure:"server"`
+	Registry  *options.RegistryOptions    `json:"registry" mapstructure:"registry"`
+	RPC       *options.RPCSecurityOptions `json:"rpc-security" mapstructure:"rpc-security"`
+	Jwt       *options.JwtOptions         `json:"jwt" mapstructure:"jwt"`
+	Redis     *options.RedisOptions       `json:"redis" mapstructure:"redis"`
+	AdminAuth *AdminAuthOptions           `json:"admin-auth" mapstructure:"admin-auth"`
 }
 
 type AdminAuthOptions struct {
@@ -160,6 +163,9 @@ func (c *Config) Validate() []error {
 	errors = append(errors, c.Log.Validate()...)
 	errors = append(errors, c.Server.Validate()...)
 	errors = append(errors, c.Registry.Validate()...)
+	errors = append(errors, c.RPC.Validate()...)
+	errors = append(errors, c.Jwt.Validate()...)
+	errors = append(errors, c.Redis.Validate()...)
 	errors = append(errors, c.AdminAuth.Validate()...)
 	return errors
 }
@@ -172,6 +178,21 @@ func (c *Config) ValidateStartup() error {
 	}
 	if c.AdminAuth == nil {
 		return errors.New("admin-auth config is required")
+	}
+	if c.Jwt != nil {
+		if err := c.Jwt.ValidateStartup(); err != nil {
+			return err
+		}
+	}
+	if c.RPC != nil {
+		if err := c.RPC.ValidateStartup(); err != nil {
+			return err
+		}
+	}
+	if c.Redis != nil {
+		if err := c.Redis.ValidateStartup(); err != nil {
+			return err
+		}
 	}
 	if err := c.AdminAuth.ValidateStartup(); err != nil {
 		return err
@@ -193,6 +214,9 @@ func (c *Config) Flags() (fss cliflag.NamedFlagSets) {
 	c.Log.AddFlags(fss.FlagSet("logs"))
 	c.Server.AddFlags(fss.FlagSet("server"))
 	c.Registry.AddFlags(fss.FlagSet("registry"))
+	c.RPC.AddFlags(fss.FlagSet("rpc-security"))
+	c.Jwt.AddFlags(fss.FlagSet("jwt"))
+	c.Redis.AddFlags(fss.FlagSet("redis"))
 	c.AdminAuth.AddFlags(fss.FlagSet("admin-auth"))
 	return fss
 }
@@ -203,6 +227,9 @@ func New() *Config {
 		Log:       log.NewOptions(),
 		Server:    options.NewServerOptions(),
 		Registry:  options.NewRegistryOptions(),
+		RPC:       options.NewRPCSecurityOptions(),
+		Jwt:       options.NewJwtOptions(),
+		Redis:     options.NewRedisOptions(),
 		AdminAuth: NewAdminAuthOptions(),
 	}
 }

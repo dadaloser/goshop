@@ -33,6 +33,35 @@ func RequirePermission(permission Permission) gin.HandlerFunc {
 	}
 }
 
+// RequirePrincipalTypes rejects authenticated requests whose principal type is
+// not one of the allowed values.
+func RequirePrincipalTypes(allowed ...PrincipalType) gin.HandlerFunc {
+	allowedSet := make(map[PrincipalType]struct{}, len(allowed))
+	for _, principalType := range allowed {
+		allowedSet[principalType] = struct{}{}
+	}
+
+	return func(c *gin.Context) {
+		principal, ok := principalFromContext(c)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code": http.StatusUnauthorized,
+				"msg":  "authenticated principal is required",
+			})
+			return
+		}
+		if _, ok := allowedSet[principal.typeName]; !ok {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code":           http.StatusForbidden,
+				"msg":            "principal type denied",
+				"principal_type": principal.typeName,
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
 type principal struct {
 	typeName    PrincipalType
 	status      AccountStatus
@@ -56,9 +85,6 @@ func principalFromContext(c *gin.Context) (principal, bool) {
 	if !ok {
 		return principal{}, false
 	}
-	if !validUserID(payload["user_id"]) {
-		return principal{}, false
-	}
 
 	typeName := PrincipalType(stringClaim(payload, "principal_type"))
 	legacyCustomer := typeName == ""
@@ -66,6 +92,9 @@ func principalFromContext(c *gin.Context) (principal, bool) {
 		typeName = PrincipalCustomer
 	}
 	if !knownPrincipalType(typeName) {
+		return principal{}, false
+	}
+	if typeName != PrincipalAdminBootstrap && !validUserID(payload["user_id"]) {
 		return principal{}, false
 	}
 	status := AccountStatus(stringClaim(payload, "status"))

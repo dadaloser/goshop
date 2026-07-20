@@ -10,7 +10,7 @@ import (
 	vUser "goshop/app/goshop/api/internal/service/user/v1"
 	"goshop/app/goshop/api/internal/smsattempt"
 	"goshop/app/goshop/api/internal/smscode"
-	"goshop/app/goshop/api/internal/tokenversion"
+	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/options"
 )
 

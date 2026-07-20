@@ -47,9 +47,9 @@ func (u *users) CheckPassWord(ctx context.Context, password, encryptedPwd string
 	return errors.WithCode(code.ErrUserPasswordIncorrect, "密码错误")
 }
 
-func (u *users) Create(ctx context.Context, user *data.User) error {
+func (u *users) Create(ctx context.Context, user *data.UserCreate) (data.User, error) {
 	if user == nil {
-		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+		return data.User{}, errors.WithCode(code2.ErrValidation, "用户信息不能为空")
 	}
 
 	protoUser := &upbv1.CreateUserInfo{
@@ -61,14 +61,12 @@ func (u *users) Create(ctx context.Context, user *data.User) error {
 	}
 	userRsp, err := u.uc.CreateUser(ctx, protoUser)
 	if err != nil {
-		return userRPCError(err, code.ErrUserAlreadyExists)
+		return data.User{}, userRPCError(err, code.ErrUserAlreadyExists)
 	}
 	if userRsp == nil {
-		return errors.WithCode(code.ErrUserAlreadyExists, "用户创建失败")
+		return data.User{}, errors.WithCode(code.ErrUserAlreadyExists, "用户创建失败")
 	}
-	user.ID = uint64(userRsp.Id)
-	user.Status = userRsp.Status
-	return err
+	return publicUserFromResponse(userRsp), nil
 }
 
 func (u *users) Update(ctx context.Context, user *data.User) error {
@@ -120,18 +118,7 @@ func (u *users) Get(ctx context.Context, userID uint64) (data.User, error) {
 		return data.User{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
 	}
 
-	return data.User{
-		ID:       uint64(user.Id),
-		Username: user.Username,
-		Mobile:   user.Mobile,
-		Email:    user.Email,
-		NickName: user.NickName,
-		Birthday: itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
-		Gender:   user.Gender,
-		Role:     user.Role,
-		Status:   user.Status,
-		PassWord: user.PassWord,
-	}, nil
+	return publicUserFromResponse(user), nil
 }
 
 func (u *users) GetByMobile(ctx context.Context, mobile string) (data.User, error) {
@@ -154,21 +141,72 @@ func (u *users) GetByUsername(ctx context.Context, username string) (data.User, 
 		return data.User{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
 	}
 
-	return data.User{
-		ID:       uint64(user.Id),
-		Username: user.Username,
-		Mobile:   user.Mobile,
-		Email:    user.Email,
-		NickName: user.NickName,
-		Birthday: itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
-		Gender:   user.Gender,
-		Role:     user.Role,
-		Status:   user.Status,
-		PassWord: user.PassWord,
-	}, nil
+	return publicUserFromResponse(user), nil
 }
 
 var _ data.UserData = &users{}
+
+func (u *users) GetAuth(ctx context.Context, userID uint64) (data.UserAuth, error) {
+	if userID == 0 {
+		return data.UserAuth{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+
+	user, err := u.uc.GetUserAuthById(ctx, &upbv1.IdRequest{Id: int32(userID)})
+	if err != nil {
+		return data.UserAuth{}, userRPCError(err, code.ErrUserNotFound)
+	}
+	if user == nil {
+		return data.UserAuth{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+	return authUserFromResponse(user), nil
+}
+
+func (u *users) GetAuthByUsername(ctx context.Context, username string) (data.UserAuth, error) {
+	username = strings.ToLower(strings.TrimSpace(username))
+	if username == "" {
+		return data.UserAuth{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+
+	user, err := u.uc.GetUserAuthByMobile(ctx, &upbv1.MobileRequest{Mobile: username})
+	if err != nil {
+		return data.UserAuth{}, userRPCError(err, code.ErrUserNotFound)
+	}
+	if user == nil {
+		return data.UserAuth{}, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+	}
+	return authUserFromResponse(user), nil
+}
+
+func publicUserFromResponse(user *upbv1.UserInfoResponse) data.User {
+	if user == nil {
+		return data.User{}
+	}
+	return data.User{
+		ID:         uint64(user.Id),
+		Username:   user.Username,
+		Mobile:     user.Mobile,
+		Email:      user.Email,
+		NickName:   user.NickName,
+		Birthday:   itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
+		Gender:     user.Gender,
+		LegacyRole: user.Role,
+		Status:     user.Status,
+	}
+}
+
+func authUserFromResponse(user *upbv1.UserAuthResponse) data.UserAuth {
+	if user == nil {
+		return data.UserAuth{}
+	}
+	publicUser := publicUserFromResponse(user.User)
+	publicUser.LegacyRole = user.LegacyRole
+	return data.UserAuth{
+		User:         publicUser,
+		PasswordHash: user.PasswordHash,
+		StaffRoles:   append([]string(nil), user.StaffRoles...),
+		Permissions:  append([]string(nil), user.Permissions...),
+	}
+}
 
 func userRPCError(err error, invalidArgumentCode int) error {
 	switch status.Code(err) {

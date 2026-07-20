@@ -16,8 +16,8 @@ import (
 	"goshop/app/goshop/api/internal/smsattempt"
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/goshop/api/internal/smslimit"
-	"goshop/app/goshop/api/internal/tokenrevocation"
-	"goshop/app/goshop/api/internal/tokenversion"
+	"goshop/app/pkg/authsession/tokenrevocation"
+	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver"
 

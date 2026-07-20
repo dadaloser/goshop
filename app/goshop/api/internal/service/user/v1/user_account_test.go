@@ -38,10 +38,12 @@ func TestLogoutAllBumpsTokenVersion(t *testing.T) {
 
 func TestDeleteAccountValidatesPasswordAndDeletesUser(t *testing.T) {
 	users := &fakeUserData{
-		user: data.User{
-			ID:       7,
-			NickName: "tester",
-			PassWord: "hashed",
+		authUser: data.UserAuth{
+			User: data.User{
+				ID:       7,
+				NickName: "tester",
+			},
+			PasswordHash: "hashed",
 		},
 	}
 	versions := &fakeTokenVersionStore{}
@@ -96,10 +98,12 @@ func TestDeleteAccountRejectsEmptyPassword(t *testing.T) {
 
 func TestDeleteAccountReturnsPasswordErrorBeforeDelete(t *testing.T) {
 	users := &fakeUserData{
-		user: data.User{
-			ID:       7,
-			NickName: "tester",
-			PassWord: "hashed",
+		authUser: data.UserAuth{
+			User: data.User{
+				ID:       7,
+				NickName: "tester",
+			},
+			PasswordHash: "hashed",
 		},
 		checkPasswordErr: errors.WithCode(code.ErrUserPasswordIncorrect, "bad password"),
 	}

@@ -13,6 +13,7 @@ import (
 
 	"goshop/gmicro/registry"
 	"goshop/gmicro/registry/consul"
+	"goshop/pkg/storage"
 )
 
 func NewApp(basename string) *app.App {
@@ -48,6 +49,25 @@ func NewUserApp(cfg *config.Config) (*gapp.App, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	redisConfig := &storage.Config{
+		Host:                  cfg.Redis.Host,
+		Port:                  cfg.Redis.Port,
+		Address:               cfg.Redis.Addrs,
+		MasterName:            cfg.Redis.MasterName,
+		Username:              cfg.Redis.Username,
+		Password:              cfg.Redis.Password,
+		Database:              cfg.Redis.Database,
+		MaxIdle:               cfg.Redis.MaxIdle,
+		MaxActive:             cfg.Redis.MaxActive,
+		Timeout:               cfg.Redis.Timeout,
+		EnableCluster:         cfg.Redis.EnableCluster,
+		UseSSL:                cfg.Redis.UseSSL,
+		SSLInsecureSkipVerify: cfg.Redis.SSLInsecureSkipVerify,
+		EnableTracing:         cfg.Redis.EnableTracing,
+		Resilience:            cfg.Redis.Resilience,
+	}
+	go storage.ConnectToRedis(context.Background(), redisConfig)
 
 	//生成rpc服务
 	rpcServer, err := NewUserHTTPServer(cfg)

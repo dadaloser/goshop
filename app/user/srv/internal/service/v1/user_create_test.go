@@ -71,7 +71,7 @@ func TestUserService_CreateRejectsDuplicateEmailAfterNormalization(t *testing.T)
 func TestUserService_CreateRejectsDuplicateUsername(t *testing.T) {
 	store := &fakeUserStore{
 		usersByIdentifier: map[string]*dv1.UserDO{
-			"user_001": {Username: stringPtr("user_001")},
+			"user_001": {Username: stringPtr("user_001"), Role: int(authz.LegacyUserRoleCustomer)},
 		},
 	}
 	svc := NewUserService(store)
@@ -167,10 +167,34 @@ func TestUserService_CreateRejectsWeakPasswords(t *testing.T) {
 	}
 }
 
+func TestUserService_CreateRejectsUnknownLegacyRole(t *testing.T) {
+	store := &fakeUserStore{
+		usersByIdentifier: map[string]*dv1.UserDO{},
+	}
+	svc := NewUserService(store)
+
+	err := svc.Create(context.Background(), &UserDTO{
+		UserDO: dv1.UserDO{
+			Mobile:   "13800138000",
+			Password: "Secret123!",
+			Role:     99,
+		},
+	})
+	if !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("Create() error = %v, want ErrValidation", err)
+	}
+	if store.created != nil {
+		t.Fatal("Create() persisted user with invalid legacy role")
+	}
+}
+
 func TestUserService_GetByUsernameNormalizesIdentifier(t *testing.T) {
 	store := &fakeUserStore{
 		usersByIdentifier: map[string]*dv1.UserDO{
-			"user_001": {Username: stringPtr("user_001")},
+			"user_001": {
+				Username: stringPtr("user_001"),
+				Role:     int(authz.LegacyUserRoleCustomer),
+			},
 		},
 	}
 	svc := NewUserService(store)
@@ -184,9 +208,105 @@ func TestUserService_GetByUsernameNormalizesIdentifier(t *testing.T) {
 	}
 }
 
+func TestUserService_ListStaffRolesReturnsDescriptionsAndPermissions(t *testing.T) {
+	store := &fakeUserStore{
+		roles: []dv1.RoleDO{
+			{Name: string(authz.StaffRoleAdmin), Description: "broad backoffice administration"},
+			{Name: string(authz.StaffRoleSuperAdmin), Description: "full backoffice administration"},
+		},
+	}
+	svc := NewUserService(store)
+
+	roles, err := svc.ListStaffRoles(context.Background())
+	if err != nil {
+		t.Fatalf("ListStaffRoles() error = %v", err)
+	}
+	if len(roles) != 2 {
+		t.Fatalf("len(ListStaffRoles()) = %d, want 2", len(roles))
+	}
+	if roles[0].Name != string(authz.StaffRoleAdmin) {
+		t.Fatalf("roles[0].Name = %q, want %q", roles[0].Name, authz.StaffRoleAdmin)
+	}
+	if len(roles[0].Permissions) == 0 {
+		t.Fatal("roles[0].Permissions is empty")
+	}
+}
+
+func TestUserService_ReplaceUserRoleBindingValidatesAndReturnsBinding(t *testing.T) {
+	store := &fakeUserStore{
+		authByID: map[uint64]*dv1.UserAuthDO{
+			7: {
+				UserDO: dv1.UserDO{
+					BaseModel: dv1.BaseModel{ID: 7},
+					Role:      int(authz.LegacyUserRoleAdmin),
+				},
+			},
+		},
+	}
+	svc := NewUserService(store)
+
+	binding, err := svc.ReplaceUserRoleBinding(context.Background(), 7, []string{" SUPER_ADMIN ", "super_admin"})
+	if err != nil {
+		t.Fatalf("ReplaceUserRoleBinding() error = %v", err)
+	}
+	if store.replacedUserID != 7 {
+		t.Fatalf("replaced user id = %d, want 7", store.replacedUserID)
+	}
+	if len(store.replacedRoles) != 2 {
+		t.Fatalf("len(replaced roles) = %d, want 2 original inputs passed through", len(store.replacedRoles))
+	}
+	if len(binding.StaffRoles) != 2 && len(binding.StaffRoles) != 1 {
+		t.Fatalf("binding roles = %#v, want non-empty", binding.StaffRoles)
+	}
+	if len(binding.Permissions) == 0 {
+		t.Fatal("binding permissions is empty")
+	}
+
+	if _, err = svc.ReplaceUserRoleBinding(context.Background(), 7, []string{"owner"}); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("ReplaceUserRoleBinding() invalid role error = %v, want ErrValidation", err)
+	}
+}
+
+func TestUserService_UpdateStatus(t *testing.T) {
+	store := &fakeUserStore{
+		userByID: map[uint64]*dv1.UserDO{
+			7: {
+				BaseModel: dv1.BaseModel{ID: 7},
+				Mobile:    "13800138000",
+				NickName:  "tester",
+				Role:      int(authz.LegacyUserRoleCustomer),
+				Status:    string(authz.AccountStatusActive),
+			},
+		},
+	}
+	svc := NewUserService(store)
+
+	user, err := svc.UpdateStatus(context.Background(), 7, "disabled")
+	if err != nil {
+		t.Fatalf("UpdateStatus() error = %v", err)
+	}
+	if user.Status != string(authz.AccountStatusDisabled) {
+		t.Fatalf("updated status = %q, want %q", user.Status, authz.AccountStatusDisabled)
+	}
+	if store.updatedStatusID != 7 || store.updatedStatus != string(authz.AccountStatusDisabled) {
+		t.Fatalf("store updated = (%d, %q), want (7, %q)", store.updatedStatusID, store.updatedStatus, authz.AccountStatusDisabled)
+	}
+
+	if _, err = svc.UpdateStatus(context.Background(), 7, "deleted"); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("UpdateStatus() invalid status error = %v, want ErrValidation", err)
+	}
+}
+
 type fakeUserStore struct {
 	usersByIdentifier map[string]*dv1.UserDO
+	userByID          map[uint64]*dv1.UserDO
+	authByID          map[uint64]*dv1.UserAuthDO
+	roles             []dv1.RoleDO
+	replacedUserID    uint64
+	replacedRoles     []string
 	created           *dv1.UserDO
+	updatedStatusID   uint64
+	updatedStatus     string
 	deletedID         uint64
 }
 
@@ -208,7 +328,50 @@ func (f *fakeUserStore) GetByUsername(_ context.Context, username string) (*dv1.
 	return nil, errors.WithCode(code.ErrUserNotFound, "not found")
 }
 
-func (f *fakeUserStore) GetByID(context.Context, uint64) (*dv1.UserDO, error) {
+func (f *fakeUserStore) GetByID(_ context.Context, id uint64) (*dv1.UserDO, error) {
+	if f.userByID != nil {
+		if user, ok := f.userByID[id]; ok {
+			return user, nil
+		}
+	}
+	return nil, errors.WithCode(code.ErrUserNotFound, "not found")
+}
+
+func (f *fakeUserStore) GetAuthByUsername(_ context.Context, username string) (*dv1.UserAuthDO, error) {
+	user, err := f.GetByUsername(context.Background(), username)
+	if err != nil {
+		return nil, err
+	}
+	return &dv1.UserAuthDO{UserDO: *user}, nil
+}
+
+func (f *fakeUserStore) GetAuthByID(_ context.Context, id uint64) (*dv1.UserAuthDO, error) {
+	if f.authByID != nil {
+		if user, ok := f.authByID[id]; ok {
+			return user, nil
+		}
+	}
+	user, err := f.GetByID(context.Background(), id)
+	if err != nil {
+		return nil, err
+	}
+	return &dv1.UserAuthDO{UserDO: *user}, nil
+}
+
+func (f *fakeUserStore) ListRoles(context.Context) ([]dv1.RoleDO, error) {
+	return append([]dv1.RoleDO(nil), f.roles...), nil
+}
+
+func (f *fakeUserStore) ReplaceUserRoles(_ context.Context, userID uint64, roleNames []string) (*dv1.UserAuthDO, error) {
+	f.replacedUserID = userID
+	f.replacedRoles = append([]string(nil), roleNames...)
+	if f.authByID != nil {
+		if user, ok := f.authByID[userID]; ok {
+			user.StaffRoles = append([]string(nil), roleNames...)
+			user.Permissions = []string{string(authz.PermissionRoleReadAny)}
+			return user, nil
+		}
+	}
 	return nil, errors.WithCode(code.ErrUserNotFound, "not found")
 }
 
@@ -219,6 +382,18 @@ func (f *fakeUserStore) Create(_ context.Context, user *dv1.UserDO) error {
 
 func (f *fakeUserStore) Update(context.Context, *dv1.UserDO) error {
 	return nil
+}
+
+func (f *fakeUserStore) UpdateStatus(_ context.Context, id uint64, status string) error {
+	f.updatedStatusID = id
+	f.updatedStatus = status
+	if f.userByID != nil {
+		if user, ok := f.userByID[id]; ok {
+			user.Status = status
+			return nil
+		}
+	}
+	return errors.WithCode(code.ErrUserNotFound, "not found")
 }
 
 func (f *fakeUserStore) Delete(_ context.Context, id uint64) error {

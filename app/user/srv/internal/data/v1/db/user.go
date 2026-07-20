@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -93,6 +95,90 @@ func (u *users) GetByID(ctx context.Context, id uint64) (*dv1.UserDO, error) {
 	return &user, nil
 }
 
+func (u *users) GetAuthByUsername(ctx context.Context, username string) (*dv1.UserAuthDO, error) {
+	user, err := u.GetByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	return u.buildAuthUser(ctx, user)
+}
+
+func (u *users) GetAuthByID(ctx context.Context, id uint64) (*dv1.UserAuthDO, error) {
+	user, err := u.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return u.buildAuthUser(ctx, user)
+}
+
+func (u *users) ListRoles(ctx context.Context) ([]dv1.RoleDO, error) {
+	var roles []dv1.RoleDO
+	if err := u.db.WithContext(ctx).Order("name ASC").Find(&roles).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return roles, nil
+}
+
+func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string) (*dv1.UserAuthDO, error) {
+	user, err := u.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	normalizedRoles := normalizeRoleNames(roleNames)
+	tx := u.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	var roles []dv1.RoleDO
+	if len(normalizedRoles) > 0 {
+		if err = tx.Where("name IN ?", normalizedRoles).Order("name ASC").Find(&roles).Error; err != nil {
+			tx.Rollback()
+			return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		}
+		if len(roles) != len(normalizedRoles) {
+			tx.Rollback()
+			return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
+		}
+		loadedNames := make([]string, 0, len(roles))
+		for _, role := range roles {
+			loadedNames = append(loadedNames, role.Name)
+		}
+		slices.Sort(loadedNames)
+		if !slices.Equal(loadedNames, normalizedRoles) {
+			tx.Rollback()
+			return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
+		}
+	}
+
+	if err = tx.Where("user_id = ?", userID).Delete(&dv1.UserRoleDO{}).Error; err != nil {
+		tx.Rollback()
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	for _, role := range roles {
+		binding := dv1.UserRoleDO{
+			UserID: user.ID,
+			RoleID: role.ID,
+		}
+		if err = tx.Create(&binding).Error; err != nil {
+			tx.Rollback()
+			return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		}
+	}
+	if err = tx.Commit().Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+
+	return u.buildAuthUser(ctx, user)
+}
+
 // Create
 //
 //	@Description: 创建用户
@@ -142,6 +228,27 @@ func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
 	}
 	if tx.RowsAffected == 0 {
 		return errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+	return nil
+}
+
+func (u *users) UpdateStatus(ctx context.Context, id uint64, status string) error {
+	if id == 0 {
+		return errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+
+	tx := u.db.WithContext(ctx).Model(&dv1.UserDO{}).
+		Where("id = ?", id).
+		Update("account_status", status)
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	if tx.RowsAffected > 0 {
+		return nil
+	}
+
+	if _, err := u.GetByID(ctx, id); err != nil {
+		return err
 	}
 	return nil
 }
@@ -213,4 +320,82 @@ func (u *users) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 		return nil, errors.WithCode(code2.ErrDatabase, d.Error.Error())
 	}
 	return ret, nil
+}
+
+func (u *users) buildAuthUser(ctx context.Context, user *dv1.UserDO) (*dv1.UserAuthDO, error) {
+	if user == nil {
+		return nil, errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+
+	roles, err := u.listStaffRoles(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	permissions, err := u.listPermissions(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dv1.UserAuthDO{
+		UserDO:      *user,
+		StaffRoles:  roles,
+		Permissions: permissions,
+	}, nil
+}
+
+func (u *users) listStaffRoles(ctx context.Context, userID int32) ([]string, error) {
+	if userID <= 0 {
+		return nil, fmt.Errorf("invalid user id %d", userID)
+	}
+
+	var roles []string
+	err := u.db.WithContext(ctx).
+		Table((&dv1.RoleDO{}).TableName()).
+		Distinct((&dv1.RoleDO{}).TableName()+".name").
+		Joins("JOIN "+(&dv1.UserRoleDO{}).TableName()+" ON "+(&dv1.UserRoleDO{}).TableName()+".role_id = "+(&dv1.RoleDO{}).TableName()+".id").
+		Where((&dv1.UserRoleDO{}).TableName()+".user_id = ?", userID).
+		Order((&dv1.RoleDO{}).TableName()+".name ASC").
+		Pluck((&dv1.RoleDO{}).TableName()+".name", &roles).Error
+	if err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return roles, nil
+}
+
+func (u *users) listPermissions(ctx context.Context, userID int32) ([]string, error) {
+	if userID <= 0 {
+		return nil, fmt.Errorf("invalid user id %d", userID)
+	}
+
+	var permissions []string
+	err := u.db.WithContext(ctx).
+		Table((&dv1.RolePermissionDO{}).TableName()).
+		Distinct((&dv1.RolePermissionDO{}).TableName()+".permission").
+		Joins("JOIN "+(&dv1.RoleDO{}).TableName()+" ON "+(&dv1.RoleDO{}).TableName()+".id = "+(&dv1.RolePermissionDO{}).TableName()+".role_id").
+		Joins("JOIN "+(&dv1.UserRoleDO{}).TableName()+" ON "+(&dv1.UserRoleDO{}).TableName()+".role_id = "+(&dv1.RoleDO{}).TableName()+".id").
+		Where((&dv1.UserRoleDO{}).TableName()+".user_id = ?", userID).
+		Order((&dv1.RolePermissionDO{}).TableName()+".permission ASC").
+		Pluck((&dv1.RolePermissionDO{}).TableName()+".permission", &permissions).Error
+	if err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return permissions, nil
+}
+
+func normalizeRoleNames(roleNames []string) []string {
+	normalized := make([]string, 0, len(roleNames))
+	seen := make(map[string]struct{}, len(roleNames))
+	for _, roleName := range roleNames {
+		value := strings.ToLower(strings.TrimSpace(roleName))
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	slices.Sort(normalized)
+	return normalized
 }

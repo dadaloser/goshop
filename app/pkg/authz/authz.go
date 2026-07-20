@@ -54,6 +54,8 @@ const (
 	PermissionOrderRefundAny          Permission = "order:refund:any"
 	PermissionPaymentCallbackSimulate Permission = "payment:callback:simulate"
 	PermissionAuditReadAny            Permission = "audit:read:any"
+	PermissionRoleReadAny             Permission = "role:read:any"
+	PermissionRoleAssignAny           Permission = "role:assign:any"
 )
 
 var customerPermissions = []Permission{

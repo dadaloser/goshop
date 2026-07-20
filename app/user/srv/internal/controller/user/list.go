@@ -10,15 +10,14 @@ import (
 	"goshop/pkg/log"
 )
 
-func DTOToResponse(userDTO srvv1.UserDTO) *upbv1.UserInfoResponse {
+func DTOToResponse(userDTO srvv1.UserPublicDTO) *upbv1.UserInfoResponse {
 	//在grpc的message中字段有默认值，你不能随便赋值nil进去，容易出错
 	//这里要搞清， 哪些字段是有默认值
 	userInfoRsp := upbv1.UserInfoResponse{
 		Id:       userDTO.ID,
-		PassWord: userDTO.Password,
 		NickName: userDTO.NickName,
 		Gender:   userDTO.Gender,
-		Role:     int32(userDTO.Role),
+		Role:     userDTO.LegacyRole,
 		Mobile:   userDTO.Mobile,
 		Status:   userDTO.Status,
 	}
@@ -33,6 +32,16 @@ func DTOToResponse(userDTO srvv1.UserDTO) *upbv1.UserInfoResponse {
 	}
 	//注意:mutex不能拷贝,因此要返回值对象
 	return &userInfoRsp
+}
+
+func AuthDTOToResponse(userDTO srvv1.UserAuthDTO) *upbv1.UserAuthResponse {
+	return &upbv1.UserAuthResponse{
+		User:         DTOToResponse(userDTO.UserPublicDTO),
+		PasswordHash: userDTO.PasswordHash,
+		LegacyRole:   userDTO.LegacyRole,
+		StaffRoles:   append([]string(nil), userDTO.StaffRoles...),
+		Permissions:  append([]string(nil), userDTO.Permissions...),
+	}
 }
 
 /*

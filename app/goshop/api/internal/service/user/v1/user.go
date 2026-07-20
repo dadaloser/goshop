@@ -14,7 +14,7 @@ import (
 
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/smscode"
-	"goshop/app/goshop/api/internal/tokenversion"
+	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	code2 "goshop/gmicro/code"
@@ -71,7 +71,7 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 		return nil, err
 	}
 
-	user, err := users.GetByUsername(ctx, username)
+	user, err := users.GetAuthByUsername(ctx, username)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserNotFound) {
 			if lockedErr := us.recordPasswordLoginFailure(ctx, username); lockedErr != nil {
@@ -83,7 +83,7 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 	}
 
 	//检查密码是否正确
-	err = users.CheckPassWord(ctx, password, user.PassWord)
+	err = users.CheckPassWord(ctx, password, user.PasswordHash)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserPasswordIncorrect) {
 			if lockedErr := us.recordPasswordLoginFailure(ctx, username); lockedErr != nil {
@@ -102,7 +102,7 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 	}
 
 	return &UserDTO{
-		User:      user,
+		User:      user.User,
 		Token:     token,
 		ExpiresAt: expiresAt,
 	}, nil
@@ -143,7 +143,7 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 	if err != nil {
 		return nil, err
 	}
-	user, err := users.GetByUsername(ctx, mobile)
+	user, err := users.GetAuthByUsername(ctx, mobile)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 		return nil, err
 	}
 	return &UserDTO{
-		User:      user,
+		User:      user.User,
 		Token:     token,
 		ExpiresAt: expiresAt,
 	}, nil
@@ -195,7 +195,7 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 
 	us.resetSmsCodeFailures(ctx, mobile, smscode.TypeRegister)
 
-	var user = &data.User{
+	var user = &data.UserCreate{
 		Username: username,
 		Mobile:   mobile,
 		Email:    email,
@@ -206,7 +206,7 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 	if err != nil {
 		return nil, err
 	}
-	err = users.Create(ctx, user)
+	createdUser, err := users.Create(ctx, user)
 	if err != nil {
 		log.Errorf("user register failed: %v", err)
 		return nil, err
@@ -216,19 +216,19 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 		log.Warn("delete sms code failed")
 	}
 
-	token, expiresAt, err := us.createToken(ctx, *user)
+	token, expiresAt, err := us.createToken(ctx, data.UserAuth{User: createdUser, PasswordHash: ""})
 	if err != nil {
 		return nil, err
 	}
 
 	return &UserDTO{
-		User:      *user,
+		User:      createdUser,
 		Token:     token,
 		ExpiresAt: expiresAt,
 	}, nil
 }
 
-func (us *userService) createToken(ctx context.Context, user data.User) (string, int64, error) {
+func (us *userService) createToken(ctx context.Context, user data.UserAuth) (string, int64, error) {
 	if us == nil || us.jwtOpts == nil || strings.TrimSpace(us.jwtOpts.Key) == "" || us.jwtOpts.Timeout <= 0 {
 		return "", 0, errors.WithCode(code.ErrConnectGRPC, "jwt options are not initialized")
 	}
@@ -242,7 +242,7 @@ func (us *userService) createToken(ctx context.Context, user data.User) (string,
 	claims := middlewares.CustomClaims{
 		ID:            uint(user.ID),
 		NickName:      user.NickName,
-		AuthorityId:   uint(user.Role),
+		AuthorityId:   uint(user.LegacyRole),
 		PrincipalType: string(authz.PrincipalCustomer),
 		AccountStatus: string(status),
 		Scope:         authz.CustomerScopes(),
@@ -286,11 +286,11 @@ func (us *userService) DeleteAccount(ctx context.Context, userID uint64, passwor
 	if err != nil {
 		return err
 	}
-	user, err := users.Get(ctx, userID)
+	user, err := users.GetAuth(ctx, userID)
 	if err != nil {
 		return err
 	}
-	if err = users.CheckPassWord(ctx, password, user.PassWord); err != nil {
+	if err = users.CheckPassWord(ctx, password, user.PasswordHash); err != nil {
 		return err
 	}
 	if err = users.Delete(ctx, userID); err != nil {

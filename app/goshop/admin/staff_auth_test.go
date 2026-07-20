@@ -1,0 +1,369 @@
+package admin
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	upbv1 "goshop/api/user/v1"
+	"goshop/app/goshop/admin/config"
+	"goshop/app/pkg/authz"
+	"goshop/app/pkg/options"
+	"goshop/gmicro/server/restserver"
+	"goshop/gmicro/server/restserver/middlewares"
+	gauth "goshop/gmicro/server/restserver/middlewares/auth"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
+)
+
+func TestInitRouterRestrictsBootstrapTokenToBreakGlass(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:       "bootstrap-secret",
+			Role:        config.AdminRoleSuperAdmin,
+			Permissions: []string{string(authz.PermissionUserListAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		listResponse: &upbv1.UserListResponse{
+			Total: 1,
+			Data:  []*upbv1.UserInfoResponse{{Id: 1, Username: "staff_001", Role: int32(authz.LegacyUserRoleCustomer)}},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/user/list", nil)
+	req.Header.Set("X-Admin-Token", "bootstrap-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("bootstrap header status = %d, want 401", rec.Code)
+	}
+
+	breakGlassReq := httptest.NewRequest(http.MethodPost, "/v1/break_glass/session", nil)
+	breakGlassReq.Header.Set("X-Admin-Token", "bootstrap-secret")
+	breakGlassRec := httptest.NewRecorder()
+	server.ServeHTTP(breakGlassRec, breakGlassReq)
+	if breakGlassRec.Code != http.StatusOK {
+		t.Fatalf("break_glass status = %d, want 200", breakGlassRec.Code)
+	}
+}
+
+func TestInitRouterAllowsStaffJWTOnUserList(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:       "bootstrap-secret",
+			Role:        config.AdminRoleSuperAdmin,
+			Permissions: []string{string(authz.PermissionUserListAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		listResponse: &upbv1.UserListResponse{
+			Total: 1,
+			Data:  []*upbv1.UserInfoResponse{{Id: 1, Username: "staff_001", Role: int32(authz.LegacyUserRoleCustomer)}},
+		},
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 7, Username: "staff_001", Status: string(authz.AccountStatusActive), Role: int32(authz.LegacyUserRoleAdmin)},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+
+	token, err := middlewares.NewJWT(cfg.Jwt.Key).CreateToken(middlewares.CustomClaims{
+		ID:            7,
+		AuthorityId:   uint(authz.LegacyUserRoleAdmin),
+		Roles:         []string{string(authz.StaffRoleAdmin)},
+		PrincipalType: string(authz.PrincipalStaff),
+		AccountStatus: string(authz.AccountStatusActive),
+		Scope:         []string{string(authz.PermissionUserListAny)},
+		RegisteredClaims: jwt.RegisteredClaims{
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			Issuer:    cfg.Jwt.Realm,
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateToken() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/user/list", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("staff jwt status = %d, want 200", rec.Code)
+	}
+}
+
+func TestStaffLogoutRevokesCurrentToken(t *testing.T) {
+	store := &fakeAdminRevocationStore{}
+	handler := newStaffAuthHandler(nil, &options.JwtOptions{}, nil, store, nil)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/auth/logout", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer staff-token")
+	ctx.Set(middlewares.JWTPayloadKey, map[string]any{
+		"exp": float64(time.Now().Add(time.Hour).Unix()),
+	})
+
+	handler.Logout(ctx)
+
+	if !store.revokeCalled {
+		t.Fatal("Logout() did not revoke token")
+	}
+	if store.revokedToken != "staff-token" {
+		t.Fatalf("revoked token = %q, want staff-token", store.revokedToken)
+	}
+}
+
+func TestStaffLogoutAllBumpsTokenVersion(t *testing.T) {
+	versions := &fakeAdminTokenVersionStore{}
+	handler := newStaffAuthHandler(nil, &options.JwtOptions{}, nil, nil, versions)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/auth/logout_all", nil)
+	ctx.Set(middlewares.JWTPayloadKey, map[string]any{
+		"user_id": float64(7),
+	})
+
+	handler.LogoutAll(ctx)
+
+	if versions.bumpUserID != 7 {
+		t.Fatalf("bump user id = %d, want 7", versions.bumpUserID)
+	}
+}
+
+func TestNewStaffJWTAuthRejectsTokenVersionMismatch(t *testing.T) {
+	strategy, err := newStaffJWTAuth(
+		&options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		&fakeAdminRevocationStore{},
+		&fakeAdminTokenVersionStore{currentVersion: 2},
+		&fakeAdminUserClient{authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 7, Status: string(authz.AccountStatusActive)},
+		}},
+	)
+	if err != nil {
+		t.Fatalf("newStaffJWTAuth() error = %v", err)
+	}
+	jwtStrategy := strategy.(gauth.JWTStrategy)
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/user/list", nil)
+	ctx.Request.Header.Set("Authorization", "Bearer staff-token")
+	ctx.Set(middlewares.JWTPayloadKey, map[string]any{
+		"user_id":        float64(7),
+		"principal_type": string(authz.PrincipalStaff),
+		"status":         string(authz.AccountStatusActive),
+		"token_version":  float64(1),
+	})
+
+	if jwtStrategy.Authorizator(nil, ctx) {
+		t.Fatal("Authorizator() = true, want false")
+	}
+}
+
+func TestStaffMeReturnsCurrentProfile(t *testing.T) {
+	handler := newStaffAuthHandler(&fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{
+				Id:       7,
+				Username: "staff_001",
+				Status:   string(authz.AccountStatusActive),
+			},
+			StaffRoles:  []string{string(authz.StaffRoleAdmin)},
+			Permissions: []string{string(authz.PermissionUserReadAny)},
+		},
+	}, &options.JwtOptions{}, nil, nil, nil)
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/auth/me", nil)
+	ctx.Set(middlewares.JWTPayloadKey, map[string]any{
+		"user_id": float64(7),
+	})
+
+	handler.Me(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Me() status = %d, want 200", rec.Code)
+	}
+}
+
+func TestInitRouterAllowsStatusUpdateAndInvalidatesSessions(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:       "bootstrap-secret",
+			Role:        config.AdminRoleSuperAdmin,
+			Permissions: []string{string(authz.PermissionUserDisableAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 9, Username: "ops_001", Status: string(authz.AccountStatusActive)},
+		},
+		userResponse: &upbv1.UserInfoResponse{Id: 7, Username: "staff_001", Status: string(authz.AccountStatusActive)},
+	}
+	versions := &fakeAdminTokenVersionStore{}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, versions); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+
+	token, err := middlewares.NewJWT(cfg.Jwt.Key).CreateToken(middlewares.CustomClaims{
+		ID:            9,
+		AuthorityId:   uint(authz.LegacyUserRoleAdmin),
+		Roles:         []string{string(authz.StaffRoleAdmin)},
+		PrincipalType: string(authz.PrincipalStaff),
+		AccountStatus: string(authz.AccountStatusActive),
+		Scope:         []string{string(authz.PermissionUserDisableAny)},
+		RegisteredClaims: jwt.RegisteredClaims{
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			Issuer:    cfg.Jwt.Realm,
+		},
+	})
+	if err != nil {
+		t.Fatalf("CreateToken() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPut, "/v1/user/7/status", http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Body = io.NopCloser(strings.NewReader(`{"status":"disabled"}`))
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status update code = %d, want 200", rec.Code)
+	}
+	if client.updateStatusReq == nil || client.updateStatusReq.GetStatus() != "disabled" {
+		t.Fatalf("update status request = %#v, want disabled", client.updateStatusReq)
+	}
+	if versions.bumpUserID != 7 {
+		t.Fatalf("bumped user id = %d, want 7", versions.bumpUserID)
+	}
+}
+
+type fakeAdminUserClient struct {
+	listResponse     *upbv1.UserListResponse
+	userResponse     *upbv1.UserInfoResponse
+	authUserResponse *upbv1.UserAuthResponse
+	updateStatusReq  *upbv1.UpdateUserStatusRequest
+}
+
+func (f *fakeAdminUserClient) GetUserList(context.Context, *upbv1.PageInfo, ...grpc.CallOption) (*upbv1.UserListResponse, error) {
+	if f.listResponse != nil {
+		return f.listResponse, nil
+	}
+	return &upbv1.UserListResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) GetUserByMobile(context.Context, *upbv1.MobileRequest, ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
+	return &upbv1.UserInfoResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) GetUserById(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
+	if f.userResponse != nil {
+		return f.userResponse, nil
+	}
+	return &upbv1.UserInfoResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) UpdateUserStatus(_ context.Context, req *upbv1.UpdateUserStatusRequest, _ ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
+	f.updateStatusReq = req
+	if f.userResponse != nil {
+		response := *f.userResponse
+		response.Status = req.GetStatus()
+		return &response, nil
+	}
+	return &upbv1.UserInfoResponse{Id: req.GetId(), Status: req.GetStatus()}, nil
+}
+
+func (f *fakeAdminUserClient) GetUserAuthByMobile(context.Context, *upbv1.MobileRequest, ...grpc.CallOption) (*upbv1.UserAuthResponse, error) {
+	if f.authUserResponse != nil {
+		return f.authUserResponse, nil
+	}
+	return &upbv1.UserAuthResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) GetUserAuthById(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*upbv1.UserAuthResponse, error) {
+	if f.authUserResponse != nil {
+		return f.authUserResponse, nil
+	}
+	return &upbv1.UserAuthResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) ListStaffRoles(context.Context, *emptypb.Empty, ...grpc.CallOption) (*upbv1.StaffRoleListResponse, error) {
+	return &upbv1.StaffRoleListResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) GetUserStaffRoles(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*upbv1.UserRoleBindingResponse, error) {
+	return &upbv1.UserRoleBindingResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) ReplaceUserStaffRoles(context.Context, *upbv1.ReplaceUserStaffRolesRequest, ...grpc.CallOption) (*upbv1.UserRoleBindingResponse, error) {
+	return &upbv1.UserRoleBindingResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) CreateUser(context.Context, *upbv1.CreateUserInfo, ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
+	return &upbv1.UserInfoResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) UpdateUser(context.Context, *upbv1.UpdateUserInfo, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+func (f *fakeAdminUserClient) DeleteUser(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+func (f *fakeAdminUserClient) CheckPassWord(context.Context, *upbv1.PasswordCheckInfo, ...grpc.CallOption) (*upbv1.CheckResponse, error) {
+	return &upbv1.CheckResponse{Success: true}, nil
+}
+
+var _ upbv1.UserClient = &fakeAdminUserClient{}
+
+type fakeAdminRevocationStore struct {
+	revoked      bool
+	revokeCalled bool
+	revokedToken string
+}
+
+func (f *fakeAdminRevocationStore) Revoke(_ context.Context, token string, _ time.Time) error {
+	f.revokeCalled = true
+	f.revokedToken = token
+	return nil
+}
+func (f *fakeAdminRevocationStore) IsRevoked(context.Context, string) (bool, error) {
+	return f.revoked, nil
+}
+
+type fakeAdminTokenVersionStore struct {
+	currentVersion uint64
+	bumpUserID     uint64
+}
+
+func (f *fakeAdminTokenVersionStore) CurrentVersion(context.Context, uint64) (uint64, error) {
+	return f.currentVersion, nil
+}
+
+func (f *fakeAdminTokenVersionStore) Bump(_ context.Context, userID uint64) (uint64, error) {
+	f.bumpUserID = userID
+	f.currentVersion++
+	return f.currentVersion, nil
+}
