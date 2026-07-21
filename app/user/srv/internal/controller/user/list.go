@@ -17,7 +17,6 @@ func DTOToResponse(userDTO srvv1.UserPublicDTO) *upbv1.UserInfoResponse {
 		Id:       userDTO.ID,
 		NickName: userDTO.NickName,
 		Gender:   userDTO.Gender,
-		Role:     userDTO.LegacyRole,
 		Mobile:   userDTO.Mobile,
 		Status:   userDTO.Status,
 	}

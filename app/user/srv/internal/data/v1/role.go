@@ -1,9 +1,12 @@
 package v1
 
 type RoleDO struct {
-	ID          uint64 `gorm:"primarykey"`
-	Name        string `gorm:"uniqueIndex:idx_role_name;type:varchar(64);not null"`
-	Description string `gorm:"type:varchar(255)"`
+	ID          uint64   `gorm:"primarykey"`
+	Name        string   `gorm:"uniqueIndex:idx_role_name;type:varchar(64);not null"`
+	Description string   `gorm:"type:varchar(255)"`
+	Permissions []string `gorm:"-"`
+	Domains     []string `gorm:"-"`
+	Builtin     bool     `gorm:"-"`
 }
 
 func (r *RoleDO) TableName() string {

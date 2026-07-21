@@ -94,8 +94,5 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 
 	upb.RegisterUserServer(uRpcServer.Server, uServer)
 
-	//r := gin.Default()
-	//upb.RegisterUserServerHTTPServer(uServer, r)
-	//r.Run(":8075")
 	return uRpcServer, nil
 }

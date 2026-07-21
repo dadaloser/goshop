@@ -57,6 +57,7 @@ const (
 	PermissionAuditReadAny            Permission = "audit:read:any"
 	PermissionRoleReadAny             Permission = "role:read:any"
 	PermissionRoleAssignAny           Permission = "role:assign:any"
+	PermissionRoleWriteAny            Permission = "role:write:any"
 )
 
 var customerPermissions = []Permission{
@@ -69,6 +70,34 @@ var customerPermissions = []Permission{
 	PermissionOrderReadSelf,
 	PermissionOrderPaySelf,
 	PermissionOrderStatusLogReadSelf,
+}
+
+var allPermissions = []Permission{
+	PermissionUserProfileReadSelf,
+	PermissionUserProfileUpdateSelf,
+	PermissionUserAccountDeleteSelf,
+	PermissionCartReadSelf,
+	PermissionCartWriteSelf,
+	PermissionOrderCreateSelf,
+	PermissionOrderReadSelf,
+	PermissionOrderPaySelf,
+	PermissionOrderStatusLogReadSelf,
+	PermissionInventoryReadPublic,
+	PermissionUserCreateAny,
+	PermissionUserListAny,
+	PermissionUserReadAny,
+	PermissionUserDisableAny,
+	PermissionGoodsReadAny,
+	PermissionGoodsWriteAny,
+	PermissionInventoryWriteAny,
+	PermissionOrderReadAny,
+	PermissionOrderCloseAny,
+	PermissionOrderRefundAny,
+	PermissionPaymentCallbackSimulate,
+	PermissionAuditReadAny,
+	PermissionRoleReadAny,
+	PermissionRoleAssignAny,
+	PermissionRoleWriteAny,
 }
 
 // CustomerPermissions returns a copy of the permissions granted to storefront
@@ -87,6 +116,25 @@ func CustomerScopes() []string {
 		scopes[i] = string(permission)
 	}
 	return scopes
+}
+
+// AllPermissions returns the complete permission vocabulary recognized by the
+// current authorization layer.
+func AllPermissions() []Permission {
+	permissions := make([]Permission, len(allPermissions))
+	copy(permissions, allPermissions)
+	return permissions
+}
+
+// IsValidPermission reports whether the string belongs to the shared
+// authorization vocabulary.
+func IsValidPermission(value string) bool {
+	for _, permission := range allPermissions {
+		if string(permission) == strings.TrimSpace(value) {
+			return true
+		}
+	}
+	return false
 }
 
 // NormalizeAccountStatus normalizes persisted and token account status. Empty

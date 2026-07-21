@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/mail"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -24,20 +25,20 @@ type UserDTO struct {
 }
 
 type UserPublicDTO struct {
-	ID         int32
-	Username   *string
-	Mobile     string
-	Email      *string
-	NickName   string
-	Birthday   *time.Time
-	Gender     string
-	LegacyRole int32
-	Status     string
+	ID       int32
+	Username *string
+	Mobile   string
+	Email    *string
+	NickName string
+	Birthday *time.Time
+	Gender   string
+	Status   string
 }
 
 type UserAuthDTO struct {
 	UserPublicDTO
 	PasswordHash string
+	LegacyRole   int32
 	StaffRoles   []string
 	Permissions  []string
 }
@@ -46,6 +47,8 @@ type StaffRoleDTO struct {
 	Name        string
 	Description string
 	Permissions []string
+	Builtin     bool
+	Domains     []string
 }
 
 type UserRoleBindingDTO struct {
@@ -103,6 +106,7 @@ type UserSrv interface {
 	GetAuthByID(ctx context.Context, ID uint64) (*UserAuthDTO, error)
 	GetAuthByUsername(ctx context.Context, username string) (*UserAuthDTO, error)
 	ListStaffRoles(ctx context.Context) ([]StaffRoleDTO, error)
+	UpdateStaffRole(ctx context.Context, role StaffRoleDTO) (*StaffRoleDTO, error)
 	GetUserRoleBinding(ctx context.Context, userID uint64) (*UserRoleBindingDTO, error)
 	ReplaceUserRoleBinding(ctx context.Context, userID uint64, roleNames []string, actor AuditActorDTO) (*UserRoleBindingDTO, error)
 	ListUserAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilterDTO, opts metav1.ListMeta) (*UserAuditLogDTOList, error)
@@ -317,24 +321,65 @@ func (u *userService) ListStaffRoles(ctx context.Context) ([]StaffRoleDTO, error
 		return nil, err
 	}
 
-	permissionsByRole := make(map[string][]string)
+	definitionsByRole := make(map[string]authz.RoleDefinition)
 	for _, definition := range authz.BuiltinRoleDefinitions() {
-		values := make([]string, 0, len(definition.Permissions))
-		for _, permission := range definition.Permissions {
-			values = append(values, string(permission))
-		}
-		permissionsByRole[string(definition.Name)] = values
+		definitionsByRole[string(definition.Name)] = definition
 	}
 
 	result := make([]StaffRoleDTO, 0, len(roles))
 	for _, role := range roles {
+		definition, builtin := definitionsByRole[role.Name]
+		domains := make([]string, 0, len(definition.Domains))
+		for _, domain := range definition.Domains {
+			domains = append(domains, string(domain))
+		}
+		sort.Strings(domains)
 		result = append(result, StaffRoleDTO{
 			Name:        role.Name,
 			Description: role.Description,
-			Permissions: append([]string(nil), permissionsByRole[role.Name]...),
+			Permissions: append([]string(nil), role.Permissions...),
+			Builtin:     builtin,
+			Domains:     domains,
 		})
 	}
 	return result, nil
+}
+
+func (u *userService) UpdateStaffRole(ctx context.Context, role StaffRoleDTO) (*StaffRoleDTO, error) {
+	role.Name = strings.ToLower(strings.TrimSpace(role.Name))
+	role.Description = strings.TrimSpace(role.Description)
+	if role.Name == "" {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
+	}
+	if role.Description == "" {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role description is required")
+	}
+	if !authz.IsValidStaffRole(role.Name) {
+		return nil, errors.WithCode(code2.ErrValidation, "only built-in staff roles can be edited")
+	}
+
+	permissions, err := normalizePermissionNames(role.Permissions)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedRole, err := u.userStore.UpdateRole(ctx, role.Name, role.Description, permissions)
+	if err != nil {
+		return nil, err
+	}
+	definition, _ := builtinRoleDefinitionByName(updatedRole.Name)
+	domains := make([]string, 0, len(definition.Domains))
+	for _, domain := range definition.Domains {
+		domains = append(domains, string(domain))
+	}
+	sort.Strings(domains)
+	return &StaffRoleDTO{
+		Name:        updatedRole.Name,
+		Description: updatedRole.Description,
+		Permissions: append([]string(nil), updatedRole.Permissions...),
+		Builtin:     true,
+		Domains:     domains,
+	}, nil
 }
 
 func (u *userService) GetUserRoleBinding(ctx context.Context, userID uint64) (*UserRoleBindingDTO, error) {
@@ -563,15 +608,14 @@ func newUserPublicDTO(user *dv1.UserDO) (*UserPublicDTO, error) {
 		birthday = &value
 	}
 	return &UserPublicDTO{
-		ID:         user.ID,
-		Username:   user.Username,
-		Mobile:     user.Mobile,
-		Email:      user.Email,
-		NickName:   user.NickName,
-		Birthday:   birthday,
-		Gender:     user.Gender,
-		LegacyRole: int32(user.Role),
-		Status:     user.Status,
+		ID:       user.ID,
+		Username: user.Username,
+		Mobile:   user.Mobile,
+		Email:    user.Email,
+		NickName: user.NickName,
+		Birthday: birthday,
+		Gender:   user.Gender,
+		Status:   user.Status,
 	}, nil
 }
 
@@ -586,6 +630,7 @@ func newUserAuthDTO(user *dv1.UserAuthDO) (*UserAuthDTO, error) {
 	return &UserAuthDTO{
 		UserPublicDTO: *publicDTO,
 		PasswordHash:  user.Password,
+		LegacyRole:    int32(user.Role),
 		StaffRoles:    append([]string(nil), user.StaffRoles...),
 		Permissions:   append([]string(nil), user.Permissions...),
 	}, nil
@@ -639,4 +684,37 @@ func validateLegacyRole(role int32) error {
 		return errors.WithCode(code2.ErrValidation, "legacy role must be one of: 1(customer), 2(admin)")
 	}
 	return nil
+}
+
+func normalizePermissionNames(permissionNames []string) ([]string, error) {
+	normalized := make(map[string]struct{}, len(permissionNames))
+	for _, permissionName := range permissionNames {
+		permissionName = strings.ToLower(strings.TrimSpace(permissionName))
+		if permissionName == "" {
+			continue
+		}
+		if !authz.IsValidPermission(permissionName) {
+			return nil, errors.WithCode(code2.ErrValidation, "staff role permissions contain unknown values")
+		}
+		normalized[permissionName] = struct{}{}
+	}
+	if len(normalized) == 0 {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role permissions are required")
+	}
+
+	result := make([]string, 0, len(normalized))
+	for permissionName := range normalized {
+		result = append(result, permissionName)
+	}
+	sort.Strings(result)
+	return result, nil
+}
+
+func builtinRoleDefinitionByName(name string) (authz.RoleDefinition, bool) {
+	for _, definition := range authz.BuiltinRoleDefinitions() {
+		if string(definition.Name) == strings.ToLower(strings.TrimSpace(name)) {
+			return definition, true
+		}
+	}
+	return authz.RoleDefinition{}, false
 }

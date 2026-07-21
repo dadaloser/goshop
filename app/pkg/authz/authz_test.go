@@ -31,6 +31,7 @@ func TestPermissionsHaveExplicitScope(t *testing.T) {
 		PermissionAuditReadAny,
 		PermissionRoleReadAny,
 		PermissionRoleAssignAny,
+		PermissionRoleWriteAny,
 	}
 
 	seen := make(map[Permission]struct{}, len(permissions))

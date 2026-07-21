@@ -16,8 +16,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const serviceName = "discovery:///goshop-user-srv"
-
 type users struct {
 	uc upbv1.UserClient
 }
@@ -182,15 +180,14 @@ func publicUserFromResponse(user *upbv1.UserInfoResponse) data.User {
 		return data.User{}
 	}
 	return data.User{
-		ID:         uint64(user.Id),
-		Username:   user.Username,
-		Mobile:     user.Mobile,
-		Email:      user.Email,
-		NickName:   user.NickName,
-		Birthday:   itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
-		Gender:     user.Gender,
-		LegacyRole: user.Role,
-		Status:     user.Status,
+		ID:       uint64(user.Id),
+		Username: user.Username,
+		Mobile:   user.Mobile,
+		Email:    user.Email,
+		NickName: user.NickName,
+		Birthday: itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
+		Gender:   user.Gender,
+		Status:   user.Status,
 	}
 }
 

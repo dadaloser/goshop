@@ -4,6 +4,7 @@ import (
 	"context"
 
 	upbv1 "goshop/api/user/v1"
+	srvv1 "goshop/app/user/srv/internal/service/v1"
 	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
 
@@ -22,9 +23,33 @@ func (u *userServer) ListStaffRoles(ctx context.Context, _ *emptypb.Empty) (*upb
 			Name:        role.Name,
 			Description: role.Description,
 			Permissions: append([]string(nil), role.Permissions...),
+			Builtin:     role.Builtin,
+			Domains:     append([]string(nil), role.Domains...),
 		})
 	}
 	return response, nil
+}
+
+func (u *userServer) UpdateStaffRole(ctx context.Context, request *upbv1.UpdateStaffRoleRequest) (*upbv1.StaffRole, error) {
+	if request == nil || request.Role == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "update staff role request is required")
+	}
+
+	role, err := u.srv.UpdateStaffRole(ctx, srvv1.StaffRoleDTO{
+		Name:        request.Role.Name,
+		Description: request.Role.Description,
+		Permissions: append([]string(nil), request.Role.Permissions...),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &upbv1.StaffRole{
+		Name:        role.Name,
+		Description: role.Description,
+		Permissions: append([]string(nil), role.Permissions...),
+		Builtin:     role.Builtin,
+		Domains:     append([]string(nil), role.Domains...),
+	}, nil
 }
 
 func (u *userServer) GetUserStaffRoles(ctx context.Context, request *upbv1.IdRequest) (*upbv1.UserRoleBindingResponse, error) {

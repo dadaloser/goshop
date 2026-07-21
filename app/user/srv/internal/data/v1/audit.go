@@ -2,6 +2,10 @@ package v1
 
 import "time"
 
+/*
+*
+用户审计日志
+*/
 type UserAuditLogDO struct {
 	ID                 uint64    `gorm:"primarykey"`
 	UserID             int32     `gorm:"index:idx_user_audit_logs_user;not null"`

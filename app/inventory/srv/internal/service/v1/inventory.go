@@ -22,9 +22,9 @@ import (
 const (
 	orderLockPrefix = "order_"
 
-	stockSellStatusReserved  int32 = 1
-	stockSellStatusReleased  int32 = 2
-	stockSellStatusConfirmed int32 = 3
+	stockSellStatusReserved  int32 = 1 //已预留
+	stockSellStatusReleased  int32 = 2 //已释放
+	stockSellStatusConfirmed int32 = 3 //已确认
 )
 
 type InventorySrv interface {

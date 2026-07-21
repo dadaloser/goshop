@@ -116,7 +116,84 @@ func (u *users) ListRoles(ctx context.Context) ([]dv1.RoleDO, error) {
 	if err := u.db.WithContext(ctx).Order("name ASC").Find(&roles).Error; err != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
+	definitions := make(map[string]authz.RoleDefinition)
+	for _, definition := range authz.BuiltinRoleDefinitions() {
+		definitions[string(definition.Name)] = definition
+	}
+	for i := range roles {
+		permissions, err := u.listRolePermissions(ctx, roles[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		roles[i].Permissions = permissions
+		if definition, ok := definitions[roles[i].Name]; ok {
+			roles[i].Builtin = true
+			roles[i].Domains = make([]string, 0, len(definition.Domains))
+			for _, domain := range definition.Domains {
+				roles[i].Domains = append(roles[i].Domains, string(domain))
+			}
+		}
+	}
 	return roles, nil
+}
+
+func (u *users) UpdateRole(ctx context.Context, roleName, description string, permissions []string) (*dv1.RoleDO, error) {
+	roleName = strings.ToLower(strings.TrimSpace(roleName))
+	if roleName == "" {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
+	}
+
+	var role dv1.RoleDO
+	if err := u.db.WithContext(ctx).Where("name = ?", roleName).First(&role).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.WithCode(code.ErrUserNotFound, "staff role not found")
+		}
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+
+	tx := u.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	if err := tx.Model(&dv1.RoleDO{}).Where("id = ?", role.ID).Update("description", description).Error; err != nil {
+		tx.Rollback()
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if err := tx.Where("role_id = ?", role.ID).Delete(&dv1.RolePermissionDO{}).Error; err != nil {
+		tx.Rollback()
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	for _, permission := range permissions {
+		record := dv1.RolePermissionDO{
+			RoleID:     role.ID,
+			Permission: permission,
+		}
+		if err := tx.Create(&record).Error; err != nil {
+			tx.Rollback()
+			return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		}
+	}
+	if err := tx.Commit().Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+
+	role.Description = description
+	role.Permissions = append([]string(nil), permissions...)
+	if definition, ok := builtinRoleDefinitionByName(role.Name); ok {
+		role.Builtin = true
+		role.Domains = make([]string, 0, len(definition.Domains))
+		for _, domain := range definition.Domains {
+			role.Domains = append(role.Domains, string(domain))
+		}
+	}
+	return &role, nil
 }
 
 func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {
@@ -495,6 +572,23 @@ func (u *users) listPermissions(ctx context.Context, userID int32) ([]string, er
 	return permissions, nil
 }
 
+func (u *users) listRolePermissions(ctx context.Context, roleID uint64) ([]string, error) {
+	if roleID == 0 {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role not found")
+	}
+
+	var permissions []string
+	err := u.db.WithContext(ctx).
+		Model(&dv1.RolePermissionDO{}).
+		Where("role_id = ?", roleID).
+		Order("permission ASC").
+		Pluck("permission", &permissions).Error
+	if err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return permissions, nil
+}
+
 func (u *users) loadRoles(tx *gorm.DB, normalizedRoles []string) ([]dv1.RoleDO, error) {
 	if len(normalizedRoles) == 0 {
 		return nil, nil
@@ -581,4 +675,13 @@ func normalizeRoleNames(roleNames []string) []string {
 	}
 	slices.Sort(normalized)
 	return normalized
+}
+
+func builtinRoleDefinitionByName(name string) (authz.RoleDefinition, bool) {
+	for _, definition := range authz.BuiltinRoleDefinitions() {
+		if string(definition.Name) == strings.ToLower(strings.TrimSpace(name)) {
+			return definition, true
+		}
+	}
+	return authz.RoleDefinition{}, false
 }

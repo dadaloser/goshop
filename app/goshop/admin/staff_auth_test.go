@@ -36,7 +36,7 @@ func TestInitRouterRestrictsBootstrapTokenToBreakGlass(t *testing.T) {
 	client := &fakeAdminUserClient{
 		listResponse: &upbv1.UserListResponse{
 			Total: 1,
-			Data:  []*upbv1.UserInfoResponse{{Id: 1, Username: "staff_001", Role: int32(authz.LegacyUserRoleCustomer)}},
+			Data:  []*upbv1.UserInfoResponse{{Id: 1, Username: "staff_001"}},
 		},
 	}
 	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
@@ -74,10 +74,11 @@ func TestInitRouterAllowsStaffJWTOnUserList(t *testing.T) {
 	client := &fakeAdminUserClient{
 		listResponse: &upbv1.UserListResponse{
 			Total: 1,
-			Data:  []*upbv1.UserInfoResponse{{Id: 1, Username: "staff_001", Role: int32(authz.LegacyUserRoleCustomer)}},
+			Data:  []*upbv1.UserInfoResponse{{Id: 1, Username: "staff_001"}},
 		},
 		authUserResponse: &upbv1.UserAuthResponse{
-			User: &upbv1.UserInfoResponse{Id: 7, Username: "staff_001", Status: string(authz.AccountStatusActive), Role: int32(authz.LegacyUserRoleAdmin)},
+			User:       &upbv1.UserInfoResponse{Id: 7, Username: "staff_001", Status: string(authz.AccountStatusActive)},
+			LegacyRole: int32(authz.LegacyUserRoleAdmin),
 		},
 	}
 	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
@@ -576,6 +577,96 @@ func TestInitRouterRejectsCrossDomainRoleAssignment(t *testing.T) {
 	}
 }
 
+func TestInitRouterUpdatesStaffRole(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User:       &upbv1.UserInfoResponse{Id: 9, Username: "root_001", Status: string(authz.AccountStatusActive)},
+			LegacyRole: int32(authz.LegacyUserRoleAdmin),
+		},
+		updateRoleResp: &upbv1.StaffRole{
+			Name:        string(authz.StaffRoleOps),
+			Description: "updated ops role",
+			Permissions: []string{string(authz.PermissionOrderCloseAny), string(authz.PermissionOrderReadAny)},
+			Builtin:     true,
+			Domains:     []string{string(authz.BusinessDomainOps)},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleSuperAdmin)}, []string{
+		string(authz.PermissionRoleWriteAny),
+		string(authz.PermissionOrderCloseAny),
+		string(authz.PermissionOrderReadAny),
+	})
+
+	req := httptest.NewRequest(http.MethodPut, "/v1/staff/roles/ops", strings.NewReader(`{"description":"updated ops role","permissions":["order:close:any","order:read:any"]}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update staff role status = %d, want 200", rec.Code)
+	}
+	if client.updateRoleReq == nil || client.updateRoleReq.GetRole().GetName() != string(authz.StaffRoleOps) {
+		t.Fatalf("update role request = %#v, want role ops", client.updateRoleReq)
+	}
+}
+
+func TestInitRouterRejectsRolePermissionEscalation(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User:       &upbv1.UserInfoResponse{Id: 9, Username: "root_001", Status: string(authz.AccountStatusActive)},
+			LegacyRole: int32(authz.LegacyUserRoleAdmin),
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleSuperAdmin)}, []string{
+		string(authz.PermissionRoleWriteAny),
+		string(authz.PermissionOrderReadAny),
+	})
+
+	req := httptest.NewRequest(http.MethodPut, "/v1/staff/roles/ops", strings.NewReader(`{"description":"updated ops role","permissions":["order:read:any","order:refund:any"]}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("permission escalation status = %d, want 403", rec.Code)
+	}
+	if client.updateRoleReq != nil {
+		t.Fatalf("permission escalation should not reach rpc, got %#v", client.updateRoleReq)
+	}
+}
+
 func mustCreateAdminToken(t *testing.T, jwtOpts *options.JwtOptions, userID uint, roles, scope []string) string {
 	t.Helper()
 	token, err := middlewares.NewJWT(jwtOpts.Key).CreateToken(middlewares.CustomClaims{
@@ -602,6 +693,8 @@ type fakeAdminUserClient struct {
 	userResponse        *upbv1.UserInfoResponse
 	authUserResponse    *upbv1.UserAuthResponse
 	updateStatusReq     *upbv1.UpdateUserStatusRequest
+	updateRoleReq       *upbv1.UpdateStaffRoleRequest
+	updateRoleResp      *upbv1.StaffRole
 	createStaffReq      *upbv1.CreateStaffUserRequest
 	createStaffResponse *upbv1.StaffUserResponse
 	replaceRolesReq     *upbv1.ReplaceUserStaffRolesRequest
@@ -658,6 +751,14 @@ func (f *fakeAdminUserClient) ListStaffRoles(context.Context, *emptypb.Empty, ..
 		return f.staffRolesResponse, nil
 	}
 	return &upbv1.StaffRoleListResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) UpdateStaffRole(_ context.Context, req *upbv1.UpdateStaffRoleRequest, _ ...grpc.CallOption) (*upbv1.StaffRole, error) {
+	f.updateRoleReq = req
+	if f.updateRoleResp != nil {
+		return f.updateRoleResp, nil
+	}
+	return &upbv1.StaffRole{}, nil
 }
 
 func (f *fakeAdminUserClient) GetUserStaffRoles(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*upbv1.UserRoleBindingResponse, error) {

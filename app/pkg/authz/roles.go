@@ -123,6 +123,7 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 		Permissions: []Permission{
 			PermissionRoleReadAny,
 			PermissionRoleAssignAny,
+			PermissionRoleWriteAny,
 			PermissionUserCreateAny,
 			PermissionUserListAny,
 			PermissionUserReadAny,

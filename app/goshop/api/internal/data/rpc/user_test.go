@@ -271,6 +271,11 @@ func (f *fakeUserClient) ListStaffRoles(context.Context, *emptypb.Empty, ...grpc
 	return &upbv1.StaffRoleListResponse{}, nil
 }
 
+func (f *fakeUserClient) UpdateStaffRole(context.Context, *upbv1.UpdateStaffRoleRequest, ...grpc.CallOption) (*upbv1.StaffRole, error) {
+	f.called = true
+	return &upbv1.StaffRole{}, nil
+}
+
 func (f *fakeUserClient) GetUserStaffRoles(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*upbv1.UserRoleBindingResponse, error) {
 	f.called = true
 	return &upbv1.UserRoleBindingResponse{}, nil

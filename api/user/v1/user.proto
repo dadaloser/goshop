@@ -27,6 +27,7 @@ service User{
     rpc CreateStaffUser(CreateStaffUserRequest) returns (StaffUserResponse);
     rpc UpdateUserStatus(UpdateUserStatusRequest) returns (UserInfoResponse);
     rpc ListStaffRoles(google.protobuf.Empty) returns (StaffRoleListResponse);
+    rpc UpdateStaffRole(UpdateStaffRoleRequest) returns (StaffRole);
     rpc GetUserStaffRoles(IdRequest) returns (UserRoleBindingResponse);
     rpc ReplaceUserStaffRoles(ReplaceUserStaffRolesRequest) returns (UserRoleBindingResponse);
     rpc ListUserAuditLogs(UserAuditLogPageRequest) returns (UserAuditLogListResponse);
@@ -118,11 +119,11 @@ message UpdateUserStatusRequest {
 message UserInfoResponse {
     int32 id = 1;
     reserved 2;
+    reserved 7;
     string mobile = 3;
     string nickName = 4;
     uint64 birthDay = 5;
     string gender = 6;
-    int32 role = 7 [deprecated = true];
     string email = 8;
     string username = 9;
     string status = 10;
@@ -145,10 +146,17 @@ message StaffRole {
     string name = 1;
     string description = 2;
     repeated string permissions = 3;
+    bool builtin = 4;
+    repeated string domains = 5;
 }
 
 message StaffRoleListResponse {
     repeated StaffRole roles = 1;
+}
+
+message UpdateStaffRoleRequest {
+    StaffRole role = 1;
+    AuditActor actor = 2;
 }
 
 message ReplaceUserStaffRolesRequest {

@@ -16,6 +16,11 @@ type replaceUserRolesRequest struct {
 	Roles []string `json:"roles"`
 }
 
+type updateStaffRoleRequest struct {
+	Description string   `json:"description"`
+	Permissions []string `json:"permissions"`
+}
+
 func (us *userServer) ListStaffRoles(ctx *gin.Context) {
 	if us == nil || us.users == nil {
 		ctx.JSON(http.StatusServiceUnavailable, gin.H{
@@ -44,6 +49,71 @@ func (us *userServer) ListStaffRoles(ctx *gin.Context) {
 func (us *userServer) ListPermissionTemplates(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"templates": roleTemplateViews(currentRoles(ctx)),
+	})
+}
+
+func (us *userServer) UpdateStaffRole(ctx *gin.Context) {
+	roleName := strings.ToLower(strings.TrimSpace(ctx.Param("name")))
+	if roleName == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code": http.StatusBadRequest,
+			"msg":  "invalid role name",
+		})
+		return
+	}
+	if us == nil || us.users == nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{
+			"code": http.StatusServiceUnavailable,
+			"msg":  "user rpc client is not initialized",
+		})
+		return
+	}
+
+	var request updateStaffRoleRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code": http.StatusBadRequest,
+			"msg":  "invalid request",
+		})
+		return
+	}
+	if !authz.CanManageRoleSet(currentRoles(ctx), []string{roleName}) {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"code": http.StatusForbidden,
+			"msg":  "cross-domain role update denied",
+		})
+		return
+	}
+	if !canGrantPermissions(currentPermissions(ctx), request.Permissions) {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"code": http.StatusForbidden,
+			"msg":  "permission escalation denied",
+		})
+		return
+	}
+	actor, ok := currentActor(ctx)
+	if !ok {
+		return
+	}
+
+	role, err := us.users.UpdateStaffRole(ctx.Request.Context(), &upbv1.UpdateStaffRoleRequest{
+		Role: &upbv1.StaffRole{
+			Name:        roleName,
+			Description: request.Description,
+			Permissions: append([]string(nil), request.Permissions...),
+		},
+		Actor: actor,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{
+			"code": http.StatusBadGateway,
+			"msg":  "update staff role failed",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"role": role,
 	})
 }
 

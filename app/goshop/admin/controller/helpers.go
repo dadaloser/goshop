@@ -87,6 +87,35 @@ func hasCurrentRole(ctx *gin.Context, role authz.StaffRole) bool {
 	return false
 }
 
+func currentPermissions(ctx *gin.Context) []string {
+	if ctx == nil {
+		return nil
+	}
+	raw, ok := ctx.Get(middlewares.JWTPayloadKey)
+	if !ok {
+		return nil
+	}
+	payload, ok := raw.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	var permissions []string
+	switch values := payload["scope"].(type) {
+	case []string:
+		for _, value := range values {
+			permissions = append(permissions, strings.ToLower(strings.TrimSpace(value)))
+		}
+	case []any:
+		for _, value := range values {
+			if permission, ok := value.(string); ok {
+				permissions = append(permissions, strings.ToLower(strings.TrimSpace(permission)))
+			}
+		}
+	}
+	return permissions
+}
+
 func uint64Claim(raw any) (uint64, bool) {
 	switch value := raw.(type) {
 	case float64:
@@ -146,4 +175,28 @@ func roleTemplateViews(actorRoles []string) []roleTemplateView {
 		})
 	}
 	return result
+}
+
+func canGrantPermissions(actorPermissions, targetPermissions []string) bool {
+	allowed := make(map[string]struct{}, len(actorPermissions))
+	for _, permission := range actorPermissions {
+		permission = strings.ToLower(strings.TrimSpace(permission))
+		if permission == "" {
+			continue
+		}
+		allowed[permission] = struct{}{}
+	}
+	if len(allowed) == 0 {
+		return false
+	}
+	for _, permission := range targetPermissions {
+		permission = strings.ToLower(strings.TrimSpace(permission))
+		if permission == "" {
+			continue
+		}
+		if _, ok := allowed[permission]; !ok {
+			return false
+		}
+	}
+	return true
 }

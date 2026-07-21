@@ -123,6 +123,23 @@ func (s *UserHttpServer) ListStaffRoles_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *UserHttpServer) UpdateStaffRole_0(c *gin.Context) {
+	var in UpdateStaffRoleRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.UpdateStaffRole(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *UserHttpServer) GetUserStaffRoles_0(c *gin.Context) {
 	var in IdRequest
 
@@ -289,6 +306,8 @@ func (s *UserHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.UpdateUserStatus_0)
 
 	s.router.Handle("POST", "", s.ListStaffRoles_0)
+
+	s.router.Handle("POST", "", s.UpdateStaffRole_0)
 
 	s.router.Handle("POST", "", s.GetUserStaffRoles_0)
 

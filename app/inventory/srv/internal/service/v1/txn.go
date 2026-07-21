@@ -6,6 +6,10 @@ import (
 	"gorm.io/gorm"
 )
 
+/**
+事务管理
+*/
+
 type txExecutor interface {
 	DB() *gorm.DB
 	Commit() error

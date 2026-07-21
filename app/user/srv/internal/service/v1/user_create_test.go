@@ -212,8 +212,8 @@ func TestUserService_GetByUsernameNormalizesIdentifier(t *testing.T) {
 func TestUserService_ListStaffRolesReturnsDescriptionsAndPermissions(t *testing.T) {
 	store := &fakeUserStore{
 		roles: []dv1.RoleDO{
-			{Name: string(authz.StaffRoleAdmin), Description: "broad backoffice administration"},
-			{Name: string(authz.StaffRoleSuperAdmin), Description: "full backoffice administration"},
+			{Name: string(authz.StaffRoleAdmin), Description: "broad backoffice administration", Permissions: []string{string(authz.PermissionUserListAny)}},
+			{Name: string(authz.StaffRoleSuperAdmin), Description: "full backoffice administration", Permissions: []string{string(authz.PermissionRoleWriteAny)}},
 		},
 	}
 	svc := NewUserService(store)
@@ -228,8 +228,56 @@ func TestUserService_ListStaffRolesReturnsDescriptionsAndPermissions(t *testing.
 	if roles[0].Name != string(authz.StaffRoleAdmin) {
 		t.Fatalf("roles[0].Name = %q, want %q", roles[0].Name, authz.StaffRoleAdmin)
 	}
+	if !roles[0].Builtin {
+		t.Fatal("roles[0].Builtin = false, want true")
+	}
 	if len(roles[0].Permissions) == 0 {
 		t.Fatal("roles[0].Permissions is empty")
+	}
+	if len(roles[0].Domains) == 0 {
+		t.Fatal("roles[0].Domains is empty")
+	}
+}
+
+func TestUserService_UpdateStaffRoleValidatesAndNormalizesPermissions(t *testing.T) {
+	store := &fakeUserStore{}
+	svc := NewUserService(store)
+
+	role, err := svc.UpdateStaffRole(context.Background(), StaffRoleDTO{
+		Name:        string(authz.StaffRoleOps),
+		Description: "updated ops role",
+		Permissions: []string{" order:read:any ", string(authz.PermissionOrderCloseAny), string(authz.PermissionOrderReadAny)},
+	})
+	if err != nil {
+		t.Fatalf("UpdateStaffRole() error = %v", err)
+	}
+	if store.updatedRole == nil {
+		t.Fatal("UpdateStaffRole() did not reach store")
+	}
+	if len(store.updatedRole.Permissions) != 2 {
+		t.Fatalf("updated permissions = %#v, want deduplicated permissions", store.updatedRole.Permissions)
+	}
+	if !role.Builtin {
+		t.Fatal("updated role should remain builtin")
+	}
+	if len(role.Domains) == 0 {
+		t.Fatal("updated role domains are empty")
+	}
+
+	if _, err = svc.UpdateStaffRole(context.Background(), StaffRoleDTO{
+		Name:        "custom_role",
+		Description: "custom",
+		Permissions: []string{string(authz.PermissionOrderReadAny)},
+	}); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("UpdateStaffRole() custom role error = %v, want ErrValidation", err)
+	}
+
+	if _, err = svc.UpdateStaffRole(context.Background(), StaffRoleDTO{
+		Name:        string(authz.StaffRoleOps),
+		Description: "updated ops role",
+		Permissions: []string{"role:own:any"},
+	}); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("UpdateStaffRole() unknown permission error = %v, want ErrValidation", err)
 	}
 }
 
@@ -374,6 +422,7 @@ type fakeUserStore struct {
 	userByID           map[uint64]*dv1.UserDO
 	authByID           map[uint64]*dv1.UserAuthDO
 	roles              []dv1.RoleDO
+	updatedRole        *dv1.RoleDO
 	replacedUserID     uint64
 	replacedRoles      []string
 	replacedActor      *dv1.AuditActor
@@ -438,6 +487,15 @@ func (f *fakeUserStore) GetAuthByID(_ context.Context, id uint64) (*dv1.UserAuth
 
 func (f *fakeUserStore) ListRoles(context.Context) ([]dv1.RoleDO, error) {
 	return append([]dv1.RoleDO(nil), f.roles...), nil
+}
+
+func (f *fakeUserStore) UpdateRole(_ context.Context, roleName, description string, permissions []string) (*dv1.RoleDO, error) {
+	f.updatedRole = &dv1.RoleDO{
+		Name:        roleName,
+		Description: description,
+		Permissions: append([]string(nil), permissions...),
+	}
+	return f.updatedRole, nil
 }
 
 func (f *fakeUserStore) ReplaceUserRoles(_ context.Context, userID uint64, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {
