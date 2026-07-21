@@ -34,8 +34,16 @@ func (us *userServer) ListStaffRoles(ctx *gin.Context) {
 		return
 	}
 
+	templates := roleTemplateViews(currentRoles(ctx))
 	ctx.JSON(http.StatusOK, gin.H{
-		"roles": response.GetRoles(),
+		"roles":     response.GetRoles(),
+		"templates": templates,
+	})
+}
+
+func (us *userServer) ListPermissionTemplates(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, gin.H{
+		"templates": roleTemplateViews(currentRoles(ctx)),
 	})
 }
 
@@ -91,6 +99,13 @@ func (us *userServer) ReplaceUserStaffRoles(ctx *gin.Context) {
 	}
 	actor, ok := currentActor(ctx)
 	if !ok {
+		return
+	}
+	if !authz.CanManageRoleSet(currentRoles(ctx), request.Roles) {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"code": http.StatusForbidden,
+			"msg":  "cross-domain role assignment denied",
+		})
 		return
 	}
 	if !hasCurrentRole(ctx, authz.StaffRoleSuperAdmin) {

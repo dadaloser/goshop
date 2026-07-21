@@ -41,6 +41,13 @@ func (us *userServer) CreateStaff(ctx *gin.Context) {
 	if !ok {
 		return
 	}
+	if !authz.CanManageRoleSet(currentRoles(ctx), request.Roles) {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"code": http.StatusForbidden,
+			"msg":  "cross-domain role assignment denied",
+		})
+		return
+	}
 	if !hasCurrentRole(ctx, authz.StaffRoleSuperAdmin) {
 		for _, role := range request.Roles {
 			if strings.EqualFold(role, string(authz.StaffRoleSuperAdmin)) {

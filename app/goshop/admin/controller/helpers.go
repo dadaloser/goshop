@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"sort"
 	"strings"
 
 	upbv1 "goshop/api/user/v1"
@@ -110,4 +111,39 @@ func uint64Claim(raw any) (uint64, bool) {
 		}
 	}
 	return 0, false
+}
+
+type roleTemplateView struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Permissions []string `json:"permissions"`
+	Domains     []string `json:"domains"`
+	Builtin     bool     `json:"builtin"`
+	Manageable  bool     `json:"manageable"`
+}
+
+func roleTemplateViews(actorRoles []string) []roleTemplateView {
+	definitions := authz.BuiltinRoleDefinitions()
+	result := make([]roleTemplateView, 0, len(definitions))
+	for _, definition := range definitions {
+		permissions := make([]string, 0, len(definition.Permissions))
+		for _, permission := range definition.Permissions {
+			permissions = append(permissions, string(permission))
+		}
+		domains := make([]string, 0, len(definition.Domains))
+		for _, domain := range definition.Domains {
+			domains = append(domains, string(domain))
+		}
+		sort.Strings(permissions)
+		sort.Strings(domains)
+		result = append(result, roleTemplateView{
+			Name:        string(definition.Name),
+			Description: definition.Description,
+			Permissions: permissions,
+			Domains:     domains,
+			Builtin:     true,
+			Manageable:  authz.CanManageRoleSet(actorRoles, []string{string(definition.Name)}),
+		})
+	}
+	return result
 }

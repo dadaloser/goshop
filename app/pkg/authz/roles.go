@@ -34,16 +34,28 @@ const (
 	StaffRoleSuperAdmin StaffRole = "super_admin"
 )
 
+type BusinessDomain string
+
+const (
+	BusinessDomainSupport  BusinessDomain = "support"
+	BusinessDomainOps      BusinessDomain = "operations"
+	BusinessDomainFinance  BusinessDomain = "finance"
+	BusinessDomainCatalog  BusinessDomain = "catalog"
+	BusinessDomainPlatform BusinessDomain = "platform"
+)
+
 type RoleDefinition struct {
 	Name        StaffRole
 	Description string
 	Permissions []Permission
+	Domains     []BusinessDomain
 }
 
 var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 	StaffRoleSupport: {
 		Name:        StaffRoleSupport,
 		Description: "customer support operations",
+		Domains:     []BusinessDomain{BusinessDomainSupport},
 		Permissions: []Permission{
 			PermissionRoleReadAny,
 			PermissionUserListAny,
@@ -55,6 +67,7 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 	StaffRoleOps: {
 		Name:        StaffRoleOps,
 		Description: "operations management",
+		Domains:     []BusinessDomain{BusinessDomainOps},
 		Permissions: []Permission{
 			PermissionGoodsReadAny,
 			PermissionGoodsWriteAny,
@@ -67,6 +80,7 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 	StaffRoleFinance: {
 		Name:        StaffRoleFinance,
 		Description: "payment and refund operations",
+		Domains:     []BusinessDomain{BusinessDomainFinance},
 		Permissions: []Permission{
 			PermissionOrderReadAny,
 			PermissionOrderRefundAny,
@@ -76,6 +90,7 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 	StaffRoleCatalog: {
 		Name:        StaffRoleCatalog,
 		Description: "catalog and inventory maintenance",
+		Domains:     []BusinessDomain{BusinessDomainCatalog},
 		Permissions: []Permission{
 			PermissionGoodsReadAny,
 			PermissionGoodsWriteAny,
@@ -85,6 +100,7 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 	StaffRoleAdmin: {
 		Name:        StaffRoleAdmin,
 		Description: "broad backoffice administration",
+		Domains:     []BusinessDomain{BusinessDomainPlatform},
 		Permissions: []Permission{
 			PermissionRoleReadAny,
 			PermissionUserCreateAny,
@@ -103,6 +119,7 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 	StaffRoleSuperAdmin: {
 		Name:        StaffRoleSuperAdmin,
 		Description: "full backoffice administration",
+		Domains:     []BusinessDomain{BusinessDomainPlatform},
 		Permissions: []Permission{
 			PermissionRoleReadAny,
 			PermissionRoleAssignAny,
@@ -135,6 +152,7 @@ func BuiltinRoleDefinitions() []RoleDefinition {
 	} {
 		definition := builtinRoleDefinitions[role]
 		definition.Permissions = append([]Permission(nil), definition.Permissions...)
+		definition.Domains = append([]BusinessDomain(nil), definition.Domains...)
 		roles = append(roles, definition)
 	}
 	return roles
@@ -165,4 +183,71 @@ func PermissionsForRoles(roleNames []string) []Permission {
 		return result[i] < result[j]
 	})
 	return result
+}
+
+func DomainsForRoles(roleNames []string) []BusinessDomain {
+	domains := make(map[BusinessDomain]struct{})
+	for _, roleName := range roleNames {
+		definition, ok := builtinRoleDefinitions[StaffRole(roleName)]
+		if !ok {
+			continue
+		}
+		for _, domain := range definition.Domains {
+			domains[domain] = struct{}{}
+		}
+	}
+
+	result := make([]BusinessDomain, 0, len(domains))
+	for domain := range domains {
+		result = append(result, domain)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i] < result[j]
+	})
+	return result
+}
+
+func HasRole(roleNames []string, required StaffRole) bool {
+	for _, roleName := range roleNames {
+		if StaffRole(roleName) == required {
+			return true
+		}
+	}
+	return false
+}
+
+func CanManageRoleSet(actorRoles, targetRoles []string) bool {
+	if HasRole(actorRoles, StaffRoleSuperAdmin) {
+		return true
+	}
+	if HasRole(targetRoles, StaffRoleSuperAdmin) {
+		return false
+	}
+
+	actorDomains := domainSet(DomainsForRoles(actorRoles))
+	if len(actorDomains) == 0 {
+		return false
+	}
+	if _, ok := actorDomains[BusinessDomainPlatform]; ok {
+		return true
+	}
+
+	targetDomains := domainSet(DomainsForRoles(targetRoles))
+	if _, ok := targetDomains[BusinessDomainPlatform]; ok {
+		return false
+	}
+	for domain := range targetDomains {
+		if _, ok := actorDomains[domain]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func domainSet(domains []BusinessDomain) map[BusinessDomain]struct{} {
+	set := make(map[BusinessDomain]struct{}, len(domains))
+	for _, domain := range domains {
+		set[domain] = struct{}{}
+	}
+	return set
 }

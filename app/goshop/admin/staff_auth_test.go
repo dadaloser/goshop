@@ -372,6 +372,43 @@ func TestInitRouterAllowsCreateStaff(t *testing.T) {
 	}
 }
 
+func TestInitRouterRejectsCrossDomainCreateStaff(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionUserCreateAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 9, Username: "ops_001", Status: string(authz.AccountStatusActive)},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleOps)}, []string{string(authz.PermissionUserCreateAny)})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/user/staff", strings.NewReader(`{"username":"finance_001","mobile":"13800138001","password":"Secret123!","roles":["finance"],"status":"active"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("cross-domain create status = %d, want 403", rec.Code)
+	}
+	if client.createStaffReq != nil {
+		t.Fatalf("cross-domain create should not reach rpc, got %#v", client.createStaffReq)
+	}
+}
+
 func TestInitRouterRejectsHighRiskWriteWithoutConfirmation(t *testing.T) {
 	server := restserver.NewServer()
 	cfg := &config.Config{
@@ -460,6 +497,85 @@ func TestInitRouterPassesAuditLogFilters(t *testing.T) {
 	}
 }
 
+func TestInitRouterListsPermissionTemplates(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:       "bootstrap-secret",
+			Role:        config.AdminRoleSuperAdmin,
+			Permissions: []string{string(authz.PermissionRoleReadAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 9, Username: "ops_001", Status: string(authz.AccountStatusActive)},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleOps)}, []string{string(authz.PermissionRoleReadAny)})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/staff/permission_templates", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("permission templates status = %d, want 200", rec.Code)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, `"name":"ops"`) {
+		t.Fatalf("permission templates body missing ops template: %s", body)
+	}
+	if !strings.Contains(body, `"name":"finance"`) {
+		t.Fatalf("permission templates body missing finance template: %s", body)
+	}
+	if !strings.Contains(body, `"manageable":false`) {
+		t.Fatalf("permission templates body missing unmanageable template marker: %s", body)
+	}
+}
+
+func TestInitRouterRejectsCrossDomainRoleAssignment(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionRoleAssignAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 9, Username: "ops_001", Status: string(authz.AccountStatusActive)},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleOps)}, []string{string(authz.PermissionRoleAssignAny)})
+
+	req := httptest.NewRequest(http.MethodPut, "/v1/user/7/roles", strings.NewReader(`{"roles":["finance"]}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("cross-domain role assignment status = %d, want 403", rec.Code)
+	}
+	if client.replaceRolesReq != nil {
+		t.Fatalf("cross-domain role assignment should not reach rpc, got %#v", client.replaceRolesReq)
+	}
+}
+
 func mustCreateAdminToken(t *testing.T, jwtOpts *options.JwtOptions, userID uint, roles, scope []string) string {
 	t.Helper()
 	token, err := middlewares.NewJWT(jwtOpts.Key).CreateToken(middlewares.CustomClaims{
@@ -488,6 +604,9 @@ type fakeAdminUserClient struct {
 	updateStatusReq     *upbv1.UpdateUserStatusRequest
 	createStaffReq      *upbv1.CreateStaffUserRequest
 	createStaffResponse *upbv1.StaffUserResponse
+	replaceRolesReq     *upbv1.ReplaceUserStaffRolesRequest
+	replaceRolesResp    *upbv1.UserRoleBindingResponse
+	staffRolesResponse  *upbv1.StaffRoleListResponse
 	auditLogsResponse   *upbv1.UserAuditLogListResponse
 	auditLogsReq        *upbv1.UserAuditLogPageRequest
 }
@@ -535,6 +654,9 @@ func (f *fakeAdminUserClient) GetUserAuthById(context.Context, *upbv1.IdRequest,
 }
 
 func (f *fakeAdminUserClient) ListStaffRoles(context.Context, *emptypb.Empty, ...grpc.CallOption) (*upbv1.StaffRoleListResponse, error) {
+	if f.staffRolesResponse != nil {
+		return f.staffRolesResponse, nil
+	}
 	return &upbv1.StaffRoleListResponse{}, nil
 }
 
@@ -549,7 +671,11 @@ func (f *fakeAdminUserClient) GetUserStaffRoles(context.Context, *upbv1.IdReques
 	return &upbv1.UserRoleBindingResponse{}, nil
 }
 
-func (f *fakeAdminUserClient) ReplaceUserStaffRoles(context.Context, *upbv1.ReplaceUserStaffRolesRequest, ...grpc.CallOption) (*upbv1.UserRoleBindingResponse, error) {
+func (f *fakeAdminUserClient) ReplaceUserStaffRoles(_ context.Context, req *upbv1.ReplaceUserStaffRolesRequest, _ ...grpc.CallOption) (*upbv1.UserRoleBindingResponse, error) {
+	f.replaceRolesReq = req
+	if f.replaceRolesResp != nil {
+		return f.replaceRolesResp, nil
+	}
 	return &upbv1.UserRoleBindingResponse{}, nil
 }
 

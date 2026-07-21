@@ -97,3 +97,62 @@ func TestPermissionsForRolesDeduplicatesAndSorts(t *testing.T) {
 		t.Fatalf("PermissionsForRoles() missing %q", PermissionOrderReadAny)
 	}
 }
+
+func TestDomainsForRolesDeduplicatesAndSorts(t *testing.T) {
+	got := DomainsForRoles([]string{string(StaffRoleOps), string(StaffRoleCatalog), string(StaffRoleOps), "unknown"})
+	want := []BusinessDomain{BusinessDomainCatalog, BusinessDomainOps}
+	if len(got) != len(want) {
+		t.Fatalf("len(DomainsForRoles()) = %d, want %d: %v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("DomainsForRoles()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestCanManageRoleSet(t *testing.T) {
+	tests := []struct {
+		name        string
+		actorRoles  []string
+		targetRoles []string
+		want        bool
+	}{
+		{
+			name:        "super admin can manage any target",
+			actorRoles:  []string{string(StaffRoleSuperAdmin)},
+			targetRoles: []string{string(StaffRoleFinance)},
+			want:        true,
+		},
+		{
+			name:        "admin platform role can manage non super admin targets",
+			actorRoles:  []string{string(StaffRoleAdmin)},
+			targetRoles: []string{string(StaffRoleFinance)},
+			want:        true,
+		},
+		{
+			name:        "ops cannot manage finance target",
+			actorRoles:  []string{string(StaffRoleOps)},
+			targetRoles: []string{string(StaffRoleFinance)},
+			want:        false,
+		},
+		{
+			name:        "ops can manage ops target",
+			actorRoles:  []string{string(StaffRoleOps)},
+			targetRoles: []string{string(StaffRoleOps)},
+			want:        true,
+		},
+		{
+			name:        "non super admin cannot manage super admin target",
+			actorRoles:  []string{string(StaffRoleAdmin)},
+			targetRoles: []string{string(StaffRoleSuperAdmin)},
+			want:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		if got := CanManageRoleSet(tt.actorRoles, tt.targetRoles); got != tt.want {
+			t.Fatalf("%s: CanManageRoleSet(%v, %v) = %v, want %v", tt.name, tt.actorRoles, tt.targetRoles, got, tt.want)
+		}
+	}
+}
