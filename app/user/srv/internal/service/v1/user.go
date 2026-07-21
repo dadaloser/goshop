@@ -106,7 +106,9 @@ type UserSrv interface {
 	GetAuthByID(ctx context.Context, ID uint64) (*UserAuthDTO, error)
 	GetAuthByUsername(ctx context.Context, username string) (*UserAuthDTO, error)
 	ListStaffRoles(ctx context.Context) ([]StaffRoleDTO, error)
+	CreateStaffRole(ctx context.Context, role StaffRoleDTO) (*StaffRoleDTO, error)
 	UpdateStaffRole(ctx context.Context, role StaffRoleDTO) (*StaffRoleDTO, error)
+	DeleteStaffRole(ctx context.Context, roleName string) error
 	GetUserRoleBinding(ctx context.Context, userID uint64) (*UserRoleBindingDTO, error)
 	ReplaceUserRoleBinding(ctx context.Context, userID uint64, roleNames []string, actor AuditActorDTO) (*UserRoleBindingDTO, error)
 	ListUserAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilterDTO, opts metav1.ListMeta) (*UserAuditLogDTOList, error)
@@ -119,6 +121,7 @@ type userService struct {
 var (
 	usernamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{2,31}$`)
 	mobilePattern   = regexp.MustCompile(`^1([38][0-9]|14[579]|5[^4]|16[6]|7[1-35-8]|9[189])\d{8}$`)
+	roleNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,63}$`)
 )
 
 const (
@@ -140,17 +143,12 @@ func (u *userService) CreateStaff(ctx context.Context, user *UserDTO, roleNames 
 	if user == nil {
 		return nil, errors.WithCode(code2.ErrValidation, "用户信息不能为空")
 	}
-	if len(normalizeRoleNames(roleNames)) == 0 {
+	roleNames = normalizeRoleNames(roleNames)
+	if len(roleNames) == 0 {
 		return nil, errors.WithCode(code2.ErrValidation, "staff roles are required")
 	}
-	for _, roleName := range roleNames {
-		normalized := strings.ToLower(strings.TrimSpace(roleName))
-		if normalized == "" {
-			continue
-		}
-		if !authz.IsValidStaffRole(normalized) {
-			return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
-		}
+	if err := u.validateKnownRoleNames(ctx, roleNames); err != nil {
+		return nil, err
 	}
 
 	normalizedStatus, err := normalizeMutableAccountStatus(status)
@@ -338,11 +336,49 @@ func (u *userService) ListStaffRoles(ctx context.Context) ([]StaffRoleDTO, error
 			Name:        role.Name,
 			Description: role.Description,
 			Permissions: append([]string(nil), role.Permissions...),
-			Builtin:     builtin,
-			Domains:     domains,
+			Builtin:     builtin || role.Builtin,
+			Domains:     coalesceDomains(role.Domains, domains),
 		})
 	}
 	return result, nil
+}
+
+func (u *userService) CreateStaffRole(ctx context.Context, role StaffRoleDTO) (*StaffRoleDTO, error) {
+	role.Name = strings.ToLower(strings.TrimSpace(role.Name))
+	role.Description = strings.TrimSpace(role.Description)
+	if role.Name == "" {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
+	}
+	if authz.IsValidStaffRole(role.Name) {
+		return nil, errors.WithCode(code2.ErrValidation, "built-in staff roles cannot be created again")
+	}
+	if !roleNamePattern.MatchString(role.Name) {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role name format is invalid")
+	}
+	if role.Description == "" {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role description is required")
+	}
+
+	permissions, err := normalizePermissionNames(role.Permissions)
+	if err != nil {
+		return nil, err
+	}
+	domains, err := normalizeBusinessDomains(role.Domains)
+	if err != nil {
+		return nil, err
+	}
+
+	createdRole, err := u.userStore.CreateRole(ctx, role.Name, role.Description, permissions, domains)
+	if err != nil {
+		return nil, err
+	}
+	return &StaffRoleDTO{
+		Name:        createdRole.Name,
+		Description: createdRole.Description,
+		Permissions: append([]string(nil), createdRole.Permissions...),
+		Builtin:     createdRole.Builtin,
+		Domains:     append([]string(nil), createdRole.Domains...),
+	}, nil
 }
 
 func (u *userService) UpdateStaffRole(ctx context.Context, role StaffRoleDTO) (*StaffRoleDTO, error) {
@@ -354,32 +390,46 @@ func (u *userService) UpdateStaffRole(ctx context.Context, role StaffRoleDTO) (*
 	if role.Description == "" {
 		return nil, errors.WithCode(code2.ErrValidation, "staff role description is required")
 	}
-	if !authz.IsValidStaffRole(role.Name) {
-		return nil, errors.WithCode(code2.ErrValidation, "only built-in staff roles can be edited")
-	}
-
 	permissions, err := normalizePermissionNames(role.Permissions)
 	if err != nil {
 		return nil, err
 	}
+	var domains []string
+	if authz.IsValidStaffRole(role.Name) {
+		definition, _ := builtinRoleDefinitionByName(role.Name)
+		domains = domainsFromDefinition(definition)
+	} else {
+		domains, err = normalizeBusinessDomains(role.Domains)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-	updatedRole, err := u.userStore.UpdateRole(ctx, role.Name, role.Description, permissions)
+	updatedRole, err := u.userStore.UpdateRole(ctx, role.Name, role.Description, permissions, domains)
 	if err != nil {
 		return nil, err
 	}
-	definition, _ := builtinRoleDefinitionByName(updatedRole.Name)
-	domains := make([]string, 0, len(definition.Domains))
-	for _, domain := range definition.Domains {
-		domains = append(domains, string(domain))
-	}
-	sort.Strings(domains)
 	return &StaffRoleDTO{
 		Name:        updatedRole.Name,
 		Description: updatedRole.Description,
 		Permissions: append([]string(nil), updatedRole.Permissions...),
-		Builtin:     true,
-		Domains:     domains,
+		Builtin:     updatedRole.Builtin,
+		Domains:     append([]string(nil), updatedRole.Domains...),
 	}, nil
+}
+
+func (u *userService) DeleteStaffRole(ctx context.Context, roleName string) error {
+	roleName = strings.ToLower(strings.TrimSpace(roleName))
+	if roleName == "" {
+		return errors.WithCode(code2.ErrValidation, "staff role name is required")
+	}
+	if authz.IsValidStaffRole(roleName) {
+		return errors.WithCode(code2.ErrValidation, "built-in staff roles cannot be deleted")
+	}
+	if !roleNamePattern.MatchString(roleName) {
+		return errors.WithCode(code2.ErrValidation, "staff role name format is invalid")
+	}
+	return u.userStore.DeleteRole(ctx, roleName)
 }
 
 func (u *userService) GetUserRoleBinding(ctx context.Context, userID uint64) (*UserRoleBindingDTO, error) {
@@ -391,14 +441,9 @@ func (u *userService) GetUserRoleBinding(ctx context.Context, userID uint64) (*U
 }
 
 func (u *userService) ReplaceUserRoleBinding(ctx context.Context, userID uint64, roleNames []string, actor AuditActorDTO) (*UserRoleBindingDTO, error) {
-	for _, roleName := range roleNames {
-		normalized := strings.ToLower(strings.TrimSpace(roleName))
-		if normalized == "" {
-			continue
-		}
-		if !authz.IsValidStaffRole(normalized) {
-			return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
-		}
+	roleNames = normalizeRoleNames(roleNames)
+	if err := u.validateKnownRoleNames(ctx, roleNames); err != nil {
+		return nil, err
 	}
 	authUser, err := u.userStore.ReplaceUserRoles(ctx, userID, roleNames, newAuditActor(actor))
 	if err != nil {
@@ -708,6 +753,66 @@ func normalizePermissionNames(permissionNames []string) ([]string, error) {
 	}
 	sort.Strings(result)
 	return result, nil
+}
+
+func normalizeBusinessDomains(domains []string) ([]string, error) {
+	normalized := make(map[string]struct{}, len(domains))
+	for _, domain := range domains {
+		domain = strings.ToLower(strings.TrimSpace(domain))
+		if domain == "" {
+			continue
+		}
+		if !authz.IsValidBusinessDomain(domain) {
+			return nil, errors.WithCode(code2.ErrValidation, "staff role domains contain unknown values")
+		}
+		normalized[domain] = struct{}{}
+	}
+	if len(normalized) == 0 {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role domains are required")
+	}
+
+	result := make([]string, 0, len(normalized))
+	for domain := range normalized {
+		result = append(result, domain)
+	}
+	sort.Strings(result)
+	return result, nil
+}
+
+func (u *userService) validateKnownRoleNames(ctx context.Context, roleNames []string) error {
+	if len(roleNames) == 0 {
+		return nil
+	}
+	knownRoles, err := u.userStore.ListRoles(ctx)
+	if err != nil {
+		return err
+	}
+	known := make(map[string]struct{}, len(knownRoles))
+	for _, role := range knownRoles {
+		known[strings.ToLower(strings.TrimSpace(role.Name))] = struct{}{}
+	}
+	for _, roleName := range roleNames {
+		if _, ok := known[roleName]; !ok {
+			return errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
+		}
+	}
+	return nil
+}
+
+func domainsFromDefinition(definition authz.RoleDefinition) []string {
+	domains := make([]string, 0, len(definition.Domains))
+	for _, domain := range definition.Domains {
+		domains = append(domains, string(domain))
+	}
+	sort.Strings(domains)
+	return domains
+}
+
+func coalesceDomains(primary, fallback []string) []string {
+	if len(primary) > 0 {
+		return append([]string(nil), primary...)
+	}
+	return append([]string(nil), fallback...)
 }
 
 func builtinRoleDefinitionByName(name string) (authz.RoleDefinition, bool) {

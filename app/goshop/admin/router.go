@@ -53,7 +53,9 @@ func initRouterWithSessionStores(
 	ugroup.PUT(":id/roles", authz.RequirePermission(authz.PermissionRoleAssignAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.ReplaceUserStaffRoles)
 	staffGroup := v1.Group("/staff", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff))
 	staffGroup.GET("roles", authz.RequirePermission(authz.PermissionRoleReadAny), ucontroller.ListStaffRoles)
+	staffGroup.POST("roles", authz.RequirePermission(authz.PermissionRoleWriteAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.CreateStaffRole)
 	staffGroup.PUT("roles/:name", authz.RequirePermission(authz.PermissionRoleWriteAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.UpdateStaffRole)
+	staffGroup.DELETE("roles/:name", authz.RequirePermission(authz.PermissionRoleWriteAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.DeleteStaffRole)
 	staffGroup.GET("permission_templates", authz.RequirePermission(authz.PermissionRoleReadAny), ucontroller.ListPermissionTemplates)
 	return nil
 }

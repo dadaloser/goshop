@@ -44,6 +44,25 @@ const (
 	BusinessDomainPlatform BusinessDomain = "platform"
 )
 
+func AllBusinessDomains() []BusinessDomain {
+	return []BusinessDomain{
+		BusinessDomainSupport,
+		BusinessDomainOps,
+		BusinessDomainFinance,
+		BusinessDomainCatalog,
+		BusinessDomainPlatform,
+	}
+}
+
+func IsValidBusinessDomain(value string) bool {
+	for _, domain := range AllBusinessDomains() {
+		if string(domain) == value {
+			return true
+		}
+	}
+	return false
+}
+
 type RoleDefinition struct {
 	Name        StaffRole
 	Description string

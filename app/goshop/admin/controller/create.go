@@ -8,6 +8,7 @@ import (
 	"goshop/app/pkg/authz"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type createStaffUserRequest struct {
@@ -41,7 +42,15 @@ func (us *userServer) CreateStaff(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	if !authz.CanManageRoleSet(currentRoles(ctx), request.Roles) {
+	roleCatalog, err := us.users.ListStaffRoles(ctx.Request.Context(), &emptypb.Empty{})
+	if err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{
+			"code": http.StatusBadGateway,
+			"msg":  "list staff roles failed",
+		})
+		return
+	}
+	if !canManageRoleNamesWithCatalog(currentRoles(ctx), request.Roles, roleCatalog.GetRoles()) {
 		ctx.JSON(http.StatusForbidden, gin.H{
 			"code": http.StatusForbidden,
 			"msg":  "cross-domain role assignment denied",

@@ -276,8 +276,62 @@ func TestUserService_UpdateStaffRoleValidatesAndNormalizesPermissions(t *testing
 		Name:        string(authz.StaffRoleOps),
 		Description: "updated ops role",
 		Permissions: []string{"role:own:any"},
+		Domains:     []string{string(authz.BusinessDomainOps)},
 	}); !errors.IsCode(err, code2.ErrValidation) {
 		t.Fatalf("UpdateStaffRole() unknown permission error = %v, want ErrValidation", err)
+	}
+}
+
+func TestUserService_CreateStaffRoleValidatesAndCreatesCustomRole(t *testing.T) {
+	store := &fakeUserStore{}
+	svc := NewUserService(store)
+
+	role, err := svc.CreateStaffRole(context.Background(), StaffRoleDTO{
+		Name:        "ops_delegate",
+		Description: "operations delegate",
+		Permissions: []string{string(authz.PermissionOrderReadAny), string(authz.PermissionOrderCloseAny)},
+		Domains:     []string{string(authz.BusinessDomainOps)},
+	})
+	if err != nil {
+		t.Fatalf("CreateStaffRole() error = %v", err)
+	}
+	if store.createdRole == nil {
+		t.Fatal("CreateStaffRole() did not reach store")
+	}
+	if role.Builtin {
+		t.Fatal("custom role unexpectedly marked builtin")
+	}
+	if len(role.Domains) != 1 || role.Domains[0] != string(authz.BusinessDomainOps) {
+		t.Fatalf("created role domains = %#v, want operations", role.Domains)
+	}
+
+	if _, err = svc.CreateStaffRole(context.Background(), StaffRoleDTO{
+		Name:        string(authz.StaffRoleOps),
+		Description: "builtin duplicate",
+		Permissions: []string{string(authz.PermissionOrderReadAny)},
+		Domains:     []string{string(authz.BusinessDomainOps)},
+	}); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("CreateStaffRole() builtin duplicate error = %v, want ErrValidation", err)
+	}
+}
+
+func TestUserService_DeleteStaffRoleValidatesAndDeletesCustomRole(t *testing.T) {
+	store := &fakeUserStore{}
+	svc := NewUserService(store)
+
+	if err := svc.DeleteStaffRole(context.Background(), " ops_delegate "); err != nil {
+		t.Fatalf("DeleteStaffRole() error = %v", err)
+	}
+	if store.deletedRoleName != "ops_delegate" {
+		t.Fatalf("deleted role name = %q, want ops_delegate", store.deletedRoleName)
+	}
+
+	if err := svc.DeleteStaffRole(context.Background(), string(authz.StaffRoleOps)); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("DeleteStaffRole() builtin delete error = %v, want ErrValidation", err)
+	}
+
+	if err := svc.DeleteStaffRole(context.Background(), "!!!"); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("DeleteStaffRole() invalid name error = %v, want ErrValidation", err)
 	}
 }
 
@@ -301,11 +355,17 @@ func TestUserService_ReplaceUserRoleBindingValidatesAndReturnsBinding(t *testing
 	if store.replacedUserID != 7 {
 		t.Fatalf("replaced user id = %d, want 7", store.replacedUserID)
 	}
-	if len(store.replacedRoles) != 2 {
-		t.Fatalf("len(replaced roles) = %d, want 2 original inputs passed through", len(store.replacedRoles))
+	if len(store.replacedRoles) != 1 {
+		t.Fatalf("len(replaced roles) = %d, want 1 normalized role", len(store.replacedRoles))
 	}
-	if len(binding.StaffRoles) != 2 && len(binding.StaffRoles) != 1 {
-		t.Fatalf("binding roles = %#v, want non-empty", binding.StaffRoles)
+	if got := store.replacedRoles[0]; got != string(authz.StaffRoleSuperAdmin) {
+		t.Fatalf("replaced role = %q, want %q", got, authz.StaffRoleSuperAdmin)
+	}
+	if len(binding.StaffRoles) != 1 {
+		t.Fatalf("binding roles = %#v, want one normalized role", binding.StaffRoles)
+	}
+	if got := binding.StaffRoles[0]; got != string(authz.StaffRoleSuperAdmin) {
+		t.Fatalf("binding role = %q, want %q", got, authz.StaffRoleSuperAdmin)
 	}
 	if len(binding.Permissions) == 0 {
 		t.Fatal("binding permissions is empty")
@@ -422,7 +482,9 @@ type fakeUserStore struct {
 	userByID           map[uint64]*dv1.UserDO
 	authByID           map[uint64]*dv1.UserAuthDO
 	roles              []dv1.RoleDO
+	createdRole        *dv1.RoleDO
 	updatedRole        *dv1.RoleDO
+	deletedRoleName    string
 	replacedUserID     uint64
 	replacedRoles      []string
 	replacedActor      *dv1.AuditActor
@@ -486,16 +548,49 @@ func (f *fakeUserStore) GetAuthByID(_ context.Context, id uint64) (*dv1.UserAuth
 }
 
 func (f *fakeUserStore) ListRoles(context.Context) ([]dv1.RoleDO, error) {
+	if len(f.roles) == 0 {
+		roles := make([]dv1.RoleDO, 0, len(authz.BuiltinRoleDefinitions()))
+		for _, definition := range authz.BuiltinRoleDefinitions() {
+			domains := make([]string, 0, len(definition.Domains))
+			for _, domain := range definition.Domains {
+				domains = append(domains, string(domain))
+			}
+			roles = append(roles, dv1.RoleDO{
+				Name:        string(definition.Name),
+				Description: definition.Description,
+				Builtin:     true,
+				Domains:     domains,
+			})
+		}
+		return roles, nil
+	}
 	return append([]dv1.RoleDO(nil), f.roles...), nil
 }
 
-func (f *fakeUserStore) UpdateRole(_ context.Context, roleName, description string, permissions []string) (*dv1.RoleDO, error) {
+func (f *fakeUserStore) CreateRole(_ context.Context, roleName, description string, permissions, domains []string) (*dv1.RoleDO, error) {
+	f.createdRole = &dv1.RoleDO{
+		Name:        roleName,
+		Description: description,
+		Permissions: append([]string(nil), permissions...),
+		Domains:     append([]string(nil), domains...),
+	}
+	return f.createdRole, nil
+}
+
+func (f *fakeUserStore) UpdateRole(_ context.Context, roleName, description string, permissions, domains []string) (*dv1.RoleDO, error) {
 	f.updatedRole = &dv1.RoleDO{
 		Name:        roleName,
 		Description: description,
 		Permissions: append([]string(nil), permissions...),
+		Domains:     append([]string(nil), domains...),
+		Builtin:     authz.IsValidStaffRole(roleName),
 	}
 	return f.updatedRole, nil
+}
+
+func (f *fakeUserStore) DeleteRole(_ context.Context, roleName string) error {
+	f.deletedRoleName = roleName
+	return nil
 }
 
 func (f *fakeUserStore) ReplaceUserRoles(_ context.Context, userID uint64, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {

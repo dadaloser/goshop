@@ -85,7 +85,9 @@ type UserStore interface {
 	GetAuthByUsername(ctx context.Context, username string) (*UserAuthDO, error)
 	GetAuthByID(ctx context.Context, id uint64) (*UserAuthDO, error)
 	ListRoles(ctx context.Context) ([]RoleDO, error)
-	UpdateRole(ctx context.Context, roleName, description string, permissions []string) (*RoleDO, error)
+	CreateRole(ctx context.Context, roleName, description string, permissions, domains []string) (*RoleDO, error)
+	UpdateRole(ctx context.Context, roleName, description string, permissions, domains []string) (*RoleDO, error)
+	DeleteRole(ctx context.Context, roleName string) error
 	ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string, actor *AuditActor) (*UserAuthDO, error)
 	ListAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilters, opts metav1.ListMeta) (*UserAuditLogDOList, error)
 

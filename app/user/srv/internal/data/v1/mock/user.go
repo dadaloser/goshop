@@ -36,8 +36,16 @@ func (u *users) ListRoles(ctx context.Context) ([]dv1.RoleDO, error) {
 	return nil, errors.New("mock users ListRoles not implemented")
 }
 
-func (u *users) UpdateRole(ctx context.Context, roleName, description string, permissions []string) (*dv1.RoleDO, error) {
+func (u *users) CreateRole(ctx context.Context, roleName, description string, permissions, domains []string) (*dv1.RoleDO, error) {
+	return nil, errors.New("mock users CreateRole not implemented")
+}
+
+func (u *users) UpdateRole(ctx context.Context, roleName, description string, permissions, domains []string) (*dv1.RoleDO, error) {
 	return nil, errors.New("mock users UpdateRole not implemented")
+}
+
+func (u *users) DeleteRole(ctx context.Context, roleName string) error {
+	return errors.New("mock users DeleteRole not implemented")
 }
 
 func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {

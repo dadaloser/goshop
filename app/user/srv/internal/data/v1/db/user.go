@@ -125,19 +125,68 @@ func (u *users) ListRoles(ctx context.Context) ([]dv1.RoleDO, error) {
 		if err != nil {
 			return nil, err
 		}
+		domains, err := u.listRoleDomains(ctx, roles[i].ID)
+		if err != nil {
+			return nil, err
+		}
 		roles[i].Permissions = permissions
+		roles[i].Domains = domains
 		if definition, ok := definitions[roles[i].Name]; ok {
 			roles[i].Builtin = true
-			roles[i].Domains = make([]string, 0, len(definition.Domains))
-			for _, domain := range definition.Domains {
-				roles[i].Domains = append(roles[i].Domains, string(domain))
+			if len(roles[i].Domains) == 0 {
+				roles[i].Domains = make([]string, 0, len(definition.Domains))
+				for _, domain := range definition.Domains {
+					roles[i].Domains = append(roles[i].Domains, string(domain))
+				}
 			}
 		}
 	}
 	return roles, nil
 }
 
-func (u *users) UpdateRole(ctx context.Context, roleName, description string, permissions []string) (*dv1.RoleDO, error) {
+func (u *users) CreateRole(ctx context.Context, roleName, description string, permissions, domains []string) (*dv1.RoleDO, error) {
+	roleName = strings.ToLower(strings.TrimSpace(roleName))
+	if roleName == "" {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
+	}
+
+	role := dv1.RoleDO{
+		Name:        roleName,
+		Description: description,
+	}
+	tx := u.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	if err := tx.Create(&role).Error; err != nil {
+		tx.Rollback()
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if err := u.replaceRolePermissionsTx(tx, role.ID, permissions); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := u.replaceRoleDomainsTx(tx, role.ID, domains); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Commit().Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+
+	role.Permissions = append([]string(nil), permissions...)
+	role.Domains = append([]string(nil), domains...)
+	return &role, nil
+}
+
+func (u *users) UpdateRole(ctx context.Context, roleName, description string, permissions, domains []string) (*dv1.RoleDO, error) {
 	roleName = strings.ToLower(strings.TrimSpace(roleName))
 	if roleName == "" {
 		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
@@ -166,19 +215,13 @@ func (u *users) UpdateRole(ctx context.Context, roleName, description string, pe
 		tx.Rollback()
 		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
-	if err := tx.Where("role_id = ?", role.ID).Delete(&dv1.RolePermissionDO{}).Error; err != nil {
+	if err := u.replaceRolePermissionsTx(tx, role.ID, permissions); err != nil {
 		tx.Rollback()
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, err
 	}
-	for _, permission := range permissions {
-		record := dv1.RolePermissionDO{
-			RoleID:     role.ID,
-			Permission: permission,
-		}
-		if err := tx.Create(&record).Error; err != nil {
-			tx.Rollback()
-			return nil, errors.WithCode(code2.ErrDatabase, err.Error())
-		}
+	if err := u.replaceRoleDomainsTx(tx, role.ID, domains); err != nil {
+		tx.Rollback()
+		return nil, err
 	}
 	if err := tx.Commit().Error; err != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
@@ -186,14 +229,63 @@ func (u *users) UpdateRole(ctx context.Context, roleName, description string, pe
 
 	role.Description = description
 	role.Permissions = append([]string(nil), permissions...)
-	if definition, ok := builtinRoleDefinitionByName(role.Name); ok {
-		role.Builtin = true
-		role.Domains = make([]string, 0, len(definition.Domains))
-		for _, domain := range definition.Domains {
-			role.Domains = append(role.Domains, string(domain))
-		}
-	}
+	role.Domains = append([]string(nil), domains...)
+	role.Builtin = authz.IsValidStaffRole(role.Name)
 	return &role, nil
+}
+
+func (u *users) DeleteRole(ctx context.Context, roleName string) error {
+	roleName = strings.ToLower(strings.TrimSpace(roleName))
+	if roleName == "" {
+		return errors.WithCode(code2.ErrValidation, "staff role name is required")
+	}
+	if authz.IsValidStaffRole(roleName) {
+		return errors.WithCode(code2.ErrValidation, "built-in staff roles cannot be deleted")
+	}
+
+	var role dv1.RoleDO
+	if err := u.db.WithContext(ctx).Where("name = ?", roleName).First(&role).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.WithCode(code.ErrUserNotFound, "staff role not found")
+		}
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+
+	var bindingCount int64
+	if err := u.db.WithContext(ctx).Model(&dv1.UserRoleDO{}).Where("role_id = ?", role.ID).Count(&bindingCount).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if bindingCount > 0 {
+		return errors.WithCode(code2.ErrValidation, "staff role is still assigned")
+	}
+
+	tx := u.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	if err := tx.Where("role_id = ?", role.ID).Delete(&dv1.RolePermissionDO{}).Error; err != nil {
+		tx.Rollback()
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if err := tx.Where("role_id = ?", role.ID).Delete(&dv1.RoleDomainDO{}).Error; err != nil {
+		tx.Rollback()
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if err := tx.Delete(&dv1.RoleDO{}, role.ID).Error; err != nil {
+		tx.Rollback()
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if err := tx.Commit().Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return nil
 }
 
 func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {
@@ -589,6 +681,23 @@ func (u *users) listRolePermissions(ctx context.Context, roleID uint64) ([]strin
 	return permissions, nil
 }
 
+func (u *users) listRoleDomains(ctx context.Context, roleID uint64) ([]string, error) {
+	if roleID == 0 {
+		return nil, errors.WithCode(code2.ErrValidation, "staff role not found")
+	}
+
+	var domains []string
+	err := u.db.WithContext(ctx).
+		Model(&dv1.RoleDomainDO{}).
+		Where("role_id = ?", roleID).
+		Order("domain ASC").
+		Pluck("domain", &domains).Error
+	if err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return domains, nil
+}
+
 func (u *users) loadRoles(tx *gorm.DB, normalizedRoles []string) ([]dv1.RoleDO, error) {
 	if len(normalizedRoles) == 0 {
 		return nil, nil
@@ -622,6 +731,38 @@ func (u *users) replaceUserRolesTx(tx *gorm.DB, userID int32, roles []dv1.RoleDO
 			RoleID: role.ID,
 		}
 		if err := tx.Create(&binding).Error; err != nil {
+			return errors.WithCode(code2.ErrDatabase, err.Error())
+		}
+	}
+	return nil
+}
+
+func (u *users) replaceRolePermissionsTx(tx *gorm.DB, roleID uint64, permissions []string) error {
+	if err := tx.Where("role_id = ?", roleID).Delete(&dv1.RolePermissionDO{}).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	for _, permission := range permissions {
+		record := dv1.RolePermissionDO{
+			RoleID:     roleID,
+			Permission: permission,
+		}
+		if err := tx.Create(&record).Error; err != nil {
+			return errors.WithCode(code2.ErrDatabase, err.Error())
+		}
+	}
+	return nil
+}
+
+func (u *users) replaceRoleDomainsTx(tx *gorm.DB, roleID uint64, domains []string) error {
+	if err := tx.Where("role_id = ?", roleID).Delete(&dv1.RoleDomainDO{}).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	for _, domain := range domains {
+		record := dv1.RoleDomainDO{
+			RoleID: roleID,
+			Domain: domain,
+		}
+		if err := tx.Create(&record).Error; err != nil {
 			return errors.WithCode(code2.ErrDatabase, err.Error())
 		}
 	}

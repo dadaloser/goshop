@@ -33,6 +33,16 @@ func (r *RolePermissionDO) TableName() string {
 	return "role_permissions"
 }
 
+type RoleDomainDO struct {
+	ID     uint64 `gorm:"primarykey"`
+	RoleID uint64 `gorm:"index:idx_role_domain_role;not null"`
+	Domain string `gorm:"type:varchar(64);not null"`
+}
+
+func (r *RoleDomainDO) TableName() string {
+	return "role_domains"
+}
+
 type UserAuthDO struct {
 	UserDO
 	StaffRoles  []string

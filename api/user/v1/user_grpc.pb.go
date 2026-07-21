@@ -26,7 +26,9 @@ const (
 	User_CreateStaffUser_FullMethodName       = "/User/CreateStaffUser"
 	User_UpdateUserStatus_FullMethodName      = "/User/UpdateUserStatus"
 	User_ListStaffRoles_FullMethodName        = "/User/ListStaffRoles"
+	User_CreateStaffRole_FullMethodName       = "/User/CreateStaffRole"
 	User_UpdateStaffRole_FullMethodName       = "/User/UpdateStaffRole"
+	User_DeleteStaffRole_FullMethodName       = "/User/DeleteStaffRole"
 	User_GetUserStaffRoles_FullMethodName     = "/User/GetUserStaffRoles"
 	User_ReplaceUserStaffRoles_FullMethodName = "/User/ReplaceUserStaffRoles"
 	User_ListUserAuditLogs_FullMethodName     = "/User/ListUserAuditLogs"
@@ -48,7 +50,9 @@ type UserClient interface {
 	CreateStaffUser(ctx context.Context, in *CreateStaffUserRequest, opts ...grpc.CallOption) (*StaffUserResponse, error)
 	UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*UserInfoResponse, error)
 	ListStaffRoles(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*StaffRoleListResponse, error)
+	CreateStaffRole(ctx context.Context, in *CreateStaffRoleRequest, opts ...grpc.CallOption) (*StaffRole, error)
 	UpdateStaffRole(ctx context.Context, in *UpdateStaffRoleRequest, opts ...grpc.CallOption) (*StaffRole, error)
+	DeleteStaffRole(ctx context.Context, in *DeleteStaffRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetUserStaffRoles(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*UserRoleBindingResponse, error)
 	ReplaceUserStaffRoles(ctx context.Context, in *ReplaceUserStaffRolesRequest, opts ...grpc.CallOption) (*UserRoleBindingResponse, error)
 	ListUserAuditLogs(ctx context.Context, in *UserAuditLogPageRequest, opts ...grpc.CallOption) (*UserAuditLogListResponse, error)
@@ -128,10 +132,30 @@ func (c *userClient) ListStaffRoles(ctx context.Context, in *emptypb.Empty, opts
 	return out, nil
 }
 
+func (c *userClient) CreateStaffRole(ctx context.Context, in *CreateStaffRoleRequest, opts ...grpc.CallOption) (*StaffRole, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StaffRole)
+	err := c.cc.Invoke(ctx, User_CreateStaffRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userClient) UpdateStaffRole(ctx context.Context, in *UpdateStaffRoleRequest, opts ...grpc.CallOption) (*StaffRole, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StaffRole)
 	err := c.cc.Invoke(ctx, User_UpdateStaffRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) DeleteStaffRole(ctx context.Context, in *DeleteStaffRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, User_DeleteStaffRole_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +262,9 @@ type UserServer interface {
 	CreateStaffUser(context.Context, *CreateStaffUserRequest) (*StaffUserResponse, error)
 	UpdateUserStatus(context.Context, *UpdateUserStatusRequest) (*UserInfoResponse, error)
 	ListStaffRoles(context.Context, *emptypb.Empty) (*StaffRoleListResponse, error)
+	CreateStaffRole(context.Context, *CreateStaffRoleRequest) (*StaffRole, error)
 	UpdateStaffRole(context.Context, *UpdateStaffRoleRequest) (*StaffRole, error)
+	DeleteStaffRole(context.Context, *DeleteStaffRoleRequest) (*emptypb.Empty, error)
 	GetUserStaffRoles(context.Context, *IdRequest) (*UserRoleBindingResponse, error)
 	ReplaceUserStaffRoles(context.Context, *ReplaceUserStaffRolesRequest) (*UserRoleBindingResponse, error)
 	ListUserAuditLogs(context.Context, *UserAuditLogPageRequest) (*UserAuditLogListResponse, error)
@@ -276,8 +302,14 @@ func (UnimplementedUserServer) UpdateUserStatus(context.Context, *UpdateUserStat
 func (UnimplementedUserServer) ListStaffRoles(context.Context, *emptypb.Empty) (*StaffRoleListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListStaffRoles not implemented")
 }
+func (UnimplementedUserServer) CreateStaffRole(context.Context, *CreateStaffRoleRequest) (*StaffRole, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateStaffRole not implemented")
+}
 func (UnimplementedUserServer) UpdateStaffRole(context.Context, *UpdateStaffRoleRequest) (*StaffRole, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateStaffRole not implemented")
+}
+func (UnimplementedUserServer) DeleteStaffRole(context.Context, *DeleteStaffRoleRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteStaffRole not implemented")
 }
 func (UnimplementedUserServer) GetUserStaffRoles(context.Context, *IdRequest) (*UserRoleBindingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUserStaffRoles not implemented")
@@ -435,6 +467,24 @@ func _User_ListStaffRoles_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_CreateStaffRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateStaffRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).CreateStaffRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_CreateStaffRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).CreateStaffRole(ctx, req.(*CreateStaffRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _User_UpdateStaffRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateStaffRoleRequest)
 	if err := dec(in); err != nil {
@@ -449,6 +499,24 @@ func _User_UpdateStaffRole_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(UserServer).UpdateStaffRole(ctx, req.(*UpdateStaffRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_DeleteStaffRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteStaffRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).DeleteStaffRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_DeleteStaffRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).DeleteStaffRole(ctx, req.(*DeleteStaffRoleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -647,8 +715,16 @@ var User_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _User_ListStaffRoles_Handler,
 		},
 		{
+			MethodName: "CreateStaffRole",
+			Handler:    _User_CreateStaffRole_Handler,
+		},
+		{
 			MethodName: "UpdateStaffRole",
 			Handler:    _User_UpdateStaffRole_Handler,
+		},
+		{
+			MethodName: "DeleteStaffRole",
+			Handler:    _User_DeleteStaffRole_Handler,
 		},
 		{
 			MethodName: "GetUserStaffRoles",

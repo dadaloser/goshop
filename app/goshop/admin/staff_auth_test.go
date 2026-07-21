@@ -667,6 +667,182 @@ func TestInitRouterRejectsRolePermissionEscalation(t *testing.T) {
 	}
 }
 
+func TestInitRouterCreatesCustomStaffRole(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User:       &upbv1.UserInfoResponse{Id: 9, Username: "root_001", Status: string(authz.AccountStatusActive)},
+			LegacyRole: int32(authz.LegacyUserRoleAdmin),
+		},
+		createRoleResp: &upbv1.StaffRole{
+			Name:        "ops_delegate",
+			Description: "operations delegate",
+			Permissions: []string{string(authz.PermissionOrderReadAny)},
+			Domains:     []string{string(authz.BusinessDomainOps)},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleOps)}, []string{
+		string(authz.PermissionRoleWriteAny),
+		string(authz.PermissionOrderReadAny),
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/staff/roles", strings.NewReader(`{"name":"ops_delegate","description":"operations delegate","permissions":["order:read:any"],"domains":["operations"]}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create custom role status = %d, want 200", rec.Code)
+	}
+	if client.createRoleReq == nil || client.createRoleReq.GetRole().GetName() != "ops_delegate" {
+		t.Fatalf("create role request = %#v, want ops_delegate", client.createRoleReq)
+	}
+}
+
+func TestInitRouterRejectsCrossDomainCustomStaffRoleCreation(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User:       &upbv1.UserInfoResponse{Id: 9, Username: "ops_001", Status: string(authz.AccountStatusActive)},
+			LegacyRole: int32(authz.LegacyUserRoleAdmin),
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleOps)}, []string{
+		string(authz.PermissionRoleWriteAny),
+		string(authz.PermissionOrderReadAny),
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/staff/roles", strings.NewReader(`{"name":"finance_delegate","description":"finance delegate","permissions":["order:read:any"],"domains":["finance"]}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("cross-domain custom role create status = %d, want 403", rec.Code)
+	}
+	if client.createRoleReq != nil {
+		t.Fatalf("cross-domain custom role create should not reach rpc, got %#v", client.createRoleReq)
+	}
+}
+
+func TestInitRouterDeletesCustomStaffRole(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User:       &upbv1.UserInfoResponse{Id: 9, Username: "ops_001", Status: string(authz.AccountStatusActive)},
+			LegacyRole: int32(authz.LegacyUserRoleAdmin),
+		},
+		staffRolesResponse: &upbv1.StaffRoleListResponse{
+			Roles: []*upbv1.StaffRole{
+				{Name: "ops_delegate", Domains: []string{string(authz.BusinessDomainOps)}},
+			},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleOps)}, []string{
+		string(authz.PermissionRoleWriteAny),
+	})
+
+	req := httptest.NewRequest(http.MethodDelete, "/v1/staff/roles/ops_delegate", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete custom role status = %d, want 200", rec.Code)
+	}
+	if client.deleteRoleReq == nil || client.deleteRoleReq.GetName() != "ops_delegate" {
+		t.Fatalf("delete role request = %#v, want ops_delegate", client.deleteRoleReq)
+	}
+}
+
+func TestInitRouterRejectsCrossDomainCustomStaffRoleDeletion(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:             "bootstrap-secret",
+			ConfirmationToken: "confirm-secret",
+			Role:              config.AdminRoleSuperAdmin,
+			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User:       &upbv1.UserInfoResponse{Id: 9, Username: "ops_001", Status: string(authz.AccountStatusActive)},
+			LegacyRole: int32(authz.LegacyUserRoleAdmin),
+		},
+		staffRolesResponse: &upbv1.StaffRoleListResponse{
+			Roles: []*upbv1.StaffRole{
+				{Name: "finance_delegate", Domains: []string{string(authz.BusinessDomainFinance)}},
+			},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleOps)}, []string{
+		string(authz.PermissionRoleWriteAny),
+	})
+
+	req := httptest.NewRequest(http.MethodDelete, "/v1/staff/roles/finance_delegate", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Admin-Confirm-Token", "confirm-secret")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("cross-domain custom role delete status = %d, want 403", rec.Code)
+	}
+	if client.deleteRoleReq != nil {
+		t.Fatalf("cross-domain custom role delete should not reach rpc, got %#v", client.deleteRoleReq)
+	}
+}
+
 func mustCreateAdminToken(t *testing.T, jwtOpts *options.JwtOptions, userID uint, roles, scope []string) string {
 	t.Helper()
 	token, err := middlewares.NewJWT(jwtOpts.Key).CreateToken(middlewares.CustomClaims{
@@ -693,8 +869,11 @@ type fakeAdminUserClient struct {
 	userResponse        *upbv1.UserInfoResponse
 	authUserResponse    *upbv1.UserAuthResponse
 	updateStatusReq     *upbv1.UpdateUserStatusRequest
+	createRoleReq       *upbv1.CreateStaffRoleRequest
+	createRoleResp      *upbv1.StaffRole
 	updateRoleReq       *upbv1.UpdateStaffRoleRequest
 	updateRoleResp      *upbv1.StaffRole
+	deleteRoleReq       *upbv1.DeleteStaffRoleRequest
 	createStaffReq      *upbv1.CreateStaffUserRequest
 	createStaffResponse *upbv1.StaffUserResponse
 	replaceRolesReq     *upbv1.ReplaceUserStaffRolesRequest
@@ -753,12 +932,25 @@ func (f *fakeAdminUserClient) ListStaffRoles(context.Context, *emptypb.Empty, ..
 	return &upbv1.StaffRoleListResponse{}, nil
 }
 
+func (f *fakeAdminUserClient) CreateStaffRole(_ context.Context, req *upbv1.CreateStaffRoleRequest, _ ...grpc.CallOption) (*upbv1.StaffRole, error) {
+	f.createRoleReq = req
+	if f.createRoleResp != nil {
+		return f.createRoleResp, nil
+	}
+	return &upbv1.StaffRole{}, nil
+}
+
 func (f *fakeAdminUserClient) UpdateStaffRole(_ context.Context, req *upbv1.UpdateStaffRoleRequest, _ ...grpc.CallOption) (*upbv1.StaffRole, error) {
 	f.updateRoleReq = req
 	if f.updateRoleResp != nil {
 		return f.updateRoleResp, nil
 	}
 	return &upbv1.StaffRole{}, nil
+}
+
+func (f *fakeAdminUserClient) DeleteStaffRole(_ context.Context, req *upbv1.DeleteStaffRoleRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	f.deleteRoleReq = req
+	return &emptypb.Empty{}, nil
 }
 
 func (f *fakeAdminUserClient) GetUserStaffRoles(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*upbv1.UserRoleBindingResponse, error) {

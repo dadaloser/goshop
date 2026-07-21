@@ -88,7 +88,7 @@ func migrateUserSchema(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("user schema migration failed: nil db")
 	}
-	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}, &dv1.UserAuditLogDO{}); err != nil {
+	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}, &dv1.RoleDomainDO{}, &dv1.UserAuditLogDO{}); err != nil {
 		return fmt.Errorf("user schema migration failed: %w", err)
 	}
 	return nil
@@ -140,6 +140,10 @@ func validateUserSchema(db *gorm.DB) error {
 			columns: []string{"id", "role_id", "permission"},
 		},
 		{
+			model:   &dv1.RoleDomainDO{},
+			columns: []string{"id", "role_id", "domain"},
+		},
+		{
 			model:   &dv1.UserAuditLogDO{},
 			columns: []string{"id", "user_id", "actor_user_id", "actor_principal_type", "action", "from_status", "to_status", "detail", "add_time"},
 		},
@@ -185,6 +189,20 @@ func seedUserRBAC(db *gorm.DB) error {
 			if err := db.Where("role_id = ? AND permission = ?", rolePermission.RoleID, rolePermission.Permission).
 				FirstOrCreate(&rolePermission).Error; err != nil {
 				return fmt.Errorf("seed user RBAC permission %q for role %q failed: %w", permission, role.Name, err)
+			}
+		}
+		for _, domain := range role.Domains {
+			domainValue := strings.TrimSpace(string(domain))
+			if domainValue == "" {
+				continue
+			}
+			roleDomain := dv1.RoleDomainDO{
+				RoleID: record.ID,
+				Domain: domainValue,
+			}
+			if err := db.Where("role_id = ? AND domain = ?", roleDomain.RoleID, roleDomain.Domain).
+				FirstOrCreate(&roleDomain).Error; err != nil {
+				return fmt.Errorf("seed user RBAC domain %q for role %q failed: %w", domain, role.Name, err)
 			}
 		}
 	}
