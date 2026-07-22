@@ -33,6 +33,7 @@ const (
 	User_ReplaceUserStaffRoles_FullMethodName = "/User/ReplaceUserStaffRoles"
 	User_ListUserAuditLogs_FullMethodName     = "/User/ListUserAuditLogs"
 	User_CreateAdminAuditLog_FullMethodName   = "/User/CreateAdminAuditLog"
+	User_ListAdminAuditLogs_FullMethodName    = "/User/ListAdminAuditLogs"
 	User_GetUserAuthByMobile_FullMethodName   = "/User/GetUserAuthByMobile"
 	User_GetUserAuthById_FullMethodName       = "/User/GetUserAuthById"
 	User_CreateUser_FullMethodName            = "/User/CreateUser"
@@ -58,6 +59,7 @@ type UserClient interface {
 	ReplaceUserStaffRoles(ctx context.Context, in *ReplaceUserStaffRolesRequest, opts ...grpc.CallOption) (*UserRoleBindingResponse, error)
 	ListUserAuditLogs(ctx context.Context, in *UserAuditLogPageRequest, opts ...grpc.CallOption) (*UserAuditLogListResponse, error)
 	CreateAdminAuditLog(ctx context.Context, in *CreateAdminAuditLogRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListAdminAuditLogs(ctx context.Context, in *AdminAuditLogPageRequest, opts ...grpc.CallOption) (*AdminAuditLogListResponse, error)
 	GetUserAuthByMobile(ctx context.Context, in *MobileRequest, opts ...grpc.CallOption) (*UserAuthResponse, error)
 	GetUserAuthById(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*UserAuthResponse, error)
 	CreateUser(ctx context.Context, in *CreateUserInfo, opts ...grpc.CallOption) (*UserInfoResponse, error)
@@ -204,6 +206,16 @@ func (c *userClient) CreateAdminAuditLog(ctx context.Context, in *CreateAdminAud
 	return out, nil
 }
 
+func (c *userClient) ListAdminAuditLogs(ctx context.Context, in *AdminAuditLogPageRequest, opts ...grpc.CallOption) (*AdminAuditLogListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminAuditLogListResponse)
+	err := c.cc.Invoke(ctx, User_ListAdminAuditLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userClient) GetUserAuthByMobile(ctx context.Context, in *MobileRequest, opts ...grpc.CallOption) (*UserAuthResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UserAuthResponse)
@@ -281,6 +293,7 @@ type UserServer interface {
 	ReplaceUserStaffRoles(context.Context, *ReplaceUserStaffRolesRequest) (*UserRoleBindingResponse, error)
 	ListUserAuditLogs(context.Context, *UserAuditLogPageRequest) (*UserAuditLogListResponse, error)
 	CreateAdminAuditLog(context.Context, *CreateAdminAuditLogRequest) (*emptypb.Empty, error)
+	ListAdminAuditLogs(context.Context, *AdminAuditLogPageRequest) (*AdminAuditLogListResponse, error)
 	GetUserAuthByMobile(context.Context, *MobileRequest) (*UserAuthResponse, error)
 	GetUserAuthById(context.Context, *IdRequest) (*UserAuthResponse, error)
 	CreateUser(context.Context, *CreateUserInfo) (*UserInfoResponse, error)
@@ -335,6 +348,9 @@ func (UnimplementedUserServer) ListUserAuditLogs(context.Context, *UserAuditLogP
 }
 func (UnimplementedUserServer) CreateAdminAuditLog(context.Context, *CreateAdminAuditLogRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateAdminAuditLog not implemented")
+}
+func (UnimplementedUserServer) ListAdminAuditLogs(context.Context, *AdminAuditLogPageRequest) (*AdminAuditLogListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAdminAuditLogs not implemented")
 }
 func (UnimplementedUserServer) GetUserAuthByMobile(context.Context, *MobileRequest) (*UserAuthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUserAuthByMobile not implemented")
@@ -609,6 +625,24 @@ func _User_CreateAdminAuditLog_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_ListAdminAuditLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminAuditLogPageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).ListAdminAuditLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_ListAdminAuditLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).ListAdminAuditLogs(ctx, req.(*AdminAuditLogPageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _User_GetUserAuthByMobile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MobileRequest)
 	if err := dec(in); err != nil {
@@ -775,6 +809,10 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateAdminAuditLog",
 			Handler:    _User_CreateAdminAuditLog_Handler,
+		},
+		{
+			MethodName: "ListAdminAuditLogs",
+			Handler:    _User_ListAdminAuditLogs_Handler,
 		},
 		{
 			MethodName: "GetUserAuthByMobile",

@@ -542,6 +542,65 @@ func TestInitRouterPassesAuditLogFilters(t *testing.T) {
 	}
 }
 
+func TestInitRouterPassesAdminAuditLogFilters(t *testing.T) {
+	server := restserver.NewServer()
+	cfg := &config.Config{
+		Server: options.NewServerOptions(),
+		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		AdminAuth: &config.AdminAuthOptions{
+			Token:       "bootstrap-secret",
+			Role:        config.AdminRoleSuperAdmin,
+			Permissions: []string{string(authz.PermissionAuditReadAny)},
+		},
+	}
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{Id: 9, Username: "admin_001", Status: string(authz.AccountStatusActive)},
+		},
+		adminAuditLogsResponse: &upbv1.AdminAuditLogListResponse{
+			Total: 1,
+			Data: []*upbv1.AdminAuditLog{{
+				Id:                 1,
+				TargetUserId:       7,
+				Action:             "staff_login_succeeded",
+				ActorUserId:        9,
+				ActorPrincipalType: string(authz.PrincipalStaff),
+			}},
+		},
+	}
+	if err := initRouterWithSessionStores(server, cfg, client, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+		t.Fatalf("initRouter() error = %v", err)
+	}
+	token := mustCreateAdminToken(t, cfg.Jwt, 9, []string{string(authz.StaffRoleAdmin)}, []string{string(authz.PermissionAuditReadAny)})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/admin/audit_logs?target_user_id=7&action=staff_login_succeeded&actor_user_id=9&actor_principal_type=staff&created_after=1700000000&created_before=1700003600", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin audit logs status = %d, want 200", rec.Code)
+	}
+	if client.adminAuditLogsReq == nil {
+		t.Fatal("admin audit logs request was not captured")
+	}
+	if client.adminAuditLogsReq.GetTargetUserId() != 7 {
+		t.Fatalf("admin audit target user id = %d, want 7", client.adminAuditLogsReq.GetTargetUserId())
+	}
+	if client.adminAuditLogsReq.GetAction() != "staff_login_succeeded" {
+		t.Fatalf("admin audit action = %q, want staff_login_succeeded", client.adminAuditLogsReq.GetAction())
+	}
+	if client.adminAuditLogsReq.GetActorUserId() != 9 {
+		t.Fatalf("admin audit actor user id = %d, want 9", client.adminAuditLogsReq.GetActorUserId())
+	}
+	if client.adminAuditLogsReq.GetActorPrincipalType() != "staff" {
+		t.Fatalf("admin audit actor principal type = %q, want staff", client.adminAuditLogsReq.GetActorPrincipalType())
+	}
+	if client.adminAuditLogsReq.GetCreatedAfter() != 1700000000 || client.adminAuditLogsReq.GetCreatedBefore() != 1700003600 {
+		t.Fatalf("admin audit time range = (%d, %d), want (1700000000, 1700003600)", client.adminAuditLogsReq.GetCreatedAfter(), client.adminAuditLogsReq.GetCreatedBefore())
+	}
+}
+
 func TestInitRouterListsPermissionTemplates(t *testing.T) {
 	server := restserver.NewServer()
 	cfg := &config.Config{
@@ -926,6 +985,8 @@ type fakeAdminUserClient struct {
 	staffRolesResponse     *upbv1.StaffRoleListResponse
 	auditLogsResponse      *upbv1.UserAuditLogListResponse
 	auditLogsReq           *upbv1.UserAuditLogPageRequest
+	adminAuditLogsResponse *upbv1.AdminAuditLogListResponse
+	adminAuditLogsReq      *upbv1.AdminAuditLogPageRequest
 }
 
 func (f *fakeAdminUserClient) GetUserList(context.Context, *upbv1.PageInfo, ...grpc.CallOption) (*upbv1.UserListResponse, error) {
@@ -1028,6 +1089,14 @@ func (f *fakeAdminUserClient) ListUserAuditLogs(_ context.Context, req *upbv1.Us
 func (f *fakeAdminUserClient) CreateAdminAuditLog(_ context.Context, req *upbv1.CreateAdminAuditLogRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
 	f.createAdminAuditLogReq = req
 	return &emptypb.Empty{}, nil
+}
+
+func (f *fakeAdminUserClient) ListAdminAuditLogs(_ context.Context, req *upbv1.AdminAuditLogPageRequest, _ ...grpc.CallOption) (*upbv1.AdminAuditLogListResponse, error) {
+	f.adminAuditLogsReq = req
+	if f.adminAuditLogsResponse != nil {
+		return f.adminAuditLogsResponse, nil
+	}
+	return &upbv1.AdminAuditLogListResponse{}, nil
 }
 
 func (f *fakeAdminUserClient) CreateUser(context.Context, *upbv1.CreateUserInfo, ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {

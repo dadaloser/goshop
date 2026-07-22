@@ -511,6 +511,43 @@ func TestUserService_CreateAdminAuditLogValidatesAndPersists(t *testing.T) {
 	}
 }
 
+func TestUserService_ListAdminAuditLogsPassesFilters(t *testing.T) {
+	after := time.Unix(1700000000, 0)
+	before := time.Unix(1700003600, 0)
+	store := &fakeUserStore{}
+	svc := NewUserService(store)
+
+	if _, err := svc.ListAdminAuditLogs(context.Background(), AdminAuditLogFilterDTO{
+		TargetUserID:       7,
+		Action:             dv1.AdminAuditActionStaffLoginSucceeded,
+		ActorUserID:        9,
+		ActorPrincipalType: string(authz.PrincipalStaff),
+		CreatedAfter:       &after,
+		CreatedBefore:      &before,
+	}, metav1.ListMeta{Page: 3, PageSize: 15}); err != nil {
+		t.Fatalf("ListAdminAuditLogs() error = %v", err)
+	}
+
+	if store.adminAuditFilters.TargetUserID != 7 {
+		t.Fatalf("admin audit target user id = %d, want 7", store.adminAuditFilters.TargetUserID)
+	}
+	if store.adminAuditFilters.Action != dv1.AdminAuditActionStaffLoginSucceeded {
+		t.Fatalf("admin audit action = %q, want %q", store.adminAuditFilters.Action, dv1.AdminAuditActionStaffLoginSucceeded)
+	}
+	if store.adminAuditFilters.ActorUserID != 9 {
+		t.Fatalf("admin audit actor user id = %d, want 9", store.adminAuditFilters.ActorUserID)
+	}
+	if store.adminAuditFilters.ActorPrincipalType != string(authz.PrincipalStaff) {
+		t.Fatalf("admin audit actor principal type = %q, want %q", store.adminAuditFilters.ActorPrincipalType, authz.PrincipalStaff)
+	}
+	if store.adminAuditFilters.CreatedAfter == nil || !store.adminAuditFilters.CreatedAfter.Equal(after) {
+		t.Fatalf("admin audit created after = %#v, want %v", store.adminAuditFilters.CreatedAfter, after)
+	}
+	if store.adminAuditFilters.CreatedBefore == nil || !store.adminAuditFilters.CreatedBefore.Equal(before) {
+		t.Fatalf("admin audit created before = %#v, want %v", store.adminAuditFilters.CreatedBefore, before)
+	}
+}
+
 type fakeUserStore struct {
 	usersByIdentifier  map[string]*dv1.UserDO
 	userByID           map[uint64]*dv1.UserDO
@@ -530,6 +567,7 @@ type fakeUserStore struct {
 	updatedStatus      string
 	updatedStatusActor *dv1.AuditActor
 	auditFilters       dv1.UserAuditLogFilters
+	adminAuditFilters  dv1.AdminAuditLogFilters
 	createdAdminAudit  *dv1.AdminAuditLogDO
 	deletedID          uint64
 }
@@ -654,6 +692,11 @@ func (f *fakeUserStore) CreateAdminAuditLog(_ context.Context, logEntry *dv1.Adm
 	copyValue := *logEntry
 	f.createdAdminAudit = &copyValue
 	return nil
+}
+
+func (f *fakeUserStore) ListAdminAuditLogs(_ context.Context, filters dv1.AdminAuditLogFilters, _ metav1.ListMeta) (*dv1.AdminAuditLogDOList, error) {
+	f.adminAuditFilters = filters
+	return &dv1.AdminAuditLogDOList{}, nil
 }
 
 func (f *fakeUserStore) Create(_ context.Context, user *dv1.UserDO) error {

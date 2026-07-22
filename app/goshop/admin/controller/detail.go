@@ -173,6 +173,52 @@ func (us *userServer) ListAuditLogs(ctx *gin.Context) {
 	})
 }
 
+func (us *userServer) ListAdminAuditLogs(ctx *gin.Context) {
+	if us == nil || us.users == nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{
+			"code": http.StatusServiceUnavailable,
+			"msg":  "user rpc client is not initialized",
+		})
+		return
+	}
+
+	page := uint32(1)
+	pageSize := uint32(10)
+	if value := ctx.Query("pn"); value != "" {
+		if parsed, err := strconv.ParseUint(value, 10, 32); err == nil && parsed > 0 {
+			page = uint32(parsed)
+		}
+	}
+	if value := ctx.Query("pSize"); value != "" {
+		if parsed, err := strconv.ParseUint(value, 10, 32); err == nil && parsed > 0 {
+			pageSize = uint32(parsed)
+		}
+	}
+
+	response, err := us.users.ListAdminAuditLogs(ctx.Request.Context(), &upbv1.AdminAuditLogPageRequest{
+		TargetUserId:       parseQueryInt32(ctx.Query("target_user_id")),
+		Pn:                 page,
+		PSize:              pageSize,
+		Action:             strings.TrimSpace(ctx.Query("action")),
+		ActorUserId:        parseQueryInt32(ctx.Query("actor_user_id")),
+		ActorPrincipalType: strings.TrimSpace(ctx.Query("actor_principal_type")),
+		CreatedAfter:       parseQueryUnix(ctx.Query("created_after")),
+		CreatedBefore:      parseQueryUnix(ctx.Query("created_before")),
+	})
+	if err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{
+			"code": http.StatusBadGateway,
+			"msg":  "list admin audit logs failed",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"total": response.GetTotal(),
+		"items": response.GetData(),
+	})
+}
+
 func parseQueryInt32(value string) int32 {
 	if strings.TrimSpace(value) == "" {
 		return 0

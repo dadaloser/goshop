@@ -65,11 +65,17 @@ type UserAuditLogFilters struct {
 }
 
 type AdminAuditLogFilters struct {
+	TargetUserID       int32
 	Action             string
 	ActorUserID        int32
 	ActorPrincipalType string
 	CreatedAfter       *time.Time
 	CreatedBefore      *time.Time
+}
+
+type AdminAuditLogDOList struct {
+	TotalCount int64
+	Items      []*AdminAuditLogDO
 }
 
 type UserStore interface {
@@ -99,6 +105,7 @@ type UserStore interface {
 	ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string, actor *AuditActor) (*UserAuthDO, error)
 	ListAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilters, opts metav1.ListMeta) (*UserAuditLogDOList, error)
 	CreateAdminAuditLog(ctx context.Context, logEntry *AdminAuditLogDO) error
+	ListAdminAuditLogs(ctx context.Context, filters AdminAuditLogFilters, opts metav1.ListMeta) (*AdminAuditLogDOList, error)
 
 	//创建用户
 	Create(ctx context.Context, user *UserDO) error

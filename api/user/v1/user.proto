@@ -34,6 +34,7 @@ service User{
     rpc ReplaceUserStaffRoles(ReplaceUserStaffRolesRequest) returns (UserRoleBindingResponse);
     rpc ListUserAuditLogs(UserAuditLogPageRequest) returns (UserAuditLogListResponse);
     rpc CreateAdminAuditLog(CreateAdminAuditLogRequest) returns (google.protobuf.Empty);
+    rpc ListAdminAuditLogs(AdminAuditLogPageRequest) returns (AdminAuditLogListResponse);
     rpc GetUserAuthByMobile(MobileRequest) returns (UserAuthResponse); // auth-only by username/mobile/email
     rpc GetUserAuthById(IdRequest) returns (UserAuthResponse); // auth-only by id
     rpc CreateUser(CreateUserInfo) returns (UserInfoResponse){
@@ -230,4 +231,20 @@ message AdminAuditLog {
 
 message CreateAdminAuditLogRequest {
     AdminAuditLog log = 1;
+}
+
+message AdminAuditLogPageRequest {
+    int32 targetUserId = 1;
+    uint32 pn = 2;
+    uint32 pSize = 3;
+    string action = 4;
+    int32 actorUserId = 5;
+    string actorPrincipalType = 6;
+    uint64 createdAfter = 7;
+    uint64 createdBefore = 8;
+}
+
+message AdminAuditLogListResponse {
+    int32 total = 1;
+    repeated AdminAuditLog data = 2;
 }

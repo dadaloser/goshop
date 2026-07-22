@@ -1679,6 +1679,158 @@ func (x *CreateAdminAuditLogRequest) GetLog() *AdminAuditLog {
 	return nil
 }
 
+type AdminAuditLogPageRequest struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	TargetUserId       int32                  `protobuf:"varint,1,opt,name=targetUserId,proto3" json:"targetUserId,omitempty"`
+	Pn                 uint32                 `protobuf:"varint,2,opt,name=pn,proto3" json:"pn,omitempty"`
+	PSize              uint32                 `protobuf:"varint,3,opt,name=pSize,proto3" json:"pSize,omitempty"`
+	Action             string                 `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"`
+	ActorUserId        int32                  `protobuf:"varint,5,opt,name=actorUserId,proto3" json:"actorUserId,omitempty"`
+	ActorPrincipalType string                 `protobuf:"bytes,6,opt,name=actorPrincipalType,proto3" json:"actorPrincipalType,omitempty"`
+	CreatedAfter       uint64                 `protobuf:"varint,7,opt,name=createdAfter,proto3" json:"createdAfter,omitempty"`
+	CreatedBefore      uint64                 `protobuf:"varint,8,opt,name=createdBefore,proto3" json:"createdBefore,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *AdminAuditLogPageRequest) Reset() {
+	*x = AdminAuditLogPageRequest{}
+	mi := &file_user_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAuditLogPageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAuditLogPageRequest) ProtoMessage() {}
+
+func (x *AdminAuditLogPageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAuditLogPageRequest.ProtoReflect.Descriptor instead.
+func (*AdminAuditLogPageRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *AdminAuditLogPageRequest) GetTargetUserId() int32 {
+	if x != nil {
+		return x.TargetUserId
+	}
+	return 0
+}
+
+func (x *AdminAuditLogPageRequest) GetPn() uint32 {
+	if x != nil {
+		return x.Pn
+	}
+	return 0
+}
+
+func (x *AdminAuditLogPageRequest) GetPSize() uint32 {
+	if x != nil {
+		return x.PSize
+	}
+	return 0
+}
+
+func (x *AdminAuditLogPageRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *AdminAuditLogPageRequest) GetActorUserId() int32 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *AdminAuditLogPageRequest) GetActorPrincipalType() string {
+	if x != nil {
+		return x.ActorPrincipalType
+	}
+	return ""
+}
+
+func (x *AdminAuditLogPageRequest) GetCreatedAfter() uint64 {
+	if x != nil {
+		return x.CreatedAfter
+	}
+	return 0
+}
+
+func (x *AdminAuditLogPageRequest) GetCreatedBefore() uint64 {
+	if x != nil {
+		return x.CreatedBefore
+	}
+	return 0
+}
+
+type AdminAuditLogListResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Total         int32                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	Data          []*AdminAuditLog       `protobuf:"bytes,2,rep,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AdminAuditLogListResponse) Reset() {
+	*x = AdminAuditLogListResponse{}
+	mi := &file_user_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdminAuditLogListResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdminAuditLogListResponse) ProtoMessage() {}
+
+func (x *AdminAuditLogListResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdminAuditLogListResponse.ProtoReflect.Descriptor instead.
+func (*AdminAuditLogListResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *AdminAuditLogListResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *AdminAuditLogListResponse) GetData() []*AdminAuditLog {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 var File_user_proto protoreflect.FileDescriptor
 
 const file_user_proto_rawDesc = "" +
@@ -1811,7 +1963,19 @@ const file_user_proto_rawDesc = "" +
 	"\x06detail\x18\x06 \x01(\tR\x06detail\x12\x1c\n" +
 	"\tcreatedAt\x18\a \x01(\x04R\tcreatedAt\">\n" +
 	"\x1aCreateAdminAuditLogRequest\x12 \n" +
-	"\x03log\x18\x01 \x01(\v2\x0e.AdminAuditLogR\x03log2\xa4\n" +
+	"\x03log\x18\x01 \x01(\v2\x0e.AdminAuditLogR\x03log\"\x98\x02\n" +
+	"\x18AdminAuditLogPageRequest\x12\"\n" +
+	"\ftargetUserId\x18\x01 \x01(\x05R\ftargetUserId\x12\x0e\n" +
+	"\x02pn\x18\x02 \x01(\rR\x02pn\x12\x14\n" +
+	"\x05pSize\x18\x03 \x01(\rR\x05pSize\x12\x16\n" +
+	"\x06action\x18\x04 \x01(\tR\x06action\x12 \n" +
+	"\vactorUserId\x18\x05 \x01(\x05R\vactorUserId\x12.\n" +
+	"\x12actorPrincipalType\x18\x06 \x01(\tR\x12actorPrincipalType\x12\"\n" +
+	"\fcreatedAfter\x18\a \x01(\x04R\fcreatedAfter\x12$\n" +
+	"\rcreatedBefore\x18\b \x01(\x04R\rcreatedBefore\"U\n" +
+	"\x19AdminAuditLogListResponse\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x05R\x05total\x12\"\n" +
+	"\x04data\x18\x02 \x03(\v2\x0e.AdminAuditLogR\x04data2\xf1\n" +
 	"\n" +
 	"\x04User\x12A\n" +
 	"\vGetUserList\x12\t.PageInfo\x1a\x11.UserListResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/users\x12P\n" +
@@ -1830,7 +1994,8 @@ const file_user_proto_rawDesc = "" +
 	".IdRequest\x1a\x18.UserRoleBindingResponse\x12P\n" +
 	"\x15ReplaceUserStaffRoles\x12\x1d.ReplaceUserStaffRolesRequest\x1a\x18.UserRoleBindingResponse\x12H\n" +
 	"\x11ListUserAuditLogs\x12\x18.UserAuditLogPageRequest\x1a\x19.UserAuditLogListResponse\x12J\n" +
-	"\x13CreateAdminAuditLog\x12\x1b.CreateAdminAuditLogRequest\x1a\x16.google.protobuf.Empty\x128\n" +
+	"\x13CreateAdminAuditLog\x12\x1b.CreateAdminAuditLogRequest\x1a\x16.google.protobuf.Empty\x12K\n" +
+	"\x12ListAdminAuditLogs\x12\x19.AdminAuditLogPageRequest\x1a\x1a.AdminAuditLogListResponse\x128\n" +
 	"\x13GetUserAuthByMobile\x12\x0e.MobileRequest\x1a\x11.UserAuthResponse\x120\n" +
 	"\x0fGetUserAuthById\x12\n" +
 	".IdRequest\x1a\x11.UserAuthResponse\x12L\n" +
@@ -1855,7 +2020,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_user_proto_goTypes = []any{
 	(*PasswordCheckInfo)(nil),            // 0: PasswordCheckInfo
 	(*CheckResponse)(nil),                // 1: CheckResponse
@@ -1883,7 +2048,9 @@ var file_user_proto_goTypes = []any{
 	(*UserAuditLogListResponse)(nil),     // 23: UserAuditLogListResponse
 	(*AdminAuditLog)(nil),                // 24: AdminAuditLog
 	(*CreateAdminAuditLogRequest)(nil),   // 25: CreateAdminAuditLogRequest
-	(*emptypb.Empty)(nil),                // 26: google.protobuf.Empty
+	(*AdminAuditLogPageRequest)(nil),     // 26: AdminAuditLogPageRequest
+	(*AdminAuditLogListResponse)(nil),    // 27: AdminAuditLogListResponse
+	(*emptypb.Empty)(nil),                // 28: google.protobuf.Empty
 }
 var file_user_proto_depIdxs = []int32{
 	5,  // 0: CreateStaffUserRequest.user:type_name -> CreateUserInfo
@@ -1901,49 +2068,52 @@ var file_user_proto_depIdxs = []int32{
 	10, // 12: StaffUserResponse.user:type_name -> UserInfoResponse
 	22, // 13: UserAuditLogListResponse.data:type_name -> UserAuditLog
 	24, // 14: CreateAdminAuditLogRequest.log:type_name -> AdminAuditLog
-	2,  // 15: User.GetUserList:input_type -> PageInfo
-	3,  // 16: User.GetUserByMobile:input_type -> MobileRequest
-	4,  // 17: User.GetUserById:input_type -> IdRequest
-	8,  // 18: User.CreateStaffUser:input_type -> CreateStaffUserRequest
-	9,  // 19: User.UpdateUserStatus:input_type -> UpdateUserStatusRequest
-	26, // 20: User.ListStaffRoles:input_type -> google.protobuf.Empty
-	15, // 21: User.CreateStaffRole:input_type -> CreateStaffRoleRequest
-	16, // 22: User.UpdateStaffRole:input_type -> UpdateStaffRoleRequest
-	17, // 23: User.DeleteStaffRole:input_type -> DeleteStaffRoleRequest
-	4,  // 24: User.GetUserStaffRoles:input_type -> IdRequest
-	18, // 25: User.ReplaceUserStaffRoles:input_type -> ReplaceUserStaffRolesRequest
-	21, // 26: User.ListUserAuditLogs:input_type -> UserAuditLogPageRequest
-	25, // 27: User.CreateAdminAuditLog:input_type -> CreateAdminAuditLogRequest
-	3,  // 28: User.GetUserAuthByMobile:input_type -> MobileRequest
-	4,  // 29: User.GetUserAuthById:input_type -> IdRequest
-	5,  // 30: User.CreateUser:input_type -> CreateUserInfo
-	6,  // 31: User.UpdateUser:input_type -> UpdateUserInfo
-	4,  // 32: User.DeleteUser:input_type -> IdRequest
-	0,  // 33: User.CheckPassWord:input_type -> PasswordCheckInfo
-	12, // 34: User.GetUserList:output_type -> UserListResponse
-	10, // 35: User.GetUserByMobile:output_type -> UserInfoResponse
-	10, // 36: User.GetUserById:output_type -> UserInfoResponse
-	20, // 37: User.CreateStaffUser:output_type -> StaffUserResponse
-	10, // 38: User.UpdateUserStatus:output_type -> UserInfoResponse
-	14, // 39: User.ListStaffRoles:output_type -> StaffRoleListResponse
-	13, // 40: User.CreateStaffRole:output_type -> StaffRole
-	13, // 41: User.UpdateStaffRole:output_type -> StaffRole
-	26, // 42: User.DeleteStaffRole:output_type -> google.protobuf.Empty
-	19, // 43: User.GetUserStaffRoles:output_type -> UserRoleBindingResponse
-	19, // 44: User.ReplaceUserStaffRoles:output_type -> UserRoleBindingResponse
-	23, // 45: User.ListUserAuditLogs:output_type -> UserAuditLogListResponse
-	26, // 46: User.CreateAdminAuditLog:output_type -> google.protobuf.Empty
-	11, // 47: User.GetUserAuthByMobile:output_type -> UserAuthResponse
-	11, // 48: User.GetUserAuthById:output_type -> UserAuthResponse
-	10, // 49: User.CreateUser:output_type -> UserInfoResponse
-	26, // 50: User.UpdateUser:output_type -> google.protobuf.Empty
-	26, // 51: User.DeleteUser:output_type -> google.protobuf.Empty
-	1,  // 52: User.CheckPassWord:output_type -> CheckResponse
-	34, // [34:53] is the sub-list for method output_type
-	15, // [15:34] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	24, // 15: AdminAuditLogListResponse.data:type_name -> AdminAuditLog
+	2,  // 16: User.GetUserList:input_type -> PageInfo
+	3,  // 17: User.GetUserByMobile:input_type -> MobileRequest
+	4,  // 18: User.GetUserById:input_type -> IdRequest
+	8,  // 19: User.CreateStaffUser:input_type -> CreateStaffUserRequest
+	9,  // 20: User.UpdateUserStatus:input_type -> UpdateUserStatusRequest
+	28, // 21: User.ListStaffRoles:input_type -> google.protobuf.Empty
+	15, // 22: User.CreateStaffRole:input_type -> CreateStaffRoleRequest
+	16, // 23: User.UpdateStaffRole:input_type -> UpdateStaffRoleRequest
+	17, // 24: User.DeleteStaffRole:input_type -> DeleteStaffRoleRequest
+	4,  // 25: User.GetUserStaffRoles:input_type -> IdRequest
+	18, // 26: User.ReplaceUserStaffRoles:input_type -> ReplaceUserStaffRolesRequest
+	21, // 27: User.ListUserAuditLogs:input_type -> UserAuditLogPageRequest
+	25, // 28: User.CreateAdminAuditLog:input_type -> CreateAdminAuditLogRequest
+	26, // 29: User.ListAdminAuditLogs:input_type -> AdminAuditLogPageRequest
+	3,  // 30: User.GetUserAuthByMobile:input_type -> MobileRequest
+	4,  // 31: User.GetUserAuthById:input_type -> IdRequest
+	5,  // 32: User.CreateUser:input_type -> CreateUserInfo
+	6,  // 33: User.UpdateUser:input_type -> UpdateUserInfo
+	4,  // 34: User.DeleteUser:input_type -> IdRequest
+	0,  // 35: User.CheckPassWord:input_type -> PasswordCheckInfo
+	12, // 36: User.GetUserList:output_type -> UserListResponse
+	10, // 37: User.GetUserByMobile:output_type -> UserInfoResponse
+	10, // 38: User.GetUserById:output_type -> UserInfoResponse
+	20, // 39: User.CreateStaffUser:output_type -> StaffUserResponse
+	10, // 40: User.UpdateUserStatus:output_type -> UserInfoResponse
+	14, // 41: User.ListStaffRoles:output_type -> StaffRoleListResponse
+	13, // 42: User.CreateStaffRole:output_type -> StaffRole
+	13, // 43: User.UpdateStaffRole:output_type -> StaffRole
+	28, // 44: User.DeleteStaffRole:output_type -> google.protobuf.Empty
+	19, // 45: User.GetUserStaffRoles:output_type -> UserRoleBindingResponse
+	19, // 46: User.ReplaceUserStaffRoles:output_type -> UserRoleBindingResponse
+	23, // 47: User.ListUserAuditLogs:output_type -> UserAuditLogListResponse
+	28, // 48: User.CreateAdminAuditLog:output_type -> google.protobuf.Empty
+	27, // 49: User.ListAdminAuditLogs:output_type -> AdminAuditLogListResponse
+	11, // 50: User.GetUserAuthByMobile:output_type -> UserAuthResponse
+	11, // 51: User.GetUserAuthById:output_type -> UserAuthResponse
+	10, // 52: User.CreateUser:output_type -> UserInfoResponse
+	28, // 53: User.UpdateUser:output_type -> google.protobuf.Empty
+	28, // 54: User.DeleteUser:output_type -> google.protobuf.Empty
+	1,  // 55: User.CheckPassWord:output_type -> CheckResponse
+	36, // [36:56] is the sub-list for method output_type
+	16, // [16:36] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_user_proto_init() }
@@ -1957,7 +2127,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   26,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

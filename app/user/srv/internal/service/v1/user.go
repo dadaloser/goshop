@@ -94,11 +94,27 @@ type UserAuditLogFilterDTO struct {
 }
 
 type AdminAuditLogDTO struct {
+	ID                 uint64
 	TargetUserID       int32
 	ActorUserID        int32
 	ActorPrincipalType string
 	Action             string
 	Detail             string
+	CreatedAt          time.Time
+}
+
+type AdminAuditLogDTOList struct {
+	TotalCount int64
+	Items      []*AdminAuditLogDTO
+}
+
+type AdminAuditLogFilterDTO struct {
+	TargetUserID       int32
+	Action             string
+	ActorUserID        int32
+	ActorPrincipalType string
+	CreatedAfter       *time.Time
+	CreatedBefore      *time.Time
 }
 
 type UserSrv interface {
@@ -121,6 +137,7 @@ type UserSrv interface {
 	ReplaceUserRoleBinding(ctx context.Context, userID uint64, roleNames []string, actor AuditActorDTO) (*UserRoleBindingDTO, error)
 	ListUserAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilterDTO, opts metav1.ListMeta) (*UserAuditLogDTOList, error)
 	CreateAdminAuditLog(ctx context.Context, log AdminAuditLogDTO) error
+	ListAdminAuditLogs(ctx context.Context, filters AdminAuditLogFilterDTO, opts metav1.ListMeta) (*AdminAuditLogDTOList, error)
 }
 
 type userService struct {
@@ -512,6 +529,37 @@ func (u *userService) CreateAdminAuditLog(ctx context.Context, log AdminAuditLog
 		Action:             log.Action,
 		Detail:             log.Detail,
 	})
+}
+
+func (u *userService) ListAdminAuditLogs(ctx context.Context, filters AdminAuditLogFilterDTO, opts metav1.ListMeta) (*AdminAuditLogDTOList, error) {
+	logs, err := u.userStore.ListAdminAuditLogs(ctx, dv1.AdminAuditLogFilters{
+		TargetUserID:       filters.TargetUserID,
+		Action:             strings.TrimSpace(filters.Action),
+		ActorUserID:        filters.ActorUserID,
+		ActorPrincipalType: strings.TrimSpace(filters.ActorPrincipalType),
+		CreatedAfter:       filters.CreatedAfter,
+		CreatedBefore:      filters.CreatedBefore,
+	}, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &AdminAuditLogDTOList{TotalCount: logs.TotalCount}
+	for _, item := range logs.Items {
+		if item == nil {
+			continue
+		}
+		result.Items = append(result.Items, &AdminAuditLogDTO{
+			ID:                 item.ID,
+			TargetUserID:       item.TargetUserID,
+			ActorUserID:        item.ActorUserID,
+			ActorPrincipalType: item.ActorPrincipalType,
+			Action:             item.Action,
+			Detail:             item.Detail,
+			CreatedAt:          item.CreatedAt,
+		})
+	}
+	return result, nil
 }
 
 func NewUserService(us dv1.UserStore) UserSrv {

@@ -573,6 +573,45 @@ func (u *users) CreateAdminAuditLog(ctx context.Context, logEntry *dv1.AdminAudi
 	return nil
 }
 
+func (u *users) ListAdminAuditLogs(ctx context.Context, filters dv1.AdminAuditLogFilters, opts metav1.ListMeta) (*dv1.AdminAuditLogDOList, error) {
+	ret := &dv1.AdminAuditLogDOList{}
+	limit := opts.PageSize
+	if limit <= 0 {
+		limit = 10
+	}
+	offset := 0
+	if opts.Page > 0 {
+		offset = (opts.Page - 1) * limit
+	}
+
+	query := u.db.WithContext(ctx).Model(&dv1.AdminAuditLogDO{})
+	if filters.TargetUserID > 0 {
+		query = query.Where("target_user_id = ?", filters.TargetUserID)
+	}
+	if action := strings.TrimSpace(filters.Action); action != "" {
+		query = query.Where("action = ?", action)
+	}
+	if filters.ActorUserID > 0 {
+		query = query.Where("actor_user_id = ?", filters.ActorUserID)
+	}
+	if principalType := strings.TrimSpace(filters.ActorPrincipalType); principalType != "" {
+		query = query.Where("actor_principal_type = ?", principalType)
+	}
+	if filters.CreatedAfter != nil {
+		query = query.Where("add_time >= ?", *filters.CreatedAfter)
+	}
+	if filters.CreatedBefore != nil {
+		query = query.Where("add_time <= ?", *filters.CreatedBefore)
+	}
+	if err := query.Count(&ret.TotalCount).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if err := query.Order("add_time DESC, id DESC").Offset(offset).Limit(limit).Find(&ret.Items).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return ret, nil
+}
+
 func newUsers(db *gorm.DB) *users {
 	return &users{db: db}
 }

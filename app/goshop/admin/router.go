@@ -35,15 +35,16 @@ func initRouterWithSessionStores(
 	if err != nil {
 		return err
 	}
+	ucontroller := controller.NewUserController(users, tokenVersions)
 	authController := newStaffAuthHandler(users, cfg.Jwt, cfg.AdminAuth, revokedTokens, tokenVersions)
 	v1.POST("/auth/login", authController.Login)
 	v1.POST("/auth/logout", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authController.Logout)
 	v1.POST("/auth/logout_all", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authController.LogoutAll)
 	v1.GET("/auth/me", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authController.Me)
 	v1.POST("/break_glass/session", requireAdminToken(cfg.AdminAuth), authController.BootstrapSession)
+	v1.GET("/admin/audit_logs", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authz.RequirePermission(authz.PermissionAuditReadAny), ucontroller.ListAdminAuditLogs)
 
 	ugroup := v1.Group("/user", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff))
-	ucontroller := controller.NewUserController(users, tokenVersions)
 	ugroup.POST("staff", authz.RequirePermission(authz.PermissionUserCreateAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.CreateStaff)
 	ugroup.GET("list", authz.RequirePermission(authz.PermissionUserListAny), ucontroller.List)
 	ugroup.GET(":id", authz.RequirePermission(authz.PermissionUserReadAny), ucontroller.GetByID)

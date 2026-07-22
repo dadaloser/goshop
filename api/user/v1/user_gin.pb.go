@@ -242,6 +242,23 @@ func (s *UserHttpServer) CreateAdminAuditLog_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *UserHttpServer) ListAdminAuditLogs_0(c *gin.Context) {
+	var in AdminAuditLogPageRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListAdminAuditLogs(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *UserHttpServer) GetUserAuthByMobile_0(c *gin.Context) {
 	var in MobileRequest
 
@@ -371,6 +388,8 @@ func (s *UserHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.ListUserAuditLogs_0)
 
 	s.router.Handle("POST", "", s.CreateAdminAuditLog_0)
+
+	s.router.Handle("POST", "", s.ListAdminAuditLogs_0)
 
 	s.router.Handle("POST", "", s.GetUserAuthByMobile_0)
 

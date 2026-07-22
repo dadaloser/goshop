@@ -306,6 +306,11 @@ func (f *fakeUserClient) CreateAdminAuditLog(context.Context, *upbv1.CreateAdmin
 	return &emptypb.Empty{}, nil
 }
 
+func (f *fakeUserClient) ListAdminAuditLogs(context.Context, *upbv1.AdminAuditLogPageRequest, ...grpc.CallOption) (*upbv1.AdminAuditLogListResponse, error) {
+	f.called = true
+	return &upbv1.AdminAuditLogListResponse{}, nil
+}
+
 func (f *fakeUserClient) CreateUser(_ context.Context, in *upbv1.CreateUserInfo, _ ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
 	f.called = true
 	f.createRequest = in
