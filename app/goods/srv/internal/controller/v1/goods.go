@@ -6,6 +6,7 @@ import (
 	"goshop/app/goods/srv/internal/domain/dto"
 	bgorm "goshop/app/pkg/gorm"
 	v12 "goshop/pkg/common/meta/v1"
+	"goshop/pkg/money"
 
 	proto "goshop/api/goods/v1"
 	v1 "goshop/app/goods/srv/internal/service/v1"
@@ -22,6 +23,7 @@ type goodsServer struct {
 }
 
 func ModelToResponse(goods *dto.GoodsDTO) *proto.GoodsInfoResponse {
+	goods.SyncLegacyMoneyFields()
 	return &proto.GoodsInfoResponse{
 		Id:              goods.ID,
 		CategoryId:      goods.CategoryID,
@@ -31,7 +33,9 @@ func ModelToResponse(goods *dto.GoodsDTO) *proto.GoodsInfoResponse {
 		SoldNum:         goods.SoldNum,
 		FavNum:          goods.FavNum,
 		MarketPrice:     goods.MarketPrice,
+		MarketPriceFen:  goods.MarketPriceFen,
 		ShopPrice:       goods.ShopPrice,
+		ShopPriceFen:    goods.ShopPriceFen,
 		GoodsBrief:      goods.GoodsBrief,
 		ShipFree:        goods.ShipFree,
 		GoodsFrontImage: goods.GoodsFrontImage,
@@ -378,6 +382,14 @@ func NewGoodsServer(srv v1.ServiceFactory) *goodsServer {
 }
 
 func createGoodsInfoToDTO(info *proto.CreateGoodsInfo) *dto.GoodsDTO {
+	marketPriceFen := info.GetMarketPriceFen()
+	if marketPriceFen == 0 && info.GetMarketPrice() != 0 {
+		marketPriceFen = money.FromLegacyFloat32Yuan(info.GetMarketPrice()).Int64()
+	}
+	shopPriceFen := info.GetShopPriceFen()
+	if shopPriceFen == 0 && info.GetShopPrice() != 0 {
+		shopPriceFen = money.FromLegacyFloat32Yuan(info.GetShopPrice()).Int64()
+	}
 	return &dto.GoodsDTO{
 		GoodsDO: do.GoodsDO{
 			BaseModel:       bgorm.BaseModel{ID: info.Id},
@@ -389,8 +401,10 @@ func createGoodsInfoToDTO(info *proto.CreateGoodsInfo) *dto.GoodsDTO {
 			IsHot:           info.IsHot,
 			Name:            info.Name,
 			GoodsSn:         info.GoodsSn,
-			MarketPrice:     info.MarketPrice,
-			ShopPrice:       info.ShopPrice,
+			MarketPrice:     money.NewFen(marketPriceFen).Float32Yuan(),
+			MarketPriceFen:  marketPriceFen,
+			ShopPrice:       money.NewFen(shopPriceFen).Float32Yuan(),
+			ShopPriceFen:    shopPriceFen,
 			GoodsBrief:      info.GoodsBrief,
 			Images:          do.GormList(info.Images),
 			DescImages:      do.GormList(info.DescImages),

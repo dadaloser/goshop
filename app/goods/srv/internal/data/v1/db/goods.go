@@ -32,6 +32,7 @@ func (g *goods) CreateInTxn(ctx context.Context, txn *gorm.DB, goods *do.GoodsDO
 	if txn == nil || goods == nil {
 		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
 	}
+	goods.SyncLegacyMoneyFields()
 
 	tx := txn.WithContext(ctx).Create(goods)
 	if tx.Error != nil {
@@ -44,6 +45,7 @@ func (g *goods) UpdateInTxn(ctx context.Context, txn *gorm.DB, goods *do.GoodsDO
 	if txn == nil || goods == nil || goods.ID <= 0 {
 		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
 	}
+	goods.SyncLegacyMoneyFields()
 
 	tx := txn.WithContext(ctx).Model(&do.GoodsDO{}).
 		Where("id = ?", goods.ID).
@@ -124,6 +126,7 @@ func (g *goods) Get(ctx context.Context, ID uint64) (*do.GoodsDO, error) {
 		}
 		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
+	good.SyncLegacyMoneyFields()
 	return good, nil
 }
 
@@ -173,6 +176,12 @@ func (g *goods) ListByIDs(ctx context.Context, ids []uint64, orderBy []string) (
 	if d.Error != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, d.Error.Error())
 	}
+	for _, item := range ret.Items {
+		if item == nil {
+			continue
+		}
+		item.SyncLegacyMoneyFields()
+	}
 	return ret, nil
 }
 
@@ -180,6 +189,7 @@ func (g *goods) Create(ctx context.Context, goods *do.GoodsDO) error {
 	if goods == nil {
 		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
 	}
+	goods.SyncLegacyMoneyFields()
 
 	tx := g.db.WithContext(ctx).Create(goods)
 	if tx.Error != nil {
@@ -212,6 +222,7 @@ func (g *goods) Update(ctx context.Context, goods *do.GoodsDO) error {
 	if goods == nil || goods.ID <= 0 {
 		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
 	}
+	goods.SyncLegacyMoneyFields()
 
 	tx := g.db.WithContext(ctx).Model(&do.GoodsDO{}).
 		Where("id = ?", goods.ID).
@@ -258,7 +269,9 @@ func goodsUpdateValues(goods *do.GoodsDO) map[string]interface{} {
 		"sold_num":          goods.SoldNum,
 		"fav_num":           goods.FavNum,
 		"market_price":      goods.MarketPrice,
+		"market_price_fen":  goods.MarketPriceFen,
 		"shop_price":        goods.ShopPrice,
+		"shop_price_fen":    goods.ShopPriceFen,
 		"goods_brief":       goods.GoodsBrief,
 		"images":            goods.Images,
 		"desc_images":       goods.DescImages,

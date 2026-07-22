@@ -10,6 +10,7 @@ import (
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
+	"goshop/pkg/money"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -277,38 +278,45 @@ func shopCartToResponse(cart *dto.ShopCartDTO) *pb.ShopCartInfoResponse {
 }
 
 func orderToResponse(order *dto.OrderDTO) *pb.OrderInfoResponse {
+	order.SyncLegacyMoneyFields()
 	var payTime int64
 	if order.PayTime != nil {
 		payTime = order.PayTime.Unix()
 	}
 	return &pb.OrderInfoResponse{
-		Id:      order.ID,
-		UserId:  order.User,
-		OrderSn: order.OrderSn,
-		PayType: order.PayType,
-		Status:  order.Status,
-		Post:    order.Post,
-		Total:   order.OrderMount,
-		Address: order.Address,
-		Name:    order.SignerName,
-		Mobile:  order.SingerMobile,
-		AddTime: order.CreatedAt.Format("2006-01-02 15:04:05"),
-		TradeNo: order.TradeNo,
-		PayTime: payTime,
+		Id:       order.ID,
+		UserId:   order.User,
+		OrderSn:  order.OrderSn,
+		PayType:  order.PayType,
+		Status:   order.Status,
+		Post:     order.Post,
+		Total:    money.NewFen(order.OrderMountFen).Float32Yuan(),
+		TotalFen: order.OrderMountFen,
+		Address:  order.Address,
+		Name:     order.SignerName,
+		Mobile:   order.SingerMobile,
+		AddTime:  order.CreatedAt.Format("2006-01-02 15:04:05"),
+		TradeNo:  order.TradeNo,
+		PayTime:  payTime,
 	}
 }
 
 func orderGoodsToResponse(goods []*do.OrderGoods) []*pb.OrderItemResponse {
 	ret := make([]*pb.OrderItemResponse, 0, len(goods))
 	for _, item := range goods {
+		if item == nil {
+			continue
+		}
+		item.SyncLegacyMoneyFields()
 		ret = append(ret, &pb.OrderItemResponse{
-			Id:         item.ID,
-			OrderId:    item.Order,
-			GoodsId:    item.Goods,
-			GoodsName:  item.GoodsName,
-			GoodsImage: item.GoodsImage,
-			GoodsPrice: item.GoodsPrice,
-			Nums:       item.Nums,
+			Id:            item.ID,
+			OrderId:       item.Order,
+			GoodsId:       item.Goods,
+			GoodsName:     item.GoodsName,
+			GoodsImage:    item.GoodsImage,
+			GoodsPrice:    money.NewFen(item.GoodsPriceFen).Float32Yuan(),
+			GoodsPriceFen: item.GoodsPriceFen,
+			Nums:          item.Nums,
 		})
 	}
 	return ret

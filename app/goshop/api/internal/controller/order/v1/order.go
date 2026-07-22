@@ -370,6 +370,7 @@ func orderInfoResponse(item interface {
 	GetStatus() string
 	GetPost() string
 	GetTotal() float32
+	GetTotalFen() int64
 	GetAddress() string
 	GetName() string
 	GetMobile() string
@@ -378,19 +379,20 @@ func orderInfoResponse(item interface {
 	GetPayTime() int64
 }) gin.H {
 	return gin.H{
-		"id":       item.GetId(),
-		"user_id":  item.GetUserId(),
-		"order_sn": item.GetOrderSn(),
-		"pay_type": item.GetPayType(),
-		"status":   item.GetStatus(),
-		"post":     item.GetPost(),
-		"total":    item.GetTotal(),
-		"address":  item.GetAddress(),
-		"name":     item.GetName(),
-		"mobile":   item.GetMobile(),
-		"add_time": item.GetAddTime(),
-		"trade_no": item.GetTradeNo(),
-		"pay_time": item.GetPayTime(),
+		"id":        item.GetId(),
+		"user_id":   item.GetUserId(),
+		"order_sn":  item.GetOrderSn(),
+		"pay_type":  item.GetPayType(),
+		"status":    item.GetStatus(),
+		"post":      item.GetPost(),
+		"total":     item.GetTotal(),
+		"total_fen": item.GetTotalFen(),
+		"address":   item.GetAddress(),
+		"name":      item.GetName(),
+		"mobile":    item.GetMobile(),
+		"add_time":  item.GetAddTime(),
+		"trade_no":  item.GetTradeNo(),
+		"pay_time":  item.GetPayTime(),
 	}
 }
 
@@ -401,16 +403,18 @@ func orderItemResponse(item interface {
 	GetGoodsName() string
 	GetGoodsImage() string
 	GetGoodsPrice() float32
+	GetGoodsPriceFen() int64
 	GetNums() int32
 }) gin.H {
 	return gin.H{
-		"id":          item.GetId(),
-		"order_id":    item.GetOrderId(),
-		"goods_id":    item.GetGoodsId(),
-		"goods_name":  item.GetGoodsName(),
-		"goods_image": item.GetGoodsImage(),
-		"goods_price": item.GetGoodsPrice(),
-		"nums":        item.GetNums(),
+		"id":              item.GetId(),
+		"order_id":        item.GetOrderId(),
+		"goods_id":        item.GetGoodsId(),
+		"goods_name":      item.GetGoodsName(),
+		"goods_image":     item.GetGoodsImage(),
+		"goods_price":     item.GetGoodsPrice(),
+		"goods_price_fen": item.GetGoodsPriceFen(),
+		"nums":            item.GetNums(),
 	}
 }
 

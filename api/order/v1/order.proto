@@ -41,9 +41,10 @@ message CartItemRequest {
     int32 goodsId = 3;
     string goodsName = 4;
     string goodsImage = 5;
-    float goodsPrice = 6;
+    float goodsPrice = 6 [deprecated = true];
     int32 nums = 7;
     bool checked = 8;
+    int64 goodsPriceFen = 9;
 }
 
 message OrderRequest {
@@ -69,13 +70,14 @@ message OrderInfoResponse {
     string payType = 4;
     string status = 5;
     string post = 6;
-    float total = 7;
+    float total = 7 [deprecated = true];
     string address = 8;
     string name = 9;
     string mobile = 10;
     string addTime = 11;
     string tradeNo = 12;
     int64 payTime = 13;
+    int64 totalFen = 14;
 }
 
 message ShopCartInfoResponse {
@@ -92,8 +94,9 @@ message OrderItemResponse {
     int32 goodsId = 3;
     string goodsName = 4;
     string goodsImage = 5;
-    float goodsPrice = 6;
+    float goodsPrice = 6 [deprecated = true];
     int32 nums = 7;
+    int64 goodsPriceFen = 8;
 }
 
 message OrderInfoDetailResponse {

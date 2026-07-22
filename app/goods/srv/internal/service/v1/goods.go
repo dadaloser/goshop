@@ -151,21 +151,24 @@ func (gs *goodsService) Get(ctx context.Context, ID uint64) (*dto.GoodsDTO, erro
 }
 
 func goodsSearchFromDTO(goods *dto.GoodsDTO) do.GoodsSearchDO {
+	goods.SyncLegacyMoneyFields()
 	return do.GoodsSearchDO{
-		ID:          goods.ID,
-		CategoryID:  goods.CategoryID,
-		BrandsID:    goods.BrandsID,
-		OnSale:      goods.OnSale,
-		ShipFree:    goods.ShipFree,
-		IsNew:       goods.IsNew,
-		IsHot:       goods.IsHot,
-		Name:        goods.Name,
-		ClickNum:    goods.ClickNum,
-		SoldNum:     goods.SoldNum,
-		FavNum:      goods.FavNum,
-		MarketPrice: goods.MarketPrice,
-		GoodsBrief:  goods.GoodsBrief,
-		ShopPrice:   goods.ShopPrice,
+		ID:             goods.ID,
+		CategoryID:     goods.CategoryID,
+		BrandsID:       goods.BrandsID,
+		OnSale:         goods.OnSale,
+		ShipFree:       goods.ShipFree,
+		IsNew:          goods.IsNew,
+		IsHot:          goods.IsHot,
+		Name:           goods.Name,
+		ClickNum:       goods.ClickNum,
+		SoldNum:        goods.SoldNum,
+		FavNum:         goods.FavNum,
+		MarketPrice:    goods.MarketPrice,
+		MarketPriceFen: goods.MarketPriceFen,
+		GoodsBrief:     goods.GoodsBrief,
+		ShopPrice:      goods.ShopPrice,
+		ShopPriceFen:   goods.ShopPriceFen,
 	}
 }
 
@@ -293,6 +296,7 @@ func validateGoodsForWrite(goods *dto.GoodsDTO, requireID bool) error {
 	if goods == nil {
 		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
 	}
+	goods.SyncLegacyMoneyFields()
 	if requireID && goods.ID <= 0 {
 		return errors.WithCode(code.ErrGoodsInvalid, "goods id is required")
 	}
@@ -308,7 +312,7 @@ func validateGoodsForWrite(goods *dto.GoodsDTO, requireID bool) error {
 	if goods.Name == "" || goods.GoodsSn == "" {
 		return errors.WithCode(code.ErrGoodsInvalid, "name and goods_sn are required")
 	}
-	if goods.MarketPrice < 0 || goods.ShopPrice < 0 {
+	if goods.MarketPriceFen < 0 || goods.ShopPriceFen < 0 {
 		return errors.WithCode(code.ErrGoodsInvalid, "goods price must not be negative")
 	}
 	return nil

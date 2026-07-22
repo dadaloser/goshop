@@ -84,10 +84,14 @@ func (g *goods) Search(ctx context.Context, req *v1.GoodsFilterRequest) (*do.Goo
 		q = q.Filter(elastic.NewTermQuery("is_new", req.IsNew))
 	}
 
-	if req.PriceMin > 0 {
+	if req.PriceMinFen > 0 {
+		q = q.Filter(elastic.NewRangeQuery("shop_price_fen").Gte(req.PriceMinFen))
+	} else if req.PriceMin > 0 {
 		q = q.Filter(elastic.NewRangeQuery("shop_price").Gte(req.PriceMin))
 	}
-	if req.PriceMax > 0 {
+	if req.PriceMaxFen > 0 {
+		q = q.Filter(elastic.NewRangeQuery("shop_price_fen").Lte(req.PriceMaxFen))
+	} else if req.PriceMax > 0 {
 		q = q.Filter(elastic.NewRangeQuery("shop_price").Lte(req.PriceMax))
 	}
 
@@ -128,6 +132,7 @@ func (g *goods) Search(ctx context.Context, req *v1.GoodsFilterRequest) (*do.Goo
 		if err != nil {
 			return nil, errors.WithCode(code.ErrEsUnmarshal, err.Error())
 		}
+		goods.SyncLegacyMoneyFields()
 		ret.Items = append(ret.Items, &goods)
 	}
 	return &ret, err

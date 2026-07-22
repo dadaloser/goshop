@@ -5,6 +5,7 @@ import (
 	"fmt"
 	proto "goshop/api/inventory/v1"
 	proto3 "goshop/api/order/v1"
+	"goshop/app/order/srv/internal/boundary"
 	v12 "goshop/app/order/srv/internal/data/v1"
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
@@ -14,6 +15,7 @@ import (
 	v1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
+	"goshop/pkg/money"
 	"strings"
 	"time"
 
@@ -60,6 +62,13 @@ type orderService struct {
 	data     v12.DataFactory
 	dtmOpts  *options.DtmOptions
 	upstream upstream
+}
+
+func normalizeGoodsPriceFen(info boundary.GoodsInfo) int64 {
+	if info.ShopPriceFen != 0 || info.ShopPrice == 0 {
+		return info.ShopPriceFen
+	}
+	return money.FromLegacyFloat32Yuan(info.ShopPrice).Int64()
 }
 
 func (os *orderService) CartItemList(ctx context.Context, userID uint64, meta v1.ListMeta, orderBy []string) (*dto.ShopCartDTOList, error) {
@@ -214,15 +223,25 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 	}
 
 	//生成订单总金额
-	var orderAmount float32
+	var orderAmountFen money.Fen
 	for _, value := range order.OrderGoods {
 		goodsInfo := goodsMap[value.Goods]
-		orderAmount += goodsInfo.ShopPrice * float32(value.Nums)
+		goodsPriceFen := money.NewFen(normalizeGoodsPriceFen(goodsInfo))
+		lineAmountFen, err := goodsPriceFen.Multiply(int64(value.Nums))
+		if err != nil {
+			return errors.Wrap(err, "calculate order line amount")
+		}
+		orderAmountFen, err = orderAmountFen.Add(lineAmountFen)
+		if err != nil {
+			return errors.Wrap(err, "accumulate order amount")
+		}
 		value.GoodsName = goodsInfo.Name
-		value.GoodsPrice = goodsInfo.ShopPrice
+		value.GoodsPriceFen = goodsPriceFen.Int64()
+		value.GoodsPrice = goodsPriceFen.Float32Yuan()
 		value.GoodsImage = goodsInfo.GoodsFrontImage
 	}
-	order.OrderMount = orderAmount
+	order.OrderMountFen = orderAmountFen.Int64()
+	order.OrderMount = orderAmountFen.Float32Yuan()
 
 	txn := os.data.Begin() //开启事务
 	if txn == nil {
@@ -364,6 +383,7 @@ func (os *orderService) Get(ctx context.Context, userID uint64, orderSn string) 
 	if uint64(order.User) != userID {
 		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
 	}
+	order.SyncLegacyMoneyFields()
 	return &dto.OrderDTO{OrderInfoDO: *order}, nil
 }
 

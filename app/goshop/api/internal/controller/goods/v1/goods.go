@@ -80,15 +80,16 @@ func (gc *goodsController) List(ctx *gin.Context) {
 		category := value.GetCategory()
 		brand := value.GetBrand()
 		goodsList = append(goodsList, map[string]interface{}{
-			"id":          value.GetId(),
-			"name":        value.GetName(),
-			"goods_brief": value.GetGoodsBrief(),
-			"desc":        value.GetGoodsDesc(),
-			"ship_free":   value.GetShipFree(),
-			"images":      value.GetImages(),
-			"desc_images": value.GetDescImages(),
-			"front_image": value.GetGoodsFrontImage(),
-			"shop_price":  value.GetShopPrice(),
+			"id":             value.GetId(),
+			"name":           value.GetName(),
+			"goods_brief":    value.GetGoodsBrief(),
+			"desc":           value.GetGoodsDesc(),
+			"ship_free":      value.GetShipFree(),
+			"images":         value.GetImages(),
+			"desc_images":    value.GetDescImages(),
+			"front_image":    value.GetGoodsFrontImage(),
+			"shop_price":     value.GetShopPrice(),
+			"shop_price_fen": value.GetShopPriceFen(),
 			"category": map[string]interface{}{
 				"id":   category.GetId(),
 				"name": category.GetName(),

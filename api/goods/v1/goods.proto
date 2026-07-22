@@ -180,8 +180,8 @@ message CreateGoodsInfo {
   string name = 2;
   string goodsSn = 3;
   int32 stocks = 7; //库存，
-  float marketPrice = 8;
-  float shopPrice = 9;
+  float marketPrice = 8 [deprecated = true];
+  float shopPrice = 9 [deprecated = true];
   string goodsBrief = 10;
   string goodsDesc = 11;
   bool shipFree = 12;
@@ -193,6 +193,8 @@ message CreateGoodsInfo {
   bool onSale = 18;
   int32 categoryId = 19;
   int32 brandId = 20;
+  int64 marketPriceFen = 21;
+  int64 shopPriceFen = 22;
 }
 
 message GoodsReduceRequest {
@@ -217,6 +219,8 @@ message GoodsFilterRequest  {
   int32 pagePerNums = 8;
   string keyWords = 9;
   int32 brand = 10;
+  int64 priceMinFen = 11;
+  int64 priceMaxFen = 12;
 }
 
 
@@ -228,8 +232,8 @@ message GoodsInfoResponse {
   int32 clickNum = 5;
   int32 soldNum = 6;
   int32 favNum = 7;
-  float marketPrice = 9;
-  float shopPrice = 10;
+  float marketPrice = 9 [deprecated = true];
+  float shopPrice = 10 [deprecated = true];
   string goodsBrief = 11;
   string goodsDesc = 12;
   bool shipFree = 13;
@@ -242,6 +246,8 @@ message GoodsInfoResponse {
   int64 addTime = 20;
   CategoryBriefInfoResponse category = 21;
   BrandInfoResponse brand = 22;
+  int64 marketPriceFen = 23;
+  int64 shopPriceFen = 24;
 }
 
 message GoodsListResponse {
