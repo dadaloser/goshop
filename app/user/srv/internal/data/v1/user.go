@@ -64,6 +64,14 @@ type UserAuditLogFilters struct {
 	CreatedBefore      *time.Time
 }
 
+type AdminAuditLogFilters struct {
+	Action             string
+	ActorUserID        int32
+	ActorPrincipalType string
+	CreatedAfter       *time.Time
+	CreatedBefore      *time.Time
+}
+
 type UserStore interface {
 	/*
 		有数据访问的方法，一定要有error
@@ -90,6 +98,7 @@ type UserStore interface {
 	DeleteRole(ctx context.Context, roleName string) error
 	ReplaceUserRoles(ctx context.Context, userID uint64, roleNames []string, actor *AuditActor) (*UserAuthDO, error)
 	ListAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilters, opts metav1.ListMeta) (*UserAuditLogDOList, error)
+	CreateAdminAuditLog(ctx context.Context, logEntry *AdminAuditLogDO) error
 
 	//创建用户
 	Create(ctx context.Context, user *UserDO) error

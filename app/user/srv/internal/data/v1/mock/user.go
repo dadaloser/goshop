@@ -56,6 +56,10 @@ func (u *users) ListAuditLogs(ctx context.Context, userID uint64, filters dv1.Us
 	return nil, errors.New("mock users ListAuditLogs not implemented")
 }
 
+func (u *users) CreateAdminAuditLog(ctx context.Context, logEntry *dv1.AdminAuditLogDO) error {
+	return errors.New("mock users CreateAdminAuditLog not implemented")
+}
+
 func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
 	return errors.New("mock users Create not implemented")
 }

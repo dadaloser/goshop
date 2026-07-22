@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -126,6 +127,19 @@ func (h *staffAuthHandler) Login(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code": http.StatusInternalServerError,
 			"msg":  "create staff token failed",
+		})
+		return
+	}
+	if err = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{
+		TargetUserId:       authUser.GetUser().GetId(),
+		ActorUserId:        authUser.GetUser().GetId(),
+		ActorPrincipalType: string(authz.PrincipalStaff),
+		Action:             "staff_login_succeeded",
+		Detail:             fmt.Sprintf("roles:%s", strings.Join(authUser.GetStaffRoles(), ",")),
+	}); err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{
+			"code": http.StatusBadGateway,
+			"msg":  "staff login audit failed",
 		})
 		return
 	}
@@ -274,6 +288,17 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 		})
 		return
 	}
+	if err = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{
+		ActorPrincipalType: string(authz.PrincipalAdminBootstrap),
+		Action:             "break_glass_session_issued",
+		Detail:             fmt.Sprintf("role:%s permissions:%s", h.adminAuth.EffectiveRole(), strings.Join(h.adminAuth.EffectivePermissions(), ",")),
+	}); err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{
+			"code": http.StatusBadGateway,
+			"msg":  "create bootstrap session audit failed",
+		})
+		return
+	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"token":          token,
@@ -316,6 +341,14 @@ func (h *staffAuthHandler) currentTokenVersion(ctx context.Context, userID int32
 		return 0, nil
 	}
 	return h.tokenVersions.CurrentVersion(ctx, uint64(userID))
+}
+
+func (h *staffAuthHandler) createAdminAuditLog(ctx context.Context, logEntry *upbv1.AdminAuditLog) error {
+	if h == nil || h.users == nil || logEntry == nil {
+		return nil
+	}
+	_, err := h.users.CreateAdminAuditLog(ctx, &upbv1.CreateAdminAuditLogRequest{Log: logEntry})
+	return err
 }
 
 func newStaffJWTAuth(

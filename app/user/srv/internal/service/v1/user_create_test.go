@@ -477,6 +477,40 @@ func TestUserService_ListUserAuditLogsPassesFilters(t *testing.T) {
 	}
 }
 
+func TestUserService_CreateAdminAuditLogValidatesAndPersists(t *testing.T) {
+	store := &fakeUserStore{}
+	svc := NewUserService(store)
+
+	if err := svc.CreateAdminAuditLog(context.Background(), AdminAuditLogDTO{
+		TargetUserID:       7,
+		ActorUserID:        7,
+		ActorPrincipalType: string(authz.PrincipalStaff),
+		Action:             dv1.AdminAuditActionStaffLoginSucceeded,
+		Detail:             "roles:admin",
+	}); err != nil {
+		t.Fatalf("CreateAdminAuditLog() error = %v", err)
+	}
+	if store.createdAdminAudit == nil {
+		t.Fatal("CreateAdminAuditLog() did not persist audit log")
+	}
+	if store.createdAdminAudit.Action != dv1.AdminAuditActionStaffLoginSucceeded {
+		t.Fatalf("admin audit action = %q, want %q", store.createdAdminAudit.Action, dv1.AdminAuditActionStaffLoginSucceeded)
+	}
+
+	if err := svc.CreateAdminAuditLog(context.Background(), AdminAuditLogDTO{
+		ActorPrincipalType: string(authz.PrincipalStaff),
+		Action:             "unknown_action",
+	}); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("CreateAdminAuditLog() unknown action error = %v, want ErrValidation", err)
+	}
+
+	if err := svc.CreateAdminAuditLog(context.Background(), AdminAuditLogDTO{
+		Action: dv1.AdminAuditActionBreakGlassSessionIssued,
+	}); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("CreateAdminAuditLog() missing principal error = %v, want ErrValidation", err)
+	}
+}
+
 type fakeUserStore struct {
 	usersByIdentifier  map[string]*dv1.UserDO
 	userByID           map[uint64]*dv1.UserDO
@@ -496,6 +530,7 @@ type fakeUserStore struct {
 	updatedStatus      string
 	updatedStatusActor *dv1.AuditActor
 	auditFilters       dv1.UserAuditLogFilters
+	createdAdminAudit  *dv1.AdminAuditLogDO
 	deletedID          uint64
 }
 
@@ -610,6 +645,15 @@ func (f *fakeUserStore) ReplaceUserRoles(_ context.Context, userID uint64, roleN
 func (f *fakeUserStore) ListAuditLogs(_ context.Context, _ uint64, filters dv1.UserAuditLogFilters, _ metav1.ListMeta) (*dv1.UserAuditLogDOList, error) {
 	f.auditFilters = filters
 	return &dv1.UserAuditLogDOList{}, nil
+}
+
+func (f *fakeUserStore) CreateAdminAuditLog(_ context.Context, logEntry *dv1.AdminAuditLogDO) error {
+	if logEntry == nil {
+		return nil
+	}
+	copyValue := *logEntry
+	f.createdAdminAudit = &copyValue
+	return nil
 }
 
 func (f *fakeUserStore) Create(_ context.Context, user *dv1.UserDO) error {

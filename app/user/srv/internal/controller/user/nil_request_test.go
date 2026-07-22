@@ -20,6 +20,7 @@ func TestUserServerRejectsNilRequests(t *testing.T) {
 		{name: "create staff role", run: func() error { _, err := server.CreateStaffRole(context.Background(), nil); return err }},
 		{name: "update staff role", run: func() error { _, err := server.UpdateStaffRole(context.Background(), nil); return err }},
 		{name: "delete staff role", run: func() error { _, err := server.DeleteStaffRole(context.Background(), nil); return err }},
+		{name: "create admin audit log", run: func() error { _, err := server.CreateAdminAuditLog(context.Background(), nil); return err }},
 		{name: "update user", run: func() error { _, err := server.UpdateUser(context.Background(), nil); return err }},
 		{name: "update user status", run: func() error { _, err := server.UpdateUserStatus(context.Background(), nil); return err }},
 		{name: "delete user", run: func() error { _, err := server.DeleteUser(context.Background(), nil); return err }},

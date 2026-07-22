@@ -557,6 +557,22 @@ func (u *users) ListAuditLogs(ctx context.Context, userID uint64, filters dv1.Us
 	return ret, nil
 }
 
+func (u *users) CreateAdminAuditLog(ctx context.Context, logEntry *dv1.AdminAuditLogDO) error {
+	if logEntry == nil {
+		return errors.WithCode(code2.ErrValidation, "admin audit log is required")
+	}
+	if strings.TrimSpace(logEntry.Action) == "" {
+		return errors.WithCode(code2.ErrValidation, "admin audit action is required")
+	}
+	if strings.TrimSpace(logEntry.ActorPrincipalType) == "" {
+		logEntry.ActorPrincipalType = string(authz.PrincipalInternalService)
+	}
+	if err := u.db.WithContext(ctx).Create(logEntry).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return nil
+}
+
 func newUsers(db *gorm.DB) *users {
 	return &users{db: db}
 }

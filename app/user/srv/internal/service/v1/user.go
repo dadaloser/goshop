@@ -93,6 +93,14 @@ type UserAuditLogFilterDTO struct {
 	CreatedBefore      *time.Time
 }
 
+type AdminAuditLogDTO struct {
+	TargetUserID       int32
+	ActorUserID        int32
+	ActorPrincipalType string
+	Action             string
+	Detail             string
+}
+
 type UserSrv interface {
 	List(ctx context.Context, orderBy []string, opts metav1.ListMeta) (*UserPublicDTOList, error)
 	Create(ctx context.Context, user *UserDTO) error
@@ -112,6 +120,7 @@ type UserSrv interface {
 	GetUserRoleBinding(ctx context.Context, userID uint64) (*UserRoleBindingDTO, error)
 	ReplaceUserRoleBinding(ctx context.Context, userID uint64, roleNames []string, actor AuditActorDTO) (*UserRoleBindingDTO, error)
 	ListUserAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilterDTO, opts metav1.ListMeta) (*UserAuditLogDTOList, error)
+	CreateAdminAuditLog(ctx context.Context, log AdminAuditLogDTO) error
 }
 
 type userService struct {
@@ -486,6 +495,25 @@ func (u *userService) ListUserAuditLogs(ctx context.Context, userID uint64, filt
 	return result, nil
 }
 
+func (u *userService) CreateAdminAuditLog(ctx context.Context, log AdminAuditLogDTO) error {
+	log.Action = strings.ToLower(strings.TrimSpace(log.Action))
+	log.ActorPrincipalType = strings.TrimSpace(log.ActorPrincipalType)
+	log.Detail = strings.TrimSpace(log.Detail)
+	if !isValidAdminAuditAction(log.Action) {
+		return errors.WithCode(code2.ErrValidation, "admin audit action is invalid")
+	}
+	if log.ActorPrincipalType == "" {
+		return errors.WithCode(code2.ErrValidation, "admin audit actor principal type is required")
+	}
+	return u.userStore.CreateAdminAuditLog(ctx, &dv1.AdminAuditLogDO{
+		TargetUserID:       log.TargetUserID,
+		ActorUserID:        log.ActorUserID,
+		ActorPrincipalType: log.ActorPrincipalType,
+		Action:             log.Action,
+		Detail:             log.Detail,
+	})
+}
+
 func NewUserService(us dv1.UserStore) UserSrv {
 	return &userService{
 		userStore: us,
@@ -822,4 +850,13 @@ func builtinRoleDefinitionByName(name string) (authz.RoleDefinition, bool) {
 		}
 	}
 	return authz.RoleDefinition{}, false
+}
+
+func isValidAdminAuditAction(action string) bool {
+	switch action {
+	case dv1.AdminAuditActionStaffLoginSucceeded, dv1.AdminAuditActionBreakGlassSessionIssued:
+		return true
+	default:
+		return false
+	}
 }

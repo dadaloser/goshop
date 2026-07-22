@@ -58,6 +58,9 @@ func TestInitRouterRestrictsBootstrapTokenToBreakGlass(t *testing.T) {
 	if breakGlassRec.Code != http.StatusOK {
 		t.Fatalf("break_glass status = %d, want 200", breakGlassRec.Code)
 	}
+	if client.createAdminAuditLogReq == nil || client.createAdminAuditLogReq.GetLog().GetAction() != "break_glass_session_issued" {
+		t.Fatalf("break_glass audit request = %#v, want action break_glass_session_issued", client.createAdminAuditLogReq)
+	}
 }
 
 func TestInitRouterAllowsStaffJWTOnUserList(t *testing.T) {
@@ -199,6 +202,47 @@ func TestStaffMeReturnsCurrentProfile(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Me() status = %d, want 200", rec.Code)
+	}
+}
+
+func TestStaffLoginCreatesAdminAuditLog(t *testing.T) {
+	client := &fakeAdminUserClient{
+		authUserResponse: &upbv1.UserAuthResponse{
+			User: &upbv1.UserInfoResponse{
+				Id:       7,
+				Username: "staff_001",
+				Status:   string(authz.AccountStatusActive),
+			},
+			PasswordHash: "hashed",
+			StaffRoles:   []string{string(authz.StaffRoleAdmin)},
+			Permissions:  []string{string(authz.PermissionUserListAny)},
+		},
+	}
+	handler := newStaffAuthHandler(
+		client,
+		&options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
+		&config.AdminAuthOptions{},
+		nil,
+		&fakeAdminTokenVersionStore{},
+	)
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/auth/login", strings.NewReader(`{"username":"staff_001","password":"Secret123!"}`))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+
+	handler.Login(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Login() status = %d, want 200", rec.Code)
+	}
+	if client.createAdminAuditLogReq == nil {
+		t.Fatal("Login() did not create admin audit log")
+	}
+	if client.createAdminAuditLogReq.GetLog().GetAction() != "staff_login_succeeded" {
+		t.Fatalf("login audit action = %q, want staff_login_succeeded", client.createAdminAuditLogReq.GetLog().GetAction())
+	}
+	if client.createAdminAuditLogReq.GetLog().GetTargetUserId() != 7 {
+		t.Fatalf("login audit target user id = %d, want 7", client.createAdminAuditLogReq.GetLog().GetTargetUserId())
 	}
 }
 
@@ -865,22 +909,23 @@ func mustCreateAdminToken(t *testing.T, jwtOpts *options.JwtOptions, userID uint
 }
 
 type fakeAdminUserClient struct {
-	listResponse        *upbv1.UserListResponse
-	userResponse        *upbv1.UserInfoResponse
-	authUserResponse    *upbv1.UserAuthResponse
-	updateStatusReq     *upbv1.UpdateUserStatusRequest
-	createRoleReq       *upbv1.CreateStaffRoleRequest
-	createRoleResp      *upbv1.StaffRole
-	updateRoleReq       *upbv1.UpdateStaffRoleRequest
-	updateRoleResp      *upbv1.StaffRole
-	deleteRoleReq       *upbv1.DeleteStaffRoleRequest
-	createStaffReq      *upbv1.CreateStaffUserRequest
-	createStaffResponse *upbv1.StaffUserResponse
-	replaceRolesReq     *upbv1.ReplaceUserStaffRolesRequest
-	replaceRolesResp    *upbv1.UserRoleBindingResponse
-	staffRolesResponse  *upbv1.StaffRoleListResponse
-	auditLogsResponse   *upbv1.UserAuditLogListResponse
-	auditLogsReq        *upbv1.UserAuditLogPageRequest
+	listResponse           *upbv1.UserListResponse
+	userResponse           *upbv1.UserInfoResponse
+	authUserResponse       *upbv1.UserAuthResponse
+	updateStatusReq        *upbv1.UpdateUserStatusRequest
+	createRoleReq          *upbv1.CreateStaffRoleRequest
+	createRoleResp         *upbv1.StaffRole
+	updateRoleReq          *upbv1.UpdateStaffRoleRequest
+	updateRoleResp         *upbv1.StaffRole
+	deleteRoleReq          *upbv1.DeleteStaffRoleRequest
+	createAdminAuditLogReq *upbv1.CreateAdminAuditLogRequest
+	createStaffReq         *upbv1.CreateStaffUserRequest
+	createStaffResponse    *upbv1.StaffUserResponse
+	replaceRolesReq        *upbv1.ReplaceUserStaffRolesRequest
+	replaceRolesResp       *upbv1.UserRoleBindingResponse
+	staffRolesResponse     *upbv1.StaffRoleListResponse
+	auditLogsResponse      *upbv1.UserAuditLogListResponse
+	auditLogsReq           *upbv1.UserAuditLogPageRequest
 }
 
 func (f *fakeAdminUserClient) GetUserList(context.Context, *upbv1.PageInfo, ...grpc.CallOption) (*upbv1.UserListResponse, error) {
@@ -978,6 +1023,11 @@ func (f *fakeAdminUserClient) ListUserAuditLogs(_ context.Context, req *upbv1.Us
 		return f.auditLogsResponse, nil
 	}
 	return &upbv1.UserAuditLogListResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) CreateAdminAuditLog(_ context.Context, req *upbv1.CreateAdminAuditLogRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	f.createAdminAuditLogReq = req
+	return &emptypb.Empty{}, nil
 }
 
 func (f *fakeAdminUserClient) CreateUser(context.Context, *upbv1.CreateUserInfo, ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
