@@ -29,6 +29,10 @@ Examples:
 - Add indexes and unique constraints explicitly.
 - Run migrations in staging before production.
 - Keep data backfills separate from schema migrations when they may take time.
+- Keep startup-required schema in reviewed migrations. For example, `user-srv`
+  startup validation currently requires `user.account_status`,
+  `roles/user_roles/role_permissions/role_domains`, `user_audit_logs`, and
+  `admin_audit_logs` to exist before production boots with `mysql.auto-migrate=false`.
 
 ## P0 Baseline
 

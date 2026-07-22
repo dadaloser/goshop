@@ -23,7 +23,7 @@ help:
 	@echo "  make proto-check  Regenerate proto files and fail if git diff changes api/"
 	@echo "  make proto-tools  Install pinned protoc Go plugins"
 	@echo "  make panic-check  Fail if business code contains implement-me panics"
-	@echo "  make migration-check  Fail on unsafe application-managed schema migration"
+	@echo "  make migration-check  Fail on unsafe AutoMigrate usage or missing reviewed user/RBAC schema coverage"
 	@echo "  make config-secret-check  Fail if configs contain known secrets or unsafe defaults"
 	@echo "  make startup-validation-check  Fail if startup validation can be bypassed by log.development"
 	@echo "  make inventory-integration-test  Run inventory real-DB integration tests"
