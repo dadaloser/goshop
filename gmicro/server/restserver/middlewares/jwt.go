@@ -29,10 +29,10 @@ const (
 )
 
 var (
-	TokenExpired     = errors.New("token is expired")
-	TokenNotValidYet = errors.New("token not active yet")
-	TokenMalformed   = errors.New("that's not even a token")
-	TokenInvalid     = errors.New("Couldn't handle this token : ")
+	ErrTokenExpired     = errors.New("token is expired")
+	ErrTokenNotValidYet = errors.New("token not active yet")
+	ErrTokenMalformed   = errors.New("that's not even a token")
+	ErrTokenInvalid     = errors.New("could not handle this token")
 )
 
 func NewJWT(signKey string) *JWT {
@@ -53,27 +53,27 @@ func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 		return j.SigningKey, nil
 	})
 	if errors.Is(err, jwt.ErrTokenMalformed) {
-		return nil, TokenMalformed
+		return nil, ErrTokenMalformed
 	}
 	if errors.Is(err, jwt.ErrTokenExpired) {
-		return nil, TokenExpired
+		return nil, ErrTokenExpired
 	}
 	if errors.Is(err, jwt.ErrTokenNotValidYet) {
-		return nil, TokenNotValidYet
+		return nil, ErrTokenNotValidYet
 	}
 	// 其他所有错误
 	if err != nil {
-		return nil, TokenInvalid
+		return nil, ErrTokenInvalid
 	}
 
 	if token != nil {
 		if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 			return claims, nil
 		}
-		return nil, TokenInvalid
+		return nil, ErrTokenInvalid
 
 	} else {
-		return nil, TokenInvalid
+		return nil, ErrTokenInvalid
 
 	}
 
@@ -112,11 +112,11 @@ func (j *JWT) RefreshToken(tokenString string) (string, error) {
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 		// 3. 更新过期时间
 		// 必须使用 jwt.NewNumericDate 来包装时间
-		claims.RegisteredClaims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(1 * time.Hour))
+		claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(1 * time.Hour))
 
 		// 4. 重新生成 Token
 		return j.CreateToken(*claims)
 	}
 
-	return "", TokenInvalid
+	return "", ErrTokenInvalid
 }

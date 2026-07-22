@@ -29,13 +29,6 @@ func (t gormTxn) Rollback() error {
 	return t.db.Rollback().Error
 }
 
-func withTxn(ctx context.Context, db *gorm.DB, action string, fn func(txExecutor) error) error {
-	if db == nil {
-		return fmt.Errorf("%s transaction is nil", action)
-	}
-	return withTxnExecutor(ctx, gormTxn{db: db}, action, fn)
-}
-
 func withTxnExecutor(ctx context.Context, txn txExecutor, action string, fn func(txExecutor) error) (err error) {
 	if txn == nil {
 		return fmt.Errorf("%s transaction is nil", action)

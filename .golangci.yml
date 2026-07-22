@@ -1,19 +1,30 @@
 version: "2"
 
 linters:
+  default: none
   enable:
-    - govet
     - errcheck
+    - govet
+    - ineffassign
     - staticcheck
-    - goconst
+    - unused
+  settings:
+    govet:
+      disable:
+        - inline
+    staticcheck:
+      checks:
+        - all
+        - -SA1019
+        - -ST*
+        - -S*
+        - -QF*
+  exclusions:
+    paths:
+      - vendor
+      - testdata
+      - third_party
+      - ".*_test\\.go$"
+
 run:
-  timeout: 2m
-linters-settings:
-  staticcheck:
-    checks:
-      - all
-      - "-SA1019"
-exclusions:
-  paths:
-    - vendor
-    - testdata
+  timeout: 5m

@@ -4,7 +4,6 @@ import (
 	proto "goshop/api/goods/v1"
 	"goshop/app/goshop/api/internal/domain/request"
 	"goshop/app/goshop/api/internal/service"
-	v1 "goshop/app/goshop/api/internal/service/goods/v1"
 	"goshop/app/pkg/code"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
@@ -16,9 +15,8 @@ import (
 )
 
 type goodsController struct {
-	trans    ut.Translator
-	srv      service.ServiceFactory
-	goodsSrv v1.GoodsSrv
+	trans ut.Translator
+	srv   service.ServiceFactory
 }
 
 func NewGoodsController(srv service.ServiceFactory, trans ut.Translator) *goodsController {

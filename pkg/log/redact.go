@@ -61,13 +61,6 @@ func sanitizeFields(fields []zapcore.Field) []zapcore.Field {
 	return sanitized
 }
 
-func sanitizeKeyValue(key string, value interface{}) interface{} {
-	if isSensitiveFieldKey(key) {
-		return redactedFieldValue
-	}
-	return value
-}
-
 func maskedAttribute(key string) attribute.KeyValue {
 	return attribute.String(key, redactedFieldValue)
 }

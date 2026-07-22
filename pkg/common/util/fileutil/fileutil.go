@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/user"
@@ -17,7 +16,13 @@ import (
 
 // FileType uses the filetype package to determine the given file path's type.
 func FileType(filePath string) (types.Type, error) {
-	file, _ := os.Open(filePath)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return types.Unknown, err
+	}
+	defer func() {
+		_ = file.Close()
+	}()
 
 	// We only have to pass the file header = first 261 bytes
 	head := make([]byte, 261)
@@ -38,8 +43,8 @@ func FileExists(path string) (bool, error) {
 // DirExists returns true if the given path exists and is a directory.
 func DirExists(path string) (bool, error) {
 	exists, _ := FileExists(path)
-	fileInfo, _ := os.Stat(path)
-	if !exists || !fileInfo.IsDir() {
+	fileInfo, err := os.Stat(path)
+	if !exists || err != nil || !fileInfo.IsDir() {
 		return false, fmt.Errorf("path either doesn't exist, or is not a directory <%s>", path)
 	}
 	return true, nil
@@ -53,7 +58,9 @@ func Touch(path string) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func() {
+			_ = file.Close()
+		}()
 	}
 	return nil
 }
@@ -84,7 +91,9 @@ func EmptyDir(path string) error {
 	if err != nil {
 		return err
 	}
-	defer d.Close()
+	defer func() {
+		_ = d.Close()
+	}()
 
 	names, err := d.Readdirnames(-1)
 	if err != nil {
@@ -103,10 +112,10 @@ func EmptyDir(path string) error {
 
 // ListDir will return the contents of a given directory path as a string slice.
 func ListDir(path string) []string {
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		path = filepath.Dir(path)
-		files, _ = ioutil.ReadDir(path)
+		files, _ = os.ReadDir(path)
 	}
 
 	//nolint: prealloc
@@ -141,13 +150,17 @@ func SafeMove(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		defer in.Close()
+		defer func() {
+			_ = in.Close()
+		}()
 
 		out, err := os.Create(dst)
 		if err != nil {
 			return err
 		}
-		defer out.Close()
+		defer func() {
+			_ = out.Close()
+		}()
 
 		_, err = io.Copy(out, in)
 		if err != nil {
@@ -175,7 +188,9 @@ func IsZipFileUncompressed(path string) (bool, error) {
 		fmt.Printf("Error reading zip file %s: %s\n", path, err)
 		return false, err
 	}
-	defer r.Close()
+	defer func() {
+		_ = r.Close()
+	}()
 	for _, f := range r.File {
 		if f.FileInfo().IsDir() { // skip dirs, they always get store level compression
 			continue
@@ -192,7 +207,7 @@ func WriteFile(path string, file []byte) error {
 		return fmt.Errorf("cannot ensure path %s", pathErr)
 	}
 
-	err := ioutil.WriteFile(path, file, 0600)
+	err := os.WriteFile(path, file, 0600)
 	if err != nil {
 		return fmt.Errorf("write error for thumbnail %s: %s ", path, err)
 	}
@@ -252,7 +267,9 @@ func MatchEntries(dir, pattern string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	files, err := f.Readdirnames(-1)
 	if err != nil {

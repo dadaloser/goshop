@@ -2,44 +2,60 @@ package retryutil
 
 import (
 	"context"
-	"fmt"
-	"math"
+	"errors"
 	"time"
 )
 
-var RetryAbleErr = fmt.Errorf("retry")
-var TimeoutErr = fmt.Errorf("timeout")
+var ErrRetryable = errors.New("retry")
+var ErrTimeout = errors.New("timeout")
 
 func RetryUntilTimeout(ctx *context.Context, interval time.Duration, timeout time.Duration, do func() error) error {
+	if do == nil {
+		return nil
+	}
+
 	err := do()
 	if err == nil {
 		return nil
 	}
 
-	if err != RetryAbleErr {
+	if !errors.Is(err, ErrRetryable) {
 		return err
 	}
 
-	if timeout == 0 {
-		timeout = time.Duration(math.MaxInt64)
+	if interval <= 0 {
+		interval = time.Millisecond
 	}
 
-	//t := time.NewTimer(timeout)
+	runCtx := context.Background()
+	if ctx != nil && *ctx != nil {
+		runCtx = *ctx
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	var timeoutCh <-chan time.Time
+	if timeout > 0 {
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+		timeoutCh = timer.C
+	}
+
 	for {
-		//select {
-		//case <-ctx.Done():
-		//	return ctx.Err()
-		//case <-t.C:
-		//	return TimeoutErr
-		//case <-time.After(interval):
-		//	err := do()
-		//	if err == nil {
-		//		return nil
-		//	}
-		//
-		//	if err != RetryAbleErr {
-		//		return err
-		//	}
-		//}
+		select {
+		case <-runCtx.Done():
+			return runCtx.Err()
+		case <-timeoutCh:
+			return ErrTimeout
+		case <-ticker.C:
+			err := do()
+			if err == nil {
+				return nil
+			}
+			if !errors.Is(err, ErrRetryable) {
+				return err
+			}
+		}
 	}
 }

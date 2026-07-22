@@ -612,10 +612,6 @@ func (u *users) ListAdminAuditLogs(ctx context.Context, filters dv1.AdminAuditLo
 	return ret, nil
 }
 
-func newUsers(db *gorm.DB) *users {
-	return &users{db: db}
-}
-
 var _ dv1.UserStore = &users{}
 
 // List
@@ -871,13 +867,4 @@ func normalizeRoleNames(roleNames []string) []string {
 	}
 	slices.Sort(normalized)
 	return normalized
-}
-
-func builtinRoleDefinitionByName(name string) (authz.RoleDefinition, bool) {
-	for _, definition := range authz.BuiltinRoleDefinitions() {
-		if string(definition.Name) == strings.ToLower(strings.TrimSpace(name)) {
-			return definition, true
-		}
-	}
-	return authz.RoleDefinition{}, false
 }

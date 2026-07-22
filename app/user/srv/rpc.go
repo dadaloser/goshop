@@ -55,6 +55,13 @@ func NewNacosDataSource(opts *options.NacosOptions) (*nacos.NacosDataSource, err
 }
 
 func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.ServerOptions, nacosOpts *options.NacosOptions, rpcSecurity *rpcserver.SecurityPolicy, uServer upb.UserServer) (*rpcserver.Server, error) {
+	if telemetry == nil {
+		return nil, fmt.Errorf("telemetry options are required")
+	}
+	if serverOpts == nil {
+		return nil, fmt.Errorf("server options are required")
+	}
+
 	//初始化open-telemetry的exporter
 	log.Infof("initializing telemetry: name=%s endpoint=%s batcher=%s", telemetry.Name, telemetry.Endpoint, telemetry.Batcher)
 	if err := trace.InitAgent(trace.Options{
@@ -70,7 +77,7 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 
 	var opts []rpcserver.ServerOption
 	opts = append(opts, rpcserver.WithAddress(rpcAddr))
-	opts = append(opts, rpcserver.WithMetrics(serverOpts != nil && serverOpts.EnableMetrics))
+	opts = append(opts, rpcserver.WithMetrics(serverOpts.EnableMetrics))
 	opts = append(opts, rpcserver.WithServerSecurityPolicy(rpcSecurity))
 	if serverOpts.EnableLimit {
 		log.Infof("initializing sentinel limit rules from nacos")

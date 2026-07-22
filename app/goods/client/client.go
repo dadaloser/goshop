@@ -37,7 +37,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer conn.Close()
+	defer func() {
+		_ = conn.Close()
+	}()
 
 	uc := v1.NewGoodsClient(conn)
 

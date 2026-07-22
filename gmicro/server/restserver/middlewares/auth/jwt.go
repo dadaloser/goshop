@@ -93,7 +93,7 @@ func GetToken(c *gin.Context) (string, error) {
 	if header := strings.TrimSpace(c.GetHeader("Authorization")); header != "" {
 		parts := strings.SplitN(header, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || strings.TrimSpace(parts[1]) == "" {
-			return "", fmt.Errorf("Authorization header format is wrong")
+			return "", fmt.Errorf("authorization header format is wrong")
 		}
 		return strings.TrimSpace(parts[1]), nil
 	}
@@ -110,7 +110,7 @@ func GetToken(c *gin.Context) (string, error) {
 		return "", err
 	}
 
-	return "", fmt.Errorf("Authorization header cannot be empty")
+	return "", fmt.Errorf("authorization header cannot be empty")
 }
 
 // ExtractClaims returns the jwt payload map stored by the auth middleware.

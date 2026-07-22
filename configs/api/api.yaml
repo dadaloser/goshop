@@ -63,7 +63,7 @@ rpc-client-resilience:
 redis:
   host: "192.168.1.119"
   port: 6888
-  password: "admin@admin"
+  password: "" # use API_REDIS_PASSWORD or secret manager in production
   database: 0
   resilience:
     enabled: true

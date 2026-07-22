@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -166,7 +165,7 @@ func main() {
 
 	var t *template.Template
 	if *licensef != "" {
-		d, err := ioutil.ReadFile(*licensef)
+		d, err := os.ReadFile(*licensef)
 		if err != nil {
 			fmt.Printf("license file: %v\n", err)
 			os.Exit(1)
@@ -294,7 +293,7 @@ func addLicense(path string, fmode os.FileMode, tmpl *template.Template, data *c
 		return false, err
 	}
 
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil || hasLicense(b) {
 		return false, err
 	}
@@ -309,12 +308,12 @@ func addLicense(path string, fmode os.FileMode, tmpl *template.Template, data *c
 		lic = append(line, lic...)
 	}
 	b = append(lic, b...)
-	return true, ioutil.WriteFile(path, b, fmode)
+	return true, os.WriteFile(path, b, fmode)
 }
 
 // fileHasLicense reports whether the file at path contains a license header.
 func fileHasLicense(path string) (bool, error) {
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil || hasLicense(b) {
 		return false, err
 	}

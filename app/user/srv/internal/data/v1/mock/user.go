@@ -8,9 +8,7 @@ import (
 	metav1 "goshop/pkg/common/meta/v1"
 )
 
-type users struct {
-	users []*dv1.UserDO
-}
+type users struct{}
 
 func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, error) {
 	return nil, errors.New("mock users GetByMobile not implemented")

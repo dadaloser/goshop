@@ -293,19 +293,6 @@ func validateStockOperation(orderSn string, details []do.GoodsDetail) error {
 	return nil
 }
 
-func stockSellStatusName(status int32) string {
-	switch status {
-	case stockSellStatusReserved:
-		return "reserved"
-	case stockSellStatusReleased:
-		return "released"
-	case stockSellStatusConfirmed:
-		return "confirmed"
-	default:
-		return "unknown"
-	}
-}
-
 func unlockOrderMutex(mutex *redsync.Mutex, orderSn string) {
 	if mutex == nil {
 		return

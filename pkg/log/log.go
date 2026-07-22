@@ -116,14 +116,14 @@ func CheckIntLevel(level int32) bool {
 	} else {
 		lvl = zapcore.DebugLevel
 	}
-	checkEntry := std.Logger.Check(lvl, "")
+	checkEntry := std.Check(lvl, "")
 
 	return checkEntry != nil
 }
 
 // Debug method output debug level log.
 func Debug(msg string, fields ...Field) {
-	std.Logger.Debug(msg, fields...)
+	std.Debug(msg, fields...)
 }
 
 // Debug method output debug level log.
@@ -152,7 +152,7 @@ func DebugwC(ctx context.Context, msg string, keysAndValues ...interface{}) {
 
 // Info method output info level log.
 func Info(msg string, fields ...Field) {
-	std.Logger.Info(msg, fields...)
+	std.Info(msg, fields...)
 }
 
 func InfoC(ctx context.Context, msg string, fields ...Field) {

@@ -25,7 +25,7 @@ func (t Time) MarshalJSON() ([]byte, error) {
 // Value insert timestamp into mysql need this function.
 func (t Time) Value() (sqldriver.Value, error) {
 	var zeroTime time.Time
-	if t.Time.UnixNano() == zeroTime.UnixNano() {
+	if t.UnixNano() == zeroTime.UnixNano() {
 		return nil, nil
 	}
 	return t.Time, nil

@@ -200,7 +200,7 @@ func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, f
 		return fields
 	}
 
-	switch ctx.(type) {
+	switch ginCtx := ctx.(type) {
 	case *gin.Context:
 		requestID := contextStringValue(ctx, KeyRequestID, "requestID")
 		userID := contextStringValue(ctx, KeyUserID, "userid", "username")
@@ -210,7 +210,7 @@ func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, f
 		if userID != "" {
 			fields = append(fields, zap.String(KeyUserID, userID))
 		}
-		ctx = ctx.(*gin.Context).Request.Context()
+		ctx = ginCtx.Request.Context()
 	}
 
 	span := trace.SpanFromContext(ctx)

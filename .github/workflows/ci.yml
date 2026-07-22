@@ -16,6 +16,7 @@ concurrency:
 
 env:
   GO_VERSION: "1.26.x"
+  GOLANGCI_LINT_VERSION: "v2.12.2"
 
 jobs:
   test:
@@ -82,10 +83,7 @@ jobs:
           cache: true
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: latest
-          args: --timeout=5m
+        run: make lint-check
 
   vulncheck:
     name: Vulnerability Scan

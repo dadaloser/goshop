@@ -28,7 +28,12 @@ func (us *userServer) CheckPassWord(ctx context.Context, info *upbv1.PasswordChe
 		return &upbv1.CheckResponse{Success: false}, nil
 	}
 
-	options := &password.Options{16, 100, 32, sha512.New}
+	options := &password.Options{
+		SaltLen:      16,
+		Iterations:   100,
+		KeyLen:       32,
+		HashFunction: sha512.New,
+	}
 	check := password.Verify(info.Password, passwordInfo[2], passwordInfo[3], options)
 	return &upbv1.CheckResponse{Success: check}, nil
 }

@@ -31,7 +31,7 @@ func (u *userServer) UpdateUser(ctx context.Context, request *upbv1.UpdateUserIn
 		Gender:   request.Gender,
 		Birthday: &birthDay,
 	}
-	userDTO := v12.UserDTO{userDO}
+	userDTO := v12.UserDTO{UserDO: userDO}
 
 	err := u.srv.Update(ctx, &userDTO)
 	if err != nil {

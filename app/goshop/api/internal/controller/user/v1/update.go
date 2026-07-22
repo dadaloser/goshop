@@ -62,7 +62,7 @@ func (us *userServer) UpdateUser(ctx *gin.Context) {
 		return
 	}
 	userDTO.NickName = updateForm.Name
-	userDTO.Birthday = jtime.Time{birthDay}
+	userDTO.Birthday = jtime.Time{Time: birthDay}
 	userDTO.Gender = updateForm.Gender
 	userDTO.Email = updateForm.Email
 	err = userSrv.Update(ctx, userDTO)

@@ -43,11 +43,22 @@ assert_up_migration_contains() {
 # user-srv startup validation requires these reviewed schema changes to exist
 # before production can safely keep mysql.auto-migrate disabled.
 assert_up_migration_contains 'account_status' 'user.account_status'
+assert_up_migration_contains 'idx_username' 'user.username unique index'
+assert_up_migration_contains 'idx_email' 'user.email unique index'
 assert_up_migration_contains 'CREATE TABLE IF NOT EXISTS `roles`' 'roles table'
+assert_up_migration_contains 'idx_role_name' 'roles.name unique index'
 assert_up_migration_contains 'CREATE TABLE IF NOT EXISTS `user_roles`' 'user_roles table'
+assert_up_migration_contains 'idx_user_role_user' 'user_roles.user_id index'
+assert_up_migration_contains 'idx_user_role_role' 'user_roles.role_id index'
 assert_up_migration_contains 'CREATE TABLE IF NOT EXISTS `role_permissions`' 'role_permissions table'
+assert_up_migration_contains 'idx_role_permission_role' 'role_permissions.role_id index'
 assert_up_migration_contains 'CREATE TABLE IF NOT EXISTS `role_domains`' 'role_domains table'
+assert_up_migration_contains 'idx_role_domain_role' 'role_domains.role_id index'
 assert_up_migration_contains 'CREATE TABLE `user_audit_logs`' 'user_audit_logs table'
+assert_up_migration_contains 'idx_user_audit_logs_user' 'user_audit_logs.user_id index'
+assert_up_migration_contains 'idx_user_audit_logs_actor' 'user_audit_logs.actor_user_id index'
 assert_up_migration_contains 'CREATE TABLE `admin_audit_logs`' 'admin_audit_logs table'
+assert_up_migration_contains 'idx_admin_audit_logs_target' 'admin_audit_logs.target_user_id index'
+assert_up_migration_contains 'idx_admin_audit_logs_actor' 'admin_audit_logs.actor_user_id index'
 
 echo "migration check passed"

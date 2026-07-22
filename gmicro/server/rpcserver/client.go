@@ -9,7 +9,6 @@ import (
 	"goshop/gmicro/resilience"
 	"goshop/gmicro/server/rpcserver/clientinterceptors"
 	"goshop/gmicro/server/rpcserver/resolver/discovery"
-	"goshop/pkg/log"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -33,7 +32,6 @@ type clientOptions struct {
 	streamInts         []grpc.StreamClientInterceptor
 	rpcOpts            []grpc.DialOption
 	balancerName       string
-	log                log.LogHelper
 	enableTracing      bool
 	enableMetrics      bool
 	connectProbe       bool

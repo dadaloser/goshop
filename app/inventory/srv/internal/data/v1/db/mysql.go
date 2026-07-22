@@ -39,7 +39,7 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (v12.DataFactory, error) {
 		return nil, fmt.Errorf("failed to get mysql store fatory")
 	}
 
-	var err error
+	var initErr error
 	once.Do(func() {
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 			mysqlOpts.Username,
@@ -62,15 +62,17 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (v12.DataFactory, error) {
 			Logger: newLogger,
 		})
 		if err != nil {
+			initErr = err
 			return
 		}
 		if err = db.Use(appgorm.NewResiliencePlugin(mysqlOpts.Resilience)); err != nil {
+			initErr = err
 			return
 		}
 
 		sqlDB, dbErr := db.DB()
 		if dbErr != nil {
-			err = dbErr
+			initErr = fmt.Errorf("open sql db: %w", dbErr)
 			return
 		}
 		dbFactory = &mysqlStore{
@@ -82,8 +84,8 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (v12.DataFactory, error) {
 		sqlDB.SetConnMaxLifetime(mysqlOpts.MaxConnectionLifetime)
 	})
 
-	if dbFactory == nil || err != nil {
-		return nil, errors.WrapC(err, code.ErrConnectDB, "failed to get mysql store factory")
+	if dbFactory == nil || initErr != nil {
+		return nil, errors.WrapC(initErr, code.ErrConnectDB, "failed to get mysql store factory")
 	}
 	return dbFactory, nil
 }

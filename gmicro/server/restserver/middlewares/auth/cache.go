@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"goshop/gmicro/code"
@@ -52,9 +53,12 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 			return
 		}
 
-		var rawJWT string
-		// Parse the header to get the token part.
-		fmt.Sscanf(header, "Bearer %s", &rawJWT)
+		rawJWT, ok := strings.CutPrefix(strings.TrimSpace(header), "Bearer ")
+		if !ok || strings.TrimSpace(rawJWT) == "" {
+			core.WriteResponse(c, errors.WithCode(code.ErrMissingHeader, "Authorization header format is invalid."), nil)
+			c.Abort()
+			return
+		}
 
 		// Use own validation logic, see below
 		var secret Secret

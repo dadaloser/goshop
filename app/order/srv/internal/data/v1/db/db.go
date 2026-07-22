@@ -49,7 +49,7 @@ func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 	if mysqlOpts == nil && data == nil {
 		return nil, errors.New("failed to get data store factory")
 	}
-	var err error
+	var initErr error
 	once.Do(func() {
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 			mysqlOpts.Username,
@@ -72,15 +72,17 @@ func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 			Logger: newLogger,
 		})
 		if err != nil {
+			initErr = err
 			return
 		}
 		if err = db.Use(appgorm.NewResiliencePlugin(mysqlOpts.Resilience)); err != nil {
+			initErr = err
 			return
 		}
 
 		sqlDB, dbErr := db.DB()
 		if dbErr != nil {
-			err = dbErr
+			initErr = fmt.Errorf("open sql db: %w", dbErr)
 			return
 		}
 		sqlDB.SetMaxOpenConns(mysqlOpts.MaxOpenConnections)
@@ -92,8 +94,8 @@ func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 		}
 	})
 
-	if data == nil || err != nil {
-		return nil, errors2.WrapC(err, code.ErrConnectDB, "failed to get data store factory")
+	if data == nil || initErr != nil {
+		return nil, errors2.WrapC(initErr, code.ErrConnectDB, "failed to get data store factory")
 	}
 	return data, nil
 }

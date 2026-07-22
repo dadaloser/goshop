@@ -289,7 +289,7 @@ func IsValidPassword(password string) error {
 	if !hasSpecial {
 		appendError("special character missing")
 	}
-	if !(minPassLength <= passLen && passLen <= maxPassLength) {
+	if passLen < minPassLength || passLen > maxPassLength {
 		appendError(
 			fmt.Sprintf("password length must be between %d to %d characters long", minPassLength, maxPassLength),
 		)

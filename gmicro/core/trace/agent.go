@@ -23,11 +23,6 @@ import (
 初始化不同的export的设置
 */
 
-const (
-	kindJaeger = "jaeger"
-	kindZipkin = "zipkin"
-)
-
 var (
 	//set ,struct 空结构体不占内存， zerobase
 	agents    = make(map[string]struct{})

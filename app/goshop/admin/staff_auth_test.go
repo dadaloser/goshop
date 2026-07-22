@@ -1010,9 +1010,16 @@ func (f *fakeAdminUserClient) GetUserById(context.Context, *upbv1.IdRequest, ...
 func (f *fakeAdminUserClient) UpdateUserStatus(_ context.Context, req *upbv1.UpdateUserStatusRequest, _ ...grpc.CallOption) (*upbv1.UserInfoResponse, error) {
 	f.updateStatusReq = req
 	if f.userResponse != nil {
-		response := *f.userResponse
-		response.Status = req.GetStatus()
-		return &response, nil
+		return &upbv1.UserInfoResponse{
+			Id:       f.userResponse.GetId(),
+			Mobile:   f.userResponse.GetMobile(),
+			NickName: f.userResponse.GetNickName(),
+			BirthDay: f.userResponse.GetBirthDay(),
+			Gender:   f.userResponse.GetGender(),
+			Email:    f.userResponse.GetEmail(),
+			Username: f.userResponse.GetUsername(),
+			Status:   req.GetStatus(),
+		}, nil
 	}
 	return &upbv1.UserInfoResponse{Id: req.GetId(), Status: req.GetStatus()}, nil
 }
