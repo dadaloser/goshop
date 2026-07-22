@@ -151,17 +151,15 @@ func (x *OrderStatus) GetPayTime() int64 {
 }
 
 type CartItemRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Id         int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	UserId     int32                  `protobuf:"varint,2,opt,name=userId,proto3" json:"userId,omitempty"`
-	GoodsId    int32                  `protobuf:"varint,3,opt,name=goodsId,proto3" json:"goodsId,omitempty"`
-	GoodsName  string                 `protobuf:"bytes,4,opt,name=goodsName,proto3" json:"goodsName,omitempty"`
-	GoodsImage string                 `protobuf:"bytes,5,opt,name=goodsImage,proto3" json:"goodsImage,omitempty"`
-	// Deprecated: Marked as deprecated in order.proto.
-	GoodsPrice    float32 `protobuf:"fixed32,6,opt,name=goodsPrice,proto3" json:"goodsPrice,omitempty"`
-	Nums          int32   `protobuf:"varint,7,opt,name=nums,proto3" json:"nums,omitempty"`
-	Checked       bool    `protobuf:"varint,8,opt,name=checked,proto3" json:"checked,omitempty"`
-	GoodsPriceFen int64   `protobuf:"varint,9,opt,name=goodsPriceFen,proto3" json:"goodsPriceFen,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId        int32                  `protobuf:"varint,2,opt,name=userId,proto3" json:"userId,omitempty"`
+	GoodsId       int32                  `protobuf:"varint,3,opt,name=goodsId,proto3" json:"goodsId,omitempty"`
+	GoodsName     string                 `protobuf:"bytes,4,opt,name=goodsName,proto3" json:"goodsName,omitempty"`
+	GoodsImage    string                 `protobuf:"bytes,5,opt,name=goodsImage,proto3" json:"goodsImage,omitempty"`
+	Nums          int32                  `protobuf:"varint,7,opt,name=nums,proto3" json:"nums,omitempty"`
+	Checked       bool                   `protobuf:"varint,8,opt,name=checked,proto3" json:"checked,omitempty"`
+	GoodsPriceFen int64                  `protobuf:"varint,9,opt,name=goodsPriceFen,proto3" json:"goodsPriceFen,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -229,14 +227,6 @@ func (x *CartItemRequest) GetGoodsImage() string {
 		return x.GoodsImage
 	}
 	return ""
-}
-
-// Deprecated: Marked as deprecated in order.proto.
-func (x *CartItemRequest) GetGoodsPrice() float32 {
-	if x != nil {
-		return x.GoodsPrice
-	}
-	return 0
 }
 
 func (x *CartItemRequest) GetNums() int32 {
@@ -405,22 +395,20 @@ func (x *OrderLookupRequest) GetOrderSn() string {
 }
 
 type OrderInfoResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Id      int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	UserId  int32                  `protobuf:"varint,2,opt,name=userId,proto3" json:"userId,omitempty"`
-	OrderSn string                 `protobuf:"bytes,3,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
-	PayType string                 `protobuf:"bytes,4,opt,name=payType,proto3" json:"payType,omitempty"`
-	Status  string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
-	Post    string                 `protobuf:"bytes,6,opt,name=post,proto3" json:"post,omitempty"`
-	// Deprecated: Marked as deprecated in order.proto.
-	Total         float32 `protobuf:"fixed32,7,opt,name=total,proto3" json:"total,omitempty"`
-	Address       string  `protobuf:"bytes,8,opt,name=address,proto3" json:"address,omitempty"`
-	Name          string  `protobuf:"bytes,9,opt,name=name,proto3" json:"name,omitempty"`
-	Mobile        string  `protobuf:"bytes,10,opt,name=mobile,proto3" json:"mobile,omitempty"`
-	AddTime       string  `protobuf:"bytes,11,opt,name=addTime,proto3" json:"addTime,omitempty"`
-	TradeNo       string  `protobuf:"bytes,12,opt,name=tradeNo,proto3" json:"tradeNo,omitempty"`
-	PayTime       int64   `protobuf:"varint,13,opt,name=payTime,proto3" json:"payTime,omitempty"`
-	TotalFen      int64   `protobuf:"varint,14,opt,name=totalFen,proto3" json:"totalFen,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId        int32                  `protobuf:"varint,2,opt,name=userId,proto3" json:"userId,omitempty"`
+	OrderSn       string                 `protobuf:"bytes,3,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
+	PayType       string                 `protobuf:"bytes,4,opt,name=payType,proto3" json:"payType,omitempty"`
+	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	Post          string                 `protobuf:"bytes,6,opt,name=post,proto3" json:"post,omitempty"`
+	Address       string                 `protobuf:"bytes,8,opt,name=address,proto3" json:"address,omitempty"`
+	Name          string                 `protobuf:"bytes,9,opt,name=name,proto3" json:"name,omitempty"`
+	Mobile        string                 `protobuf:"bytes,10,opt,name=mobile,proto3" json:"mobile,omitempty"`
+	AddTime       string                 `protobuf:"bytes,11,opt,name=addTime,proto3" json:"addTime,omitempty"`
+	TradeNo       string                 `protobuf:"bytes,12,opt,name=tradeNo,proto3" json:"tradeNo,omitempty"`
+	PayTime       int64                  `protobuf:"varint,13,opt,name=payTime,proto3" json:"payTime,omitempty"`
+	TotalFen      int64                  `protobuf:"varint,14,opt,name=totalFen,proto3" json:"totalFen,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -495,14 +483,6 @@ func (x *OrderInfoResponse) GetPost() string {
 		return x.Post
 	}
 	return ""
-}
-
-// Deprecated: Marked as deprecated in order.proto.
-func (x *OrderInfoResponse) GetTotal() float32 {
-	if x != nil {
-		return x.Total
-	}
-	return 0
 }
 
 func (x *OrderInfoResponse) GetAddress() string {
@@ -631,16 +611,14 @@ func (x *ShopCartInfoResponse) GetChecked() bool {
 }
 
 type OrderItemResponse struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Id         int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	OrderId    int32                  `protobuf:"varint,2,opt,name=orderId,proto3" json:"orderId,omitempty"`
-	GoodsId    int32                  `protobuf:"varint,3,opt,name=goodsId,proto3" json:"goodsId,omitempty"`
-	GoodsName  string                 `protobuf:"bytes,4,opt,name=goodsName,proto3" json:"goodsName,omitempty"`
-	GoodsImage string                 `protobuf:"bytes,5,opt,name=goodsImage,proto3" json:"goodsImage,omitempty"`
-	// Deprecated: Marked as deprecated in order.proto.
-	GoodsPrice    float32 `protobuf:"fixed32,6,opt,name=goodsPrice,proto3" json:"goodsPrice,omitempty"`
-	Nums          int32   `protobuf:"varint,7,opt,name=nums,proto3" json:"nums,omitempty"`
-	GoodsPriceFen int64   `protobuf:"varint,8,opt,name=goodsPriceFen,proto3" json:"goodsPriceFen,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	OrderId       int32                  `protobuf:"varint,2,opt,name=orderId,proto3" json:"orderId,omitempty"`
+	GoodsId       int32                  `protobuf:"varint,3,opt,name=goodsId,proto3" json:"goodsId,omitempty"`
+	GoodsName     string                 `protobuf:"bytes,4,opt,name=goodsName,proto3" json:"goodsName,omitempty"`
+	GoodsImage    string                 `protobuf:"bytes,5,opt,name=goodsImage,proto3" json:"goodsImage,omitempty"`
+	Nums          int32                  `protobuf:"varint,7,opt,name=nums,proto3" json:"nums,omitempty"`
+	GoodsPriceFen int64                  `protobuf:"varint,8,opt,name=goodsPriceFen,proto3" json:"goodsPriceFen,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -708,14 +686,6 @@ func (x *OrderItemResponse) GetGoodsImage() string {
 		return x.GoodsImage
 	}
 	return ""
-}
-
-// Deprecated: Marked as deprecated in order.proto.
-func (x *OrderItemResponse) GetGoodsPrice() float32 {
-	if x != nil {
-		return x.GoodsPrice
-	}
-	return 0
 }
 
 func (x *OrderItemResponse) GetNums() int32 {
@@ -1121,7 +1091,7 @@ const file_order_proto_rawDesc = "" +
 	"\x06status\x18\x03 \x01(\tR\x06status\x12\x18\n" +
 	"\apayType\x18\x04 \x01(\tR\apayType\x12\x18\n" +
 	"\atradeNo\x18\x05 \x01(\tR\atradeNo\x12\x18\n" +
-	"\apayTime\x18\x06 \x01(\x03R\apayTime\"\x89\x02\n" +
+	"\apayTime\x18\x06 \x01(\x03R\apayTime\"\xf7\x01\n" +
 	"\x0fCartItemRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x16\n" +
 	"\x06userId\x18\x02 \x01(\x05R\x06userId\x12\x18\n" +
@@ -1129,13 +1099,11 @@ const file_order_proto_rawDesc = "" +
 	"\tgoodsName\x18\x04 \x01(\tR\tgoodsName\x12\x1e\n" +
 	"\n" +
 	"goodsImage\x18\x05 \x01(\tR\n" +
-	"goodsImage\x12\"\n" +
-	"\n" +
-	"goodsPrice\x18\x06 \x01(\x02B\x02\x18\x01R\n" +
-	"goodsPrice\x12\x12\n" +
+	"goodsImage\x12\x12\n" +
 	"\x04nums\x18\a \x01(\x05R\x04nums\x12\x18\n" +
 	"\achecked\x18\b \x01(\bR\achecked\x12$\n" +
-	"\rgoodsPriceFen\x18\t \x01(\x03R\rgoodsPriceFen\"\xde\x01\n" +
+	"\rgoodsPriceFen\x18\t \x01(\x03R\rgoodsPriceFenJ\x04\b\x06\x10\aR\n" +
+	"goodsPrice\"\xde\x01\n" +
 	"\fOrderRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x16\n" +
 	"\x06userId\x18\x02 \x01(\x05R\x06userId\x12\x18\n" +
@@ -1148,7 +1116,7 @@ const file_order_proto_rawDesc = "" +
 	"orderItems\x18\b \x03(\v2\x12.OrderItemResponseR\n" +
 	"orderItems\".\n" +
 	"\x12OrderLookupRequest\x12\x18\n" +
-	"\aorderSn\x18\x01 \x01(\tR\aorderSn\"\xe5\x02\n" +
+	"\aorderSn\x18\x01 \x01(\tR\aorderSn\"\xd8\x02\n" +
 	"\x11OrderInfoResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x16\n" +
 	"\x06userId\x18\x02 \x01(\x05R\x06userId\x12\x18\n" +
@@ -1156,7 +1124,6 @@ const file_order_proto_rawDesc = "" +
 	"\apayType\x18\x04 \x01(\tR\apayType\x12\x16\n" +
 	"\x06status\x18\x05 \x01(\tR\x06status\x12\x12\n" +
 	"\x04post\x18\x06 \x01(\tR\x04post\x12\x18\n" +
-	"\x05total\x18\a \x01(\x02B\x02\x18\x01R\x05total\x12\x18\n" +
 	"\aaddress\x18\b \x01(\tR\aaddress\x12\x12\n" +
 	"\x04name\x18\t \x01(\tR\x04name\x12\x16\n" +
 	"\x06mobile\x18\n" +
@@ -1164,13 +1131,13 @@ const file_order_proto_rawDesc = "" +
 	"\aaddTime\x18\v \x01(\tR\aaddTime\x12\x18\n" +
 	"\atradeNo\x18\f \x01(\tR\atradeNo\x12\x18\n" +
 	"\apayTime\x18\r \x01(\x03R\apayTime\x12\x1a\n" +
-	"\btotalFen\x18\x0e \x01(\x03R\btotalFen\"\x86\x01\n" +
+	"\btotalFen\x18\x0e \x01(\x03R\btotalFenJ\x04\b\a\x10\bR\x05total\"\x86\x01\n" +
 	"\x14ShopCartInfoResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x16\n" +
 	"\x06userId\x18\x02 \x01(\x05R\x06userId\x12\x18\n" +
 	"\agoodsId\x18\x03 \x01(\x05R\agoodsId\x12\x12\n" +
 	"\x04nums\x18\x04 \x01(\x05R\x04nums\x12\x18\n" +
-	"\achecked\x18\x05 \x01(\bR\achecked\"\xf3\x01\n" +
+	"\achecked\x18\x05 \x01(\bR\achecked\"\xe1\x01\n" +
 	"\x11OrderItemResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x18\n" +
 	"\aorderId\x18\x02 \x01(\x05R\aorderId\x12\x18\n" +
@@ -1178,12 +1145,10 @@ const file_order_proto_rawDesc = "" +
 	"\tgoodsName\x18\x04 \x01(\tR\tgoodsName\x12\x1e\n" +
 	"\n" +
 	"goodsImage\x18\x05 \x01(\tR\n" +
-	"goodsImage\x12\"\n" +
-	"\n" +
-	"goodsPrice\x18\x06 \x01(\x02B\x02\x18\x01R\n" +
-	"goodsPrice\x12\x12\n" +
+	"goodsImage\x12\x12\n" +
 	"\x04nums\x18\a \x01(\x05R\x04nums\x12$\n" +
-	"\rgoodsPriceFen\x18\b \x01(\x03R\rgoodsPriceFen\"u\n" +
+	"\rgoodsPriceFen\x18\b \x01(\x03R\rgoodsPriceFenJ\x04\b\x06\x10\aR\n" +
+	"goodsPrice\"u\n" +
 	"\x17OrderInfoDetailResponse\x120\n" +
 	"\torderInfo\x18\x01 \x01(\v2\x12.OrderInfoResponseR\torderInfo\x12(\n" +
 	"\x05goods\x18\x02 \x03(\v2\x12.OrderItemResponseR\x05goods\"\xfe\x01\n" +

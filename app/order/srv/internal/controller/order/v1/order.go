@@ -10,7 +10,6 @@ import (
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
-	"goshop/pkg/money"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -278,7 +277,6 @@ func shopCartToResponse(cart *dto.ShopCartDTO) *pb.ShopCartInfoResponse {
 }
 
 func orderToResponse(order *dto.OrderDTO) *pb.OrderInfoResponse {
-	order.SyncLegacyMoneyFields()
 	var payTime int64
 	if order.PayTime != nil {
 		payTime = order.PayTime.Unix()
@@ -290,7 +288,6 @@ func orderToResponse(order *dto.OrderDTO) *pb.OrderInfoResponse {
 		PayType:  order.PayType,
 		Status:   order.Status,
 		Post:     order.Post,
-		Total:    money.NewFen(order.OrderMountFen).Float32Yuan(),
 		TotalFen: order.OrderMountFen,
 		Address:  order.Address,
 		Name:     order.SignerName,
@@ -307,14 +304,12 @@ func orderGoodsToResponse(goods []*do.OrderGoods) []*pb.OrderItemResponse {
 		if item == nil {
 			continue
 		}
-		item.SyncLegacyMoneyFields()
 		ret = append(ret, &pb.OrderItemResponse{
 			Id:            item.ID,
 			OrderId:       item.Order,
 			GoodsId:       item.Goods,
 			GoodsName:     item.GoodsName,
 			GoodsImage:    item.GoodsImage,
-			GoodsPrice:    money.NewFen(item.GoodsPriceFen).Float32Yuan(),
 			GoodsPriceFen: item.GoodsPriceFen,
 			Nums:          item.Nums,
 		})

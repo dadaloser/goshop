@@ -12,7 +12,6 @@ import (
 type GoodsInfo struct {
 	ID              int32
 	Name            string
-	ShopPrice       float32
 	ShopPriceFen    int64
 	GoodsFrontImage string
 }
@@ -59,7 +58,6 @@ func (g *goodsRPCGateway) BatchGetGoods(ctx context.Context, ids []int32) (map[i
 		goods[item.Id] = GoodsInfo{
 			ID:              item.Id,
 			Name:            item.Name,
-			ShopPrice:       item.ShopPrice,
 			ShopPriceFen:    item.ShopPriceFen,
 			GoodsFrontImage: item.GoodsFrontImage,
 		}

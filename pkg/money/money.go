@@ -35,14 +35,6 @@ func (f Fen) YuanString() string {
 	return fmt.Sprintf("%s%d.%02d", sign, yuan, fen)
 }
 
-func (f Fen) Float32Yuan() float32 {
-	return float32(f) / float32(FenPerYuan)
-}
-
-func (f Fen) Float64Yuan() float64 {
-	return float64(f) / float64(FenPerYuan)
-}
-
 func (f Fen) Add(other Fen) (Fen, error) {
 	left := int64(f)
 	right := int64(other)
@@ -136,13 +128,6 @@ func MustParseYuan(value string) Fen {
 		panic(err)
 	}
 	return fen
-}
-
-// FromLegacyFloat32Yuan converts a legacy float32 Yuan value into Fen using
-// round-to-cent semantics. This is only for backward compatibility while
-// migrating old money fields.
-func FromLegacyFloat32Yuan(value float32) Fen {
-	return Fen(int64(math.Round(float64(value) * float64(FenPerYuan))))
 }
 
 func allDigits(value string) bool {

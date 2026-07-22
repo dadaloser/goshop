@@ -150,7 +150,7 @@ func TestCreateWritesInitialStatusLog(t *testing.T) {
 			goods: fakeGoodsGateway{
 				batchGetGoods: func(_ context.Context, ids []int32) (map[int32]boundary.GoodsInfo, error) {
 					return map[int32]boundary.GoodsInfo{
-						101: {ID: 101, Name: "goods-101", ShopPrice: 10, GoodsFrontImage: "img-101"},
+						101: {ID: 101, Name: "goods-101", ShopPriceFen: 1000, GoodsFrontImage: "img-101"},
 					}, nil
 				},
 			},

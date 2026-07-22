@@ -1,8 +1,8 @@
 package request
 
 type GoodsFilter struct {
-	PriceMin    int32  `form:"pmin"`
-	PriceMax    int32  `form:"pmax"`
+	PriceMinFen int64  `form:"pmin_fen"`
+	PriceMaxFen int64  `form:"pmax_fen"`
 	IsHot       bool   `form:"ih"`
 	IsNew       bool   `form:"in"`
 	IsTab       bool   `form:"it"`

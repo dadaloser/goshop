@@ -180,8 +180,8 @@ message CreateGoodsInfo {
   string name = 2;
   string goodsSn = 3;
   int32 stocks = 7; //库存，
-  float marketPrice = 8 [deprecated = true];
-  float shopPrice = 9 [deprecated = true];
+  reserved 8, 9;
+  reserved "marketPrice", "shopPrice";
   string goodsBrief = 10;
   string goodsDesc = 11;
   bool shipFree = 12;
@@ -209,8 +209,8 @@ message BatchCategoryInfoRequest {
 }
 
 message GoodsFilterRequest  {
-  int32 priceMin = 1;
-  int32 priceMax = 2;
+  reserved 1, 2;
+  reserved "priceMin", "priceMax";
   bool  isHot = 3;
   bool  isNew = 4;
   bool  isTab = 5;
@@ -232,8 +232,8 @@ message GoodsInfoResponse {
   int32 clickNum = 5;
   int32 soldNum = 6;
   int32 favNum = 7;
-  float marketPrice = 9 [deprecated = true];
-  float shopPrice = 10 [deprecated = true];
+  reserved 9, 10;
+  reserved "marketPrice", "shopPrice";
   string goodsBrief = 11;
   string goodsDesc = 12;
   bool shipFree = 13;

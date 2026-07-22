@@ -15,7 +15,7 @@ var (
 		"pay_type":      "pay_type",
 		"status":        "status",
 		"trade_no":      "trade_no",
-		"order_mount":   "order_mount",
+		"order_mount":   "order_mount_fen",
 		"pay_time":      "pay_time",
 		"address":       "address",
 		"signer_name":   "signer_name",

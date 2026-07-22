@@ -5,7 +5,6 @@ import (
 
 	"database/sql/driver"
 	gorm2 "goshop/app/pkg/gorm"
-	"goshop/pkg/money"
 )
 
 type GoodsSearchDO struct {
@@ -17,15 +16,13 @@ type GoodsSearchDO struct {
 	IsNew      bool  `json:"is_new"`
 	IsHot      bool  `json:"is_hot"`
 
-	Name           string  `json:"name"`
-	ClickNum       int32   `json:"click_num"`
-	SoldNum        int32   `json:"sold_num"`
-	FavNum         int32   `json:"fav_num"`
-	MarketPrice    float32 `json:"market_price"`
-	MarketPriceFen int64   `json:"market_price_fen"`
-	GoodsBrief     string  `json:"goods_brief"`
-	ShopPrice      float32 `json:"shop_price"`
-	ShopPriceFen   int64   `json:"shop_price_fen"`
+	Name           string `json:"name"`
+	ClickNum       int32  `json:"click_num"`
+	SoldNum        int32  `json:"sold_num"`
+	FavNum         int32  `json:"fav_num"`
+	MarketPriceFen int64  `json:"market_price_fen"`
+	GoodsBrief     string `json:"goods_brief"`
+	ShopPriceFen   int64  `json:"shop_price_fen"`
 }
 
 func (GoodsSearchDO) GetIndexName() string {
@@ -55,11 +52,10 @@ type GoodsDO struct {
 	ClickNum        int32    `gorm:"type:int;default:0;not null"`
 	SoldNum         int32    `gorm:"type:int;default:0;not null"`
 	FavNum          int32    `gorm:"type:int;default:0;not null"`
-	MarketPrice     float32  `gorm:"not null"`
 	MarketPriceFen  int64    `gorm:"type:bigint;not null;default:0"`
-	ShopPrice       float32  `gorm:"not null"`
 	ShopPriceFen    int64    `gorm:"type:bigint;not null;default:0"`
 	GoodsBrief      string   `gorm:"type:varchar(100);not null"`
+	GoodsDesc       string   `gorm:"type:text;not null"`
 	Images          GormList `gorm:"type:varchar(1000);not null"`
 	DescImages      GormList `gorm:"type:varchar(1000);not null"`
 	GoodsFrontImage string   `gorm:"type:varchar(200);not null"`
@@ -67,54 +63,6 @@ type GoodsDO struct {
 
 func (GoodsDO) TableName() string {
 	return "goods"
-}
-
-func (g GoodsDO) EffectiveMarketPriceFen() int64 {
-	if g.MarketPriceFen != 0 || g.MarketPrice == 0 {
-		return g.MarketPriceFen
-	}
-	return money.FromLegacyFloat32Yuan(g.MarketPrice).Int64()
-}
-
-func (g GoodsDO) EffectiveShopPriceFen() int64 {
-	if g.ShopPriceFen != 0 || g.ShopPrice == 0 {
-		return g.ShopPriceFen
-	}
-	return money.FromLegacyFloat32Yuan(g.ShopPrice).Int64()
-}
-
-func (g *GoodsDO) SyncLegacyMoneyFields() {
-	if g == nil {
-		return
-	}
-	g.MarketPriceFen = g.EffectiveMarketPriceFen()
-	g.ShopPriceFen = g.EffectiveShopPriceFen()
-	g.MarketPrice = money.NewFen(g.MarketPriceFen).Float32Yuan()
-	g.ShopPrice = money.NewFen(g.ShopPriceFen).Float32Yuan()
-}
-
-func (g GoodsSearchDO) EffectiveMarketPriceFen() int64 {
-	if g.MarketPriceFen != 0 || g.MarketPrice == 0 {
-		return g.MarketPriceFen
-	}
-	return money.FromLegacyFloat32Yuan(g.MarketPrice).Int64()
-}
-
-func (g GoodsSearchDO) EffectiveShopPriceFen() int64 {
-	if g.ShopPriceFen != 0 || g.ShopPrice == 0 {
-		return g.ShopPriceFen
-	}
-	return money.FromLegacyFloat32Yuan(g.ShopPrice).Int64()
-}
-
-func (g *GoodsSearchDO) SyncLegacyMoneyFields() {
-	if g == nil {
-		return
-	}
-	g.MarketPriceFen = g.EffectiveMarketPriceFen()
-	g.ShopPriceFen = g.EffectiveShopPriceFen()
-	g.MarketPrice = money.NewFen(g.MarketPriceFen).Float32Yuan()
-	g.ShopPrice = money.NewFen(g.ShopPriceFen).Float32Yuan()
 }
 
 // 去掉gorm的依赖

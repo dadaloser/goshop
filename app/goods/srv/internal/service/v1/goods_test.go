@@ -55,7 +55,7 @@ func TestCreateRejectsInvalidGoods(t *testing.T) {
 			goods: func() *dto.GoodsDTO {
 				goods := validGoodsDTO()
 				goods.CategoryID = 1
-				goods.ShopPrice = -1
+				goods.ShopPriceFen = -1
 				return goods
 			}(),
 		},
@@ -305,8 +305,8 @@ func validGoodsDTO() *dto.GoodsDTO {
 			BrandsID:        1,
 			Name:            "goods",
 			GoodsSn:         "goods-sn",
-			MarketPrice:     10,
-			ShopPrice:       8,
+			MarketPriceFen:  1000,
+			ShopPriceFen:    800,
 			GoodsBrief:      "brief",
 			GoodsFrontImage: "front.jpg",
 		},

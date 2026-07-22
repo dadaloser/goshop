@@ -41,7 +41,8 @@ message CartItemRequest {
     int32 goodsId = 3;
     string goodsName = 4;
     string goodsImage = 5;
-    float goodsPrice = 6 [deprecated = true];
+    reserved 6;
+    reserved "goodsPrice";
     int32 nums = 7;
     bool checked = 8;
     int64 goodsPriceFen = 9;
@@ -70,7 +71,8 @@ message OrderInfoResponse {
     string payType = 4;
     string status = 5;
     string post = 6;
-    float total = 7 [deprecated = true];
+    reserved 7;
+    reserved "total";
     string address = 8;
     string name = 9;
     string mobile = 10;
@@ -94,7 +96,8 @@ message OrderItemResponse {
     int32 goodsId = 3;
     string goodsName = 4;
     string goodsImage = 5;
-    float goodsPrice = 6 [deprecated = true];
+    reserved 6;
+    reserved "goodsPrice";
     int32 nums = 7;
     int64 goodsPriceFen = 8;
 }

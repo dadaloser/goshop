@@ -1367,28 +1367,24 @@ func (x *GoodInfoRequest) GetId() int32 {
 }
 
 type CreateGoodsInfo struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Id      int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name    string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	GoodsSn string                 `protobuf:"bytes,3,opt,name=goodsSn,proto3" json:"goodsSn,omitempty"`
-	Stocks  int32                  `protobuf:"varint,7,opt,name=stocks,proto3" json:"stocks,omitempty"` //库存，
-	// Deprecated: Marked as deprecated in goods.proto.
-	MarketPrice float32 `protobuf:"fixed32,8,opt,name=marketPrice,proto3" json:"marketPrice,omitempty"`
-	// Deprecated: Marked as deprecated in goods.proto.
-	ShopPrice       float32  `protobuf:"fixed32,9,opt,name=shopPrice,proto3" json:"shopPrice,omitempty"`
-	GoodsBrief      string   `protobuf:"bytes,10,opt,name=goodsBrief,proto3" json:"goodsBrief,omitempty"`
-	GoodsDesc       string   `protobuf:"bytes,11,opt,name=goodsDesc,proto3" json:"goodsDesc,omitempty"`
-	ShipFree        bool     `protobuf:"varint,12,opt,name=shipFree,proto3" json:"shipFree,omitempty"`
-	Images          []string `protobuf:"bytes,13,rep,name=images,proto3" json:"images,omitempty"`
-	DescImages      []string `protobuf:"bytes,14,rep,name=descImages,proto3" json:"descImages,omitempty"`
-	GoodsFrontImage string   `protobuf:"bytes,15,opt,name=goodsFrontImage,proto3" json:"goodsFrontImage,omitempty"`
-	IsNew           bool     `protobuf:"varint,16,opt,name=isNew,proto3" json:"isNew,omitempty"`
-	IsHot           bool     `protobuf:"varint,17,opt,name=isHot,proto3" json:"isHot,omitempty"`
-	OnSale          bool     `protobuf:"varint,18,opt,name=onSale,proto3" json:"onSale,omitempty"`
-	CategoryId      int32    `protobuf:"varint,19,opt,name=categoryId,proto3" json:"categoryId,omitempty"`
-	BrandId         int32    `protobuf:"varint,20,opt,name=brandId,proto3" json:"brandId,omitempty"`
-	MarketPriceFen  int64    `protobuf:"varint,21,opt,name=marketPriceFen,proto3" json:"marketPriceFen,omitempty"`
-	ShopPriceFen    int64    `protobuf:"varint,22,opt,name=shopPriceFen,proto3" json:"shopPriceFen,omitempty"`
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name            string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	GoodsSn         string                 `protobuf:"bytes,3,opt,name=goodsSn,proto3" json:"goodsSn,omitempty"`
+	Stocks          int32                  `protobuf:"varint,7,opt,name=stocks,proto3" json:"stocks,omitempty"` //库存，
+	GoodsBrief      string                 `protobuf:"bytes,10,opt,name=goodsBrief,proto3" json:"goodsBrief,omitempty"`
+	GoodsDesc       string                 `protobuf:"bytes,11,opt,name=goodsDesc,proto3" json:"goodsDesc,omitempty"`
+	ShipFree        bool                   `protobuf:"varint,12,opt,name=shipFree,proto3" json:"shipFree,omitempty"`
+	Images          []string               `protobuf:"bytes,13,rep,name=images,proto3" json:"images,omitempty"`
+	DescImages      []string               `protobuf:"bytes,14,rep,name=descImages,proto3" json:"descImages,omitempty"`
+	GoodsFrontImage string                 `protobuf:"bytes,15,opt,name=goodsFrontImage,proto3" json:"goodsFrontImage,omitempty"`
+	IsNew           bool                   `protobuf:"varint,16,opt,name=isNew,proto3" json:"isNew,omitempty"`
+	IsHot           bool                   `protobuf:"varint,17,opt,name=isHot,proto3" json:"isHot,omitempty"`
+	OnSale          bool                   `protobuf:"varint,18,opt,name=onSale,proto3" json:"onSale,omitempty"`
+	CategoryId      int32                  `protobuf:"varint,19,opt,name=categoryId,proto3" json:"categoryId,omitempty"`
+	BrandId         int32                  `protobuf:"varint,20,opt,name=brandId,proto3" json:"brandId,omitempty"`
+	MarketPriceFen  int64                  `protobuf:"varint,21,opt,name=marketPriceFen,proto3" json:"marketPriceFen,omitempty"`
+	ShopPriceFen    int64                  `protobuf:"varint,22,opt,name=shopPriceFen,proto3" json:"shopPriceFen,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1447,22 +1443,6 @@ func (x *CreateGoodsInfo) GetGoodsSn() string {
 func (x *CreateGoodsInfo) GetStocks() int32 {
 	if x != nil {
 		return x.Stocks
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in goods.proto.
-func (x *CreateGoodsInfo) GetMarketPrice() float32 {
-	if x != nil {
-		return x.MarketPrice
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in goods.proto.
-func (x *CreateGoodsInfo) GetShopPrice() float32 {
-	if x != nil {
-		return x.ShopPrice
 	}
 	return 0
 }
@@ -1672,8 +1652,6 @@ func (x *BatchCategoryInfoRequest) GetBrandNums() int32 {
 
 type GoodsFilterRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	PriceMin      int32                  `protobuf:"varint,1,opt,name=priceMin,proto3" json:"priceMin,omitempty"`
-	PriceMax      int32                  `protobuf:"varint,2,opt,name=priceMax,proto3" json:"priceMax,omitempty"`
 	IsHot         bool                   `protobuf:"varint,3,opt,name=isHot,proto3" json:"isHot,omitempty"`
 	IsNew         bool                   `protobuf:"varint,4,opt,name=isNew,proto3" json:"isNew,omitempty"`
 	IsTab         bool                   `protobuf:"varint,5,opt,name=isTab,proto3" json:"isTab,omitempty"`
@@ -1716,20 +1694,6 @@ func (x *GoodsFilterRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use GoodsFilterRequest.ProtoReflect.Descriptor instead.
 func (*GoodsFilterRequest) Descriptor() ([]byte, []int) {
 	return file_goods_proto_rawDescGZIP(), []int{27}
-}
-
-func (x *GoodsFilterRequest) GetPriceMin() int32 {
-	if x != nil {
-		return x.PriceMin
-	}
-	return 0
-}
-
-func (x *GoodsFilterRequest) GetPriceMax() int32 {
-	if x != nil {
-		return x.PriceMax
-	}
-	return 0
 }
 
 func (x *GoodsFilterRequest) GetIsHot() bool {
@@ -1803,18 +1767,14 @@ func (x *GoodsFilterRequest) GetPriceMaxFen() int64 {
 }
 
 type GoodsInfoResponse struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Id         int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	CategoryId int32                  `protobuf:"varint,2,opt,name=categoryId,proto3" json:"categoryId,omitempty"`
-	Name       string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	GoodsSn    string                 `protobuf:"bytes,4,opt,name=goodsSn,proto3" json:"goodsSn,omitempty"`
-	ClickNum   int32                  `protobuf:"varint,5,opt,name=clickNum,proto3" json:"clickNum,omitempty"`
-	SoldNum    int32                  `protobuf:"varint,6,opt,name=soldNum,proto3" json:"soldNum,omitempty"`
-	FavNum     int32                  `protobuf:"varint,7,opt,name=favNum,proto3" json:"favNum,omitempty"`
-	// Deprecated: Marked as deprecated in goods.proto.
-	MarketPrice float32 `protobuf:"fixed32,9,opt,name=marketPrice,proto3" json:"marketPrice,omitempty"`
-	// Deprecated: Marked as deprecated in goods.proto.
-	ShopPrice       float32                    `protobuf:"fixed32,10,opt,name=shopPrice,proto3" json:"shopPrice,omitempty"`
+	state           protoimpl.MessageState     `protogen:"open.v1"`
+	Id              int32                      `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	CategoryId      int32                      `protobuf:"varint,2,opt,name=categoryId,proto3" json:"categoryId,omitempty"`
+	Name            string                     `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	GoodsSn         string                     `protobuf:"bytes,4,opt,name=goodsSn,proto3" json:"goodsSn,omitempty"`
+	ClickNum        int32                      `protobuf:"varint,5,opt,name=clickNum,proto3" json:"clickNum,omitempty"`
+	SoldNum         int32                      `protobuf:"varint,6,opt,name=soldNum,proto3" json:"soldNum,omitempty"`
+	FavNum          int32                      `protobuf:"varint,7,opt,name=favNum,proto3" json:"favNum,omitempty"`
 	GoodsBrief      string                     `protobuf:"bytes,11,opt,name=goodsBrief,proto3" json:"goodsBrief,omitempty"`
 	GoodsDesc       string                     `protobuf:"bytes,12,opt,name=goodsDesc,proto3" json:"goodsDesc,omitempty"`
 	ShipFree        bool                       `protobuf:"varint,13,opt,name=shipFree,proto3" json:"shipFree,omitempty"`
@@ -1908,22 +1868,6 @@ func (x *GoodsInfoResponse) GetSoldNum() int32 {
 func (x *GoodsInfoResponse) GetFavNum() int32 {
 	if x != nil {
 		return x.FavNum
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in goods.proto.
-func (x *GoodsInfoResponse) GetMarketPrice() float32 {
-	if x != nil {
-		return x.MarketPrice
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in goods.proto.
-func (x *GoodsInfoResponse) GetShopPrice() float32 {
-	if x != nil {
-		return x.ShopPrice
 	}
 	return 0
 }
@@ -2168,14 +2112,12 @@ const file_goods_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x14\n" +
 	"\x05isTab\x18\x02 \x01(\bR\x05isTab\"!\n" +
 	"\x0fGoodInfoRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x05R\x02id\"\xb5\x04\n" +
+	"\x02id\x18\x01 \x01(\x05R\x02id\"\x91\x04\n" +
 	"\x0fCreateGoodsInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\agoodsSn\x18\x03 \x01(\tR\agoodsSn\x12\x16\n" +
-	"\x06stocks\x18\a \x01(\x05R\x06stocks\x12$\n" +
-	"\vmarketPrice\x18\b \x01(\x02B\x02\x18\x01R\vmarketPrice\x12 \n" +
-	"\tshopPrice\x18\t \x01(\x02B\x02\x18\x01R\tshopPrice\x12\x1e\n" +
+	"\x06stocks\x18\a \x01(\x05R\x06stocks\x12\x1e\n" +
 	"\n" +
 	"goodsBrief\x18\n" +
 	" \x01(\tR\n" +
@@ -2195,17 +2137,16 @@ const file_goods_proto_rawDesc = "" +
 	"categoryId\x12\x18\n" +
 	"\abrandId\x18\x14 \x01(\x05R\abrandId\x12&\n" +
 	"\x0emarketPriceFen\x18\x15 \x01(\x03R\x0emarketPriceFen\x12\"\n" +
-	"\fshopPriceFen\x18\x16 \x01(\x03R\fshopPriceFen\"B\n" +
+	"\fshopPriceFen\x18\x16 \x01(\x03R\fshopPriceFenJ\x04\b\b\x10\tJ\x04\b\t\x10\n" +
+	"R\vmarketPriceR\tshopPrice\"B\n" +
 	"\x12GoodsReduceRequest\x12\x18\n" +
 	"\aGoodsId\x18\x01 \x01(\x05R\aGoodsId\x12\x12\n" +
 	"\x04nums\x18\x02 \x01(\x05R\x04nums\"f\n" +
 	"\x18BatchCategoryInfoRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x03(\x05R\x02id\x12\x1c\n" +
 	"\tgoodsNums\x18\x02 \x01(\x05R\tgoodsNums\x12\x1c\n" +
-	"\tbrandNums\x18\x03 \x01(\x05R\tbrandNums\"\xde\x02\n" +
-	"\x12GoodsFilterRequest\x12\x1a\n" +
-	"\bpriceMin\x18\x01 \x01(\x05R\bpriceMin\x12\x1a\n" +
-	"\bpriceMax\x18\x02 \x01(\x05R\bpriceMax\x12\x14\n" +
+	"\tbrandNums\x18\x03 \x01(\x05R\tbrandNums\"\xc6\x02\n" +
+	"\x12GoodsFilterRequest\x12\x14\n" +
 	"\x05isHot\x18\x03 \x01(\bR\x05isHot\x12\x14\n" +
 	"\x05isNew\x18\x04 \x01(\bR\x05isNew\x12\x14\n" +
 	"\x05isTab\x18\x05 \x01(\bR\x05isTab\x12 \n" +
@@ -2216,7 +2157,7 @@ const file_goods_proto_rawDesc = "" +
 	"\x05brand\x18\n" +
 	" \x01(\x05R\x05brand\x12 \n" +
 	"\vpriceMinFen\x18\v \x01(\x03R\vpriceMinFen\x12 \n" +
-	"\vpriceMaxFen\x18\f \x01(\x03R\vpriceMaxFen\"\xcf\x05\n" +
+	"\vpriceMaxFen\x18\f \x01(\x03R\vpriceMaxFenJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03R\bpriceMinR\bpriceMax\"\xab\x05\n" +
 	"\x11GoodsInfoResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x1e\n" +
 	"\n" +
@@ -2226,10 +2167,7 @@ const file_goods_proto_rawDesc = "" +
 	"\agoodsSn\x18\x04 \x01(\tR\agoodsSn\x12\x1a\n" +
 	"\bclickNum\x18\x05 \x01(\x05R\bclickNum\x12\x18\n" +
 	"\asoldNum\x18\x06 \x01(\x05R\asoldNum\x12\x16\n" +
-	"\x06favNum\x18\a \x01(\x05R\x06favNum\x12$\n" +
-	"\vmarketPrice\x18\t \x01(\x02B\x02\x18\x01R\vmarketPrice\x12 \n" +
-	"\tshopPrice\x18\n" +
-	" \x01(\x02B\x02\x18\x01R\tshopPrice\x12\x1e\n" +
+	"\x06favNum\x18\a \x01(\x05R\x06favNum\x12\x1e\n" +
 	"\n" +
 	"goodsBrief\x18\v \x01(\tR\n" +
 	"goodsBrief\x12\x1c\n" +
@@ -2247,7 +2185,9 @@ const file_goods_proto_rawDesc = "" +
 	"\bcategory\x18\x15 \x01(\v2\x1a.CategoryBriefInfoResponseR\bcategory\x12(\n" +
 	"\x05brand\x18\x16 \x01(\v2\x12.BrandInfoResponseR\x05brand\x12&\n" +
 	"\x0emarketPriceFen\x18\x17 \x01(\x03R\x0emarketPriceFen\x12\"\n" +
-	"\fshopPriceFen\x18\x18 \x01(\x03R\fshopPriceFen\"Q\n" +
+	"\fshopPriceFen\x18\x18 \x01(\x03R\fshopPriceFenJ\x04\b\t\x10\n" +
+	"J\x04\b\n" +
+	"\x10\vR\vmarketPriceR\tshopPrice\"Q\n" +
 	"\x11GoodsListResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12&\n" +
 	"\x04data\x18\x02 \x03(\v2\x12.GoodsInfoResponseR\x04data2\xaf\v\n" +

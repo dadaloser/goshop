@@ -42,7 +42,6 @@ func (o *orders) Get(ctx context.Context, orderSn string) (*do.OrderInfoDO, erro
 		}
 		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
-	order.SyncLegacyMoneyFields()
 	return &order, nil
 }
 
@@ -79,12 +78,6 @@ func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, 
 	if d.Error != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, d.Error.Error())
 	}
-	for _, item := range ret.Items {
-		if item == nil {
-			continue
-		}
-		item.SyncLegacyMoneyFields()
-	}
 	return ret, nil
 }
 
@@ -97,8 +90,6 @@ func (o *orders) Create(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO
 	if order.User <= 0 || order.OrderSn == "" {
 		return errors.WithCode(code.ErrSubmitOrder, "user and order_sn are required")
 	}
-	order.SyncLegacyMoneyFields()
-
 	db := o.db
 	if txn != nil {
 		db = txn

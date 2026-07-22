@@ -19,7 +19,4 @@ func TestCreateGoodsInfoToDTOUsesFenFields(t *testing.T) {
 	if dto.MarketPriceFen != 1234 || dto.ShopPriceFen != 899 {
 		t.Fatalf("money fen fields = (%d,%d), want (1234,899)", dto.MarketPriceFen, dto.ShopPriceFen)
 	}
-	if dto.MarketPrice != 12.34 || dto.ShopPrice != 8.99 {
-		t.Fatalf("legacy float fields = (%v,%v), want (12.34,8.99)", dto.MarketPrice, dto.ShopPrice)
-	}
 }

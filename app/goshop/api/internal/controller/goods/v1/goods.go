@@ -9,6 +9,7 @@ import (
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
+	"goshop/pkg/money"
 
 	"github.com/gin-gonic/gin"
 	ut "github.com/go-playground/universal-translator"
@@ -44,8 +45,8 @@ func (gc *goodsController) List(ctx *gin.Context) {
 	gfr := proto.GoodsFilterRequest{
 		IsNew:       r.IsNew,
 		IsHot:       r.IsHot,
-		PriceMax:    r.PriceMax,
-		PriceMin:    r.PriceMin,
+		PriceMaxFen: r.PriceMaxFen,
+		PriceMinFen: r.PriceMinFen,
 		TopCategory: r.TopCategory,
 		Brand:       r.Brand,
 		KeyWords:    r.KeyWords,
@@ -80,16 +81,18 @@ func (gc *goodsController) List(ctx *gin.Context) {
 		category := value.GetCategory()
 		brand := value.GetBrand()
 		goodsList = append(goodsList, map[string]interface{}{
-			"id":             value.GetId(),
-			"name":           value.GetName(),
-			"goods_brief":    value.GetGoodsBrief(),
-			"desc":           value.GetGoodsDesc(),
-			"ship_free":      value.GetShipFree(),
-			"images":         value.GetImages(),
-			"desc_images":    value.GetDescImages(),
-			"front_image":    value.GetGoodsFrontImage(),
-			"shop_price":     value.GetShopPrice(),
-			"shop_price_fen": value.GetShopPriceFen(),
+			"id":                value.GetId(),
+			"name":              value.GetName(),
+			"goods_brief":       value.GetGoodsBrief(),
+			"desc":              value.GetGoodsDesc(),
+			"ship_free":         value.GetShipFree(),
+			"images":            value.GetImages(),
+			"desc_images":       value.GetDescImages(),
+			"front_image":       value.GetGoodsFrontImage(),
+			"market_price_fen":  value.GetMarketPriceFen(),
+			"market_price_yuan": money.NewFen(value.GetMarketPriceFen()).YuanString(),
+			"shop_price_fen":    value.GetShopPriceFen(),
+			"shop_price_yuan":   money.NewFen(value.GetShopPriceFen()).YuanString(),
 			"category": map[string]interface{}{
 				"id":   category.GetId(),
 				"name": category.GetName(),

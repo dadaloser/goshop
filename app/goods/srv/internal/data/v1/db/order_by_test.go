@@ -22,7 +22,7 @@ func TestParseOrderBy(t *testing.T) {
 			name:       "allowed descending uppercase",
 			value:      "shop_price DESC",
 			allowed:    goodsOrderColumns,
-			wantColumn: "shop_price",
+			wantColumn: "shop_price_fen",
 			wantDesc:   true,
 			wantOK:     true,
 		},

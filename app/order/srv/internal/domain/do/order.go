@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"goshop/app/pkg/gorm"
-	"goshop/pkg/money"
 )
 
 type GormList []string
@@ -30,17 +29,15 @@ type OrderInfoDO struct {
 	PayType string `gorm:"type:varchar(20) comment 'alipay(支付宝)， wechat(微信)'"`
 
 	//status大家可以考虑使用iota来做
-	Status        string `gorm:"type:varchar(20)  comment 'PAYING(待支付), TRADE_SUCCESS(成功)， TRADE_CLOSED(超时关闭), WAIT_BUYER_PAY(交易创建), TRADE_FINISHED(交易结束)'"`
-	TradeNo       string `gorm:"type:varchar(100) comment '交易号'"` //交易号就是支付宝的订单号 查账
-	OrderMount    float32
+	Status        string     `gorm:"type:varchar(20)  comment 'PAYING(待支付), TRADE_SUCCESS(成功)， TRADE_CLOSED(超时关闭), WAIT_BUYER_PAY(交易创建), TRADE_FINISHED(交易结束)'"`
+	TradeNo       string     `gorm:"type:varchar(100) comment '交易号'"` //交易号就是支付宝的订单号 查账
 	OrderMountFen int64      `gorm:"type:bigint;not null;default:0"`
 	PayTime       *time.Time `gorm:"type:datetime"`
 
-	Address      string  `gorm:"type:varchar(100)"`
-	SignerName   string  `gorm:"type:varchar(20)"`
-	SingerMobile string  `gorm:"type:varchar(11)"`
-	Post         string  `gorm:"type:varchar(20)"`
-	OrderAmount  float32 `gorm:"-"`
+	Address      string `gorm:"type:varchar(100)"`
+	SignerName   string `gorm:"type:varchar(20)"`
+	SingerMobile string `gorm:"type:varchar(11)"`
+	Post         string `gorm:"type:varchar(20)"`
 }
 
 func (OrderInfoDO) TableName() string {
@@ -56,49 +53,12 @@ type OrderGoods struct {
 	//把商品的信息保存下来了 ， 字段冗余， 高并发系统中我们一般都不会遵循三范式  做镜像 记录
 	GoodsName     string `gorm:"type:varchar(100);index"`
 	GoodsImage    string `gorm:"type:varchar(200)"`
-	GoodsPrice    float32
-	GoodsPriceFen int64 `gorm:"type:bigint;not null;default:0"`
-	Nums          int32 `gorm:"type:int"`
+	GoodsPriceFen int64  `gorm:"type:bigint;not null;default:0"`
+	Nums          int32  `gorm:"type:int"`
 }
 
 func (OrderGoods) TableName() string {
 	return "ordergoods"
-}
-
-func (o OrderInfoDO) EffectiveOrderMountFen() int64 {
-	if o.OrderMountFen != 0 || o.OrderMount == 0 {
-		return o.OrderMountFen
-	}
-	return money.FromLegacyFloat32Yuan(o.OrderMount).Int64()
-}
-
-func (o *OrderInfoDO) SyncLegacyMoneyFields() {
-	if o == nil {
-		return
-	}
-	o.OrderMountFen = o.EffectiveOrderMountFen()
-	o.OrderMount = money.NewFen(o.OrderMountFen).Float32Yuan()
-	for _, item := range o.OrderGoods {
-		if item == nil {
-			continue
-		}
-		item.SyncLegacyMoneyFields()
-	}
-}
-
-func (o OrderGoods) EffectiveGoodsPriceFen() int64 {
-	if o.GoodsPriceFen != 0 || o.GoodsPrice == 0 {
-		return o.GoodsPriceFen
-	}
-	return money.FromLegacyFloat32Yuan(o.GoodsPrice).Int64()
-}
-
-func (o *OrderGoods) SyncLegacyMoneyFields() {
-	if o == nil {
-		return
-	}
-	o.GoodsPriceFen = o.EffectiveGoodsPriceFen()
-	o.GoodsPrice = money.NewFen(o.GoodsPriceFen).Float32Yuan()
 }
 
 type OrderInfoDOList struct {

@@ -36,20 +36,20 @@ func reindexGoods(ctx context.Context, dataFactory datav1.DataFactory, searchFac
 				continue
 			}
 			searchDoc := do.GoodsSearchDO{
-				ID:          goods.ID,
-				CategoryID:  goods.CategoryID,
-				BrandsID:    goods.BrandsID,
-				OnSale:      goods.OnSale,
-				ShipFree:    goods.ShipFree,
-				IsNew:       goods.IsNew,
-				IsHot:       goods.IsHot,
-				Name:        goods.Name,
-				ClickNum:    goods.ClickNum,
-				SoldNum:     goods.SoldNum,
-				FavNum:      goods.FavNum,
-				MarketPrice: goods.MarketPrice,
-				GoodsBrief:  goods.GoodsBrief,
-				ShopPrice:   goods.ShopPrice,
+				ID:             goods.ID,
+				CategoryID:     goods.CategoryID,
+				BrandsID:       goods.BrandsID,
+				OnSale:         goods.OnSale,
+				ShipFree:       goods.ShipFree,
+				IsNew:          goods.IsNew,
+				IsHot:          goods.IsHot,
+				Name:           goods.Name,
+				ClickNum:       goods.ClickNum,
+				SoldNum:        goods.SoldNum,
+				FavNum:         goods.FavNum,
+				MarketPriceFen: goods.MarketPriceFen,
+				GoodsBrief:     goods.GoodsBrief,
+				ShopPriceFen:   goods.ShopPriceFen,
 			}
 			if err := searchFactory.Goods().Update(ctx, &searchDoc); err != nil {
 				return err

@@ -72,9 +72,9 @@ func TestGoodsControllerListHandlesPartialGoodsData(t *testing.T) {
 			Data: []*gpb.GoodsInfoResponse{
 				nil,
 				{
-					Id:        11,
-					Name:      "keyboard",
-					ShopPrice: 99,
+					Id:           11,
+					Name:         "keyboard",
+					ShopPriceFen: 9900,
 				},
 			},
 		},
