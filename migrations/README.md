@@ -38,6 +38,7 @@ Examples:
 
 The first implementation milestone should add reviewed migrations for:
 
+- goods core tables, category/brand/banner relations, and order core tables.
 - order list filtering support and order status logs.
 - admin users, roles, permissions, role bindings, and audit logs.
 - inventory stock/reservation/log tables.

@@ -42,6 +42,14 @@ assert_up_migration_contains() {
 
 # user-srv startup validation requires these reviewed schema changes to exist
 # before production can safely keep mysql.auto-migrate disabled.
+assert_up_migration_contains 'CREATE TABLE `category`' 'goods category table'
+assert_up_migration_contains 'CREATE TABLE `brands`' 'goods brands table'
+assert_up_migration_contains 'CREATE TABLE `banner`' 'goods banner table'
+assert_up_migration_contains 'CREATE TABLE `goodscategorybrand`' 'goods category-brand table'
+assert_up_migration_contains 'CREATE TABLE `goods`' 'goods table'
+assert_up_migration_contains 'CREATE TABLE `orderinfo`' 'orderinfo table'
+assert_up_migration_contains 'CREATE TABLE `ordergoods`' 'ordergoods table'
+assert_up_migration_contains 'CREATE TABLE `shoppingcart`' 'shoppingcart table'
 assert_up_migration_contains 'account_status' 'user.account_status'
 assert_up_migration_contains 'idx_username' 'user.username unique index'
 assert_up_migration_contains 'idx_email' 'user.email unique index'
@@ -60,5 +68,13 @@ assert_up_migration_contains 'idx_user_audit_logs_actor' 'user_audit_logs.actor_
 assert_up_migration_contains 'CREATE TABLE `admin_audit_logs`' 'admin_audit_logs table'
 assert_up_migration_contains 'idx_admin_audit_logs_target' 'admin_audit_logs.target_user_id index'
 assert_up_migration_contains 'idx_admin_audit_logs_actor' 'admin_audit_logs.actor_user_id index'
+assert_up_migration_contains 'market_price_fen' 'goods.market_price_fen column'
+assert_up_migration_contains 'shop_price_fen' 'goods.shop_price_fen column'
+assert_up_migration_contains 'order_mount_fen' 'orderinfo.order_mount_fen column'
+assert_up_migration_contains 'goods_price_fen' 'ordergoods.goods_price_fen column'
+assert_up_migration_contains 'DROP COLUMN `shop_price`' 'goods.shop_price legacy drop'
+assert_up_migration_contains 'DROP COLUMN `market_price`' 'goods.market_price legacy drop'
+assert_up_migration_contains 'DROP COLUMN `order_mount`' 'orderinfo.order_mount legacy drop'
+assert_up_migration_contains 'DROP COLUMN `goods_price`' 'ordergoods.goods_price legacy drop'
 
 echo "migration check passed"

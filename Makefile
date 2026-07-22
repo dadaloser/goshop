@@ -1,4 +1,4 @@
-.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test format-check vet-check lint-check rpcserver-flake-check release-check
+.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test schema-integration-test format-check vet-check lint-check rpcserver-flake-check release-check
 
 GOLANGCI_LINT_VERSION ?= v2.12.2
 
@@ -28,6 +28,7 @@ help:
 	@echo "  make migration-check  Fail on unsafe AutoMigrate usage or missing reviewed user/RBAC schema coverage"
 	@echo "  make config-secret-check  Fail if configs contain known secrets or unsafe defaults"
 	@echo "  make startup-validation-check  Fail if startup validation can be bypassed by log.development"
+	@echo "  make schema-integration-test  Run real-MySQL goods/order startup schema integration tests"
 	@echo "  make format-check  Fail if gofmt would change tracked Go files"
 	@echo "  make vet-check  Run go vet on app/gmicro/pkg business code"
 	@echo "  make lint-check  Run pinned golangci-lint version"
@@ -73,3 +74,6 @@ release-check:
 
 inventory-integration-test:
 	bash ./scripts/run-inventory-integration-tests.sh
+
+schema-integration-test:
+	bash ./scripts/run-schema-integration-tests.sh

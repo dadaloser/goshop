@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS `goods`;
+DROP TABLE IF EXISTS `goodscategorybrand`;
+DROP TABLE IF EXISTS `banner`;
+DROP TABLE IF EXISTS `brands`;
+DROP TABLE IF EXISTS `category`;

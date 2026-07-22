@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	v1 "goshop/app/order/srv/internal/data/v1"
+	dv1 "goshop/app/order/srv/internal/domain/do"
 	"goshop/app/pkg/code"
 	appgorm "goshop/app/pkg/gorm"
 	"goshop/app/pkg/options"
@@ -88,6 +89,11 @@ func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 		sqlDB.SetMaxOpenConns(mysqlOpts.MaxOpenConnections)
 		sqlDB.SetMaxIdleConns(mysqlOpts.MaxIdleConnections)
 		sqlDB.SetConnMaxLifetime(mysqlOpts.MaxConnectionLifetime)
+		if err = validateOrderSchema(db); err != nil {
+			_ = sqlDB.Close()
+			initErr = err
+			return
+		}
 
 		data = &dataFactory{
 			db: db,
@@ -98,4 +104,68 @@ func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 		return nil, errors2.WrapC(initErr, code.ErrConnectDB, "failed to get data store factory")
 	}
 	return data, nil
+}
+
+type schemaTableCheck struct {
+	model     interface{ TableName() string }
+	required  []string
+	forbidden []string
+}
+
+func validateOrderSchema(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("order schema validation failed: nil db")
+	}
+
+	for _, table := range orderSchemaChecks() {
+		if !db.Migrator().HasTable(table.model) {
+			return fmt.Errorf("order schema validation failed: required table %q does not exist", table.model.TableName())
+		}
+		for _, column := range table.required {
+			if !db.Migrator().HasColumn(table.model, column) {
+				return fmt.Errorf("order schema validation failed: required column %q.%q does not exist", table.model.TableName(), column)
+			}
+		}
+		for _, column := range table.forbidden {
+			if db.Migrator().HasColumn(table.model, column) {
+				return fmt.Errorf("order schema validation failed: deprecated column %q.%q still exists", table.model.TableName(), column)
+			}
+		}
+	}
+
+	return nil
+}
+
+func orderSchemaChecks() []schemaTableCheck {
+	return []schemaTableCheck{
+		{
+			model: &dv1.OrderInfoDO{},
+			required: []string{
+				"id", "add_time", "update_time", "deleted_at", "is_deleted",
+				"user", "order_sn", "pay_type", "status", "trade_no",
+				"order_mount_fen", "pay_time", "address", "signer_name",
+				"singer_mobile", "post",
+			},
+			forbidden: []string{"order_mount"},
+		},
+		{
+			model: &dv1.OrderGoods{},
+			required: []string{
+				"id", "add_time", "update_time", "deleted_at", "is_deleted",
+				"order", "goods", "goods_name", "goods_image", "goods_price_fen", "nums",
+			},
+			forbidden: []string{"goods_price"},
+		},
+		{
+			model:    &dv1.ShoppingCartDO{},
+			required: []string{"id", "add_time", "update_time", "deleted_at", "is_deleted", "user", "goods", "nums", "checked"},
+		},
+		{
+			model: &dv1.OrderStatusLogDO{},
+			required: []string{
+				"id", "add_time", "update_time", "deleted_at", "is_deleted",
+				"order_id", "order_sn", "from_status", "to_status", "reason", "source", "operator",
+			},
+		},
+	}
 }
