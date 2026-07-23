@@ -18,6 +18,7 @@ pipeline {
     }
 
     stages {
+        stage('quality and security gates') { steps { sh 'bash scripts/ci/jenkins-quality-gates.sh' } }
         stage('test') {
             steps {
                 sh 'env GOCACHE=.cache/go-build go test $TEST_PACKAGES'
@@ -43,10 +44,13 @@ pipeline {
                 '''
             }
         }
-        stage('docker push') {
+        stage('supply chain verification') {
             steps {
-                sh 'docker push $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME:${version}.${branch}'
+                sh 'bash scripts/ci/jenkins-image-gates.sh $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME:${version}.${branch} $IMAGE_NAME'
             }
         }
+        stage('docker push') { steps { sh 'docker push $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME:${version}.${branch}' } }
+        stage('sign image') { steps { withCredentials([file(credentialsId: 'cosign-goshop-key', variable: 'COSIGN_KEY'), string(credentialsId: 'cosign-goshop-password', variable: 'COSIGN_PASSWORD')]) { sh 'bash scripts/ci/jenkins-sign-image.sh $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME:${version}.${branch} $IMAGE_NAME' } } }
     }
+    post { always { archiveArtifacts artifacts: '*.spdx.json,*.digest', allowEmptyArchive: true, fingerprint: true } }
 }

@@ -12,21 +12,24 @@ spec:
         - alert: GoodsOutboxBacklogHigh
           expr: goods_service_outbox_backlog{status="PENDING"} > 100
           for: 10m
-          labels: {severity: warning, team: catalog}
+          labels: {severity: warning, team: catalog, owner: catalog-oncall}
           annotations:
             summary: "Goods search outbox is backlogged"
             description: "More than 100 goods search events have remained pending for 10 minutes. Check MySQL and Elasticsearch health."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#outbox-and-dead-letters"
         - alert: GoodsOutboxDeadLetters
           expr: goods_service_outbox_backlog{status="DEAD"} > 0
           for: 5m
-          labels: {severity: critical, team: catalog}
+          labels: {severity: critical, team: catalog, owner: catalog-oncall}
           annotations:
             summary: "Goods search outbox has dead letters"
             description: "At least one goods search event exhausted retries. Inspect the error and run goodsops replay-dead-outbox after remediation."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#outbox-and-dead-letters"
         - alert: GoodsOutboxConsumerStalled
           expr: goods_service_outbox_backlog{status="PENDING"} > 0 and increase(goods_service_outbox_processed_total[10m]) == 0
           for: 10m
-          labels: {severity: critical, team: catalog}
+          labels: {severity: critical, team: catalog, owner: catalog-oncall}
           annotations:
             summary: "Goods outbox consumer is stalled"
             description: "Pending events exist but no goods outbox event has completed, retried, or dead-lettered in 10 minutes."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#outbox-and-dead-letters"

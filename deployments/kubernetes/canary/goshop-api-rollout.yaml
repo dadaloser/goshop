@@ -1,0 +1,63 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata: {name: goshop-api, namespace: goshop}
+spec:
+  replicas: 4
+  revisionHistoryLimit: 3
+  selector: {matchLabels: {app.kubernetes.io/name: goshop-api}}
+  strategy:
+    canary:
+      stableService: goshop-api-stable
+      canaryService: goshop-api-canary
+      trafficRouting: {}
+      steps:
+        - setWeight: 5
+        - pause: {duration: 10m}
+        - analysis: {templates: [{templateName: goshop-api-slo}]}
+        - setWeight: 25
+        - pause: {duration: 10m}
+        - setWeight: 50
+        - pause: {duration: 10m}
+        - analysis: {templates: [{templateName: goshop-api-slo}]}
+        - setWeight: 100
+  template:
+    metadata: {labels: {app.kubernetes.io/part-of: goshop, app.kubernetes.io/name: goshop-api}}
+    spec:
+      containers:
+        - name: api
+          image: goshop/api@sha256:REPLACE_WITH_SIGNED_DIGEST
+          ports: [{name: http, containerPort: 8049}, {name: metrics, containerPort: 8149}]
+          readinessProbe: {httpGet: {path: /readyz, port: metrics}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /livez, port: metrics}, periodSeconds: 10}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata: {name: goshop-api-slo, namespace: goshop}
+spec:
+  metrics:
+    - name: dependency-availability
+      interval: 1m
+      count: 10
+      successCondition: result[0] >= 0.99
+      provider:
+        prometheus:
+          address: http://prometheus-operated.monitoring.svc:9090
+          query: 1 - (sum(rate(rpc_client_requests_goshop_code_total{job="goshop-api",code!="0"}[5m])) / clamp_min(sum(rate(rpc_client_requests_goshop_code_total{job="goshop-api"}[5m])), 0.001))
+    - name: rpc-dependency-latency
+      interval: 1m
+      count: 10
+      successCondition: result[0] <= 500
+      provider:
+        prometheus:
+          address: http://prometheus-operated.monitoring.svc:9090
+          query: histogram_quantile(0.95, sum by (le) (rate(rpc_client_requests_goshop_duration_ms_bucket{job="goshop-api"}[5m])))
+---
+apiVersion: v1
+kind: Service
+metadata: {name: goshop-api-stable, namespace: goshop}
+spec: {selector: {app.kubernetes.io/name: goshop-api}, ports: [{name: http, port: 8049, targetPort: http}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: goshop-api-canary, namespace: goshop}
+spec: {selector: {app.kubernetes.io/name: goshop-api}, ports: [{name: http, port: 8049, targetPort: http}]}

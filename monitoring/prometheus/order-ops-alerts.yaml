@@ -16,9 +16,11 @@ spec:
           labels:
             severity: warning
             team: commerce
+            owner: commerce-oncall
           annotations:
             summary: "Payment callback dependency errors are elevated"
             description: "The API payment callback path is hitting downstream dependency failures for at least 10 minutes."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"
 
         - alert: OrderPaymentCallbackRejectedSpike
           expr: |
@@ -30,9 +32,11 @@ spec:
           labels:
             severity: warning
             team: commerce
+            owner: commerce-oncall
           annotations:
             summary: "Payment callback rejected ratio is high"
             description: "More than 20% of payment callbacks are being rejected. Check order existence, request validity, and state transition conflicts."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"
 
         - alert: OrderTimeoutAutoCloseFailures
           expr: |
@@ -41,9 +45,11 @@ spec:
           labels:
             severity: critical
             team: commerce
+            owner: commerce-oncall
           annotations:
             summary: "Timeout auto-close worker is failing"
             description: "The order lifecycle worker is discovering unpaid orders but failing to close at least some of them."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"
 
         - alert: OrderAutoFinishFailures
           expr: |
@@ -52,9 +58,11 @@ spec:
           labels:
             severity: warning
             team: commerce
+            owner: commerce-oncall
           annotations:
             summary: "Auto-finish worker is failing"
             description: "The order lifecycle worker is failing to complete paid orders."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"
 
         - alert: OrderLifecycleSweepSlow
           expr: |
@@ -68,9 +76,11 @@ spec:
           labels:
             severity: warning
             team: commerce
+            owner: commerce-oncall
           annotations:
             summary: "Lifecycle worker sweep latency is elevated"
             description: "The p95 lifecycle sweep duration is above 3s. Check DB latency and downstream inventory/order update calls."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#latency"
 
         - alert: OrderPaymentTransitionMissing
           expr: |
@@ -81,6 +91,8 @@ spec:
           labels:
             severity: critical
             team: commerce
+            owner: commerce-oncall
           annotations:
             summary: "Payment callbacks succeed at the API edge but no pay-success transitions are recorded"
             description: "The API sees successful payment callbacks, but the order service is not emitting matching pay-success transitions."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"

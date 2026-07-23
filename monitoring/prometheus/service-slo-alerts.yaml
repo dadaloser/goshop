@@ -1,0 +1,53 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata: {name: goshop-service-slo-alerts, labels: {app.kubernetes.io/name: goshop, app.kubernetes.io/component: slo}}
+spec:
+  groups:
+    - name: goshop-sli-recording
+      interval: 30s
+      rules:
+        - record: goshop:rpc_requests:rate5m
+          expr: sum by (job) (rate(rpc_server_requests_goshop_code_total[5m]))
+        - record: goshop:rpc_errors:rate5m
+          expr: sum by (job) (rate(rpc_server_requests_goshop_code_total{code!="0"}[5m]))
+        - record: goshop:rpc_error_ratio:rate5m
+          expr: goshop:rpc_errors:rate5m / clamp_min(goshop:rpc_requests:rate5m, 0.001)
+        - record: goshop:rpc_latency_p95_ms:rate5m
+          expr: histogram_quantile(0.95, sum by (job,le) (rate(rpc_server_requests_goshop_duration_ms_bucket[5m])))
+    - name: goshop-service-slo
+      rules:
+        - alert: GoShopServiceUnavailable
+          expr: up{job=~"goshop-(api|admin|goods-srv|inventory-srv|order-srv|user-srv)"} == 0
+          for: 2m
+          labels: {severity: critical, team: platform, owner: platform-oncall}
+          annotations:
+            summary: "{{ $labels.job }} is unavailable"
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#service-unavailable"
+        - alert: GoShopServiceErrorBudgetBurnFast
+          expr: goshop:rpc_error_ratio:rate5m > 0.05
+          for: 5m
+          labels: {severity: critical, team: platform, owner: platform-oncall}
+          annotations:
+            summary: "{{ $labels.job }} error ratio exceeds 5%"
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"
+        - alert: GoShopServiceErrorBudgetBurnSlow
+          expr: goshop:rpc_error_ratio:rate5m > 0.01
+          for: 30m
+          labels: {severity: warning, team: platform, owner: platform-oncall}
+          annotations:
+            summary: "{{ $labels.job }} error ratio exceeds the 99.9% availability objective"
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"
+        - alert: GoShopServiceLatencyP95High
+          expr: goshop:rpc_latency_p95_ms:rate5m > 500
+          for: 10m
+          labels: {severity: warning, team: platform, owner: platform-oncall}
+          annotations:
+            summary: "{{ $labels.job }} RPC p95 latency exceeds 500ms"
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#latency"
+        - alert: GoShopServiceSaturationHigh
+          expr: sum by (job) (rpc_server_requests_goshop_inflight) > 80
+          for: 10m
+          labels: {severity: warning, team: platform, owner: platform-oncall}
+          annotations:
+            summary: "{{ $labels.job }} has more than 80 in-flight RPCs"
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#saturation"

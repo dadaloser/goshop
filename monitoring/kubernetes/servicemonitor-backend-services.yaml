@@ -1,0 +1,12 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: {name: goshop-backend-services, labels: {app.kubernetes.io/name: goshop, app.kubernetes.io/component: observability}}
+spec:
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [goshop-inventory-srv, goshop-order-srv, goshop-user-srv]
+  endpoints:
+    - {path: /metrics, interval: 30s, scrapeTimeout: 10s, port: metrics}

@@ -42,3 +42,7 @@ Jenkins 参数：
 | `PUSH_IMAGE` | 是否推送镜像；本地验证 Jenkins 构建时可关闭 |
 
 如果你习惯一个服务一个 Jenkins Job，也可以继续使用 `build/docker/<service>/Jenkinsfile`。
+
+所有 Jenkins agent 必须预装固定版本的 `govulncheck`、`gitleaks`、`syft`、`trivy` 和 `cosign`。流水线在推送前执行格式、vet、lint、漏洞、secret、migration、配置及 protobuf 门禁，并对本地镜像生成 SPDX SBOM、阻断未修复的 HIGH/CRITICAL 漏洞。推送后以 registry digest 签名并附加 SBOM attestation；制品归档包含 SBOM 和 digest。
+
+Jenkins credentials：`harbor-goshop`、Secret file `cosign-goshop-key`、Secret text `cosign-goshop-password`。生产部署只接受 `IMAGE@sha256:DIGEST`，并在部署前执行 Cosign 验证。

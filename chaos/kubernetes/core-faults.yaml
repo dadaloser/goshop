@@ -1,0 +1,29 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata: {name: order-pod-failure, namespace: goshop}
+spec:
+  action: pod-failure
+  mode: one
+  duration: 2m
+  selector: {namespaces: [goshop], labelSelectors: {app.kubernetes.io/name: goshop-order-srv}}
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata: {name: goods-elasticsearch-latency, namespace: goshop}
+spec:
+  action: delay
+  mode: all
+  duration: 5m
+  selector: {namespaces: [goshop], labelSelectors: {app.kubernetes.io/name: goshop-goods-srv}}
+  target: {mode: all, selector: {namespaces: [goshop], labelSelectors: {app.kubernetes.io/name: elasticsearch}}}
+  delay: {latency: 1000ms, correlation: "50", jitter: 100ms}
+  direction: both
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata: {name: inventory-cpu-pressure, namespace: goshop}
+spec:
+  mode: one
+  duration: 3m
+  selector: {namespaces: [goshop], labelSelectors: {app.kubernetes.io/name: goshop-inventory-srv}}
+  stressors: {cpu: {workers: 2, load: 80}}

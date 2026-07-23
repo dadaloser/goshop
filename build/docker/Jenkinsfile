@@ -89,6 +89,11 @@ pipeline {
                 sh 'env GOCACHE=$GO_CACHE_DIR go test $TEST_PACKAGES'
             }
         }
+        stage('quality and security gates') {
+            steps {
+                sh 'bash scripts/ci/jenkins-quality-gates.sh'
+            }
+        }
         stage('docker login') {
             when {
                 expression { return params.PUSH_IMAGE }
@@ -116,6 +121,17 @@ pipeline {
                 '''
             }
         }
+        stage('SBOM and image scan') {
+            steps {
+                sh '''
+                    command -v syft >/dev/null
+                    command -v trivy >/dev/null
+                    syft "$IMAGE_TAG" -o spdx-json="$IMAGE_NAME-$VCS_REF.spdx.json"
+                    trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$IMAGE_TAG"
+                    docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG" > "$IMAGE_NAME-$VCS_REF.digest" || true
+                '''
+            }
+        }
         stage('docker push') {
             when {
                 expression { return params.PUSH_IMAGE }
@@ -124,9 +140,25 @@ pipeline {
                 sh 'docker push $IMAGE_TAG'
             }
         }
+        stage('sign image') {
+            when { expression { return params.PUSH_IMAGE } }
+            steps {
+                withCredentials([file(credentialsId: 'cosign-goshop-key', variable: 'COSIGN_KEY'), string(credentialsId: 'cosign-goshop-password', variable: 'COSIGN_PASSWORD')]) {
+                    sh '''
+                        command -v cosign >/dev/null
+                        DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_TAG")
+                        test -n "$DIGEST"
+                        cosign sign --yes --key "$COSIGN_KEY" "$DIGEST"
+                        cosign attest --yes --key "$COSIGN_KEY" --type spdxjson --predicate "$IMAGE_NAME-$VCS_REF.spdx.json" "$DIGEST"
+                        printf '%s\n' "$DIGEST" > "$IMAGE_NAME-$VCS_REF.digest"
+                    '''
+                }
+            }
+        }
     }
     post {
         always {
+            archiveArtifacts artifacts: '*.spdx.json,*.digest', allowEmptyArchive: true, fingerprint: true
             sh 'docker logout http://$REGISTRY || true'
         }
     }

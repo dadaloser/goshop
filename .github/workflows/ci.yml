@@ -54,6 +54,9 @@ jobs:
       - name: Check startup validation
         run: make startup-validation-check
 
+      - name: Check operations readiness assets
+        run: make ops-check
+
       - name: Check protobuf drift
         run: make proto-check
 

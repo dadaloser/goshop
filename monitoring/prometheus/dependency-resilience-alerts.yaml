@@ -18,9 +18,11 @@ spec:
           labels:
             severity: critical
             team: platform
+            owner: platform-oncall
           annotations:
             summary: "External dependency circuit is open"
             description: "{{ $labels.job }} is rejecting {{ $labels.dependency }} resource {{ $labels.resource }} calls because its circuit remains open."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"
 
         - alert: DependencyFallbackRateHigh
           expr: |
@@ -31,9 +33,11 @@ spec:
           labels:
             severity: warning
             team: platform
+            owner: platform-oncall
           annotations:
             summary: "External dependency fallback rate is elevated"
             description: "{{ $labels.job }} is failing fast more than 0.1 calls/s for {{ $labels.dependency }} resource {{ $labels.resource }}."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"
 
         - alert: DependencyTimeoutRatioHigh
           expr: |
@@ -51,9 +55,11 @@ spec:
           labels:
             severity: warning
             team: platform
+            owner: platform-oncall
           annotations:
             summary: "External dependency timeout ratio is high"
             description: "More than 5% of {{ $labels.dependency }} resource {{ $labels.resource }} calls from {{ $labels.job }} are timing out."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#latency"
 
         - alert: DependencyIsolationNearCapacity
           expr: |
@@ -64,9 +70,11 @@ spec:
           labels:
             severity: warning
             team: platform
+            owner: platform-oncall
           annotations:
             summary: "External dependency isolation is near default capacity"
             description: "{{ $labels.job }} has more than 80 in-flight calls for {{ $labels.dependency }} resource {{ $labels.resource }}. Adjust this threshold when max-concurrency differs from 100."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#saturation"
 
         - alert: DependencyCircuitRecoveryFlapping
           expr: |
@@ -77,6 +85,8 @@ spec:
           labels:
             severity: warning
             team: platform
+            owner: platform-oncall
           annotations:
             summary: "External dependency circuit is flapping"
             description: "{{ $labels.dependency }} resource {{ $labels.resource }} in {{ $labels.job }} is repeatedly changing circuit state."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"
