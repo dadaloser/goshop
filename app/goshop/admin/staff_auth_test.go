@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -28,9 +29,7 @@ func TestInitRouterRestrictsBootstrapTokenToBreakGlass(t *testing.T) {
 		Server: options.NewServerOptions(),
 		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
 		AdminAuth: &config.AdminAuthOptions{
-			Token:       "bootstrap-secret",
-			Role:        config.AdminRoleSuperAdmin,
-			Permissions: []string{string(authz.PermissionUserListAny)},
+			Token: "bootstrap-secret",
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -58,6 +57,28 @@ func TestInitRouterRestrictsBootstrapTokenToBreakGlass(t *testing.T) {
 	if breakGlassRec.Code != http.StatusOK {
 		t.Fatalf("break_glass status = %d, want 200", breakGlassRec.Code)
 	}
+	var payload map[string]any
+	if err := json.Unmarshal(breakGlassRec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode break-glass response: %v", err)
+	}
+	if _, exists := payload["role"]; exists {
+		t.Fatal("break-glass response must not contain a configured role")
+	}
+	if _, exists := payload["permissions"]; exists {
+		t.Fatal("break-glass response must not contain configured permissions")
+	}
+	tokenText, _ := payload["token"].(string)
+	parsed, err := jwt.Parse(tokenText, func(*jwt.Token) (any, error) { return []byte(cfg.Jwt.Key), nil })
+	if err != nil || !parsed.Valid {
+		t.Fatalf("parse break-glass token: %v", err)
+	}
+	claims := parsed.Claims.(jwt.MapClaims)
+	if roles, exists := claims["roles"]; exists && len(roles.([]any)) != 0 {
+		t.Fatalf("break-glass roles = %#v, want none", roles)
+	}
+	if scope, exists := claims["scope"]; exists && len(scope.([]any)) != 0 {
+		t.Fatalf("break-glass scope = %#v, want none", scope)
+	}
 	if client.createAdminAuditLogReq == nil || client.createAdminAuditLogReq.GetLog().GetAction() != "break_glass_session_issued" {
 		t.Fatalf("break_glass audit request = %#v, want action break_glass_session_issued", client.createAdminAuditLogReq)
 	}
@@ -69,9 +90,7 @@ func TestInitRouterAllowsStaffJWTOnUserList(t *testing.T) {
 		Server: options.NewServerOptions(),
 		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
 		AdminAuth: &config.AdminAuthOptions{
-			Token:       "bootstrap-secret",
-			Role:        config.AdminRoleSuperAdmin,
-			Permissions: []string{string(authz.PermissionUserListAny)},
+			Token: "bootstrap-secret",
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -254,8 +273,6 @@ func TestInitRouterAllowsStatusUpdateAndInvalidatesSessions(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionUserDisableAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -312,8 +329,6 @@ func TestInitRouterRejectsSelfDisable(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionUserDisableAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -346,8 +361,6 @@ func TestInitRouterRejectsCreateSuperAdminForNonSuperAdmin(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionUserCreateAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -380,8 +393,6 @@ func TestInitRouterAllowsCreateStaff(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionUserCreateAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -425,8 +436,6 @@ func TestInitRouterRejectsCrossDomainCreateStaff(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionUserCreateAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -462,8 +471,6 @@ func TestInitRouterRejectsHighRiskWriteWithoutConfirmation(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionUserCreateAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -493,9 +500,7 @@ func TestInitRouterPassesAuditLogFilters(t *testing.T) {
 		Server: options.NewServerOptions(),
 		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
 		AdminAuth: &config.AdminAuthOptions{
-			Token:       "bootstrap-secret",
-			Role:        config.AdminRoleSuperAdmin,
-			Permissions: []string{string(authz.PermissionAuditReadAny)},
+			Token: "bootstrap-secret",
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -548,9 +553,7 @@ func TestInitRouterPassesAdminAuditLogFilters(t *testing.T) {
 		Server: options.NewServerOptions(),
 		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
 		AdminAuth: &config.AdminAuthOptions{
-			Token:       "bootstrap-secret",
-			Role:        config.AdminRoleSuperAdmin,
-			Permissions: []string{string(authz.PermissionAuditReadAny)},
+			Token: "bootstrap-secret",
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -607,9 +610,7 @@ func TestInitRouterListsPermissionTemplates(t *testing.T) {
 		Server: options.NewServerOptions(),
 		Jwt:    &options.JwtOptions{Realm: "admin", Key: "01234567890123456789012345678901", Timeout: time.Hour, MaxRefresh: time.Hour},
 		AdminAuth: &config.AdminAuthOptions{
-			Token:       "bootstrap-secret",
-			Role:        config.AdminRoleSuperAdmin,
-			Permissions: []string{string(authz.PermissionRoleReadAny)},
+			Token: "bootstrap-secret",
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -651,8 +652,6 @@ func TestInitRouterRejectsCrossDomainRoleAssignment(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionRoleAssignAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -688,8 +687,6 @@ func TestInitRouterUpdatesStaffRole(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -737,8 +734,6 @@ func TestInitRouterRejectsRolePermissionEscalation(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -778,8 +773,6 @@ func TestInitRouterCreatesCustomStaffRole(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -825,8 +818,6 @@ func TestInitRouterRejectsCrossDomainCustomStaffRoleCreation(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -866,8 +857,6 @@ func TestInitRouterDeletesCustomStaffRole(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
 		},
 	}
 	client := &fakeAdminUserClient{
@@ -910,8 +899,6 @@ func TestInitRouterRejectsCrossDomainCustomStaffRoleDeletion(t *testing.T) {
 		AdminAuth: &config.AdminAuthOptions{
 			Token:             "bootstrap-secret",
 			ConfirmationToken: "confirm-secret",
-			Role:              config.AdminRoleSuperAdmin,
-			Permissions:       []string{string(authz.PermissionRoleWriteAny)},
 		},
 	}
 	client := &fakeAdminUserClient{

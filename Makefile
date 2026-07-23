@@ -1,4 +1,4 @@
-.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test schema-integration-test format-check vet-check lint-check rpcserver-flake-check release-check ops-check
+.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test schema-integration-test format-check vet-check lint-check rpcserver-flake-check release-check ops-check architecture-check
 
 GOLANGCI_LINT_VERSION ?= v2.12.2
 
@@ -36,6 +36,7 @@ help:
 	@echo "  make release-check  Run the trusted release baseline gate"
 	@echo "  make inventory-integration-test  Run inventory real-DB integration tests"
 	@echo "  make ops-check  Validate monitoring, runbooks, Jenkins gates, canary and chaos assets"
+	@echo "  make architecture-check  Enforce formal RBAC and thin API/Admin dependency boundaries"
 
 proto:
 	go generate ./api
@@ -81,3 +82,6 @@ schema-integration-test:
 
 ops-check:
 	bash ./scripts/ops-readiness-check.sh
+
+architecture-check:
+	bash ./scripts/architecture-boundary-check.sh

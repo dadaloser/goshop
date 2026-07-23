@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	"goshop/pkg/app"
 	cliflag "goshop/pkg/common/cli/flag"
@@ -34,22 +33,6 @@ type AdminAuthOptions struct {
 	PreviousTokenExpiresAt time.Time     `json:"previous-token-expires-at" mapstructure:"previous-token-expires-at"`
 	BreakGlassTTL          time.Duration `json:"break-glass-ttl" mapstructure:"break-glass-ttl"`
 	BreakGlassKeyID        string        `json:"break-glass-key-id" mapstructure:"break-glass-key-id"`
-	Role                   string        `json:"role" mapstructure:"role"`
-	Permissions            []string      `json:"permissions" mapstructure:"permissions"`
-}
-
-const (
-	AdminRoleBasic        = "basic"
-	AdminRoleAdmin        = "admin"
-	AdminRolePrimaryAdmin = "primary_admin"
-	AdminRoleSuperAdmin   = "super_admin"
-)
-
-var adminRoleLevels = map[string]int{
-	AdminRoleBasic:        1,
-	AdminRoleAdmin:        2,
-	AdminRolePrimaryAdmin: 3,
-	AdminRoleSuperAdmin:   4,
 }
 
 func NewAdminAuthOptions() *AdminAuthOptions {
@@ -85,86 +68,11 @@ func (o *AdminAuthOptions) EffectiveBreakGlassKeyID() string {
 	return "default"
 }
 
-func (o *AdminAuthOptions) EffectivePermissions() []string {
-	if o != nil && len(o.Permissions) > 0 {
-		return normalizePermissions(o.Permissions)
-	}
-	return normalizePermissions(strings.Split(os.Getenv("GOSHOP_ADMIN_PERMISSIONS"), ","))
-}
-
 func (o *AdminAuthOptions) EffectiveConfirmationToken() string {
 	if o != nil && o.ConfirmationToken != "" {
 		return o.ConfirmationToken
 	}
 	return os.Getenv("GOSHOP_ADMIN_CONFIRMATION_TOKEN")
-}
-
-func (o *AdminAuthOptions) EffectiveRole() string {
-	if o != nil && strings.TrimSpace(o.Role) != "" {
-		return normalizeRole(o.Role)
-	}
-	return normalizeRole(os.Getenv("GOSHOP_ADMIN_ROLE"))
-}
-
-func (o *AdminAuthOptions) HasPermission(permission authz.Permission) bool {
-	required := strings.TrimSpace(string(permission))
-	if required == "" {
-		return true
-	}
-	for _, candidate := range o.EffectivePermissions() {
-		if candidate == "*" || candidate == required {
-			return true
-		}
-		if strings.HasSuffix(candidate, ":*") {
-			prefix := strings.TrimSuffix(candidate, "*")
-			if strings.HasPrefix(required, prefix) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (o *AdminAuthOptions) HasRoleAtLeast(required string) bool {
-	required = normalizeRole(required)
-	if required == "" {
-		return true
-	}
-
-	currentLevel, ok := adminRoleLevels[o.EffectiveRole()]
-	if !ok {
-		return false
-	}
-	requiredLevel, ok := adminRoleLevels[required]
-	if !ok {
-		return false
-	}
-	return currentLevel >= requiredLevel
-}
-
-func (o *AdminAuthOptions) HasAccess(permission authz.Permission, minRole string) bool {
-	return o != nil && o.HasPermission(permission) && o.HasRoleAtLeast(minRole)
-}
-
-func normalizePermissions(values []string) []string {
-	permissions := make([]string, 0, len(values))
-	seen := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		permission := strings.TrimSpace(value)
-		if permission == "" {
-			continue
-		}
-		if _, ok := seen[permission]; ok {
-			continue
-		}
-		seen[permission] = struct{}{}
-		permissions = append(permissions, permission)
-	}
-	return permissions
-}
-
-func normalizeRole(role string) string {
-	return strings.ToLower(strings.TrimSpace(role))
 }
 
 func (o *AdminAuthOptions) Validate() []error {
@@ -174,12 +82,6 @@ func (o *AdminAuthOptions) Validate() []error {
 func (o *AdminAuthOptions) ValidateStartup() error {
 	if o.EffectiveToken() == "" {
 		return errors.New("admin-auth.token or GOSHOP_ADMIN_TOKEN is required")
-	}
-	if len(o.EffectivePermissions()) == 0 {
-		return errors.New("admin-auth.permissions or GOSHOP_ADMIN_PERMISSIONS is required")
-	}
-	if _, ok := adminRoleLevels[o.EffectiveRole()]; !ok {
-		return errors.New("admin-auth.role or GOSHOP_ADMIN_ROLE must be one of: basic, admin, primary_admin, super_admin")
 	}
 	if o.BreakGlassTTL < 0 || o.BreakGlassTTL > 15*time.Minute {
 		return errors.New("admin-auth.break-glass-ttl must be between 0 and 15m")
@@ -201,13 +103,11 @@ func (o *AdminAuthOptions) AddFlags(fs *pflag.FlagSet) {
 	if fs == nil {
 		return
 	}
-	fs.StringVar(&o.Token, "admin-auth.token", o.Token, "shared token required for admin routes until full RBAC is enabled")
+	fs.StringVar(&o.Token, "admin-auth.token", o.Token, "break-glass token used only to issue a short-lived emergency identity without RBAC grants")
 	fs.StringVar(&o.ConfirmationToken, "admin-auth.confirmation-token", o.ConfirmationToken, "second confirmation token required by high-risk admin write APIs")
 	fs.StringVar(&o.PreviousToken, "admin-auth.previous-token", o.PreviousToken, "previous break-glass token accepted only during rotation overlap")
 	fs.DurationVar(&o.BreakGlassTTL, "admin-auth.break-glass-ttl", o.BreakGlassTTL, "break-glass session TTL, maximum 15m")
 	fs.StringVar(&o.BreakGlassKeyID, "admin-auth.break-glass-key-id", o.BreakGlassKeyID, "break-glass rotation key identifier")
-	fs.StringVar(&o.Role, "admin-auth.role", o.Role, "bootstrap admin role: basic, admin, primary_admin, or super_admin")
-	fs.StringSliceVar(&o.Permissions, "admin-auth.permissions", o.Permissions, "permissions granted to the bootstrap admin token, for example user:list:any or user:*")
 }
 
 func (c *Config) Validate() []error {

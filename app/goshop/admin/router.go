@@ -113,35 +113,6 @@ func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {
 	}
 }
 
-func requireAdminPermission(opts *config.AdminAuthOptions, permission authz.Permission) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if opts == nil || !opts.HasPermission(permission) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"code":       http.StatusForbidden,
-				"msg":        "admin permission denied",
-				"permission": permission,
-			})
-			return
-		}
-		c.Next()
-	}
-}
-
-func requireAdminAccess(opts *config.AdminAuthOptions, permission authz.Permission, minRole string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if opts == nil || !opts.HasAccess(permission, minRole) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"code":       http.StatusForbidden,
-				"msg":        "admin access denied",
-				"permission": permission,
-				"min_role":   minRole,
-			})
-			return
-		}
-		c.Next()
-	}
-}
-
 func requireAdminConfirmation(opts *config.AdminAuthOptions) gin.HandlerFunc {
 	const headerName = "X-Admin-Confirm-Token"
 

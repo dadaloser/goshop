@@ -279,10 +279,8 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 	correlationID := uuid.NewString()
 	keyID := h.adminAuth.EffectiveBreakGlassKeyID()
 	token, err := middlewares.NewJWT(h.jwtOpts.Key).CreateToken(middlewares.CustomClaims{
-		Roles:         []string{h.adminAuth.EffectiveRole()},
 		PrincipalType: string(authz.PrincipalAdminBootstrap),
 		AccountStatus: string(authz.AccountStatusActive),
-		Scope:         append([]string(nil), h.adminAuth.EffectivePermissions()...),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        correlationID,
 			NotBefore: jwt.NewNumericDate(now),
@@ -300,7 +298,7 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 	if err = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{
 		ActorPrincipalType: string(authz.PrincipalAdminBootstrap),
 		Action:             "break_glass_session_issued",
-		Detail:             fmt.Sprintf("correlation_id:%s key_id:%s role:%s permissions:%s", correlationID, keyID, h.adminAuth.EffectiveRole(), strings.Join(h.adminAuth.EffectivePermissions(), ",")),
+		Detail:             fmt.Sprintf("correlation_id:%s key_id:%s grants:none", correlationID, keyID),
 		CorrelationId:      correlationID,
 		RequestId:          requestID(ctx),
 		TargetType:         "break_glass_session",
@@ -321,8 +319,6 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 		"token":          token,
 		"expires_at":     now.Add(timeout).Unix(),
 		"principal_type": authz.PrincipalAdminBootstrap,
-		"role":           h.adminAuth.EffectiveRole(),
-		"permissions":    h.adminAuth.EffectivePermissions(),
 		"correlation_id": correlationID,
 		"key_id":         keyID,
 	})

@@ -57,6 +57,9 @@ jobs:
       - name: Check operations readiness assets
         run: make ops-check
 
+      - name: Check architecture boundaries
+        run: make architecture-check
+
       - name: Check protobuf drift
         run: make proto-check
 

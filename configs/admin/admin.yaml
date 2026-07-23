@@ -51,6 +51,3 @@ admin-auth:
   previous-token: ""
   break-glass-ttl: 15m
   break-glass-key-id: "dev-v1"
-  role: admin # basic < admin < primary_admin < super_admin
-  permissions:
-    - user:list:any

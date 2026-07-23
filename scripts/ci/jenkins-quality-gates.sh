@@ -13,5 +13,6 @@ make config-secret-check
 make startup-validation-check
 make proto-check
 make ops-check
+make architecture-check
 govulncheck ./...
 gitleaks detect --source . --no-git --redact --exit-code 1
