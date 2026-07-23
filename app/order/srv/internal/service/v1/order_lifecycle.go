@@ -14,7 +14,7 @@ import (
 const (
 	orderLifecyclePollInterval = 5 * time.Second
 	orderTimeoutCloseAfter     = 30 * time.Minute
-	orderFinishAfterPayment    = 0
+	orderFinishAfterPayment    = 7 * 24 * time.Hour
 	orderLifecycleBatchSize    = 20
 )
 

@@ -14,10 +14,96 @@ import (
 	metav1 "goshop/pkg/common/meta/v1"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type orders struct {
 	db *gorm.DB
+}
+
+func (o *orders) BeginPaymentEvent(ctx context.Context, event *do.PaymentEventDO) (*do.PaymentEventDO, *do.OrderInfoDO, bool, error) {
+	if event == nil || event.Provider == "" || event.EventID == "" || event.OrderSN == "" || event.EventType == "" || event.ProviderAmountFen < 0 {
+		return nil, nil, false, errors.WithCode(code2.ErrValidation, "payment event is invalid")
+	}
+	var order do.OrderInfoDO
+	accepted := false
+	err := o.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var existing do.PaymentEventDO
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("provider = ? AND event_id = ?", event.Provider, event.EventID).First(&existing).Error
+		if err == nil {
+			*event = existing
+			if existing.Status == "failed" {
+				accepted = true
+				event.Status = "processing"
+				event.ErrorDetail = ""
+				if err = tx.Model(&existing).Updates(map[string]interface{}{"status": "processing", "error_detail": ""}).Error; err != nil {
+					return err
+				}
+			}
+			return tx.Where("order_sn = ?", existing.OrderSN).First(&order).Error
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("order_sn = ?", event.OrderSN).First(&order).Error; err != nil {
+			return err
+		}
+		event.OrderAmountFen = order.OrderMountFen
+		event.Status = "processing"
+		event.ReceivedAt = time.Now().UTC()
+		if err = tx.Create(event).Error; err != nil {
+			return err
+		}
+		accepted = true
+		return nil
+	})
+	if err != nil {
+		return nil, nil, false, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return event, &order, accepted, nil
+}
+
+func (o *orders) CompletePaymentEvent(ctx context.Context, id uint64, success bool, detail string) error {
+	updates := map[string]interface{}{"status": "failed", "error_detail": strings.TrimSpace(detail)}
+	if success {
+		now := time.Now().UTC()
+		updates["status"] = "completed"
+		updates["completed_at"] = &now
+		updates["error_detail"] = ""
+	}
+	result := o.db.WithContext(ctx).Model(&do.PaymentEventDO{}).Where("id = ? AND status = ?", id, "processing").Updates(updates)
+	if result.Error != nil {
+		return errors.WithCode(code2.ErrDatabase, result.Error.Error())
+	}
+	return nil
+}
+
+func (o *orders) ListPaymentEvents(ctx context.Context, orderSN string, offset, limit int, mismatchesOnly bool) ([]do.PaymentEventDO, int64, int64, error) {
+	query := o.db.WithContext(ctx).Model(&do.PaymentEventDO{})
+	if orderSN != "" {
+		query = query.Where("order_sn = ?", orderSN)
+	}
+	mismatchSQL := "((event_type <> 'refund_succeeded' AND provider_amount_fen <> order_amount_fen) OR (event_type = 'refund_succeeded' AND (refund_amount_fen <> provider_amount_fen OR refund_amount_fen > order_amount_fen)))"
+	if mismatchesOnly {
+		query = query.Where(mismatchSQL)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	var mismatches int64
+	mismatchQuery := o.db.WithContext(ctx).Model(&do.PaymentEventDO{}).Where(mismatchSQL)
+	if orderSN != "" {
+		mismatchQuery = mismatchQuery.Where("order_sn = ?", orderSN)
+	}
+	if err := mismatchQuery.Count(&mismatches).Error; err != nil {
+		return nil, 0, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	items := []do.PaymentEventDO{}
+	if err := query.Order("id DESC").Offset(offset).Limit(limit).Find(&items).Error; err != nil {
+		return nil, 0, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return items, total, mismatches, nil
 }
 
 func newOrders(factory *dataFactory) *orders {

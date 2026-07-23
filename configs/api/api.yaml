@@ -88,6 +88,13 @@ email:
   code-ttl: 10m
   send-interval: 1m
 
+payment:
+  enabled: false
+  provider: mock
+  checkout-base-url: "https://payments.example.invalid/checkout"
+  callback-secret: "" # set API_PAYMENT_CALLBACK_SECRET or use a secret manager
+  callback-max-skew: 5m
+
 # JWT 配置
 jwt:
   realm: JWT # jwt 标识

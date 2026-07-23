@@ -20,7 +20,17 @@ service Order {
     rpc OrderStatusLogs(OrderRequest) returns (OrderStatusLogListResponse); // 订单状态日志
     rpc GetOrderBySn(OrderLookupRequest) returns (OrderInfoDetailResponse); // 按订单号查询订单详情
     rpc UpdateOrderStatus(OrderStatus) returns (google.protobuf.Empty); // 修改订单状态
+    rpc BeginPaymentEvent(PaymentEventRequest) returns (PaymentEventResponse);
+    rpc CompletePaymentEvent(CompletePaymentEventRequest) returns (google.protobuf.Empty);
+    rpc ListPaymentEvents(PaymentEventListRequest) returns (PaymentEventListResponse);
 }
+
+message PaymentEventRequest { string provider = 1; string eventId = 2; string orderSn = 3; string tradeNo = 4; string eventType = 5; int64 providerAmountFen = 6; int64 refundAmountFen = 7; }
+message PaymentEventResponse { int64 id = 1; bool accepted = 2; bool completed = 3; int64 orderAmountFen = 4; string orderStatus = 5; }
+message CompletePaymentEventRequest { int64 id = 1; bool success = 2; string errorDetail = 3; }
+message PaymentEventListRequest { string orderSn = 1; int32 page = 2; int32 pageSize = 3; bool mismatchesOnly = 4; }
+message PaymentEventRecord { int64 id = 1; string provider = 2; string eventId = 3; string orderSn = 4; string tradeNo = 5; string eventType = 6; int64 orderAmountFen = 7; int64 providerAmountFen = 8; int64 refundAmountFen = 9; string status = 10; string errorDetail = 11; int64 receivedAt = 12; int64 completedAt = 13; }
+message PaymentEventListResponse { int32 total = 1; repeated PaymentEventRecord data = 2; int32 mismatchCount = 3; }
 
 message UserInfo {
     int32 id = 1;

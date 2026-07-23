@@ -13,6 +13,7 @@ import (
 	"goshop/app/goshop/api/internal/data/rpc"
 	"goshop/app/goshop/api/internal/emailcode"
 	"goshop/app/goshop/api/internal/loginattempt"
+	paymenthandler "goshop/app/goshop/api/internal/payment"
 	"goshop/app/goshop/api/internal/service"
 	"goshop/app/goshop/api/internal/smsattempt"
 	"goshop/app/goshop/api/internal/smscode"
@@ -47,7 +48,10 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	revokedTokens := tokenrevocation.NewRedisStore()
 	tokenVersions := tokenversion.NewRedisStore()
 	//原来的过程其实很复杂
-	serviceFactory := service.NewService(data, cfg.Sms, cfg.Jwt, codeStore, loginAttempts, smsAttempts, tokenVersions)
+	serviceFactory := service.NewServiceWithPayment(data, cfg.Sms, cfg.Jwt, cfg.Payment, codeStore, loginAttempts, smsAttempts, tokenVersions)
+	if callbackService, ok := serviceFactory.Orders().(paymenthandler.CallbackService); ok {
+		v1.POST("/internal/payment/callback/:provider", paymenthandler.NewCallbackHandler(cfg.Payment, callbackService).Handle)
+	}
 	uController := user.NewUserController(g.Translator(), serviceFactory, revokedTokens)
 	{
 		uGroup.POST("pwd_login", uController.Login)
@@ -76,6 +80,8 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 		uGroup.GET("orders", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderReadSelf), orderController.OrderList)
 		uGroup.GET("orders/:order_sn", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderReadSelf), orderController.OrderDetail)
 		uGroup.GET("orders/:order_sn/status_logs", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderStatusLogReadSelf), orderController.OrderStatusLogs)
+		uGroup.POST("orders/:order_sn/pay", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderPaySelf), orderController.InitiatePayment)
+		uGroup.POST("orders/:order_sn/cancel", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderCreateSelf), orderController.CancelOrder)
 	}
 
 	baseRouter := v1.Group("base")

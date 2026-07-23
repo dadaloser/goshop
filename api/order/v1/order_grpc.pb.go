@@ -20,18 +20,21 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Order_CartItemList_FullMethodName      = "/Order/CartItemList"
-	Order_CreateCartItem_FullMethodName    = "/Order/CreateCartItem"
-	Order_UpdateCartItem_FullMethodName    = "/Order/UpdateCartItem"
-	Order_DeleteCartItem_FullMethodName    = "/Order/DeleteCartItem"
-	Order_CreateOrder_FullMethodName       = "/Order/CreateOrder"
-	Order_CreateOrderCom_FullMethodName    = "/Order/CreateOrderCom"
-	Order_SubmitOrder_FullMethodName       = "/Order/SubmitOrder"
-	Order_OrderList_FullMethodName         = "/Order/OrderList"
-	Order_OrderDetail_FullMethodName       = "/Order/OrderDetail"
-	Order_OrderStatusLogs_FullMethodName   = "/Order/OrderStatusLogs"
-	Order_GetOrderBySn_FullMethodName      = "/Order/GetOrderBySn"
-	Order_UpdateOrderStatus_FullMethodName = "/Order/UpdateOrderStatus"
+	Order_CartItemList_FullMethodName         = "/Order/CartItemList"
+	Order_CreateCartItem_FullMethodName       = "/Order/CreateCartItem"
+	Order_UpdateCartItem_FullMethodName       = "/Order/UpdateCartItem"
+	Order_DeleteCartItem_FullMethodName       = "/Order/DeleteCartItem"
+	Order_CreateOrder_FullMethodName          = "/Order/CreateOrder"
+	Order_CreateOrderCom_FullMethodName       = "/Order/CreateOrderCom"
+	Order_SubmitOrder_FullMethodName          = "/Order/SubmitOrder"
+	Order_OrderList_FullMethodName            = "/Order/OrderList"
+	Order_OrderDetail_FullMethodName          = "/Order/OrderDetail"
+	Order_OrderStatusLogs_FullMethodName      = "/Order/OrderStatusLogs"
+	Order_GetOrderBySn_FullMethodName         = "/Order/GetOrderBySn"
+	Order_UpdateOrderStatus_FullMethodName    = "/Order/UpdateOrderStatus"
+	Order_BeginPaymentEvent_FullMethodName    = "/Order/BeginPaymentEvent"
+	Order_CompletePaymentEvent_FullMethodName = "/Order/CompletePaymentEvent"
+	Order_ListPaymentEvents_FullMethodName    = "/Order/ListPaymentEvents"
 )
 
 // OrderClient is the client API for Order service.
@@ -52,6 +55,9 @@ type OrderClient interface {
 	OrderStatusLogs(ctx context.Context, in *OrderRequest, opts ...grpc.CallOption) (*OrderStatusLogListResponse, error)
 	GetOrderBySn(ctx context.Context, in *OrderLookupRequest, opts ...grpc.CallOption) (*OrderInfoDetailResponse, error)
 	UpdateOrderStatus(ctx context.Context, in *OrderStatus, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	BeginPaymentEvent(ctx context.Context, in *PaymentEventRequest, opts ...grpc.CallOption) (*PaymentEventResponse, error)
+	CompletePaymentEvent(ctx context.Context, in *CompletePaymentEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListPaymentEvents(ctx context.Context, in *PaymentEventListRequest, opts ...grpc.CallOption) (*PaymentEventListResponse, error)
 }
 
 type orderClient struct {
@@ -182,6 +188,36 @@ func (c *orderClient) UpdateOrderStatus(ctx context.Context, in *OrderStatus, op
 	return out, nil
 }
 
+func (c *orderClient) BeginPaymentEvent(ctx context.Context, in *PaymentEventRequest, opts ...grpc.CallOption) (*PaymentEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PaymentEventResponse)
+	err := c.cc.Invoke(ctx, Order_BeginPaymentEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *orderClient) CompletePaymentEvent(ctx context.Context, in *CompletePaymentEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Order_CompletePaymentEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *orderClient) ListPaymentEvents(ctx context.Context, in *PaymentEventListRequest, opts ...grpc.CallOption) (*PaymentEventListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PaymentEventListResponse)
+	err := c.cc.Invoke(ctx, Order_ListPaymentEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OrderServer is the server API for Order service.
 // All implementations must embed UnimplementedOrderServer
 // for forward compatibility.
@@ -200,6 +236,9 @@ type OrderServer interface {
 	OrderStatusLogs(context.Context, *OrderRequest) (*OrderStatusLogListResponse, error)
 	GetOrderBySn(context.Context, *OrderLookupRequest) (*OrderInfoDetailResponse, error)
 	UpdateOrderStatus(context.Context, *OrderStatus) (*emptypb.Empty, error)
+	BeginPaymentEvent(context.Context, *PaymentEventRequest) (*PaymentEventResponse, error)
+	CompletePaymentEvent(context.Context, *CompletePaymentEventRequest) (*emptypb.Empty, error)
+	ListPaymentEvents(context.Context, *PaymentEventListRequest) (*PaymentEventListResponse, error)
 	mustEmbedUnimplementedOrderServer()
 }
 
@@ -245,6 +284,15 @@ func (UnimplementedOrderServer) GetOrderBySn(context.Context, *OrderLookupReques
 }
 func (UnimplementedOrderServer) UpdateOrderStatus(context.Context, *OrderStatus) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateOrderStatus not implemented")
+}
+func (UnimplementedOrderServer) BeginPaymentEvent(context.Context, *PaymentEventRequest) (*PaymentEventResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BeginPaymentEvent not implemented")
+}
+func (UnimplementedOrderServer) CompletePaymentEvent(context.Context, *CompletePaymentEventRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompletePaymentEvent not implemented")
+}
+func (UnimplementedOrderServer) ListPaymentEvents(context.Context, *PaymentEventListRequest) (*PaymentEventListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPaymentEvents not implemented")
 }
 func (UnimplementedOrderServer) mustEmbedUnimplementedOrderServer() {}
 func (UnimplementedOrderServer) testEmbeddedByValue()               {}
@@ -483,6 +531,60 @@ func _Order_UpdateOrderStatus_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Order_BeginPaymentEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PaymentEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).BeginPaymentEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_BeginPaymentEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).BeginPaymentEvent(ctx, req.(*PaymentEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Order_CompletePaymentEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompletePaymentEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).CompletePaymentEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_CompletePaymentEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).CompletePaymentEvent(ctx, req.(*CompletePaymentEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Order_ListPaymentEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PaymentEventListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).ListPaymentEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_ListPaymentEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).ListPaymentEvents(ctx, req.(*PaymentEventListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Order_ServiceDesc is the grpc.ServiceDesc for Order service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -537,6 +639,18 @@ var Order_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateOrderStatus",
 			Handler:    _Order_UpdateOrderStatus_Handler,
+		},
+		{
+			MethodName: "BeginPaymentEvent",
+			Handler:    _Order_BeginPaymentEvent_Handler,
+		},
+		{
+			MethodName: "CompletePaymentEvent",
+			Handler:    _Order_CompletePaymentEvent_Handler,
+		},
+		{
+			MethodName: "ListPaymentEvents",
+			Handler:    _Order_ListPaymentEvents_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

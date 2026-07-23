@@ -224,6 +224,57 @@ func (s *OrderHttpServer) UpdateOrderStatus_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *OrderHttpServer) BeginPaymentEvent_0(c *gin.Context) {
+	var in PaymentEventRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.BeginPaymentEvent(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *OrderHttpServer) CompletePaymentEvent_0(c *gin.Context) {
+	var in CompletePaymentEventRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.CompletePaymentEvent(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *OrderHttpServer) ListPaymentEvents_0(c *gin.Context) {
+	var in PaymentEventListRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListPaymentEvents(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *OrderHttpServer) RegisterService() {
 
 	s.router.Handle("POST", "", s.CartItemList_0)
@@ -249,5 +300,11 @@ func (s *OrderHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.GetOrderBySn_0)
 
 	s.router.Handle("POST", "", s.UpdateOrderStatus_0)
+
+	s.router.Handle("POST", "", s.BeginPaymentEvent_0)
+
+	s.router.Handle("POST", "", s.CompletePaymentEvent_0)
+
+	s.router.Handle("POST", "", s.ListPaymentEvents_0)
 
 }

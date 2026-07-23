@@ -72,5 +72,5 @@ dtm:
 lifecycle:
   poll-interval: 5s
   timeout-close-after: 30m
-  finish-after-payment: 0s
+  finish-after-payment: 168h
   batch-size: 20

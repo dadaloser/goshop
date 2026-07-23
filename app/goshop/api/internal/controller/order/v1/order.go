@@ -1,6 +1,7 @@
 package order
 
 import (
+	"context"
 	"encoding/json"
 	"goshop/app/goshop/api/internal/domain/request"
 	"goshop/app/goshop/api/internal/service"
@@ -12,6 +13,7 @@ import (
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
 	"goshop/pkg/money"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	ut "github.com/go-playground/universal-translator"
@@ -47,6 +49,49 @@ type SimulatePayCallbackForm struct {
 type SimulatePayCallbackItemForm struct {
 	GoodsID int32 `form:"goods_id" json:"goods_id" binding:"required,gt=0"`
 	Num     int32 `form:"num" json:"num" binding:"required,gt=0"`
+}
+
+type paymentInitiator interface {
+	InitiatePayment(context.Context, uint64, string) (*orderv1.PaymentInitiation, error)
+}
+type orderCanceller interface {
+	CancelOrder(context.Context, uint64, string) error
+}
+
+func (oc *orderController) InitiatePayment(ctx *gin.Context) {
+	userID, orderSrv, err := oc.authenticatedOrderService(ctx)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	service, ok := orderSrv.(paymentInitiator)
+	if !ok {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "payment service unavailable"), nil)
+		return
+	}
+	result, err := service.InitiatePayment(ctx, userID, strings.TrimSpace(ctx.Param("order_sn")))
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	core.WriteResponse(ctx, nil, result)
+}
+func (oc *orderController) CancelOrder(ctx *gin.Context) {
+	userID, orderSrv, err := oc.authenticatedOrderService(ctx)
+	if err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	service, ok := orderSrv.(orderCanceller)
+	if !ok {
+		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "order cancellation unavailable"), nil)
+		return
+	}
+	if err = service.CancelOrder(ctx, userID, strings.TrimSpace(ctx.Param("order_sn"))); err != nil {
+		core.WriteResponse(ctx, err, nil)
+		return
+	}
+	core.WriteResponse(ctx, nil, gin.H{"ok": true})
 }
 
 func NewOrderController(sf service.ServiceFactory, trans ut.Translator) *orderController {

@@ -781,8 +781,9 @@ func TestProcessFinishedOrdersMarksFinished(t *testing.T) {
 					if status != OrderStatusTradeSuccess {
 						t.Fatalf("status = %s, want %s", status, OrderStatusTradeSuccess)
 					}
-					if !paidBefore.Equal(now) {
-						t.Fatalf("paidBefore = %v, want %v", paidBefore, now)
+					wantPaidBefore := now.Add(-orderFinishAfterPayment)
+					if !paidBefore.Equal(wantPaidBefore) {
+						t.Fatalf("paidBefore = %v, want %v", paidBefore, wantPaidBefore)
 					}
 					return []*do.OrderInfoDO{
 						{

@@ -54,6 +54,10 @@ func registerOperationsRoutes(v1 *gin.RouterGroup, staffAuth middlewares.AuthStr
 	orders.GET(":order_sn", requireResourceScopeForRoles(), authz.RequirePermission(authz.PermissionOrderReadAny), h.getOrder)
 	orders.POST(":order_sn/close", requireRole(authz.StaffRoleOps, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainOps), authz.RequirePermission(authz.PermissionOrderCloseAny), requireAdminConfirmation(cfg.AdminAuth), h.closeOrder)
 	orders.POST(":order_sn/refund", requireRole(authz.StaffRoleFinance, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainFinance), authz.RequirePermission(authz.PermissionOrderRefundAny), requireAdminConfirmation(cfg.AdminAuth), h.refundOrder)
+	payments := v1.Group("/payments", staff...)
+	payments.Use(requireRole(authz.StaffRoleFinance, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainFinance), authz.RequirePermission(authz.PermissionOrderRefundAny))
+	payments.GET("events", h.listPaymentEvents)
+	payments.GET("reconciliation", h.reconcilePayments)
 }
 
 func requireRole(allowed ...authz.StaffRole) gin.HandlerFunc {
@@ -303,6 +307,27 @@ func (h *operationsHandler) changeOrderStatus(c *gin.Context, status, action str
 		err = h.audit(c, action, "order", orderSN)
 	}
 	writeRPC(c, resp, err)
+}
+
+func (h *operationsHandler) listPaymentEvents(c *gin.Context) {
+	if !h.ready(c, h.orders != nil) {
+		return
+	}
+	p, s := page(c)
+	resp, err := h.orders.ListPaymentEvents(c, &orderpb.PaymentEventListRequest{OrderSn: strings.TrimSpace(c.Query("order_sn")), Page: p, PageSize: s})
+	writeRPC(c, resp, err)
+}
+func (h *operationsHandler) reconcilePayments(c *gin.Context) {
+	if !h.ready(c, h.orders != nil) {
+		return
+	}
+	p, s := page(c)
+	resp, err := h.orders.ListPaymentEvents(c, &orderpb.PaymentEventListRequest{OrderSn: strings.TrimSpace(c.Query("order_sn")), Page: p, PageSize: s, MismatchesOnly: true})
+	if err != nil {
+		writeRPC(c, nil, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"checked": resp.GetTotal(), "mismatch_count": resp.GetMismatchCount(), "items": resp.GetData()})
 }
 
 func (h *operationsHandler) ready(c *gin.Context, ready bool) bool {

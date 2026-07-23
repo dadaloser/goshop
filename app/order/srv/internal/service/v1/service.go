@@ -60,7 +60,7 @@ func (c LifecycleConfig) normalize() LifecycleConfig {
 	if c.TimeoutCloseAfter <= 0 {
 		c.TimeoutCloseAfter = orderTimeoutCloseAfter
 	}
-	if c.FinishAfterPayment < 0 {
+	if c.FinishAfterPayment <= 0 {
 		c.FinishAfterPayment = orderFinishAfterPayment
 	}
 	if c.BatchSize <= 0 {

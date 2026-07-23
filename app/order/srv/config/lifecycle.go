@@ -19,7 +19,7 @@ func NewLifecycleOptions() *LifecycleOptions {
 	return &LifecycleOptions{
 		PollInterval:       5 * time.Second,
 		TimeoutCloseAfter:  30 * time.Minute,
-		FinishAfterPayment: 0,
+		FinishAfterPayment: 7 * 24 * time.Hour,
 		BatchSize:          20,
 	}
 }
@@ -47,8 +47,8 @@ func (o *LifecycleOptions) Validate() []error {
 	if o.TimeoutCloseAfter <= 0 {
 		errs = append(errs, fmt.Errorf("lifecycle.timeout-close-after must be positive"))
 	}
-	if o.FinishAfterPayment < 0 {
-		errs = append(errs, fmt.Errorf("lifecycle.finish-after-payment must be non-negative"))
+	if o.FinishAfterPayment <= 0 {
+		errs = append(errs, fmt.Errorf("lifecycle.finish-after-payment must be positive"))
 	}
 	if o.BatchSize <= 0 {
 		errs = append(errs, fmt.Errorf("lifecycle.batch-size must be positive"))

@@ -9,6 +9,7 @@ import (
 	ipb "goshop/api/inventory/v1"
 	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
+	"goshop/app/goshop/api/internal/payment"
 	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 
@@ -197,6 +198,70 @@ func TestSimulatePayCallbackRejectsConflictingTerminalState(t *testing.T) {
 	}
 }
 
+func TestProcessPayCallbackCompletedReplayHasNoSideEffects(t *testing.T) {
+	mutations := 0
+	svc := NewOrderService(fakeDataFactory{
+		orderClient: fakeOrderClient{beginPaymentEvent: func(context.Context, *opb.PaymentEventRequest, ...grpc.CallOption) (*opb.PaymentEventResponse, error) {
+			return &opb.PaymentEventResponse{Id: 1, Completed: true}, nil
+		}, update: func(context.Context, *opb.OrderStatus, ...grpc.CallOption) (*emptypb.Empty, error) {
+			mutations++
+			return &emptypb.Empty{}, nil
+		}},
+		inventoryClient: fakeInventoryClient{confirm: func(context.Context, *ipb.SellInfo, ...grpc.CallOption) (*emptypb.Empty, error) {
+			mutations++
+			return &emptypb.Empty{}, nil
+		}},
+	}).(*orderService)
+
+	duplicate, err := svc.ProcessPayCallback(context.Background(), &payment.CallbackRequest{Provider: "mock", EventID: "evt-1", EventType: "payment_succeeded", OrderSN: "order-1", AmountFen: 100})
+	if err != nil || !duplicate {
+		t.Fatalf("ProcessPayCallback() duplicate=%v error=%v", duplicate, err)
+	}
+	if mutations != 0 {
+		t.Fatalf("replayed callback caused %d mutations", mutations)
+	}
+}
+
+func TestProcessPayCallbackRejectsOutOfOrderBeforeInventory(t *testing.T) {
+	inventoryCalls, completeCalls := 0, 0
+	svc := NewOrderService(fakeDataFactory{
+		orderClient: fakeOrderClient{
+			beginPaymentEvent: func(context.Context, *opb.PaymentEventRequest, ...grpc.CallOption) (*opb.PaymentEventResponse, error) {
+				return &opb.PaymentEventResponse{Id: 1, Accepted: true, OrderAmountFen: 100}, nil
+			},
+			getOrderBySN: func(context.Context, *opb.OrderLookupRequest, ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+				return orderDetailResponseWithStatus(orderStatusTradeClosed), nil
+			},
+			completePaymentEvent: func(_ context.Context, in *opb.CompletePaymentEventRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				completeCalls++
+				if in.Success || in.ErrorDetail != "payment event is out of order" {
+					t.Fatalf("completion = %+v", in)
+				}
+				return &emptypb.Empty{}, nil
+			},
+		},
+		inventoryClient: fakeInventoryClient{confirm: func(context.Context, *ipb.SellInfo, ...grpc.CallOption) (*emptypb.Empty, error) {
+			inventoryCalls++
+			return &emptypb.Empty{}, nil
+		}},
+	}).(*orderService)
+
+	_, err := svc.ProcessPayCallback(context.Background(), &payment.CallbackRequest{Provider: "mock", EventID: "evt-2", EventType: "payment_succeeded", OrderSN: "order-1", AmountFen: 100})
+	if !errors.IsCode(err, code.ErrOrderStatusInvalid) {
+		t.Fatalf("ProcessPayCallback() error=%v", err)
+	}
+	if inventoryCalls != 0 || completeCalls != 1 {
+		t.Fatalf("inventoryCalls=%d completeCalls=%d", inventoryCalls, completeCalls)
+	}
+}
+
+func orderDetailResponseWithStatus(status string) *opb.OrderInfoDetailResponse {
+	return &opb.OrderInfoDetailResponse{
+		OrderInfo: &opb.OrderInfoResponse{OrderSn: "order-1", Status: status, TotalFen: 100},
+		Goods:     []*opb.OrderItemResponse{{GoodsId: 101, Nums: 1}},
+	}
+}
+
 func TestCartItemOperationsForwardRequests(t *testing.T) {
 	var gotCreate *opb.CartItemRequest
 	var gotUpdate *opb.CartItemRequest
@@ -375,15 +440,30 @@ func (f fakeDataFactory) Users() data.UserData {
 
 type fakeOrderClient struct {
 	opb.OrderClient
-	cartItemList   func(context.Context, *opb.UserInfo, ...grpc.CallOption) (*opb.CartItemListResponse, error)
-	createCartItem func(context.Context, *opb.CartItemRequest, ...grpc.CallOption) (*opb.ShopCartInfoResponse, error)
-	updateCartItem func(context.Context, *opb.CartItemRequest, ...grpc.CallOption) (*emptypb.Empty, error)
-	deleteCartItem func(context.Context, *opb.CartItemRequest, ...grpc.CallOption) (*emptypb.Empty, error)
-	submitOrder    func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*emptypb.Empty, error)
-	list           func(context.Context, *opb.OrderFilterRequest, ...grpc.CallOption) (*opb.OrderListResponse, error)
-	detail         func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error)
-	statusLogs     func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*opb.OrderStatusLogListResponse, error)
-	update         func(context.Context, *opb.OrderStatus, ...grpc.CallOption) (*emptypb.Empty, error)
+	cartItemList         func(context.Context, *opb.UserInfo, ...grpc.CallOption) (*opb.CartItemListResponse, error)
+	createCartItem       func(context.Context, *opb.CartItemRequest, ...grpc.CallOption) (*opb.ShopCartInfoResponse, error)
+	updateCartItem       func(context.Context, *opb.CartItemRequest, ...grpc.CallOption) (*emptypb.Empty, error)
+	deleteCartItem       func(context.Context, *opb.CartItemRequest, ...grpc.CallOption) (*emptypb.Empty, error)
+	submitOrder          func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*emptypb.Empty, error)
+	list                 func(context.Context, *opb.OrderFilterRequest, ...grpc.CallOption) (*opb.OrderListResponse, error)
+	detail               func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error)
+	statusLogs           func(context.Context, *opb.OrderRequest, ...grpc.CallOption) (*opb.OrderStatusLogListResponse, error)
+	update               func(context.Context, *opb.OrderStatus, ...grpc.CallOption) (*emptypb.Empty, error)
+	beginPaymentEvent    func(context.Context, *opb.PaymentEventRequest, ...grpc.CallOption) (*opb.PaymentEventResponse, error)
+	completePaymentEvent func(context.Context, *opb.CompletePaymentEventRequest, ...grpc.CallOption) (*emptypb.Empty, error)
+	getOrderBySN         func(context.Context, *opb.OrderLookupRequest, ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error)
+}
+
+func (f fakeOrderClient) BeginPaymentEvent(ctx context.Context, in *opb.PaymentEventRequest, opts ...grpc.CallOption) (*opb.PaymentEventResponse, error) {
+	return f.beginPaymentEvent(ctx, in, opts...)
+}
+
+func (f fakeOrderClient) CompletePaymentEvent(ctx context.Context, in *opb.CompletePaymentEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return f.completePaymentEvent(ctx, in, opts...)
+}
+
+func (f fakeOrderClient) GetOrderBySn(ctx context.Context, in *opb.OrderLookupRequest, opts ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+	return f.getOrderBySN(ctx, in, opts...)
 }
 
 func (f fakeOrderClient) CartItemList(ctx context.Context, in *opb.UserInfo, opts ...grpc.CallOption) (*opb.CartItemListResponse, error) {

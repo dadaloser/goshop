@@ -19,6 +19,7 @@ type Config struct {
 	Jwt                 *options.JwtOptions         `json:"jwt" mapstructure:"jwt"`
 	Sms                 *options.SmsOptions         `json:"sms" mapstructure:"sms"`
 	Email               *options.EmailOptions       `json:"email" mapstructure:"email"`
+	Payment             *options.PaymentOptions     `json:"payment" mapstructure:"payment"`
 	Redis               *options.RedisOptions       `json:"redis" mapstructure:"redis"`
 	RPCClientResilience *resilience.Options         `json:"rpc-client-resilience" mapstructure:"rpc-client-resilience"`
 }
@@ -32,6 +33,7 @@ func (c *Config) Validate() []error {
 	errors = append(errors, c.Jwt.Validate()...)
 	errors = append(errors, c.Sms.Validate()...)
 	errors = append(errors, c.Email.Validate()...)
+	errors = append(errors, c.Payment.Validate()...)
 	errors = append(errors, c.Redis.Validate()...)
 	errors = append(errors, c.RPCClientResilience.Validate()...)
 	return errors
@@ -79,6 +81,7 @@ func (c *Config) Flags() (fss cliflag.NamedFlagSets) {
 	c.Jwt.AddFlags(fss.FlagSet("jwt"))
 	c.Sms.AddFlags(fss.FlagSet("sms"))
 	c.Email.AddFlags(fss.FlagSet("email"))
+	c.Payment.AddFlags(fss.FlagSet("payment"))
 	c.Redis.AddFlags(fss.FlagSet("redis"))
 	c.RPCClientResilience.AddFlags(fss.FlagSet("rpc-client-resilience"), "rpc-client-resilience")
 	return fss
@@ -94,6 +97,7 @@ func New() *Config {
 		Jwt:                 options.NewJwtOptions(),
 		Sms:                 options.NewSmsOptions(),
 		Email:               options.NewEmailOptions(),
+		Payment:             options.NewPaymentOptions(),
 		Redis:               options.NewRedisOptions(),
 		RPCClientResilience: resilience.NewOptions(),
 	}

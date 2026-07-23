@@ -38,6 +38,7 @@ type service struct {
 	smsAttempts smsattempt.Store
 
 	tokenVersions tokenversion.Store
+	paymentOpts   *options.PaymentOptions
 }
 
 func (s *service) Sms() vSms.SmsSrv {
@@ -65,7 +66,7 @@ func (s *service) Orders() vOrder.OrderSrv {
 	if s == nil {
 		return vOrder.NewOrderService(nil)
 	}
-	return vOrder.NewOrderService(s.data)
+	return vOrder.NewOrderServiceWithPayment(s.data, s.paymentOpts)
 }
 
 func (s *service) Users() vUser.UserSrv {
@@ -84,6 +85,12 @@ func NewService(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *op
 		smsAttempts:   smsAttempts,
 		tokenVersions: tokenVersions,
 	}
+}
+
+func NewServiceWithPayment(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *options.JwtOptions, paymentOpts *options.PaymentOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) *service {
+	s := NewService(store, smsOpts, jwtOpts, codeStore, loginAttempts, smsAttempts, tokenVersions)
+	s.paymentOpts = paymentOpts
+	return s
 }
 
 var _ ServiceFactory = &service{}

@@ -9,18 +9,24 @@ import (
 	ipb "goshop/api/inventory/v1"
 	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
+	"goshop/app/goshop/api/internal/payment"
 	"goshop/app/pkg/code"
+	"goshop/app/pkg/options"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 )
 
 type PayCallbackRequest struct {
-	UserID  uint64
-	OrderSn string
-	PayType string
-	TradeNo string
-	Items   []OrderItem
-	Success bool
+	Provider  string
+	EventID   string
+	EventType string
+	AmountFen int64
+	UserID    uint64
+	OrderSn   string
+	PayType   string
+	TradeNo   string
+	Items     []OrderItem
+	Success   bool
 }
 
 type OrderItem struct {
@@ -60,7 +66,9 @@ type OrderSrv interface {
 }
 
 type orderService struct {
-	data data.DataFactory
+	data        data.DataFactory
+	provider    payment.Provider
+	paymentOpts *options.PaymentOptions
 }
 
 const (
@@ -76,6 +84,149 @@ const (
 
 func NewOrderService(data data.DataFactory) OrderSrv {
 	return &orderService{data: data}
+}
+
+func NewOrderServiceWithPayment(data data.DataFactory, opts *options.PaymentOptions) OrderSrv {
+	return &orderService{data: data, provider: payment.NewProvider(opts), paymentOpts: opts}
+}
+
+type PaymentInitiation struct {
+	PaymentID, Provider, CheckoutURL string
+	ExpiresAt, AmountFen             int64
+}
+
+func (os *orderService) InitiatePayment(ctx context.Context, userID uint64, orderSN string) (*PaymentInitiation, error) {
+	if os == nil || os.paymentOpts == nil || !os.paymentOpts.Enabled {
+		return nil, errors.WithCode(code.ErrConnectGRPC, "payment provider is disabled")
+	}
+	detail, err := os.OrderDetail(ctx, userID, orderSN)
+	if err != nil {
+		return nil, err
+	}
+	status := strings.TrimSpace(detail.GetOrderInfo().GetStatus())
+	if status != orderStatusWaitBuyerPay && status != orderStatusPaying {
+		return nil, errors.WithCode(code.ErrOrderStatusInvalid, "order cannot be paid in current status")
+	}
+	amount := detail.GetOrderInfo().GetTotalFen()
+	result, err := os.provider.Initiate(ctx, payment.InitiateRequest{OrderSN: orderSN, AmountFen: amount, Subject: "goshop order"})
+	if err != nil {
+		return nil, err
+	}
+	if _, err = os.data.Orders().UpdateOrderStatus(ctx, &opb.OrderStatus{OrderSn: orderSN, Status: orderStatusPaying}); err != nil {
+		return nil, err
+	}
+	return &PaymentInitiation{PaymentID: result.PaymentID, Provider: result.Provider, CheckoutURL: result.CheckoutURL, ExpiresAt: result.ExpiresAt.Unix(), AmountFen: amount}, nil
+}
+
+func (os *orderService) CancelOrder(ctx context.Context, userID uint64, orderSN string) error {
+	detail, err := os.OrderDetail(ctx, userID, orderSN)
+	if err != nil {
+		return err
+	}
+	current := strings.TrimSpace(detail.GetOrderInfo().GetStatus())
+	if current != orderStatusWaitBuyerPay && current != orderStatusPaying {
+		return errors.WithCode(code.ErrOrderStatusInvalid, "order cannot be cancelled in current status")
+	}
+	sellInfo, err := sellInfoFromOrder(orderSN, detail.GetGoods())
+	if err != nil {
+		return err
+	}
+	if _, err = os.data.Inventory().Release(ctx, sellInfo); err != nil {
+		return err
+	}
+	_, err = os.data.Orders().UpdateOrderStatus(ctx, &opb.OrderStatus{OrderSn: orderSN, Status: orderStatusTradeClosed, Reason: "cancelled by customer"})
+	return err
+}
+
+func (os *orderService) ProcessPayCallback(ctx context.Context, req *payment.CallbackRequest) (bool, error) {
+	if req == nil || req.Provider == "" || req.EventID == "" || req.EventType == "" || req.OrderSN == "" || req.AmountFen < 0 {
+		return false, errors.WithCode(code.ErrOrderStatusInvalid, "payment callback is invalid")
+	}
+	orders := os.data.Orders()
+	refundAmount := int64(0)
+	if req.EventType == "refund_succeeded" {
+		refundAmount = req.AmountFen
+	}
+	begin, err := orders.BeginPaymentEvent(ctx, &opb.PaymentEventRequest{Provider: req.Provider, EventId: req.EventID, OrderSn: req.OrderSN, TradeNo: req.TradeNo, EventType: req.EventType, ProviderAmountFen: req.AmountFen, RefundAmountFen: refundAmount})
+	if err != nil {
+		return false, err
+	}
+	if !begin.GetAccepted() {
+		if begin.GetCompleted() {
+			return true, nil
+		}
+		return false, errors.WithCode(code.ErrConnectGRPC, "payment callback is already processing")
+	}
+	success := false
+	detail := "callback processing failed"
+	defer func() {
+		if _, completeErr := orders.CompletePaymentEvent(context.WithoutCancel(ctx), &opb.CompletePaymentEventRequest{Id: begin.GetId(), Success: success, ErrorDetail: detail}); completeErr != nil {
+			log.Errorf("complete payment event failed: event_id=%s error=%v", req.EventID, completeErr)
+		}
+	}()
+	amountMismatch := req.EventType != "refund_succeeded" && req.AmountFen != begin.GetOrderAmountFen()
+	invalidRefund := req.EventType == "refund_succeeded" && (req.AmountFen <= 0 || req.AmountFen > begin.GetOrderAmountFen())
+	if amountMismatch || invalidRefund {
+		detail = "payment amount mismatch"
+		return false, errors.WithCode(code.ErrOrderStatusInvalid, detail)
+	}
+	orderDetail, err := orders.GetOrderBySn(ctx, &opb.OrderLookupRequest{OrderSn: req.OrderSN})
+	if err != nil {
+		detail = "load order failed"
+		return false, err
+	}
+	currentStatus := strings.TrimSpace(orderDetail.GetOrderInfo().GetStatus())
+	if !paymentEventAllowed(req.EventType, currentStatus) {
+		detail = "payment event is out of order"
+		return false, errors.WithCode(code.ErrOrderStatusInvalid, detail)
+	}
+	sellInfo, err := sellInfoFromOrder(req.OrderSN, orderDetail.GetGoods())
+	if err != nil {
+		detail = "invalid order items"
+		return false, err
+	}
+	target := ""
+	switch req.EventType {
+	case "payment_succeeded":
+		target = orderStatusTradeSuccess
+		if _, err = os.data.Inventory().Confirm(ctx, sellInfo); err != nil {
+			detail = "confirm inventory failed"
+			return false, err
+		}
+	case "payment_failed":
+		target = orderStatusTradeClosed
+		if _, err = os.data.Inventory().Release(ctx, sellInfo); err != nil {
+			detail = "release inventory failed"
+			return false, err
+		}
+	case "refund_succeeded":
+		target = "REFUNDED"
+	default:
+		detail = "unknown payment event"
+		return false, errors.WithCode(code.ErrOrderStatusInvalid, detail)
+	}
+	status := &opb.OrderStatus{OrderSn: req.OrderSN, Status: target, PayType: req.Provider, TradeNo: req.TradeNo}
+	if target == orderStatusTradeSuccess {
+		status.PayTime = time.Now().Unix()
+	}
+	if _, err = orders.UpdateOrderStatus(ctx, status); err != nil {
+		detail = "update order status failed"
+		return false, err
+	}
+	success = true
+	detail = ""
+	return false, nil
+}
+
+func paymentEventAllowed(eventType, status string) bool {
+	switch eventType {
+	case "payment_succeeded", "payment_failed":
+		return status == orderStatusWaitBuyerPay || status == orderStatusPaying
+	case "refund_succeeded":
+		return status == "REFUND_PENDING"
+	default:
+		return false
+	}
 }
 
 func (os *orderService) CartItemList(ctx context.Context, userID uint64) (*opb.CartItemListResponse, error) {
