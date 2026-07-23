@@ -33,6 +33,11 @@ message OrderStatus {
     string payType = 4;
     string tradeNo = 5;
     int64 payTime = 6;
+    int32 actorUserId = 7;
+    int64 refundAmountFen = 8;
+    string reason = 9;
+    string correlationId = 10;
+    string requestId = 11;
 }
 
 message CartItemRequest {

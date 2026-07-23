@@ -190,6 +190,23 @@ func (s *InventoryHttpServer) Release_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *InventoryHttpServer) ListAdjustments_0(c *gin.Context) {
+	var in InventoryAdjustmentListRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListAdjustments(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *InventoryHttpServer) RegisterService() {
 
 	s.router.Handle("POST", "", s.SetInv_0)
@@ -211,5 +228,7 @@ func (s *InventoryHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.Confirm_0)
 
 	s.router.Handle("POST", "", s.Release_0)
+
+	s.router.Handle("POST", "", s.ListAdjustments_0)
 
 }

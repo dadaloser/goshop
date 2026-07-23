@@ -15,6 +15,7 @@ service Inventory {
     rpc Reback(SellInfo) returns(google.protobuf.Empty); //库存归还
     rpc Confirm(SellInfo) returns(google.protobuf.Empty); //支付成功确认库存
     rpc Release(SellInfo) returns(google.protobuf.Empty); //支付失败/关闭释放库存
+    rpc ListAdjustments(InventoryAdjustmentListRequest) returns (InventoryAdjustmentListResponse);
 }
 
 message GoodsInvInfo {
@@ -24,7 +25,15 @@ message GoodsInvInfo {
     int32 available = 4;
     int32 locked = 5;
     int32 sold = 6;
+    int32 actorUserId = 7;
+    string correlationId = 8;
+    string requestId = 9;
+    string reason = 10;
 }
+
+message InventoryAdjustmentListRequest { int32 goodsId = 1; int32 page = 2; int32 pageSize = 3; }
+message InventoryAdjustment { int64 id = 1; int32 goodsId = 2; int32 beforeAvailable = 3; int32 afterAvailable = 4; int32 actorUserId = 5; string correlationId = 6; string requestId = 7; string reason = 8; int64 createdAt = 9; }
+message InventoryAdjustmentListResponse { int32 total = 1; repeated InventoryAdjustment data = 2; }
 
 message SellInfo {
     repeated GoodsInvInfo goodsInfo = 1;

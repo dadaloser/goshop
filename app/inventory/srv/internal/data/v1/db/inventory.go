@@ -195,6 +195,48 @@ func (i *inventorys) Create(ctx context.Context, inv *do.InventoryDO) error {
 	return nil
 }
 
+func (i *inventorys) Adjust(ctx context.Context, inv *do.InventoryDO, audit *do.InventoryAdjustmentDO) error {
+	if err := normalizeInventory(inv); err != nil {
+		return err
+	}
+	if audit == nil || audit.ActorUserID <= 0 || strings.TrimSpace(audit.CorrelationID) == "" || strings.TrimSpace(audit.Reason) == "" {
+		return errors.WithCode(code2.ErrValidation, "inventory adjustment audit is invalid")
+	}
+	return i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current do.InventoryDO
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("goods = ?", inv.Goods).First(&current).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		audit.GoodsID = inv.Goods
+		if err == nil {
+			audit.BeforeAvailable = current.Available
+			if err = tx.Model(&current).Updates(map[string]interface{}{"stocks": inv.Available, "total": inv.Total, "available": inv.Available, "locked": inv.Locked, "sold": inv.Sold}).Error; err != nil {
+				return err
+			}
+		} else {
+			if err = tx.Create(inv).Error; err != nil {
+				return err
+			}
+		}
+		audit.AfterAvailable = inv.Available
+		return tx.Create(audit).Error
+	})
+}
+
+func (i *inventorys) ListAdjustments(ctx context.Context, goodsID uint64, offset, limit int) ([]do.InventoryAdjustmentDO, int64, error) {
+	query := i.db.WithContext(ctx).Model(&do.InventoryAdjustmentDO{}).Where("goods_id = ?", goodsID)
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	items := []do.InventoryAdjustmentDO{}
+	if err := query.Order("id DESC").Offset(offset).Limit(limit).Find(&items).Error; err != nil {
+		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return items, total, nil
+}
+
 func (i *inventorys) Get(ctx context.Context, goodsID uint64) (*do.InventoryDO, error) {
 	if goodsID == 0 {
 		return nil, errors.WithCode(code.ErrInventoryNotFound, "inventory not found")

@@ -42,11 +42,14 @@ func DTOToResponse(userDTO srvv1.UserPublicDTO) *upbv1.UserInfoResponse {
 
 func AuthDTOToResponse(userDTO srvv1.UserAuthDTO) *upbv1.UserAuthResponse {
 	return &upbv1.UserAuthResponse{
-		User:         DTOToResponse(userDTO.UserPublicDTO),
-		PasswordHash: userDTO.PasswordHash,
-		LegacyRole:   userDTO.LegacyRole,
-		StaffRoles:   append([]string(nil), userDTO.StaffRoles...),
-		Permissions:  append([]string(nil), userDTO.Permissions...),
+		User:            DTOToResponse(userDTO.UserPublicDTO),
+		PasswordHash:    userDTO.PasswordHash,
+		LegacyRole:      userDTO.LegacyRole,
+		StaffRoles:      append([]string(nil), userDTO.StaffRoles...),
+		Permissions:     append([]string(nil), userDTO.Permissions...),
+		ResourceDomains: append([]string(nil), userDTO.ResourceDomains...),
+		ResourceStores:  append([]string(nil), userDTO.ResourceStores...),
+		ResourceTeams:   append([]string(nil), userDTO.ResourceTeams...),
 	}
 }
 

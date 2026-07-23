@@ -41,10 +41,13 @@ type UserPublicDTO struct {
 
 type UserAuthDTO struct {
 	UserPublicDTO
-	PasswordHash string
-	LegacyRole   int32
-	StaffRoles   []string
-	Permissions  []string
+	PasswordHash    string
+	LegacyRole      int32
+	StaffRoles      []string
+	Permissions     []string
+	ResourceDomains []string
+	ResourceStores  []string
+	ResourceTeams   []string
 }
 
 type StaffRoleDTO struct {
@@ -104,6 +107,13 @@ type AdminAuditLogDTO struct {
 	ActorPrincipalType string
 	Action             string
 	Detail             string
+	CorrelationID      string
+	RequestID          string
+	TargetType         string
+	TargetID           string
+	Domain             string
+	StoreID            string
+	TeamID             string
 	CreatedAt          time.Time
 }
 
@@ -148,6 +158,41 @@ type UserSrv interface {
 	RevokeSession(ctx context.Context, userID uint64, sessionID string) error
 	RevokeAllSessions(ctx context.Context, userID uint64) error
 	ValidateSession(ctx context.Context, userID uint64, sessionID string) (bool, error)
+	ReplaceResourceScopes(ctx context.Context, userID uint64, scopes []ResourceScopeDTO) ([]ResourceScopeDTO, error)
+}
+
+type ResourceScopeDTO struct{ Domain, StoreID, TeamID string }
+type resourceScopeStore interface {
+	ReplaceResourceScopes(context.Context, uint64, []dv1.UserResourceScopeDO) error
+}
+
+func (u *userService) ReplaceResourceScopes(ctx context.Context, userID uint64, scopes []ResourceScopeDTO) ([]ResourceScopeDTO, error) {
+	store, ok := u.userStore.(resourceScopeStore)
+	if !ok {
+		return nil, errors.WithCode(code2.ErrDatabase, "resource scope store is not configured")
+	}
+	models := make([]dv1.UserResourceScopeDO, 0, len(scopes))
+	normalized := make([]ResourceScopeDTO, 0, len(scopes))
+	seen := map[string]struct{}{}
+	for _, scope := range scopes {
+		scope.Domain = strings.ToLower(strings.TrimSpace(scope.Domain))
+		scope.StoreID = strings.TrimSpace(scope.StoreID)
+		scope.TeamID = strings.TrimSpace(scope.TeamID)
+		if !authz.IsValidBusinessDomain(scope.Domain) {
+			return nil, errors.WithCode(code2.ErrValidation, "resource scope domain is invalid")
+		}
+		key := scope.Domain + "\x00" + scope.StoreID + "\x00" + scope.TeamID
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		models = append(models, dv1.UserResourceScopeDO{UserID: int32(userID), Domain: scope.Domain, StoreID: scope.StoreID, TeamID: scope.TeamID, CreatedAt: time.Now().UTC()})
+		normalized = append(normalized, scope)
+	}
+	if err := store.ReplaceResourceScopes(ctx, userID, models); err != nil {
+		return nil, err
+	}
+	return normalized, nil
 }
 
 type SessionDTO struct {
@@ -621,12 +666,17 @@ func (u *userService) CreateAdminAuditLog(ctx context.Context, log AdminAuditLog
 	if log.ActorPrincipalType == "" {
 		return errors.WithCode(code2.ErrValidation, "admin audit actor principal type is required")
 	}
+	var correlationID *string
+	if value := strings.TrimSpace(log.CorrelationID); value != "" {
+		correlationID = &value
+	}
 	return u.userStore.CreateAdminAuditLog(ctx, &dv1.AdminAuditLogDO{
 		TargetUserID:       log.TargetUserID,
 		ActorUserID:        log.ActorUserID,
 		ActorPrincipalType: log.ActorPrincipalType,
 		Action:             log.Action,
 		Detail:             log.Detail,
+		CorrelationID:      correlationID, RequestID: strings.TrimSpace(log.RequestID), TargetType: strings.TrimSpace(log.TargetType), TargetID: strings.TrimSpace(log.TargetID), Domain: strings.TrimSpace(log.Domain), StoreID: strings.TrimSpace(log.StoreID), TeamID: strings.TrimSpace(log.TeamID),
 	})
 }
 
@@ -655,10 +705,18 @@ func (u *userService) ListAdminAuditLogs(ctx context.Context, filters AdminAudit
 			ActorPrincipalType: item.ActorPrincipalType,
 			Action:             item.Action,
 			Detail:             item.Detail,
-			CreatedAt:          item.CreatedAt,
+			CorrelationID:      optionalAuditString(item.CorrelationID), RequestID: item.RequestID, TargetType: item.TargetType, TargetID: item.TargetID, Domain: item.Domain, StoreID: item.StoreID, TeamID: item.TeamID,
+			CreatedAt: item.CreatedAt,
 		})
 	}
 	return result, nil
+}
+
+func optionalAuditString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func NewUserService(us dv1.UserStore) UserSrv {
@@ -851,11 +909,14 @@ func newUserAuthDTO(user *dv1.UserAuthDO) (*UserAuthDTO, error) {
 		return nil, err
 	}
 	return &UserAuthDTO{
-		UserPublicDTO: *publicDTO,
-		PasswordHash:  user.Password,
-		LegacyRole:    int32(user.Role),
-		StaffRoles:    append([]string(nil), user.StaffRoles...),
-		Permissions:   append([]string(nil), user.Permissions...),
+		UserPublicDTO:   *publicDTO,
+		PasswordHash:    user.Password,
+		LegacyRole:      int32(user.Role),
+		StaffRoles:      append([]string(nil), user.StaffRoles...),
+		Permissions:     append([]string(nil), user.Permissions...),
+		ResourceDomains: append([]string(nil), user.ResourceDomains...),
+		ResourceStores:  append([]string(nil), user.ResourceStores...),
+		ResourceTeams:   append([]string(nil), user.ResourceTeams...),
 	}, nil
 }
 
@@ -1004,7 +1065,9 @@ func builtinRoleDefinitionByName(name string) (authz.RoleDefinition, bool) {
 
 func isValidAdminAuditAction(action string) bool {
 	switch action {
-	case dv1.AdminAuditActionStaffLoginSucceeded, dv1.AdminAuditActionBreakGlassSessionIssued:
+	case dv1.AdminAuditActionStaffLoginSucceeded, dv1.AdminAuditActionBreakGlassSessionIssued,
+		dv1.AdminAuditActionGoodsCreated, dv1.AdminAuditActionGoodsUpdated, dv1.AdminAuditActionGoodsDeleted,
+		dv1.AdminAuditActionInventoryAdjusted, dv1.AdminAuditActionOrderClosed, dv1.AdminAuditActionOrderRefundRequested:
 		return true
 	default:
 		return false

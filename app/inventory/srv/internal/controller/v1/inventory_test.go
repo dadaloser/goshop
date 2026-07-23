@@ -215,6 +215,12 @@ func (f fakeInventoryService) Create(ctx context.Context, inv *dto.InventoryDTO)
 	}
 	return nil
 }
+func (f fakeInventoryService) Adjust(context.Context, *dto.InventoryDTO, *do.InventoryAdjustmentDO) error {
+	return nil
+}
+func (f fakeInventoryService) ListAdjustments(context.Context, uint64, int, int) ([]do.InventoryAdjustmentDO, int64, error) {
+	return []do.InventoryAdjustmentDO{}, 0, nil
+}
 
 func (f fakeInventoryService) Get(ctx context.Context, goodsID uint64) (*dto.InventoryDTO, error) {
 	if f.get != nil {

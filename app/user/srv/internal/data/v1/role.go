@@ -45,6 +45,9 @@ func (r *RoleDomainDO) TableName() string {
 
 type UserAuthDO struct {
 	UserDO
-	StaffRoles  []string
-	Permissions []string
+	StaffRoles      []string
+	Permissions     []string
+	ResourceDomains []string
+	ResourceStores  []string
+	ResourceTeams   []string
 }

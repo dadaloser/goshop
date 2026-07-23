@@ -463,6 +463,23 @@ func (s *UserHttpServer) ValidateSession_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *UserHttpServer) ReplaceUserResourceScopes_0(c *gin.Context) {
+	var in ReplaceUserResourceScopesRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ReplaceUserResourceScopes(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *UserHttpServer) RegisterService() {
 
 	s.router.Handle("POST", "/v1/users", s.GetUserList_0)
@@ -516,5 +533,7 @@ func (s *UserHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.RevokeAllSessions_0)
 
 	s.router.Handle("POST", "", s.ValidateSession_0)
+
+	s.router.Handle("POST", "", s.ReplaceUserResourceScopes_0)
 
 }

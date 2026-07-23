@@ -67,15 +67,20 @@ func (x *UserInfo) GetId() int32 {
 }
 
 type OrderStatus struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	OrderSn       string                 `protobuf:"bytes,2,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
-	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
-	PayType       string                 `protobuf:"bytes,4,opt,name=payType,proto3" json:"payType,omitempty"`
-	TradeNo       string                 `protobuf:"bytes,5,opt,name=tradeNo,proto3" json:"tradeNo,omitempty"`
-	PayTime       int64                  `protobuf:"varint,6,opt,name=payTime,proto3" json:"payTime,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	OrderSn         string                 `protobuf:"bytes,2,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
+	Status          string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	PayType         string                 `protobuf:"bytes,4,opt,name=payType,proto3" json:"payType,omitempty"`
+	TradeNo         string                 `protobuf:"bytes,5,opt,name=tradeNo,proto3" json:"tradeNo,omitempty"`
+	PayTime         int64                  `protobuf:"varint,6,opt,name=payTime,proto3" json:"payTime,omitempty"`
+	ActorUserId     int32                  `protobuf:"varint,7,opt,name=actorUserId,proto3" json:"actorUserId,omitempty"`
+	RefundAmountFen int64                  `protobuf:"varint,8,opt,name=refundAmountFen,proto3" json:"refundAmountFen,omitempty"`
+	Reason          string                 `protobuf:"bytes,9,opt,name=reason,proto3" json:"reason,omitempty"`
+	CorrelationId   string                 `protobuf:"bytes,10,opt,name=correlationId,proto3" json:"correlationId,omitempty"`
+	RequestId       string                 `protobuf:"bytes,11,opt,name=requestId,proto3" json:"requestId,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *OrderStatus) Reset() {
@@ -148,6 +153,41 @@ func (x *OrderStatus) GetPayTime() int64 {
 		return x.PayTime
 	}
 	return 0
+}
+
+func (x *OrderStatus) GetActorUserId() int32 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *OrderStatus) GetRefundAmountFen() int64 {
+	if x != nil {
+		return x.RefundAmountFen
+	}
+	return 0
+}
+
+func (x *OrderStatus) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *OrderStatus) GetCorrelationId() string {
+	if x != nil {
+		return x.CorrelationId
+	}
+	return ""
+}
+
+func (x *OrderStatus) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
 }
 
 type CartItemRequest struct {
@@ -1084,14 +1124,20 @@ const file_order_proto_rawDesc = "" +
 	"\n" +
 	"\vorder.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x1a\n" +
 	"\bUserInfo\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x05R\x02id\"\x9d\x01\n" +
+	"\x02id\x18\x01 \x01(\x05R\x02id\"\xc5\x02\n" +
 	"\vOrderStatus\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x18\n" +
 	"\aorderSn\x18\x02 \x01(\tR\aorderSn\x12\x16\n" +
 	"\x06status\x18\x03 \x01(\tR\x06status\x12\x18\n" +
 	"\apayType\x18\x04 \x01(\tR\apayType\x12\x18\n" +
 	"\atradeNo\x18\x05 \x01(\tR\atradeNo\x12\x18\n" +
-	"\apayTime\x18\x06 \x01(\x03R\apayTime\"\xf7\x01\n" +
+	"\apayTime\x18\x06 \x01(\x03R\apayTime\x12 \n" +
+	"\vactorUserId\x18\a \x01(\x05R\vactorUserId\x12(\n" +
+	"\x0frefundAmountFen\x18\b \x01(\x03R\x0frefundAmountFen\x12\x16\n" +
+	"\x06reason\x18\t \x01(\tR\x06reason\x12$\n" +
+	"\rcorrelationId\x18\n" +
+	" \x01(\tR\rcorrelationId\x12\x1c\n" +
+	"\trequestId\x18\v \x01(\tR\trequestId\"\xf7\x01\n" +
 	"\x0fCartItemRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x16\n" +
 	"\x06userId\x18\x02 \x01(\x05R\x06userId\x12\x18\n" +

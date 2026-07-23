@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -15,15 +16,20 @@ import (
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/code"
+	"goshop/gmicro/core/metric"
 	"goshop/gmicro/server/restserver/middlewares"
 	gauth "goshop/gmicro/server/restserver/middlewares/auth"
 	"goshop/pkg/errors"
+	"goshop/pkg/log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+var breakGlassEvents = metric.NewCounterVec(&metric.CounterVecOpts{Namespace: "goshop", Subsystem: "admin", Name: "break_glass_events_total", Help: "Break-glass issuance and audit outcomes", Labels: []string{"outcome"}})
 
 type staffAuthHandler struct {
 	users         upbv1.UserClient
@@ -264,18 +270,21 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 		return
 	}
 
-	timeout := 15 * time.Minute
+	timeout := h.adminAuth.EffectiveBreakGlassTTL()
 	if h.jwtOpts.Timeout > 0 && h.jwtOpts.Timeout < timeout {
 		timeout = h.jwtOpts.Timeout
 	}
 
 	now := time.Now()
+	correlationID := uuid.NewString()
+	keyID := h.adminAuth.EffectiveBreakGlassKeyID()
 	token, err := middlewares.NewJWT(h.jwtOpts.Key).CreateToken(middlewares.CustomClaims{
 		Roles:         []string{h.adminAuth.EffectiveRole()},
 		PrincipalType: string(authz.PrincipalAdminBootstrap),
 		AccountStatus: string(authz.AccountStatusActive),
 		Scope:         append([]string(nil), h.adminAuth.EffectivePermissions()...),
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        correlationID,
 			NotBefore: jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(timeout)),
 			Issuer:    h.jwtOpts.Realm,
@@ -291,14 +300,22 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 	if err = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{
 		ActorPrincipalType: string(authz.PrincipalAdminBootstrap),
 		Action:             "break_glass_session_issued",
-		Detail:             fmt.Sprintf("role:%s permissions:%s", h.adminAuth.EffectiveRole(), strings.Join(h.adminAuth.EffectivePermissions(), ",")),
+		Detail:             fmt.Sprintf("correlation_id:%s key_id:%s role:%s permissions:%s", correlationID, keyID, h.adminAuth.EffectiveRole(), strings.Join(h.adminAuth.EffectivePermissions(), ",")),
+		CorrelationId:      correlationID,
+		RequestId:          requestID(ctx),
+		TargetType:         "break_glass_session",
+		TargetId:           correlationID,
+		Domain:             string(authz.BusinessDomainPlatform),
 	}); err != nil {
+		breakGlassEvents.Inc("audit_failed")
 		ctx.JSON(http.StatusBadGateway, gin.H{
 			"code": http.StatusBadGateway,
 			"msg":  "create bootstrap session audit failed",
 		})
 		return
 	}
+	breakGlassEvents.Inc("issued")
+	log.Warnf("SECURITY_ALERT break-glass session issued correlation_id=%s key_id=%s expires_at=%d", correlationID, keyID, now.Add(timeout).Unix())
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"token":          token,
@@ -306,6 +323,8 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 		"principal_type": authz.PrincipalAdminBootstrap,
 		"role":           h.adminAuth.EffectiveRole(),
 		"permissions":    h.adminAuth.EffectivePermissions(),
+		"correlation_id": correlationID,
+		"key_id":         keyID,
 	})
 }
 
@@ -316,14 +335,17 @@ func (h *staffAuthHandler) createToken(ctx context.Context, authUser *upbv1.User
 	}
 	now := time.Now()
 	token, err := middlewares.NewJWT(h.jwtOpts.Key).CreateToken(middlewares.CustomClaims{
-		ID:            uint(authUser.GetUser().GetId()),
-		NickName:      authUser.GetUser().GetNickName(),
-		AuthorityId:   uint(authUser.GetLegacyRole()),
-		Roles:         append([]string(nil), authUser.GetStaffRoles()...),
-		PrincipalType: string(authz.PrincipalStaff),
-		AccountStatus: authUser.GetUser().GetStatus(),
-		Scope:         append([]string(nil), authUser.GetPermissions()...),
-		TokenVersion:  tokenVersion,
+		ID:              uint(authUser.GetUser().GetId()),
+		NickName:        authUser.GetUser().GetNickName(),
+		AuthorityId:     uint(authUser.GetLegacyRole()),
+		Roles:           append([]string(nil), authUser.GetStaffRoles()...),
+		PrincipalType:   string(authz.PrincipalStaff),
+		AccountStatus:   authUser.GetUser().GetStatus(),
+		Scope:           append([]string(nil), authUser.GetPermissions()...),
+		TokenVersion:    tokenVersion,
+		ResourceDomains: effectiveResourceDomains(authUser),
+		ResourceStores:  append([]string(nil), authUser.GetResourceStores()...),
+		ResourceTeams:   append([]string(nil), authUser.GetResourceTeams()...),
 		RegisteredClaims: jwt.RegisteredClaims{
 			NotBefore: jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(h.jwtOpts.Timeout)),
@@ -334,6 +356,32 @@ func (h *staffAuthHandler) createToken(ctx context.Context, authUser *upbv1.User
 		return "", 0, err
 	}
 	return token, now.Add(h.jwtOpts.Timeout).Unix(), nil
+}
+
+func roleDomains(roles []string) []string {
+	seen := map[string]struct{}{}
+	for _, definition := range authz.BuiltinRoleDefinitions() {
+		for _, role := range roles {
+			if strings.EqualFold(role, string(definition.Name)) {
+				for _, domain := range definition.Domains {
+					seen[string(domain)] = struct{}{}
+				}
+			}
+		}
+	}
+	result := make([]string, 0, len(seen))
+	for domain := range seen {
+		result = append(result, domain)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func effectiveResourceDomains(user *upbv1.UserAuthResponse) []string {
+	if len(user.GetResourceDomains()) > 0 {
+		return append([]string(nil), user.GetResourceDomains()...)
+	}
+	return roleDomains(user.GetStaffRoles())
 }
 
 func (h *staffAuthHandler) currentTokenVersion(ctx context.Context, userID int32) (uint64, error) {

@@ -66,7 +66,12 @@ service User{
     rpc RevokeSession(RevokeSessionRequest) returns (google.protobuf.Empty);
     rpc RevokeAllSessions(IdRequest) returns (google.protobuf.Empty);
     rpc ValidateSession(ValidateSessionRequest) returns (SessionValidationResponse);
+    rpc ReplaceUserResourceScopes(ReplaceUserResourceScopesRequest) returns (UserResourceScopeListResponse);
 }
+
+message UserResourceScope { string domain = 1; string storeId = 2; string teamId = 3; }
+message ReplaceUserResourceScopesRequest { int32 userId = 1; repeated UserResourceScope scopes = 2; AuditActor actor = 3; }
+message UserResourceScopeListResponse { int32 userId = 1; repeated UserResourceScope scopes = 2; }
 
 message RecordLoginRequest {
     int32 userId = 1;
@@ -192,6 +197,9 @@ message UserAuthResponse {
     int32 legacyRole = 3;
     repeated string staffRoles = 4;
     repeated string permissions = 5;
+    repeated string resourceDomains = 6;
+    repeated string resourceStores = 7;
+    repeated string resourceTeams = 8;
 }
 
 message UserListResponse {
@@ -280,6 +288,13 @@ message AdminAuditLog {
     string action = 5;
     string detail = 6;
     uint64 createdAt = 7;
+    string correlationId = 8;
+    string requestId = 9;
+    string targetType = 10;
+    string targetId = 11;
+    string domain = 12;
+    string storeId = 13;
+    string teamId = 14;
 }
 
 message CreateAdminAuditLogRequest {

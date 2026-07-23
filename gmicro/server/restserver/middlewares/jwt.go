@@ -8,15 +8,18 @@ import (
 )
 
 type CustomClaims struct {
-	ID            uint     `json:"user_id"`
-	NickName      string   `json:"nick_name,omitempty"`
-	AuthorityId   uint     `json:"authority_id,omitempty"`
-	Roles         []string `json:"roles,omitempty"`
-	PrincipalType string   `json:"principal_type,omitempty"`
-	AccountStatus string   `json:"status,omitempty"`
-	Scope         []string `json:"scope,omitempty"`
-	TokenVersion  uint64   `json:"token_version"`
-	SessionID     string   `json:"session_id,omitempty"`
+	ID              uint     `json:"user_id"`
+	NickName        string   `json:"nick_name,omitempty"`
+	AuthorityId     uint     `json:"authority_id,omitempty"`
+	Roles           []string `json:"roles,omitempty"`
+	PrincipalType   string   `json:"principal_type,omitempty"`
+	AccountStatus   string   `json:"status,omitempty"`
+	Scope           []string `json:"scope,omitempty"`
+	TokenVersion    uint64   `json:"token_version"`
+	SessionID       string   `json:"session_id,omitempty"`
+	ResourceDomains []string `json:"resource_domains,omitempty"`
+	ResourceStores  []string `json:"resource_stores,omitempty"`
+	ResourceTeams   []string `json:"resource_teams,omitempty"`
 	jwt.RegisteredClaims
 }
 

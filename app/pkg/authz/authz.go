@@ -49,7 +49,9 @@ const (
 	PermissionUserDisableAny          Permission = "user:disable:any"
 	PermissionGoodsReadAny            Permission = "goods:read:any"
 	PermissionGoodsWriteAny           Permission = "goods:write:any"
+	PermissionInventoryReadAny        Permission = "inventory:read:any"
 	PermissionInventoryWriteAny       Permission = "inventory:write:any"
+	PermissionInventoryAuditReadAny   Permission = "inventory:audit:read:any"
 	PermissionOrderReadAny            Permission = "order:read:any"
 	PermissionOrderCloseAny           Permission = "order:close:any"
 	PermissionOrderRefundAny          Permission = "order:refund:any"
@@ -89,7 +91,9 @@ var allPermissions = []Permission{
 	PermissionUserDisableAny,
 	PermissionGoodsReadAny,
 	PermissionGoodsWriteAny,
+	PermissionInventoryReadAny,
 	PermissionInventoryWriteAny,
+	PermissionInventoryAuditReadAny,
 	PermissionOrderReadAny,
 	PermissionOrderCloseAny,
 	PermissionOrderRefundAny,

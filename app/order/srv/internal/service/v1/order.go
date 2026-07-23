@@ -33,6 +33,8 @@ const (
 	OrderStatusTradeSuccess  = "TRADE_SUCCESS"
 	OrderStatusTradeClosed   = "TRADE_CLOSED"
 	OrderStatusTradeFinished = "TRADE_FINISHED"
+	OrderStatusRefundPending = "REFUND_PENDING"
+	OrderStatusRefunded      = "REFUNDED"
 )
 
 var validOrderStatuses = map[string]struct{}{
@@ -41,6 +43,8 @@ var validOrderStatuses = map[string]struct{}{
 	OrderStatusTradeSuccess:  {},
 	OrderStatusTradeClosed:   {},
 	OrderStatusTradeFinished: {},
+	OrderStatusRefundPending: {},
+	OrderStatusRefunded:      {},
 }
 
 type OrderSrv interface {
@@ -524,6 +528,16 @@ func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 			order.PayTime = &now
 		}
 	}
+	if order.Status == OrderStatusRefundPending {
+		if order.ActorUserID <= 0 || order.RefundAmountFen <= 0 || strings.TrimSpace(order.StatusReason) == "" || strings.TrimSpace(order.CorrelationID) == "" {
+			result = "invalid"
+			return errors.WithCode(code.ErrOrderStatusInvalid, "refund actor, amount, reason, and correlation_id are required")
+		}
+		if order.RefundAmountFen > existing.OrderMountFen {
+			result = "invalid"
+			return errors.WithCode(code.ErrOrderStatusInvalid, "refund amount exceeds order total")
+		}
+	}
 
 	txn := os.data.Begin()
 	if txn == nil {
@@ -560,6 +574,20 @@ func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 			return fmt.Errorf("create order status log: %w", err)
 		}
 	}
+	if order.Status == OrderStatusRefundPending {
+		store, ok := os.data.Orders().(interface {
+			CreateRefundRequest(context.Context, *gorm.DB, *do.RefundRequestDO) error
+		})
+		if !ok {
+			_ = txn.Rollback()
+			return errors.WithCode(code.ErrOrderStatusInvalid, "refund store is not configured")
+		}
+		now := time.Now().UTC()
+		if err := store.CreateRefundRequest(ctx, txn, &do.RefundRequestDO{OrderSN: order.OrderSn, ActorUserID: order.ActorUserID, AmountFen: order.RefundAmountFen, Reason: order.StatusReason, Status: OrderStatusRefundPending, CorrelationID: order.CorrelationID, CreatedAt: now, UpdatedAt: now}); err != nil {
+			_ = txn.Rollback()
+			return err
+		}
+	}
 
 	if err := txn.Commit().Error; err != nil {
 		result = "failed"
@@ -591,9 +619,13 @@ func canTransitionOrderStatus(current, next string) bool {
 	case OrderStatusPaying:
 		return next == OrderStatusTradeSuccess || next == OrderStatusTradeClosed
 	case OrderStatusTradeClosed, OrderStatusTradeFinished:
-		return false
+		return current == OrderStatusTradeFinished && next == OrderStatusRefundPending
 	case OrderStatusTradeSuccess:
-		return next == OrderStatusTradeFinished
+		return next == OrderStatusTradeFinished || next == OrderStatusRefundPending
+	case OrderStatusRefundPending:
+		return next == OrderStatusRefunded
+	case OrderStatusRefunded:
+		return false
 	default:
 		return false
 	}

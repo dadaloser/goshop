@@ -79,3 +79,14 @@ device logout, and all-device logout. Apply migration
 and API services. SMTP is configured through the `email` section in
 `configs/api/api.yaml`; production passwords must come from environment or a
 secret manager.
+
+## Backoffice operations
+
+The admin service exposes RBAC-protected goods CRUD, inventory query/adjustment
+and audit history, and order query/close/refund-request routes. Requests must
+carry `X-Resource-Domain`; scoped deployments also pass `X-Store-ID` and
+`X-Team-ID`. High-risk writes require `X-Admin-Confirm-Token` and persist a
+correlation ID linking actor, request, target, and resource scope. Apply
+`202607230002_admin_resource_scopes_and_refunds` before rollout. Break-glass
+sessions are capped at 15 minutes, emit an audit record, metric, and security
+alert, and support a time-bounded previous token during secret rotation.

@@ -251,6 +251,11 @@ func (os *orderServer) UpdateOrderStatus(ctx context.Context, status *pb.OrderSt
 			TradeNo: status.TradeNo,
 		},
 	}
+	orderDTO.StatusReason = status.Reason
+	orderDTO.ActorUserID = status.ActorUserId
+	orderDTO.RefundAmountFen = status.RefundAmountFen
+	orderDTO.CorrelationID = status.CorrelationId
+	orderDTO.RequestID = status.RequestId
 	if status.Id > 0 {
 		orderDTO.ID = status.Id
 	}

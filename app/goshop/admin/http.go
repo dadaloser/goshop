@@ -41,8 +41,20 @@ func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 		return nil, err
 	}
 
-	//配置好路由
-	if err := initRouter(restServer, cfg, userClient); err != nil {
+	goodsClient, _, err := appclient.NewGoodsClient(context.Background(), cfg.Registry, cfg.RPC)
+	if err != nil {
+		return nil, err
+	}
+	inventoryClient, _, err := appclient.NewInventoryClient(context.Background(), cfg.Registry, cfg.RPC)
+	if err != nil {
+		return nil, err
+	}
+	orderClient, _, err := appclient.NewOrderClient(context.Background(), cfg.Registry, cfg.RPC)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := initRouterWithBusinessClients(restServer, cfg, userClient, goodsClient, inventoryClient, orderClient); err != nil {
 		return nil, err
 	}
 

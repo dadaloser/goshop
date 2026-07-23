@@ -758,12 +758,48 @@ func (u *users) buildAuthUser(ctx context.Context, user *dv1.UserDO) (*dv1.UserA
 	if err != nil {
 		return nil, err
 	}
+	var scopes []dv1.UserResourceScopeDO
+	if err = u.db.WithContext(ctx).Where("user_id = ?", user.ID).Find(&scopes).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	domains := make([]string, 0, len(scopes))
+	stores := make([]string, 0, len(scopes))
+	teams := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		if scope.Domain != "" {
+			domains = append(domains, scope.Domain)
+		}
+		if scope.StoreID != "" {
+			stores = append(stores, scope.StoreID)
+		}
+		if scope.TeamID != "" {
+			teams = append(teams, scope.TeamID)
+		}
+	}
 
 	return &dv1.UserAuthDO{
-		UserDO:      *user,
-		StaffRoles:  roles,
-		Permissions: permissions,
+		UserDO:          *user,
+		StaffRoles:      roles,
+		Permissions:     permissions,
+		ResourceDomains: domains, ResourceStores: stores, ResourceTeams: teams,
 	}, nil
+}
+
+func (u *users) ReplaceResourceScopes(ctx context.Context, userID uint64, scopes []dv1.UserResourceScopeDO) error {
+	if userID == 0 {
+		return errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+	return u.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ?", userID).Delete(&dv1.UserResourceScopeDO{}).Error; err != nil {
+			return err
+		}
+		if len(scopes) > 0 {
+			if err := tx.Create(&scopes).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (u *users) listStaffRoles(ctx context.Context, userID int32) ([]string, error) {

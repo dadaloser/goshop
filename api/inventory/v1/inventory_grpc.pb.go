@@ -20,16 +20,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Inventory_SetInv_FullMethodName        = "/Inventory/SetInv"
-	Inventory_SetStock_FullMethodName      = "/Inventory/SetStock"
-	Inventory_InvDetail_FullMethodName     = "/Inventory/InvDetail"
-	Inventory_GetStock_FullMethodName      = "/Inventory/GetStock"
-	Inventory_GetSellDetail_FullMethodName = "/Inventory/GetSellDetail"
-	Inventory_Sell_FullMethodName          = "/Inventory/Sell"
-	Inventory_Reserve_FullMethodName       = "/Inventory/Reserve"
-	Inventory_Reback_FullMethodName        = "/Inventory/Reback"
-	Inventory_Confirm_FullMethodName       = "/Inventory/Confirm"
-	Inventory_Release_FullMethodName       = "/Inventory/Release"
+	Inventory_SetInv_FullMethodName          = "/Inventory/SetInv"
+	Inventory_SetStock_FullMethodName        = "/Inventory/SetStock"
+	Inventory_InvDetail_FullMethodName       = "/Inventory/InvDetail"
+	Inventory_GetStock_FullMethodName        = "/Inventory/GetStock"
+	Inventory_GetSellDetail_FullMethodName   = "/Inventory/GetSellDetail"
+	Inventory_Sell_FullMethodName            = "/Inventory/Sell"
+	Inventory_Reserve_FullMethodName         = "/Inventory/Reserve"
+	Inventory_Reback_FullMethodName          = "/Inventory/Reback"
+	Inventory_Confirm_FullMethodName         = "/Inventory/Confirm"
+	Inventory_Release_FullMethodName         = "/Inventory/Release"
+	Inventory_ListAdjustments_FullMethodName = "/Inventory/ListAdjustments"
 )
 
 // InventoryClient is the client API for Inventory service.
@@ -46,6 +47,7 @@ type InventoryClient interface {
 	Reback(ctx context.Context, in *SellInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Confirm(ctx context.Context, in *SellInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Release(ctx context.Context, in *SellInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListAdjustments(ctx context.Context, in *InventoryAdjustmentListRequest, opts ...grpc.CallOption) (*InventoryAdjustmentListResponse, error)
 }
 
 type inventoryClient struct {
@@ -156,6 +158,16 @@ func (c *inventoryClient) Release(ctx context.Context, in *SellInfo, opts ...grp
 	return out, nil
 }
 
+func (c *inventoryClient) ListAdjustments(ctx context.Context, in *InventoryAdjustmentListRequest, opts ...grpc.CallOption) (*InventoryAdjustmentListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InventoryAdjustmentListResponse)
+	err := c.cc.Invoke(ctx, Inventory_ListAdjustments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InventoryServer is the server API for Inventory service.
 // All implementations must embed UnimplementedInventoryServer
 // for forward compatibility.
@@ -170,6 +182,7 @@ type InventoryServer interface {
 	Reback(context.Context, *SellInfo) (*emptypb.Empty, error)
 	Confirm(context.Context, *SellInfo) (*emptypb.Empty, error)
 	Release(context.Context, *SellInfo) (*emptypb.Empty, error)
+	ListAdjustments(context.Context, *InventoryAdjustmentListRequest) (*InventoryAdjustmentListResponse, error)
 	mustEmbedUnimplementedInventoryServer()
 }
 
@@ -209,6 +222,9 @@ func (UnimplementedInventoryServer) Confirm(context.Context, *SellInfo) (*emptyp
 }
 func (UnimplementedInventoryServer) Release(context.Context, *SellInfo) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method Release not implemented")
+}
+func (UnimplementedInventoryServer) ListAdjustments(context.Context, *InventoryAdjustmentListRequest) (*InventoryAdjustmentListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAdjustments not implemented")
 }
 func (UnimplementedInventoryServer) mustEmbedUnimplementedInventoryServer() {}
 func (UnimplementedInventoryServer) testEmbeddedByValue()                   {}
@@ -411,6 +427,24 @@ func _Inventory_Release_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Inventory_ListAdjustments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InventoryAdjustmentListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InventoryServer).ListAdjustments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Inventory_ListAdjustments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InventoryServer).ListAdjustments(ctx, req.(*InventoryAdjustmentListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Inventory_ServiceDesc is the grpc.ServiceDesc for Inventory service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -457,6 +491,10 @@ var Inventory_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Release",
 			Handler:    _Inventory_Release_Handler,
+		},
+		{
+			MethodName: "ListAdjustments",
+			Handler:    _Inventory_ListAdjustments_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

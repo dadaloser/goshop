@@ -42,7 +42,33 @@ func (is *inventoryServer) SetInv(ctx context.Context, info *invpb.GoodsInvInfo)
 }
 
 func (is *inventoryServer) SetStock(ctx context.Context, info *invpb.GoodsInvInfo) (*emptypb.Empty, error) {
-	return is.SetInv(ctx, info)
+	if info == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "inventory request is required")
+	}
+	inv := &dto.InventoryDTO{}
+	inv.Goods = info.GoodsId
+	inv.Stocks = info.Num
+	inv.Total = info.Total
+	inv.Available = info.Available
+	inv.Locked = info.Locked
+	inv.Sold = info.Sold
+	err := is.srv.Inventory().Adjust(ctx, inv, &do.InventoryAdjustmentDO{ActorUserID: info.ActorUserId, CorrelationID: info.CorrelationId, RequestID: info.RequestId, Reason: info.Reason})
+	if err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (is *inventoryServer) ListAdjustments(ctx context.Context, req *invpb.InventoryAdjustmentListRequest) (*invpb.InventoryAdjustmentListResponse, error) {
+	items, total, err := is.srv.Inventory().ListAdjustments(ctx, uint64(req.GetGoodsId()), int(req.GetPage()), int(req.GetPageSize()))
+	if err != nil {
+		return nil, err
+	}
+	resp := &invpb.InventoryAdjustmentListResponse{Total: int32(total), Data: make([]*invpb.InventoryAdjustment, 0, len(items))}
+	for _, item := range items {
+		resp.Data = append(resp.Data, &invpb.InventoryAdjustment{Id: int64(item.ID), GoodsId: item.GoodsID, BeforeAvailable: item.BeforeAvailable, AfterAvailable: item.AfterAvailable, ActorUserId: item.ActorUserID, CorrelationId: item.CorrelationID, RequestId: item.RequestID, Reason: item.Reason, CreatedAt: item.CreatedAt.Unix()})
+	}
+	return resp, nil
 }
 
 func (is *inventoryServer) InvDetail(ctx context.Context, info *invpb.GoodsInvInfo) (*invpb.GoodsInvInfo, error) {

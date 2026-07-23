@@ -3,7 +3,11 @@ package admin
 import (
 	"crypto/subtle"
 	"net/http"
+	"time"
 
+	goodspb "goshop/api/goods/v1"
+	inventorypb "goshop/api/inventory/v1"
+	orderpb "goshop/api/order/v1"
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/admin/config"
 	"goshop/app/goshop/admin/controller"
@@ -13,11 +17,16 @@ import (
 	"goshop/gmicro/server/restserver"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // 初始化路由
 func initRouter(g *restserver.Server, cfg *config.Config, users upbv1.UserClient) error {
-	return initRouterWithSessionStores(g, cfg, users, tokenrevocation.NewRedisStore(), tokenversion.NewRedisStore())
+	return initRouterWithBusinessClients(g, cfg, users, nil, nil, nil)
+}
+
+func initRouterWithBusinessClients(g *restserver.Server, cfg *config.Config, users upbv1.UserClient, goods goodspb.GoodsClient, inventory inventorypb.InventoryClient, orders orderpb.OrderClient) error {
+	return initRouterWithDependencies(g, cfg, users, goods, inventory, orders, tokenrevocation.NewRedisStore(), tokenversion.NewRedisStore())
 }
 
 func initRouterWithSessionStores(
@@ -26,6 +35,14 @@ func initRouterWithSessionStores(
 	users upbv1.UserClient,
 	revokedTokens tokenrevocation.Store,
 	tokenVersions tokenversion.Store,
+) error {
+	return initRouterWithDependencies(g, cfg, users, nil, nil, nil, revokedTokens, tokenVersions)
+}
+
+func initRouterWithDependencies(
+	g *restserver.Server, cfg *config.Config, users upbv1.UserClient,
+	goods goodspb.GoodsClient, inventory inventorypb.InventoryClient, orders orderpb.OrderClient,
+	revokedTokens tokenrevocation.Store, tokenVersions tokenversion.Store,
 ) error {
 	if cfg != nil && cfg.Server != nil && cfg.Server.ManagementPort > 0 {
 		registerBusinessLivez(g)
@@ -36,6 +53,7 @@ func initRouterWithSessionStores(
 		return err
 	}
 	ucontroller := controller.NewUserController(users, tokenVersions)
+	operations := newOperationsHandler(users, goods, inventory, orders)
 	authController := newStaffAuthHandler(users, cfg.Jwt, cfg.AdminAuth, revokedTokens, tokenVersions)
 	v1.POST("/auth/login", authController.Login)
 	v1.POST("/auth/logout", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authController.Logout)
@@ -52,12 +70,15 @@ func initRouterWithSessionStores(
 	ugroup.GET(":id/audit_logs", authz.RequirePermission(authz.PermissionAuditReadAny), ucontroller.ListAuditLogs)
 	ugroup.GET(":id/roles", authz.RequirePermission(authz.PermissionRoleReadAny), ucontroller.GetUserStaffRoles)
 	ugroup.PUT(":id/roles", authz.RequirePermission(authz.PermissionRoleAssignAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.ReplaceUserStaffRoles)
+	ugroup.PUT(":id/resource_scopes", authz.RequirePermission(authz.PermissionRoleAssignAny), requireRole(authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainPlatform), requireAdminConfirmation(cfg.AdminAuth), ucontroller.ReplaceResourceScopes)
 	staffGroup := v1.Group("/staff", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff))
 	staffGroup.GET("roles", authz.RequirePermission(authz.PermissionRoleReadAny), ucontroller.ListStaffRoles)
 	staffGroup.POST("roles", authz.RequirePermission(authz.PermissionRoleWriteAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.CreateStaffRole)
 	staffGroup.PUT("roles/:name", authz.RequirePermission(authz.PermissionRoleWriteAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.UpdateStaffRole)
 	staffGroup.DELETE("roles/:name", authz.RequirePermission(authz.PermissionRoleWriteAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.DeleteStaffRole)
 	staffGroup.GET("permission_templates", authz.RequirePermission(authz.PermissionRoleReadAny), ucontroller.ListPermissionTemplates)
+
+	registerOperationsRoutes(v1, staffAuth, cfg, operations)
 	return nil
 }
 
@@ -78,7 +99,10 @@ func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {
 			return
 		}
 
-		if !adminTokenEqual(expected, c.GetHeader(headerName)) {
+		provided := c.GetHeader(headerName)
+		currentValid := adminTokenEqual(expected, provided)
+		previousValid := opts != nil && opts.PreviousTokenActive(time.Now()) && adminTokenEqual(opts.EffectivePreviousToken(), provided)
+		if !currentValid && !previousValid {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code": http.StatusUnauthorized,
 				"msg":  "invalid admin token",
@@ -141,6 +165,7 @@ func requireAdminConfirmation(opts *config.AdminAuthOptions) gin.HandlerFunc {
 			})
 			return
 		}
+		c.Set(operationCorrelationKey, uuid.NewString())
 		c.Next()
 	}
 }

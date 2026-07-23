@@ -47,6 +47,10 @@ registry:
 
 admin-auth:
   token: "dev-admin-token-change-me" # local only; prefer GOSHOP_ADMIN_TOKEN or secret manager in production
+  confirmation-token: "dev-admin-confirm-change-me" # local only; use a separate production secret
+  previous-token: ""
+  break-glass-ttl: 15m
+  break-glass-key-id: "dev-v1"
   role: admin # basic < admin < primary_admin < super_admin
   permissions:
     - user:list:any

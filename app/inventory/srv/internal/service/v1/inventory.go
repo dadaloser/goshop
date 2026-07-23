@@ -30,6 +30,8 @@ const (
 type InventorySrv interface {
 	//设置库存
 	Create(ctx context.Context, inv *dto.InventoryDTO) error
+	Adjust(ctx context.Context, inv *dto.InventoryDTO, audit *do.InventoryAdjustmentDO) error
+	ListAdjustments(ctx context.Context, goodsID uint64, page, pageSize int) ([]do.InventoryAdjustmentDO, int64, error)
 
 	//根据商品的id查询库存
 	Get(ctx context.Context, goodsID uint64) (*dto.InventoryDTO, error)
@@ -72,6 +74,26 @@ func (is *inventoryService) Create(ctx context.Context, inv *dto.InventoryDTO) e
 		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
 	}
 	return is.data.Inventories().Create(ctx, &inv.InventoryDO)
+}
+
+func (is *inventoryService) Adjust(ctx context.Context, inv *dto.InventoryDTO, audit *do.InventoryAdjustmentDO) error {
+	if inv == nil {
+		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
+	}
+	return is.data.Inventories().Adjust(ctx, &inv.InventoryDO, audit)
+}
+
+func (is *inventoryService) ListAdjustments(ctx context.Context, goodsID uint64, page, pageSize int) ([]do.InventoryAdjustmentDO, int64, error) {
+	if goodsID == 0 {
+		return nil, 0, errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	return is.data.Inventories().ListAdjustments(ctx, goodsID, (page-1)*pageSize, pageSize)
 }
 
 func (is *inventoryService) Get(ctx context.Context, goodsID uint64) (*dto.InventoryDTO, error) {

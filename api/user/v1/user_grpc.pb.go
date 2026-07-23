@@ -20,32 +20,33 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	User_GetUserList_FullMethodName           = "/User/GetUserList"
-	User_GetUserByMobile_FullMethodName       = "/User/GetUserByMobile"
-	User_GetUserById_FullMethodName           = "/User/GetUserById"
-	User_CreateStaffUser_FullMethodName       = "/User/CreateStaffUser"
-	User_UpdateUserStatus_FullMethodName      = "/User/UpdateUserStatus"
-	User_ListStaffRoles_FullMethodName        = "/User/ListStaffRoles"
-	User_CreateStaffRole_FullMethodName       = "/User/CreateStaffRole"
-	User_UpdateStaffRole_FullMethodName       = "/User/UpdateStaffRole"
-	User_DeleteStaffRole_FullMethodName       = "/User/DeleteStaffRole"
-	User_GetUserStaffRoles_FullMethodName     = "/User/GetUserStaffRoles"
-	User_ReplaceUserStaffRoles_FullMethodName = "/User/ReplaceUserStaffRoles"
-	User_ListUserAuditLogs_FullMethodName     = "/User/ListUserAuditLogs"
-	User_CreateAdminAuditLog_FullMethodName   = "/User/CreateAdminAuditLog"
-	User_ListAdminAuditLogs_FullMethodName    = "/User/ListAdminAuditLogs"
-	User_GetUserAuthByMobile_FullMethodName   = "/User/GetUserAuthByMobile"
-	User_GetUserAuthById_FullMethodName       = "/User/GetUserAuthById"
-	User_CreateUser_FullMethodName            = "/User/CreateUser"
-	User_UpdateUser_FullMethodName            = "/User/UpdateUser"
-	User_DeleteUser_FullMethodName            = "/User/DeleteUser"
-	User_CheckPassWord_FullMethodName         = "/User/CheckPassWord"
-	User_RecordLogin_FullMethodName           = "/User/RecordLogin"
-	User_CreateSession_FullMethodName         = "/User/CreateSession"
-	User_RefreshSession_FullMethodName        = "/User/RefreshSession"
-	User_RevokeSession_FullMethodName         = "/User/RevokeSession"
-	User_RevokeAllSessions_FullMethodName     = "/User/RevokeAllSessions"
-	User_ValidateSession_FullMethodName       = "/User/ValidateSession"
+	User_GetUserList_FullMethodName               = "/User/GetUserList"
+	User_GetUserByMobile_FullMethodName           = "/User/GetUserByMobile"
+	User_GetUserById_FullMethodName               = "/User/GetUserById"
+	User_CreateStaffUser_FullMethodName           = "/User/CreateStaffUser"
+	User_UpdateUserStatus_FullMethodName          = "/User/UpdateUserStatus"
+	User_ListStaffRoles_FullMethodName            = "/User/ListStaffRoles"
+	User_CreateStaffRole_FullMethodName           = "/User/CreateStaffRole"
+	User_UpdateStaffRole_FullMethodName           = "/User/UpdateStaffRole"
+	User_DeleteStaffRole_FullMethodName           = "/User/DeleteStaffRole"
+	User_GetUserStaffRoles_FullMethodName         = "/User/GetUserStaffRoles"
+	User_ReplaceUserStaffRoles_FullMethodName     = "/User/ReplaceUserStaffRoles"
+	User_ListUserAuditLogs_FullMethodName         = "/User/ListUserAuditLogs"
+	User_CreateAdminAuditLog_FullMethodName       = "/User/CreateAdminAuditLog"
+	User_ListAdminAuditLogs_FullMethodName        = "/User/ListAdminAuditLogs"
+	User_GetUserAuthByMobile_FullMethodName       = "/User/GetUserAuthByMobile"
+	User_GetUserAuthById_FullMethodName           = "/User/GetUserAuthById"
+	User_CreateUser_FullMethodName                = "/User/CreateUser"
+	User_UpdateUser_FullMethodName                = "/User/UpdateUser"
+	User_DeleteUser_FullMethodName                = "/User/DeleteUser"
+	User_CheckPassWord_FullMethodName             = "/User/CheckPassWord"
+	User_RecordLogin_FullMethodName               = "/User/RecordLogin"
+	User_CreateSession_FullMethodName             = "/User/CreateSession"
+	User_RefreshSession_FullMethodName            = "/User/RefreshSession"
+	User_RevokeSession_FullMethodName             = "/User/RevokeSession"
+	User_RevokeAllSessions_FullMethodName         = "/User/RevokeAllSessions"
+	User_ValidateSession_FullMethodName           = "/User/ValidateSession"
+	User_ReplaceUserResourceScopes_FullMethodName = "/User/ReplaceUserResourceScopes"
 )
 
 // UserClient is the client API for User service.
@@ -78,6 +79,7 @@ type UserClient interface {
 	RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RevokeAllSessions(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ValidateSession(ctx context.Context, in *ValidateSessionRequest, opts ...grpc.CallOption) (*SessionValidationResponse, error)
+	ReplaceUserResourceScopes(ctx context.Context, in *ReplaceUserResourceScopesRequest, opts ...grpc.CallOption) (*UserResourceScopeListResponse, error)
 }
 
 type userClient struct {
@@ -348,6 +350,16 @@ func (c *userClient) ValidateSession(ctx context.Context, in *ValidateSessionReq
 	return out, nil
 }
 
+func (c *userClient) ReplaceUserResourceScopes(ctx context.Context, in *ReplaceUserResourceScopesRequest, opts ...grpc.CallOption) (*UserResourceScopeListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserResourceScopeListResponse)
+	err := c.cc.Invoke(ctx, User_ReplaceUserResourceScopes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServer is the server API for User service.
 // All implementations must embed UnimplementedUserServer
 // for forward compatibility.
@@ -378,6 +390,7 @@ type UserServer interface {
 	RevokeSession(context.Context, *RevokeSessionRequest) (*emptypb.Empty, error)
 	RevokeAllSessions(context.Context, *IdRequest) (*emptypb.Empty, error)
 	ValidateSession(context.Context, *ValidateSessionRequest) (*SessionValidationResponse, error)
+	ReplaceUserResourceScopes(context.Context, *ReplaceUserResourceScopesRequest) (*UserResourceScopeListResponse, error)
 	mustEmbedUnimplementedUserServer()
 }
 
@@ -465,6 +478,9 @@ func (UnimplementedUserServer) RevokeAllSessions(context.Context, *IdRequest) (*
 }
 func (UnimplementedUserServer) ValidateSession(context.Context, *ValidateSessionRequest) (*SessionValidationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ValidateSession not implemented")
+}
+func (UnimplementedUserServer) ReplaceUserResourceScopes(context.Context, *ReplaceUserResourceScopesRequest) (*UserResourceScopeListResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplaceUserResourceScopes not implemented")
 }
 func (UnimplementedUserServer) mustEmbedUnimplementedUserServer() {}
 func (UnimplementedUserServer) testEmbeddedByValue()              {}
@@ -955,6 +971,24 @@ func _User_ValidateSession_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_ReplaceUserResourceScopes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplaceUserResourceScopesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).ReplaceUserResourceScopes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_ReplaceUserResourceScopes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).ReplaceUserResourceScopes(ctx, req.(*ReplaceUserResourceScopesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // User_ServiceDesc is the grpc.ServiceDesc for User service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1065,6 +1099,10 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateSession",
 			Handler:    _User_ValidateSession_Handler,
+		},
+		{
+			MethodName: "ReplaceUserResourceScopes",
+			Handler:    _User_ReplaceUserResourceScopes_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

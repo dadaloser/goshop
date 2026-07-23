@@ -23,6 +23,7 @@ func (u *userServer) CreateAdminAuditLog(ctx context.Context, request *upbv1.Cre
 		ActorPrincipalType: request.Log.ActorPrincipalType,
 		Action:             request.Log.Action,
 		Detail:             request.Log.Detail,
+		CorrelationID:      request.Log.CorrelationId, RequestID: request.Log.RequestId, TargetType: request.Log.TargetType, TargetID: request.Log.TargetId, Domain: request.Log.Domain, StoreID: request.Log.StoreId, TeamID: request.Log.TeamId,
 	}); err != nil {
 		return nil, err
 	}
@@ -68,8 +69,9 @@ func (u *userServer) ListAdminAuditLogs(ctx context.Context, request *upbv1.Admi
 			ActorUserId:        item.ActorUserID,
 			ActorPrincipalType: item.ActorPrincipalType,
 			Action:             item.Action,
-			Detail:             item.Detail,
-			CreatedAt:          uint64(item.CreatedAt.Unix()),
+			CorrelationId:      item.CorrelationID, RequestId: item.RequestID, TargetType: item.TargetType, TargetId: item.TargetID, Domain: item.Domain, StoreId: item.StoreID, TeamId: item.TeamID,
+			Detail:    item.Detail,
+			CreatedAt: uint64(item.CreatedAt.Unix()),
 		})
 	}
 	return response, nil

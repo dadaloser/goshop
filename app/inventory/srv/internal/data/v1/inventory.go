@@ -10,6 +10,8 @@ import (
 type InventoryStore interface {
 	//新建库存信息
 	Create(ctx context.Context, inv *do.InventoryDO) error
+	Adjust(ctx context.Context, inv *do.InventoryDO, audit *do.InventoryAdjustmentDO) error
+	ListAdjustments(ctx context.Context, goodsID uint64, offset, limit int) ([]do.InventoryAdjustmentDO, int64, error)
 
 	//查询商品的库存信息
 	Get(ctx context.Context, goodsID uint64) (*do.InventoryDO, error)

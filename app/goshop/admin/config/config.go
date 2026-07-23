@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"time"
 
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
@@ -27,10 +28,14 @@ type Config struct {
 }
 
 type AdminAuthOptions struct {
-	Token             string   `json:"token" mapstructure:"token"`
-	ConfirmationToken string   `json:"confirmation-token" mapstructure:"confirmation-token"`
-	Role              string   `json:"role" mapstructure:"role"`
-	Permissions       []string `json:"permissions" mapstructure:"permissions"`
+	Token                  string        `json:"token" mapstructure:"token"`
+	ConfirmationToken      string        `json:"confirmation-token" mapstructure:"confirmation-token"`
+	PreviousToken          string        `json:"-" mapstructure:"previous-token"`
+	PreviousTokenExpiresAt time.Time     `json:"previous-token-expires-at" mapstructure:"previous-token-expires-at"`
+	BreakGlassTTL          time.Duration `json:"break-glass-ttl" mapstructure:"break-glass-ttl"`
+	BreakGlassKeyID        string        `json:"break-glass-key-id" mapstructure:"break-glass-key-id"`
+	Role                   string        `json:"role" mapstructure:"role"`
+	Permissions            []string      `json:"permissions" mapstructure:"permissions"`
 }
 
 const (
@@ -56,6 +61,28 @@ func (o *AdminAuthOptions) EffectiveToken() string {
 		return o.Token
 	}
 	return os.Getenv("GOSHOP_ADMIN_TOKEN")
+}
+
+func (o *AdminAuthOptions) EffectivePreviousToken() string {
+	if o != nil && o.PreviousToken != "" {
+		return o.PreviousToken
+	}
+	return os.Getenv("GOSHOP_ADMIN_PREVIOUS_TOKEN")
+}
+func (o *AdminAuthOptions) PreviousTokenActive(now time.Time) bool {
+	return o != nil && o.EffectivePreviousToken() != "" && !o.PreviousTokenExpiresAt.IsZero() && now.Before(o.PreviousTokenExpiresAt)
+}
+func (o *AdminAuthOptions) EffectiveBreakGlassTTL() time.Duration {
+	if o != nil && o.BreakGlassTTL > 0 && o.BreakGlassTTL <= 15*time.Minute {
+		return o.BreakGlassTTL
+	}
+	return 15 * time.Minute
+}
+func (o *AdminAuthOptions) EffectiveBreakGlassKeyID() string {
+	if o != nil && strings.TrimSpace(o.BreakGlassKeyID) != "" {
+		return strings.TrimSpace(o.BreakGlassKeyID)
+	}
+	return "default"
 }
 
 func (o *AdminAuthOptions) EffectivePermissions() []string {
@@ -154,7 +181,20 @@ func (o *AdminAuthOptions) ValidateStartup() error {
 	if _, ok := adminRoleLevels[o.EffectiveRole()]; !ok {
 		return errors.New("admin-auth.role or GOSHOP_ADMIN_ROLE must be one of: basic, admin, primary_admin, super_admin")
 	}
+	if o.BreakGlassTTL < 0 || o.BreakGlassTTL > 15*time.Minute {
+		return errors.New("admin-auth.break-glass-ttl must be between 0 and 15m")
+	}
+	if o.EffectivePreviousToken() != "" && o.PreviousTokenExpiresAt.IsZero() {
+		return errors.New("admin-auth.previous-token-expires-at is required during rotation")
+	}
+	if adminTokenEqualForConfig(o.EffectiveToken(), o.EffectivePreviousToken()) {
+		return errors.New("admin-auth.previous-token must differ from current token")
+	}
 	return nil
+}
+
+func adminTokenEqualForConfig(left, right string) bool {
+	return left != "" && right != "" && left == right
 }
 
 func (o *AdminAuthOptions) AddFlags(fs *pflag.FlagSet) {
@@ -163,6 +203,9 @@ func (o *AdminAuthOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 	fs.StringVar(&o.Token, "admin-auth.token", o.Token, "shared token required for admin routes until full RBAC is enabled")
 	fs.StringVar(&o.ConfirmationToken, "admin-auth.confirmation-token", o.ConfirmationToken, "second confirmation token required by high-risk admin write APIs")
+	fs.StringVar(&o.PreviousToken, "admin-auth.previous-token", o.PreviousToken, "previous break-glass token accepted only during rotation overlap")
+	fs.DurationVar(&o.BreakGlassTTL, "admin-auth.break-glass-ttl", o.BreakGlassTTL, "break-glass session TTL, maximum 15m")
+	fs.StringVar(&o.BreakGlassKeyID, "admin-auth.break-glass-key-id", o.BreakGlassKeyID, "break-glass rotation key identifier")
 	fs.StringVar(&o.Role, "admin-auth.role", o.Role, "bootstrap admin role: basic, admin, primary_admin, or super_admin")
 	fs.StringSliceVar(&o.Permissions, "admin-auth.permissions", o.Permissions, "permissions granted to the bootstrap admin token, for example user:list:any or user:*")
 }

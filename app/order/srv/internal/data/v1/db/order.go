@@ -174,6 +174,20 @@ func (o *orders) Update(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO
 	return nil
 }
 
+func (o *orders) CreateRefundRequest(ctx context.Context, txn *gorm.DB, request *do.RefundRequestDO) error {
+	if request == nil || request.OrderSN == "" || request.ActorUserID <= 0 || request.AmountFen <= 0 || request.Reason == "" || request.CorrelationID == "" {
+		return errors.WithCode(code2.ErrValidation, "refund request is invalid")
+	}
+	db := o.db
+	if txn != nil {
+		db = txn
+	}
+	if err := db.WithContext(ctx).Create(request).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return nil
+}
+
 func (o *orders) ListCloseCandidates(ctx context.Context, statuses []string, createdBefore time.Time, limit int) ([]*do.OrderInfoDO, error) {
 	if len(statuses) == 0 {
 		return nil, nil

@@ -4,9 +4,13 @@ import "goshop/app/order/srv/internal/domain/do"
 
 type OrderDTO struct {
 	do.OrderInfoDO
-	StatusReason   string
-	StatusSource   string
-	StatusOperator string
+	StatusReason    string
+	StatusSource    string
+	StatusOperator  string
+	RefundAmountFen int64
+	ActorUserID     int32
+	CorrelationID   string
+	RequestID       string
 }
 
 type OrderDTOList struct {
