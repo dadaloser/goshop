@@ -60,6 +60,54 @@ service User{
             body: "*"
         };
     }; //检查密码
+    rpc RecordLogin(RecordLoginRequest) returns (google.protobuf.Empty);
+    rpc CreateSession(CreateSessionRequest) returns (SessionResponse);
+    rpc RefreshSession(RefreshSessionRequest) returns (SessionResponse);
+    rpc RevokeSession(RevokeSessionRequest) returns (google.protobuf.Empty);
+    rpc RevokeAllSessions(IdRequest) returns (google.protobuf.Empty);
+    rpc ValidateSession(ValidateSessionRequest) returns (SessionValidationResponse);
+}
+
+message RecordLoginRequest {
+    int32 userId = 1;
+    uint64 loggedInAt = 2;
+}
+
+message CreateSessionRequest {
+    int32 userId = 1;
+    string deviceId = 2;
+    string deviceName = 3;
+    bytes refreshTokenHash = 4;
+    uint64 expiresAt = 5;
+}
+
+message RefreshSessionRequest {
+    string sessionId = 1;
+    bytes currentTokenHash = 2;
+    bytes nextTokenHash = 3;
+    uint64 expiresAt = 4;
+}
+
+message RevokeSessionRequest {
+    int32 userId = 1;
+    string sessionId = 2;
+}
+
+message ValidateSessionRequest {
+    int32 userId = 1;
+    string sessionId = 2;
+}
+
+message SessionResponse {
+    string id = 1;
+    int32 userId = 2;
+    string deviceId = 3;
+    string deviceName = 4;
+    uint64 expiresAt = 5;
+}
+
+message SessionValidationResponse {
+    bool active = 1;
 }
 
 message PasswordCheckInfo {
@@ -91,6 +139,8 @@ message CreateUserInfo {
     string mobile = 3;
     string email = 4;
     string username = 5;
+    bool mobileVerified = 6;
+    bool emailVerified = 7;
 }
 
 message UpdateUserInfo {
@@ -131,6 +181,9 @@ message UserInfoResponse {
     string email = 8;
     string username = 9;
     string status = 10;
+    bool mobileVerified = 11;
+    bool emailVerified = 12;
+    uint64 lastLoginAt = 13;
 }
 
 message UserAuthResponse {

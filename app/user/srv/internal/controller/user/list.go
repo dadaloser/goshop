@@ -14,11 +14,18 @@ func DTOToResponse(userDTO srvv1.UserPublicDTO) *upbv1.UserInfoResponse {
 	//在grpc的message中字段有默认值，你不能随便赋值nil进去，容易出错
 	//这里要搞清， 哪些字段是有默认值
 	userInfoRsp := upbv1.UserInfoResponse{
-		Id:       userDTO.ID,
-		NickName: userDTO.NickName,
-		Gender:   userDTO.Gender,
-		Mobile:   userDTO.Mobile,
-		Status:   userDTO.Status,
+		Id:             userDTO.ID,
+		NickName:       userDTO.NickName,
+		Gender:         userDTO.Gender,
+		Mobile:         userDTO.Mobile,
+		Status:         userDTO.Status,
+		MobileVerified: userDTO.MobileVerified,
+		EmailVerified:  userDTO.EmailVerified,
+	}
+
+	//最后登陆时间
+	if userDTO.LastLoginAt != nil {
+		userInfoRsp.LastLoginAt = uint64(userDTO.LastLoginAt.Unix())
 	}
 	if userDTO.Username != nil {
 		userInfoRsp.Username = *userDTO.Username

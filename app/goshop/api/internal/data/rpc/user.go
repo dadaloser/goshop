@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"crypto/sha256"
 	"goshop/app/pkg/code"
 	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
@@ -15,6 +16,55 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func (u *users) RecordLogin(ctx context.Context, userID uint64, at time.Time) error {
+	_, err := u.uc.RecordLogin(ctx, &upbv1.RecordLoginRequest{UserId: int32(userID), LoggedInAt: uint64(at.Unix())})
+	return err
+}
+
+func (u *users) CreateSession(ctx context.Context, userID uint64, deviceID, deviceName, refreshToken string, expiresAt time.Time) (data.Session, error) {
+	hash := sha256.Sum256([]byte(refreshToken))
+	resp, err := u.uc.CreateSession(ctx, &upbv1.CreateSessionRequest{UserId: int32(userID), DeviceId: deviceID, DeviceName: deviceName, RefreshTokenHash: hash[:], ExpiresAt: uint64(expiresAt.Unix())})
+	if err != nil {
+		return data.Session{}, err
+	}
+	return sessionFromResponse(resp), nil
+}
+
+func (u *users) RefreshSession(ctx context.Context, sessionID, currentToken, nextToken string, expiresAt time.Time) (data.Session, error) {
+	currentHash := sha256.Sum256([]byte(currentToken))
+	nextHash := sha256.Sum256([]byte(nextToken))
+	resp, err := u.uc.RefreshSession(ctx, &upbv1.RefreshSessionRequest{SessionId: sessionID, CurrentTokenHash: currentHash[:], NextTokenHash: nextHash[:], ExpiresAt: uint64(expiresAt.Unix())})
+	if err != nil {
+		return data.Session{}, err
+	}
+	return sessionFromResponse(resp), nil
+}
+
+func (u *users) RevokeSession(ctx context.Context, userID uint64, sessionID string) error {
+	_, err := u.uc.RevokeSession(ctx, &upbv1.RevokeSessionRequest{UserId: int32(userID), SessionId: sessionID})
+	return err
+}
+
+func (u *users) RevokeAllSessions(ctx context.Context, userID uint64) error {
+	_, err := u.uc.RevokeAllSessions(ctx, &upbv1.IdRequest{Id: int32(userID)})
+	return err
+}
+
+func (u *users) ValidateSession(ctx context.Context, userID uint64, sessionID string) (bool, error) {
+	resp, err := u.uc.ValidateSession(ctx, &upbv1.ValidateSessionRequest{UserId: int32(userID), SessionId: sessionID})
+	if err != nil {
+		return false, err
+	}
+	return resp.GetActive(), nil
+}
+
+func sessionFromResponse(resp *upbv1.SessionResponse) data.Session {
+	if resp == nil {
+		return data.Session{}
+	}
+	return data.Session{ID: resp.GetId(), UserID: uint64(resp.GetUserId()), DeviceID: resp.GetDeviceId(), DeviceName: resp.GetDeviceName(), ExpiresAt: time.Unix(int64(resp.GetExpiresAt()), 0)}
+}
 
 type users struct {
 	uc upbv1.UserClient
@@ -51,11 +101,13 @@ func (u *users) Create(ctx context.Context, user *data.UserCreate) (data.User, e
 	}
 
 	protoUser := &upbv1.CreateUserInfo{
-		Username: user.Username,
-		Mobile:   user.Mobile,
-		Email:    user.Email,
-		NickName: user.NickName,
-		PassWord: user.PassWord,
+		Username:       user.Username,
+		Mobile:         user.Mobile,
+		Email:          user.Email,
+		NickName:       user.NickName,
+		PassWord:       user.PassWord,
+		MobileVerified: user.MobileVerified,
+		EmailVerified:  user.EmailVerified,
 	}
 	userRsp, err := u.uc.CreateUser(ctx, protoUser)
 	if err != nil {
@@ -179,16 +231,23 @@ func publicUserFromResponse(user *upbv1.UserInfoResponse) data.User {
 	if user == nil {
 		return data.User{}
 	}
-	return data.User{
-		ID:       uint64(user.Id),
-		Username: user.Username,
-		Mobile:   user.Mobile,
-		Email:    user.Email,
-		NickName: user.NickName,
-		Birthday: itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
-		Gender:   user.Gender,
-		Status:   user.Status,
+	publicUser := data.User{
+		ID:             uint64(user.Id),
+		Username:       user.Username,
+		Mobile:         user.Mobile,
+		Email:          user.Email,
+		NickName:       user.NickName,
+		Birthday:       itime.Time{Time: time.Unix(int64(user.BirthDay), 0)},
+		Gender:         user.Gender,
+		Status:         user.Status,
+		MobileVerified: user.MobileVerified,
+		EmailVerified:  user.EmailVerified,
 	}
+	if user.LastLoginAt > 0 {
+		lastLoginAt := itime.Time{Time: time.Unix(int64(user.LastLoginAt), 0)}
+		publicUser.LastLoginAt = &lastLoginAt
+	}
+	return publicUser
 }
 
 func authUserFromResponse(user *upbv1.UserAuthResponse) data.UserAuth {

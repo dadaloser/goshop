@@ -968,6 +968,7 @@ func mustCreateAdminToken(t *testing.T, jwtOpts *options.JwtOptions, userID uint
 }
 
 type fakeAdminUserClient struct {
+	upbv1.UserClient
 	listResponse           *upbv1.UserListResponse
 	userResponse           *upbv1.UserInfoResponse
 	authUserResponse       *upbv1.UserAuthResponse

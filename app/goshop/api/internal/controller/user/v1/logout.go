@@ -13,6 +13,17 @@ import (
 )
 
 func (us *userServer) Logout(ctx *gin.Context) {
+	userID, userErr := userIDFromContext(ctx)
+	claims := gauth.ExtractClaims(ctx)
+	sessionID, _ := claims["session_id"].(string)
+	if userErr == nil && sessionID != "" {
+		if userSrv, err := us.usersService(); err == nil {
+			if err = userSrv.Logout(ctx, userID, sessionID); err != nil {
+				core.WriteResponse(ctx, err, nil)
+				return
+			}
+		}
+	}
 	if us.revokedTokens != nil {
 		token, err := gauth.GetToken(ctx)
 		if err != nil {

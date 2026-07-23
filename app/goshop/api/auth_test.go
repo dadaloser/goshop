@@ -115,6 +115,29 @@ func TestJWTAuthorizerChecksCurrentAccountStatus(t *testing.T) {
 	}
 }
 
+func TestJWTAuthorizerRejectsRevokedDeviceSession(t *testing.T) {
+	const key = "01234567890123456789012345678901"
+	users := &fakeSessionAuthUserStore{fakeAuthUserStore: fakeAuthUserStore{user: data.User{ID: 1, Status: string(authz.AccountStatusActive)}}}
+	strategy, err := newJWTAuth(&options.JwtOptions{Realm: "test", Key: key, Timeout: time.Hour, MaxRefresh: time.Hour}, &fakeRevocationStore{}, &fakeAuthTokenVersionStore{currentVersion: 1}, users)
+	if err != nil {
+		t.Fatalf("newJWTAuth() error = %v", err)
+	}
+	token, err := middlewares.NewJWT(key).CreateToken(middlewares.CustomClaims{ID: 1, TokenVersion: 1, SessionID: "device-session", RegisteredClaims: jwt.RegisteredClaims{NotBefore: jwt.NewNumericDate(time.Now()), ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)), Issuer: "test"}})
+	if err != nil {
+		t.Fatalf("CreateToken() error = %v", err)
+	}
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/user/detail", nil)
+	ctx.Set(middlewares.JWTTokenKey, token)
+	if strategy.(auth.JWTStrategy).Authorizator(nil, ctx) {
+		t.Fatal("revoked session authorized")
+	}
+	users.active = true
+	if !strategy.(auth.JWTStrategy).Authorizator(nil, ctx) {
+		t.Fatal("active session rejected")
+	}
+}
+
 type fakeRevocationStore struct{}
 
 func (f *fakeRevocationStore) Revoke(context.Context, string, time.Time) error {
@@ -135,6 +158,15 @@ type fakeAuthTokenVersionStore struct {
 type fakeAuthUserStore struct {
 	user   data.User
 	getErr error
+}
+
+type fakeSessionAuthUserStore struct {
+	fakeAuthUserStore
+	active bool
+}
+
+func (f *fakeSessionAuthUserStore) ValidateSession(context.Context, uint64, string) (bool, error) {
+	return f.active, nil
 }
 
 func (f *fakeAuthUserStore) Create(context.Context, *data.UserCreate) (data.User, error) {

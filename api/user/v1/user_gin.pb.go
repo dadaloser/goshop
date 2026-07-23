@@ -361,6 +361,108 @@ func (s *UserHttpServer) CheckPassWord_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *UserHttpServer) RecordLogin_0(c *gin.Context) {
+	var in RecordLoginRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.RecordLogin(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) CreateSession_0(c *gin.Context) {
+	var in CreateSessionRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.CreateSession(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) RefreshSession_0(c *gin.Context) {
+	var in RefreshSessionRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.RefreshSession(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) RevokeSession_0(c *gin.Context) {
+	var in RevokeSessionRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.RevokeSession(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) RevokeAllSessions_0(c *gin.Context) {
+	var in IdRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.RevokeAllSessions(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) ValidateSession_0(c *gin.Context) {
+	var in ValidateSessionRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ValidateSession(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *UserHttpServer) RegisterService() {
 
 	s.router.Handle("POST", "/v1/users", s.GetUserList_0)
@@ -402,5 +504,17 @@ func (s *UserHttpServer) RegisterService() {
 	s.router.Handle("POST", "/v1/user/{id}", s.DeleteUser_0)
 
 	s.router.Handle("POST", "/v1/user/password", s.CheckPassWord_0)
+
+	s.router.Handle("POST", "", s.RecordLogin_0)
+
+	s.router.Handle("POST", "", s.CreateSession_0)
+
+	s.router.Handle("POST", "", s.RefreshSession_0)
+
+	s.router.Handle("POST", "", s.RevokeSession_0)
+
+	s.router.Handle("POST", "", s.RevokeAllSessions_0)
+
+	s.router.Handle("POST", "", s.ValidateSession_0)
 
 }

@@ -220,6 +220,12 @@ func (f *fakeUserSrv) LogoutAll(_ context.Context, userID uint64) error {
 	return nil
 }
 
+func (f *fakeUserSrv) Logout(context.Context, uint64, string) error { return nil }
+
+func (f *fakeUserSrv) Refresh(context.Context, string, string) (*userv1.UserDTO, error) {
+	return nil, nil
+}
+
 func (f *fakeUserSrv) DeleteAccount(_ context.Context, userID uint64, password string) error {
 	f.deleteAccountUserID = userID
 	f.deleteAccountPassword = password

@@ -199,6 +199,7 @@ func TestUsersHandleNilRPCResponses(t *testing.T) {
 }
 
 type fakeUserClient struct {
+	upbv1.UserClient
 	called         bool
 	returnNil      bool
 	mobileRequest  string

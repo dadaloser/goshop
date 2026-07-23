@@ -88,7 +88,7 @@ func migrateUserSchema(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("user schema migration failed: nil db")
 	}
-	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}, &dv1.RoleDomainDO{}, &dv1.UserAuditLogDO{}, &dv1.AdminAuditLogDO{}); err != nil {
+	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.UserSessionDO{}, &dv1.VerificationCodeDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}, &dv1.RoleDomainDO{}, &dv1.UserAuditLogDO{}, &dv1.AdminAuditLogDO{}); err != nil {
 		return fmt.Errorf("user schema migration failed: %w", err)
 	}
 	return nil
@@ -117,10 +117,18 @@ func validateUserSchema(db *gorm.DB) error {
 		"gender",
 		"role",
 		"account_status",
+		"mobile_verified",
+		"email_verified",
+		"last_login_at",
 	}
 	for _, column := range requiredColumns {
 		if !db.Migrator().HasColumn(&dv1.UserDO{}, column) {
 			return fmt.Errorf("user schema validation failed: required column %q.%q does not exist", (&dv1.UserDO{}).TableName(), column)
+		}
+	}
+	for _, model := range []interface{ TableName() string }{&dv1.UserSessionDO{}, &dv1.VerificationCodeDO{}} {
+		if !db.Migrator().HasTable(model) {
+			return fmt.Errorf("user schema validation failed: required table %q does not exist", model.TableName())
 		}
 	}
 	rbacTables := []struct {

@@ -91,13 +91,16 @@ func writeLoginResponse(ctx *gin.Context, userDTO *userv1.UserDTO) {
 	}
 
 	core.WriteResponse(ctx, nil, gin.H{
-		"id":         userDTO.ID,
-		"username":   userDTO.Username,
-		"nick_name":  userDTO.NickName,
-		"mobile":     userDTO.Mobile,
-		"email":      userDTO.Email,
-		"token":      userDTO.Token,
-		"expired_at": userDTO.ExpiresAt,
+		"id":                 userDTO.ID,
+		"username":           userDTO.Username,
+		"nick_name":          userDTO.NickName,
+		"mobile":             userDTO.Mobile,
+		"email":              userDTO.Email,
+		"token":              userDTO.Token,
+		"expired_at":         userDTO.ExpiresAt,
+		"refresh_token":      userDTO.RefreshToken,
+		"refresh_expired_at": userDTO.RefreshExpiresAt,
+		"session_id":         userDTO.SessionID,
 	})
 }
 

@@ -2,20 +2,32 @@ package data
 
 import (
 	"context"
+	stdtime "time"
 
 	"goshop/pkg/common/time"
 )
 
+type Session struct {
+	ID         string
+	UserID     uint64
+	DeviceID   string
+	DeviceName string
+	ExpiresAt  stdtime.Time
+}
+
 type User struct {
-	ID         uint64    `json:"id"`
-	Username   string    `json:"username"`
-	Mobile     string    `json:"mobile"`
-	Email      string    `json:"email"`
-	NickName   string    `json:"nick_name"`
-	Birthday   time.Time `gorm:"type:datetime"`
-	Gender     string    `json:"gender"`
-	LegacyRole int32     `json:"legacy_role"`
-	Status     string    `json:"status"`
+	ID             uint64     `json:"id"`
+	Username       string     `json:"username"`
+	Mobile         string     `json:"mobile"`
+	Email          string     `json:"email"`
+	NickName       string     `json:"nick_name"`
+	Birthday       time.Time  `gorm:"type:datetime"`
+	Gender         string     `json:"gender"`
+	LegacyRole     int32      `json:"legacy_role"`
+	Status         string     `json:"status"`
+	MobileVerified bool       `json:"mobile_verified"`
+	EmailVerified  bool       `json:"email_verified"`
+	LastLoginAt    *time.Time `json:"last_login_at,omitempty"`
 }
 
 type UserAuth struct {
@@ -26,11 +38,13 @@ type UserAuth struct {
 }
 
 type UserCreate struct {
-	Username string `json:"username"`
-	Mobile   string `json:"mobile"`
-	Email    string `json:"email"`
-	NickName string `json:"nick_name"`
-	PassWord string `json:"password"`
+	Username       string `json:"username"`
+	Mobile         string `json:"mobile"`
+	Email          string `json:"email"`
+	NickName       string `json:"nick_name"`
+	PassWord       string `json:"password"`
+	MobileVerified bool   `json:"mobile_verified"`
+	EmailVerified  bool   `json:"email_verified"`
 }
 
 type UserList struct {

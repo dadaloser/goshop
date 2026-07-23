@@ -69,3 +69,13 @@ cmd开始启动服务
 
 
 生产上线时,K8s/Consul 上线时确认 /readyz、/metrics 的来源 IP 在 built-in-route-cidrs 内
+
+## Account session and email verification
+
+The customer API supports email verification codes (`/v1/base/send_email_code`),
+email registration/login, rotating refresh tokens (`/v1/user/refresh`), current
+device logout, and all-device logout. Apply migration
+`202607230001_user_add_identity_and_sessions` before deploying the updated user
+and API services. SMTP is configured through the `email` section in
+`configs/api/api.yaml`; production passwords must come from environment or a
+secret manager.

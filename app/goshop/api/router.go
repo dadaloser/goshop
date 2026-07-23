@@ -11,6 +11,7 @@ import (
 	v12 "goshop/app/goshop/api/internal/controller/sms/v1"
 	"goshop/app/goshop/api/internal/controller/user/v1"
 	"goshop/app/goshop/api/internal/data/rpc"
+	"goshop/app/goshop/api/internal/emailcode"
 	"goshop/app/goshop/api/internal/loginattempt"
 	"goshop/app/goshop/api/internal/service"
 	"goshop/app/goshop/api/internal/smsattempt"
@@ -38,6 +39,8 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	}
 
 	codeStore := smscode.NewRedisStore()
+	emailCodeStore := emailcode.NewRedisStore()
+	emailSender := emailcode.NewSMTPSender(cfg.Email, emailCodeStore)
 	loginAttempts := loginattempt.NewRedisStore()
 	smsAttempts := smsattempt.NewRedisStore()
 	smsLimiter := smslimit.NewRedisStore()
@@ -49,7 +52,10 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	{
 		uGroup.POST("pwd_login", uController.Login)
 		uGroup.POST("sms_login", uController.SmsLogin)
+		uGroup.POST("refresh", uController.Refresh)
 		uGroup.POST("register", uController.Register)
+		uGroup.POST("email_login", uController.EmailLogin)
+		uGroup.POST("email_register", uController.EmailRegister)
 
 		jwtAuth, err := newJWTAuth(cfg.Jwt, revokedTokens, tokenVersions, data.Users())
 		if err != nil {
@@ -76,6 +82,7 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	{
 		smsCtl := v12.NewSmsController(serviceFactory, g.Translator(), codeStore, smsLimiter)
 		baseRouter.POST("send_sms", smsCtl.SendSms)
+		baseRouter.POST("send_email_code", user.SendEmailCode(emailSender))
 		baseRouter.GET("captcha", user.GetCaptcha)
 	}
 

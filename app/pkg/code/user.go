@@ -30,4 +30,7 @@ const (
 
 	// ErrUserAccountInactive - 403: User account is not active.
 	ErrUserAccountInactive
+
+	// ErrAccountDeletionBlocked - 409: Account has unfinished business.
+	ErrAccountDeletionBlocked
 )

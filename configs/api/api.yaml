@@ -78,6 +78,16 @@ sms:
   key: ""
   secret: ""
 
+email:
+  enabled: false
+  host: ""
+  port: 587
+  username: ""
+  password: "" # use API_EMAIL_PASSWORD or secret manager in production
+  from: ""
+  code-ttl: 10m
+  send-interval: 1m
+
 # JWT 配置
 jwt:
   realm: JWT # jwt 标识

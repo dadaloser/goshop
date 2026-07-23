@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 
 	"goshop/app/goshop/api/internal/data"
@@ -58,6 +59,18 @@ func newJWTAuth(opts *options.JwtOptions, revokedTokens tokenrevocation.Store, t
 		}
 		if authz.NormalizeAccountStatus(user.Status) != authz.AccountStatusActive {
 			return false
+		}
+		if claims.SessionID != "" {
+			sessions, ok := users.(interface {
+				ValidateSession(ctx context.Context, userID uint64, sessionID string) (bool, error)
+			})
+			if !ok {
+				return false
+			}
+			active, sessionErr := sessions.ValidateSession(c.Request.Context(), uint64(claims.ID), claims.SessionID)
+			if sessionErr != nil || !active {
+				return false
+			}
 		}
 		if tokenVersions == nil {
 			return true

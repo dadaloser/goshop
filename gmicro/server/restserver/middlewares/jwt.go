@@ -16,6 +16,7 @@ type CustomClaims struct {
 	AccountStatus string   `json:"status,omitempty"`
 	Scope         []string `json:"scope,omitempty"`
 	TokenVersion  uint64   `json:"token_version"`
+	SessionID     string   `json:"session_id,omitempty"`
 	jwt.RegisteredClaims
 }
 
