@@ -1,0 +1,3 @@
+ALTER TABLE `goods`
+  DROP COLUMN `shop_price`,
+  DROP COLUMN `market_price`;
