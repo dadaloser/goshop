@@ -30,6 +30,7 @@ type OutboxEventDO struct {
 	LastError      string `gorm:"type:text"`
 	NextAttemptAt  int64  `gorm:"type:bigint;not null;default:0;index:idx_outbox_status_topic"`
 	ProcessingLock string `gorm:"type:varchar(64)"`
+	ClaimedAt      int64  `gorm:"type:bigint;not null;default:0;index"`
 }
 
 func (OutboxEventDO) TableName() string {

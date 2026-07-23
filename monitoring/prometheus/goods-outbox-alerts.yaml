@@ -1,0 +1,32 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: goshop-goods-outbox-alerts
+  labels:
+    app.kubernetes.io/name: goshop
+    app.kubernetes.io/component: goods-outbox
+spec:
+  groups:
+    - name: goshop-goods-outbox
+      rules:
+        - alert: GoodsOutboxBacklogHigh
+          expr: goods_service_outbox_backlog{status="PENDING"} > 100
+          for: 10m
+          labels: {severity: warning, team: catalog}
+          annotations:
+            summary: "Goods search outbox is backlogged"
+            description: "More than 100 goods search events have remained pending for 10 minutes. Check MySQL and Elasticsearch health."
+        - alert: GoodsOutboxDeadLetters
+          expr: goods_service_outbox_backlog{status="DEAD"} > 0
+          for: 5m
+          labels: {severity: critical, team: catalog}
+          annotations:
+            summary: "Goods search outbox has dead letters"
+            description: "At least one goods search event exhausted retries. Inspect the error and run goodsops replay-dead-outbox after remediation."
+        - alert: GoodsOutboxConsumerStalled
+          expr: goods_service_outbox_backlog{status="PENDING"} > 0 and increase(goods_service_outbox_processed_total[10m]) == 0
+          for: 10m
+          labels: {severity: critical, team: catalog}
+          annotations:
+            summary: "Goods outbox consumer is stalled"
+            description: "Pending events exist but no goods outbox event has completed, retried, or dead-lettered in 10 minutes."

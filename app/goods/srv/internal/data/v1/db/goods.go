@@ -254,6 +254,8 @@ func goodsUpdateValues(goods *do.GoodsDO) map[string]interface{} {
 		"is_hot":            goods.IsHot,
 		"name":              goods.Name,
 		"goods_sn":          goods.GoodsSn,
+		"spu_code":          goods.SPUCode,
+		"sku_code":          goods.SKUCode,
 		"click_num":         goods.ClickNum,
 		"sold_num":          goods.SoldNum,
 		"fav_num":           goods.FavNum,

@@ -53,8 +53,15 @@ func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	reviewClient, _, err := appclient.NewReviewClient(context.Background(), cfg.Registry, cfg.RPC)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := initRouterWithBusinessClients(restServer, cfg, userClient, goodsClient, inventoryClient, orderClient); err != nil {
+		return nil, err
+	}
+	if err := registerAdminReviewRoutes(restServer, cfg, userClient, reviewClient); err != nil {
 		return nil, err
 	}
 

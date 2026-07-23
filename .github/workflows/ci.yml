@@ -108,15 +108,28 @@ jobs:
 
   inventory-integration:
     name: Inventory Integration
-    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      INVENTORY_MYSQL_USERNAME: ${{ secrets.INVENTORY_INTEGRATION_MYSQL_USERNAME }}
-      INVENTORY_MYSQL_PASSWORD: ${{ secrets.INVENTORY_INTEGRATION_MYSQL_PASSWORD }}
-      INVENTORY_MYSQL_HOST: ${{ secrets.INVENTORY_INTEGRATION_MYSQL_HOST }}
-      INVENTORY_MYSQL_PORT: ${{ secrets.INVENTORY_INTEGRATION_MYSQL_PORT }}
-      INVENTORY_MYSQL_DATABASE: ${{ secrets.INVENTORY_INTEGRATION_MYSQL_DATABASE }}
+      INVENTORY_MYSQL_USERNAME: root
+      INVENTORY_MYSQL_PASSWORD: integration
+      INVENTORY_MYSQL_HOST: 127.0.0.1
+      INVENTORY_MYSQL_PORT: "3306"
+      INVENTORY_MYSQL_DATABASE: goshop_inventory_ci
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: integration
+          MYSQL_DATABASE: goshop_inventory_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pintegration"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
 
     steps:
       - name: Checkout

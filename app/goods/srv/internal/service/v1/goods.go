@@ -166,6 +166,8 @@ func goodsSearchFromDTO(goods *dto.GoodsDTO) do.GoodsSearchDO {
 		MarketPriceFen: goods.MarketPriceFen,
 		GoodsBrief:     goods.GoodsBrief,
 		ShopPriceFen:   goods.ShopPriceFen,
+		SPUCode:        goods.SPUCode,
+		SKUCode:        goods.SKUCode,
 	}
 }
 
@@ -299,6 +301,14 @@ func validateGoodsForWrite(goods *dto.GoodsDTO, requireID bool) error {
 
 	goods.Name = strings.TrimSpace(goods.Name)
 	goods.GoodsSn = strings.TrimSpace(goods.GoodsSn)
+	goods.SPUCode = strings.TrimSpace(goods.SPUCode)
+	goods.SKUCode = strings.TrimSpace(goods.SKUCode)
+	if goods.SPUCode == "" {
+		goods.SPUCode = goods.GoodsSn
+	}
+	if goods.SKUCode == "" {
+		goods.SKUCode = goods.GoodsSn
+	}
 	goods.GoodsBrief = strings.TrimSpace(goods.GoodsBrief)
 	goods.GoodsFrontImage = strings.TrimSpace(goods.GoodsFrontImage)
 

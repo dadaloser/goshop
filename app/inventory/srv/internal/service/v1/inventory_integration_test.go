@@ -13,6 +13,7 @@ import (
 
 	invdb "goshop/app/inventory/srv/internal/data/v1/db"
 	"goshop/app/inventory/srv/internal/domain/do"
+	"goshop/app/inventory/srv/internal/domain/dto"
 	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	"goshop/pkg/errors"
@@ -282,6 +283,29 @@ func TestInventoryReleaseBeforeSellBlocksLateSellRealDB(t *testing.T) {
 	assertStockSellDetailCount(t, db, orderSn, 1)
 }
 
+func TestInventoryAdjustmentAuditRealDB(t *testing.T) {
+	db, dsn := mustOpenInventoryIntegrationDB(t)
+	prepareInventoryIntegrationSchema(t, db)
+	srv := mustNewInventoryIntegrationService(t, dsn)
+	goodsID := nextInventoryIntegrationGoodsID()
+	correlationID := fmt.Sprintf("adjust-%d", time.Now().UnixNano())
+	seedInventoryIntegrationFixture(t, db, goodsID, 5, correlationID)
+	t.Cleanup(func() { _ = db.Where("correlation_id = ?", correlationID).Delete(&do.InventoryAdjustmentDO{}).Error })
+
+	err := srv.Adjust(context.Background(), &dto.InventoryDTO{InventoryDO: do.InventoryDO{Goods: goodsID, Stocks: 8}}, &do.InventoryAdjustmentDO{ActorUserID: 42, CorrelationID: correlationID, RequestID: "request-1", Reason: "cycle count correction"})
+	if err != nil {
+		t.Fatalf("Inventory.Adjust() error = %v", err)
+	}
+	items, total, err := srv.ListAdjustments(context.Background(), uint64(goodsID), 1, 20)
+	if err != nil || total != 1 || len(items) != 1 {
+		t.Fatalf("ListAdjustments() total=%d items=%+v error=%v", total, items, err)
+	}
+	got := items[0]
+	if got.BeforeAvailable != 5 || got.AfterAvailable != 8 || got.ActorUserID != 42 || got.CorrelationID != correlationID {
+		t.Fatalf("adjustment audit = %+v", got)
+	}
+}
+
 func mustOpenInventoryIntegrationDB(t *testing.T) (*gorm.DB, string) {
 	t.Helper()
 
@@ -374,6 +398,20 @@ func prepareInventoryIntegrationSchema(t *testing.T, db *gorm.DB) {
 			status int NOT NULL,
 			detail varchar(200) NOT NULL,
 			UNIQUE KEY idx_order_sn (order_sn)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+		`CREATE TABLE IF NOT EXISTS inventory_adjustment_logs (
+			id bigint unsigned NOT NULL AUTO_INCREMENT,
+			goods_id int NOT NULL,
+			before_available int NOT NULL,
+			after_available int NOT NULL,
+			actor_user_id int NOT NULL,
+			correlation_id varchar(64) NOT NULL,
+			request_id varchar(128) NOT NULL,
+			reason varchar(255) NOT NULL,
+			created_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+			PRIMARY KEY (id),
+			UNIQUE KEY uk_inventory_adjustment_correlation (correlation_id),
+			KEY idx_inventory_adjustment_goods (goods_id, created_at)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	}
 

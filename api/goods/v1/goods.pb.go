@@ -1385,6 +1385,8 @@ type CreateGoodsInfo struct {
 	BrandId         int32                  `protobuf:"varint,20,opt,name=brandId,proto3" json:"brandId,omitempty"`
 	MarketPriceFen  int64                  `protobuf:"varint,21,opt,name=marketPriceFen,proto3" json:"marketPriceFen,omitempty"`
 	ShopPriceFen    int64                  `protobuf:"varint,22,opt,name=shopPriceFen,proto3" json:"shopPriceFen,omitempty"`
+	SpuCode         string                 `protobuf:"bytes,23,opt,name=spuCode,proto3" json:"spuCode,omitempty"`
+	SkuCode         string                 `protobuf:"bytes,24,opt,name=skuCode,proto3" json:"skuCode,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1538,6 +1540,20 @@ func (x *CreateGoodsInfo) GetShopPriceFen() int64 {
 	return 0
 }
 
+func (x *CreateGoodsInfo) GetSpuCode() string {
+	if x != nil {
+		return x.SpuCode
+	}
+	return ""
+}
+
+func (x *CreateGoodsInfo) GetSkuCode() string {
+	if x != nil {
+		return x.SkuCode
+	}
+	return ""
+}
+
 type GoodsReduceRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	GoodsId       int32                  `protobuf:"varint,1,opt,name=GoodsId,proto3" json:"GoodsId,omitempty"`
@@ -1651,19 +1667,22 @@ func (x *BatchCategoryInfoRequest) GetBrandNums() int32 {
 }
 
 type GoodsFilterRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	IsHot         bool                   `protobuf:"varint,3,opt,name=isHot,proto3" json:"isHot,omitempty"`
-	IsNew         bool                   `protobuf:"varint,4,opt,name=isNew,proto3" json:"isNew,omitempty"`
-	IsTab         bool                   `protobuf:"varint,5,opt,name=isTab,proto3" json:"isTab,omitempty"`
-	TopCategory   int32                  `protobuf:"varint,6,opt,name=topCategory,proto3" json:"topCategory,omitempty"`
-	Pages         int32                  `protobuf:"varint,7,opt,name=pages,proto3" json:"pages,omitempty"`
-	PagePerNums   int32                  `protobuf:"varint,8,opt,name=pagePerNums,proto3" json:"pagePerNums,omitempty"`
-	KeyWords      string                 `protobuf:"bytes,9,opt,name=keyWords,proto3" json:"keyWords,omitempty"`
-	Brand         int32                  `protobuf:"varint,10,opt,name=brand,proto3" json:"brand,omitempty"`
-	PriceMinFen   int64                  `protobuf:"varint,11,opt,name=priceMinFen,proto3" json:"priceMinFen,omitempty"`
-	PriceMaxFen   int64                  `protobuf:"varint,12,opt,name=priceMaxFen,proto3" json:"priceMaxFen,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	IsHot          bool                   `protobuf:"varint,3,opt,name=isHot,proto3" json:"isHot,omitempty"`
+	IsNew          bool                   `protobuf:"varint,4,opt,name=isNew,proto3" json:"isNew,omitempty"`
+	IsTab          bool                   `protobuf:"varint,5,opt,name=isTab,proto3" json:"isTab,omitempty"`
+	TopCategory    int32                  `protobuf:"varint,6,opt,name=topCategory,proto3" json:"topCategory,omitempty"`
+	Pages          int32                  `protobuf:"varint,7,opt,name=pages,proto3" json:"pages,omitempty"`
+	PagePerNums    int32                  `protobuf:"varint,8,opt,name=pagePerNums,proto3" json:"pagePerNums,omitempty"`
+	KeyWords       string                 `protobuf:"bytes,9,opt,name=keyWords,proto3" json:"keyWords,omitempty"`
+	Brand          int32                  `protobuf:"varint,10,opt,name=brand,proto3" json:"brand,omitempty"`
+	PriceMinFen    int64                  `protobuf:"varint,11,opt,name=priceMinFen,proto3" json:"priceMinFen,omitempty"`
+	PriceMaxFen    int64                  `protobuf:"varint,12,opt,name=priceMaxFen,proto3" json:"priceMaxFen,omitempty"`
+	IncludeOffSale bool                   `protobuf:"varint,13,opt,name=includeOffSale,proto3" json:"includeOffSale,omitempty"`
+	SpuCode        string                 `protobuf:"bytes,14,opt,name=spuCode,proto3" json:"spuCode,omitempty"`
+	SkuCode        string                 `protobuf:"bytes,15,opt,name=skuCode,proto3" json:"skuCode,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GoodsFilterRequest) Reset() {
@@ -1766,6 +1785,27 @@ func (x *GoodsFilterRequest) GetPriceMaxFen() int64 {
 	return 0
 }
 
+func (x *GoodsFilterRequest) GetIncludeOffSale() bool {
+	if x != nil {
+		return x.IncludeOffSale
+	}
+	return false
+}
+
+func (x *GoodsFilterRequest) GetSpuCode() string {
+	if x != nil {
+		return x.SpuCode
+	}
+	return ""
+}
+
+func (x *GoodsFilterRequest) GetSkuCode() string {
+	if x != nil {
+		return x.SkuCode
+	}
+	return ""
+}
+
 type GoodsInfoResponse struct {
 	state           protoimpl.MessageState     `protogen:"open.v1"`
 	Id              int32                      `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1789,6 +1829,8 @@ type GoodsInfoResponse struct {
 	Brand           *BrandInfoResponse         `protobuf:"bytes,22,opt,name=brand,proto3" json:"brand,omitempty"`
 	MarketPriceFen  int64                      `protobuf:"varint,23,opt,name=marketPriceFen,proto3" json:"marketPriceFen,omitempty"`
 	ShopPriceFen    int64                      `protobuf:"varint,24,opt,name=shopPriceFen,proto3" json:"shopPriceFen,omitempty"`
+	SpuCode         string                     `protobuf:"bytes,25,opt,name=spuCode,proto3" json:"spuCode,omitempty"`
+	SkuCode         string                     `protobuf:"bytes,26,opt,name=skuCode,proto3" json:"skuCode,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1970,6 +2012,20 @@ func (x *GoodsInfoResponse) GetShopPriceFen() int64 {
 	return 0
 }
 
+func (x *GoodsInfoResponse) GetSpuCode() string {
+	if x != nil {
+		return x.SpuCode
+	}
+	return ""
+}
+
+func (x *GoodsInfoResponse) GetSkuCode() string {
+	if x != nil {
+		return x.SkuCode
+	}
+	return ""
+}
+
 type GoodsListResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Total         int32                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
@@ -2112,7 +2168,7 @@ const file_goods_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x14\n" +
 	"\x05isTab\x18\x02 \x01(\bR\x05isTab\"!\n" +
 	"\x0fGoodInfoRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x05R\x02id\"\x91\x04\n" +
+	"\x02id\x18\x01 \x01(\x05R\x02id\"\xc5\x04\n" +
 	"\x0fCreateGoodsInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -2137,7 +2193,9 @@ const file_goods_proto_rawDesc = "" +
 	"categoryId\x12\x18\n" +
 	"\abrandId\x18\x14 \x01(\x05R\abrandId\x12&\n" +
 	"\x0emarketPriceFen\x18\x15 \x01(\x03R\x0emarketPriceFen\x12\"\n" +
-	"\fshopPriceFen\x18\x16 \x01(\x03R\fshopPriceFenJ\x04\b\b\x10\tJ\x04\b\t\x10\n" +
+	"\fshopPriceFen\x18\x16 \x01(\x03R\fshopPriceFen\x12\x18\n" +
+	"\aspuCode\x18\x17 \x01(\tR\aspuCode\x12\x18\n" +
+	"\askuCode\x18\x18 \x01(\tR\askuCodeJ\x04\b\b\x10\tJ\x04\b\t\x10\n" +
 	"R\vmarketPriceR\tshopPrice\"B\n" +
 	"\x12GoodsReduceRequest\x12\x18\n" +
 	"\aGoodsId\x18\x01 \x01(\x05R\aGoodsId\x12\x12\n" +
@@ -2145,7 +2203,7 @@ const file_goods_proto_rawDesc = "" +
 	"\x18BatchCategoryInfoRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x03(\x05R\x02id\x12\x1c\n" +
 	"\tgoodsNums\x18\x02 \x01(\x05R\tgoodsNums\x12\x1c\n" +
-	"\tbrandNums\x18\x03 \x01(\x05R\tbrandNums\"\xc6\x02\n" +
+	"\tbrandNums\x18\x03 \x01(\x05R\tbrandNums\"\xa2\x03\n" +
 	"\x12GoodsFilterRequest\x12\x14\n" +
 	"\x05isHot\x18\x03 \x01(\bR\x05isHot\x12\x14\n" +
 	"\x05isNew\x18\x04 \x01(\bR\x05isNew\x12\x14\n" +
@@ -2157,7 +2215,10 @@ const file_goods_proto_rawDesc = "" +
 	"\x05brand\x18\n" +
 	" \x01(\x05R\x05brand\x12 \n" +
 	"\vpriceMinFen\x18\v \x01(\x03R\vpriceMinFen\x12 \n" +
-	"\vpriceMaxFen\x18\f \x01(\x03R\vpriceMaxFenJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03R\bpriceMinR\bpriceMax\"\xab\x05\n" +
+	"\vpriceMaxFen\x18\f \x01(\x03R\vpriceMaxFen\x12&\n" +
+	"\x0eincludeOffSale\x18\r \x01(\bR\x0eincludeOffSale\x12\x18\n" +
+	"\aspuCode\x18\x0e \x01(\tR\aspuCode\x12\x18\n" +
+	"\askuCode\x18\x0f \x01(\tR\askuCodeJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03R\bpriceMinR\bpriceMax\"\xdf\x05\n" +
 	"\x11GoodsInfoResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x1e\n" +
 	"\n" +
@@ -2185,7 +2246,9 @@ const file_goods_proto_rawDesc = "" +
 	"\bcategory\x18\x15 \x01(\v2\x1a.CategoryBriefInfoResponseR\bcategory\x12(\n" +
 	"\x05brand\x18\x16 \x01(\v2\x12.BrandInfoResponseR\x05brand\x12&\n" +
 	"\x0emarketPriceFen\x18\x17 \x01(\x03R\x0emarketPriceFen\x12\"\n" +
-	"\fshopPriceFen\x18\x18 \x01(\x03R\fshopPriceFenJ\x04\b\t\x10\n" +
+	"\fshopPriceFen\x18\x18 \x01(\x03R\fshopPriceFen\x12\x18\n" +
+	"\aspuCode\x18\x19 \x01(\tR\aspuCode\x12\x18\n" +
+	"\askuCode\x18\x1a \x01(\tR\askuCodeJ\x04\b\t\x10\n" +
 	"J\x04\b\n" +
 	"\x10\vR\vmarketPriceR\tshopPrice\"Q\n" +
 	"\x11GoodsListResponse\x12\x14\n" +

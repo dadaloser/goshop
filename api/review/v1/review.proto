@@ -1,0 +1,22 @@
+syntax = "proto3";
+option go_package = "./;proto";
+
+service Review {
+  rpc CreateReview(CreateReviewRequest) returns (ReviewResponse);
+  rpc AppendReview(AppendReviewRequest) returns (ReviewResponse);
+  rpc ListReviews(ListReviewsRequest) returns (ReviewListResponse);
+  rpc ModerateReview(ModerateReviewRequest) returns (ReviewResponse);
+  rpc ReplyReview(ReplyReviewRequest) returns (ReviewResponse);
+  rpc GetRating(GetRatingRequest) returns (RatingResponse);
+  rpc RebuildRating(RebuildRatingRequest) returns (RatingResponse);
+}
+message CreateReviewRequest { int32 userId = 1; string orderSn = 2; int32 goodsId = 3; int32 rating = 4; string content = 5; }
+message AppendReviewRequest { int32 userId = 1; int64 reviewId = 2; string content = 3; }
+message ModerateReviewRequest { int64 reviewId = 1; string decision = 2; int32 actorUserId = 3; string requestId = 4; string reason = 5; }
+message ReplyReviewRequest { int64 reviewId = 1; int32 actorUserId = 2; string content = 3; string requestId = 4; }
+message ListReviewsRequest { int32 goodsId = 1; int32 userId = 2; string status = 3; int32 page = 4; int32 pageSize = 5; }
+message GetRatingRequest { int32 goodsId = 1; }
+message RebuildRatingRequest { int32 goodsId = 1; int32 actorUserId = 2; string requestId = 3; }
+message ReviewResponse { int64 id = 1; int32 userId = 2; string orderSn = 3; int32 goodsId = 4; int32 rating = 5; string content = 6; string status = 7; string appendContent = 8; string merchantReply = 9; int64 createdAt = 10; }
+message ReviewListResponse { int32 total = 1; repeated ReviewResponse data = 2; }
+message RatingResponse { int32 goodsId = 1; int64 approvedCount = 2; int64 ratingSum = 3; int32 averageMilli = 4; int64 rebuiltAt = 5; }

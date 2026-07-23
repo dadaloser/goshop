@@ -30,6 +30,7 @@ const (
 	StaffRoleOps        StaffRole = "ops"
 	StaffRoleFinance    StaffRole = "finance"
 	StaffRoleCatalog    StaffRole = "catalog"
+	StaffRoleReview     StaffRole = "review"
 	StaffRoleAdmin      StaffRole = "admin"
 	StaffRoleSuperAdmin StaffRole = "super_admin"
 )
@@ -41,6 +42,7 @@ const (
 	BusinessDomainOps      BusinessDomain = "operations"
 	BusinessDomainFinance  BusinessDomain = "finance"
 	BusinessDomainCatalog  BusinessDomain = "catalog"
+	BusinessDomainReview   BusinessDomain = "review"
 	BusinessDomainPlatform BusinessDomain = "platform"
 )
 
@@ -50,6 +52,7 @@ func AllBusinessDomains() []BusinessDomain {
 		BusinessDomainOps,
 		BusinessDomainFinance,
 		BusinessDomainCatalog,
+		BusinessDomainReview,
 		BusinessDomainPlatform,
 	}
 }
@@ -115,6 +118,11 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 			PermissionGoodsWriteAny,
 		},
 	},
+	StaffRoleReview: {
+		Name: StaffRoleReview, Description: "review moderation and merchant replies",
+		Domains:     []BusinessDomain{BusinessDomainReview},
+		Permissions: []Permission{PermissionReviewModerateAny, PermissionReviewReplyAny},
+	},
 	StaffRoleAdmin: {
 		Name:        StaffRoleAdmin,
 		Description: "broad backoffice administration",
@@ -134,6 +142,9 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 			PermissionOrderCloseAny,
 			PermissionOrderRefundAny,
 			PermissionAuditReadAny,
+			PermissionReviewModerateAny,
+			PermissionReviewReplyAny,
+			PermissionReviewAggregateRebuild,
 		},
 	},
 	StaffRoleSuperAdmin: {
@@ -158,6 +169,9 @@ var builtinRoleDefinitions = map[StaffRole]RoleDefinition{
 			PermissionOrderRefundAny,
 			PermissionPaymentCallbackSimulate,
 			PermissionAuditReadAny,
+			PermissionReviewModerateAny,
+			PermissionReviewReplyAny,
+			PermissionReviewAggregateRebuild,
 		},
 	},
 }
@@ -170,6 +184,7 @@ func BuiltinRoleDefinitions() []RoleDefinition {
 		StaffRoleOps,
 		StaffRoleFinance,
 		StaffRoleCatalog,
+		StaffRoleReview,
 		StaffRoleAdmin,
 		StaffRoleSuperAdmin,
 	} {

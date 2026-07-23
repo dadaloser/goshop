@@ -8,6 +8,7 @@ import (
 	"goshop/app/goshop/api/internal/controller/goods/v1"
 	inventory "goshop/app/goshop/api/internal/controller/inventory/v1"
 	orderv1 "goshop/app/goshop/api/internal/controller/order/v1"
+	reviewv1 "goshop/app/goshop/api/internal/controller/review/v1"
 	v12 "goshop/app/goshop/api/internal/controller/sms/v1"
 	"goshop/app/goshop/api/internal/controller/user/v1"
 	"goshop/app/goshop/api/internal/data/rpc"
@@ -21,6 +22,7 @@ import (
 	"goshop/app/pkg/authsession/tokenrevocation"
 	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
+	appclient "goshop/app/pkg/client"
 	"goshop/gmicro/server/restserver"
 
 	"github.com/gin-gonic/gin"
@@ -38,6 +40,13 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	if err != nil {
 		return err
 	}
+	reviewClient, _, err := appclient.NewReviewClient(ctx, cfg.Registry, cfg.RPC)
+	if err != nil {
+		return err
+	}
+	reviewController := reviewv1.New(reviewClient)
+	v1.GET("goods/:goods_id/reviews", reviewController.List)
+	v1.GET("goods/:goods_id/rating", reviewController.Rating)
 
 	codeStore := smscode.NewRedisStore()
 	emailCodeStore := emailcode.NewRedisStore()
@@ -82,6 +91,8 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 		uGroup.GET("orders/:order_sn/status_logs", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderStatusLogReadSelf), orderController.OrderStatusLogs)
 		uGroup.POST("orders/:order_sn/pay", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderPaySelf), orderController.InitiatePayment)
 		uGroup.POST("orders/:order_sn/cancel", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionOrderCreateSelf), orderController.CancelOrder)
+		uGroup.POST("reviews", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionReviewCreateSelf), reviewController.Create)
+		uGroup.POST("reviews/:id/append", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionReviewAppendSelf), reviewController.Append)
 	}
 
 	baseRouter := v1.Group("base")

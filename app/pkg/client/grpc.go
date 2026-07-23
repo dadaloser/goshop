@@ -6,6 +6,7 @@ import (
 	goodspb "goshop/api/goods/v1"
 	inventorypb "goshop/api/inventory/v1"
 	orderpb "goshop/api/order/v1"
+	reviewpb "goshop/api/review/v1"
 	userpb "goshop/api/user/v1"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/rpcserver"
@@ -39,6 +40,14 @@ func DialService(
 		return nil, fmt.Errorf("dial %s (%s): %w", service, ServiceEndpoint(service), err)
 	}
 	return conn, nil
+}
+
+func NewReviewClient(ctx context.Context, registry *options.RegistryOptions, security *rpcserver.SecurityPolicy, opts ...rpcserver.ClientOption) (reviewpb.ReviewClient, *grpc.ClientConn, error) {
+	conn, err := DialService(ctx, registry, security, ServiceReview, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	return reviewpb.NewReviewClient(conn), conn, nil
 }
 
 func NewGoodsClient(

@@ -501,6 +501,14 @@ func (f fakeOutboxStore) ListByStatus(ctx context.Context, topic, status string,
 	return nil, nil
 }
 
+func (f fakeOutboxStore) CountByStatus(ctx context.Context, topic, status string) (int64, error) {
+	return 0, nil
+}
+
+func (f fakeOutboxStore) RequeueStale(ctx context.Context, topic string, claimedBefore int64) (int64, error) {
+	return 0, nil
+}
+
 func (f fakeOutboxStore) MarkDone(ctx context.Context, id int32) error {
 	if f.markDone != nil {
 		return f.markDone(ctx, id)

@@ -23,6 +23,8 @@ type GoodsSearchDO struct {
 	MarketPriceFen int64  `json:"market_price_fen"`
 	GoodsBrief     string `json:"goods_brief"`
 	ShopPriceFen   int64  `json:"shop_price_fen"`
+	SPUCode        string `json:"spu_code"`
+	SKUCode        string `json:"sku_code"`
 }
 
 func (GoodsSearchDO) GetIndexName() string {
@@ -49,6 +51,8 @@ type GoodsDO struct {
 
 	Name            string   `gorm:"type:varchar(50);not null"`
 	GoodsSn         string   `gorm:"type:varchar(50);not null"`
+	SPUCode         string   `gorm:"column:spu_code;type:varchar(64);not null;index"`
+	SKUCode         string   `gorm:"column:sku_code;type:varchar(64);not null;uniqueIndex"`
 	ClickNum        int32    `gorm:"type:int;default:0;not null"`
 	SoldNum         int32    `gorm:"type:int;default:0;not null"`
 	FavNum          int32    `gorm:"type:int;default:0;not null"`

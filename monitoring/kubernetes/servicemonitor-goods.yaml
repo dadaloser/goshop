@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: goshop-goods-observability
+  labels:
+    app.kubernetes.io/name: goshop
+    app.kubernetes.io/component: goods-outbox
+spec:
+  jobLabel: app.kubernetes.io/name
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: goshop
+      app.kubernetes.io/name: goshop-goods-srv
+  endpoints:
+    - path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      targetPort: 8051

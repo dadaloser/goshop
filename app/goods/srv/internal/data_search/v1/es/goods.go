@@ -45,6 +45,9 @@ func (g *goods) Delete(ctx context.Context, ID uint64) error {
 	}
 
 	_, err := g.esClient.Delete().Index(do.GoodsSearchDO{}.GetIndexName()).Id(strconv.Itoa(int(ID))).Refresh("true").Do(ctx)
+	if elastic.IsNotFound(err) {
+		return nil
+	}
 	return err
 }
 
@@ -53,15 +56,7 @@ func (g *goods) Update(ctx context.Context, goods *do.GoodsSearchDO) error {
 		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
 	}
 
-	err := g.Delete(ctx, uint64(goods.ID))
-	if err != nil {
-		return err
-	}
-	err = g.Create(ctx, goods)
-	if err != nil {
-		return err
-	}
-	return nil
+	return g.Create(ctx, goods)
 }
 
 func (g *goods) Search(ctx context.Context, req *v1.GoodsFilterRequest) (*do.GoodsSearchDOList, error) {
@@ -72,32 +67,7 @@ func (g *goods) Search(ctx context.Context, req *v1.GoodsFilterRequest) (*do.Goo
 		req.GoodsFilterRequest = &proto.GoodsFilterRequest{}
 	}
 
-	//match bool 复合查询
-	q := elastic.NewBoolQuery()
-	if req.KeyWords != "" {
-		q = q.Must(elastic.NewMultiMatchQuery(req.KeyWords, "name", "goods_brief"))
-	}
-	if req.IsHot {
-		q = q.Filter(elastic.NewTermQuery("is_hot", req.IsHot))
-	}
-	if req.IsNew {
-		q = q.Filter(elastic.NewTermQuery("is_new", req.IsNew))
-	}
-
-	if req.PriceMinFen > 0 {
-		q = q.Filter(elastic.NewRangeQuery("shop_price_fen").Gte(req.PriceMinFen))
-	}
-	if req.PriceMaxFen > 0 {
-		q = q.Filter(elastic.NewRangeQuery("shop_price_fen").Lte(req.PriceMaxFen))
-	}
-
-	if req.Brand > 0 {
-		q = q.Filter(elastic.NewTermQuery("brands_id", req.Brand))
-	}
-
-	if req.TopCategory > 0 {
-		q = q.Filter(elastic.NewTermsQuery("category_id", req.CategoryIDs...))
-	}
+	q := buildGoodsSearchQuery(req)
 
 	//分页
 	if req.Pages == 0 {
@@ -131,6 +101,45 @@ func (g *goods) Search(ctx context.Context, req *v1.GoodsFilterRequest) (*do.Goo
 		ret.Items = append(ret.Items, &goods)
 	}
 	return &ret, err
+}
+
+func buildGoodsSearchQuery(req *v1.GoodsFilterRequest) *elastic.BoolQuery {
+	q := elastic.NewBoolQuery()
+	if !req.IncludeOffSale {
+		q = q.Filter(elastic.NewTermQuery("on_sale", true))
+	}
+	if req.SpuCode != "" {
+		q = q.Filter(elastic.NewTermQuery("spu_code.keyword", req.SpuCode))
+	}
+	if req.SkuCode != "" {
+		q = q.Filter(elastic.NewTermQuery("sku_code.keyword", req.SkuCode))
+	}
+	if req.KeyWords != "" {
+		q = q.Must(elastic.NewMultiMatchQuery(req.KeyWords, "name", "goods_brief"))
+	}
+	if req.IsHot {
+		q = q.Filter(elastic.NewTermQuery("is_hot", req.IsHot))
+	}
+	if req.IsNew {
+		q = q.Filter(elastic.NewTermQuery("is_new", req.IsNew))
+	}
+
+	if req.PriceMinFen > 0 {
+		q = q.Filter(elastic.NewRangeQuery("shop_price_fen").Gte(req.PriceMinFen))
+	}
+	if req.PriceMaxFen > 0 {
+		q = q.Filter(elastic.NewRangeQuery("shop_price_fen").Lte(req.PriceMaxFen))
+	}
+
+	if req.Brand > 0 {
+		q = q.Filter(elastic.NewTermQuery("brands_id", req.Brand))
+	}
+
+	if req.TopCategory > 0 {
+		q = q.Filter(elastic.NewTermsQuery("category_id", req.CategoryIDs...))
+	}
+
+	return q
 }
 
 var _ v1.GoodsStore = &goods{}

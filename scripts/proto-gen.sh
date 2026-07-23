@@ -71,6 +71,7 @@ generate_business_proto api/user/v1 user.proto
 generate_business_proto api/goods/v1 goods.proto
 generate_business_proto api/inventory/v1 inventory.proto
 generate_business_proto api/order/v1 order.proto
+generate_business_proto api/review/v1 review.proto
 generate_metadata_proto
 
 echo "proto generation complete"

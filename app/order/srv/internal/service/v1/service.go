@@ -5,7 +5,10 @@ import (
 	"goshop/app/order/srv/internal/boundary"
 	v1 "goshop/app/order/srv/internal/data/v1"
 	"goshop/app/pkg/options"
+	reviewsrv "goshop/app/review/srv"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type ServiceFactory interface {
@@ -26,6 +29,7 @@ type service struct {
 	upstream  upstream
 	now       func() time.Time
 	lifecycle LifecycleConfig
+	reviews   *reviewsrv.Service
 }
 
 type upstream struct {
@@ -38,8 +42,16 @@ func (s *service) Orders() OrderSrv {
 }
 
 func (s *service) RunBackground(ctx context.Context) error {
-	return s.runLifecycleWorker(ctx)
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.Go(func() error { return s.runLifecycleWorker(groupCtx) })
+	if s.reviews != nil {
+		group.Go(func() error { return s.reviews.RunOutbox(groupCtx) })
+	}
+	return group.Wait()
 }
+
+func (s *service) SetReviewService(reviews *reviewsrv.Service) { s.reviews = reviews }
+func (s *service) ReviewService() *reviewsrv.Service           { return s.reviews }
 
 var _ ServiceFactory = &service{}
 

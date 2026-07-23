@@ -10,6 +10,7 @@ import (
 	"goshop/pkg/errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type outbox struct {
@@ -37,7 +38,7 @@ func (o *outbox) ClaimPending(ctx context.Context, topic string, limit int, nowU
 
 	var events []*do.OutboxEventDO
 	err := o.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
 			Where("topic = ? AND status = ? AND next_attempt_at <= ?", topic, do.OutboxStatusPending, nowUnix).
 			Order("id asc").
 			Limit(limit).
@@ -65,6 +66,7 @@ func (o *outbox) ClaimPending(ctx context.Context, topic string, limit int, nowU
 			Updates(map[string]interface{}{
 				"status":          do.OutboxStatusProcessing,
 				"processing_lock": topic,
+				"claimed_at":      nowUnix,
 			}).Error; err != nil {
 			return errors.WithCode(code2.ErrDatabase, err.Error())
 		}
@@ -95,11 +97,37 @@ func (o *outbox) ListByStatus(ctx context.Context, topic, status string, limit i
 	return events, nil
 }
 
+func (o *outbox) CountByStatus(ctx context.Context, topic, status string) (int64, error) {
+	query := o.db.WithContext(ctx).Model(&do.OutboxEventDO{})
+	if strings.TrimSpace(topic) != "" {
+		query = query.Where("topic = ?", topic)
+	}
+	if strings.TrimSpace(status) != "" {
+		query = query.Where("status = ?", status)
+	}
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return count, nil
+}
+
+func (o *outbox) RequeueStale(ctx context.Context, topic string, claimedBefore int64) (int64, error) {
+	result := o.db.WithContext(ctx).Model(&do.OutboxEventDO{}).
+		Where("topic = ? AND status = ? AND claimed_at > 0 AND claimed_at <= ?", topic, do.OutboxStatusProcessing, claimedBefore).
+		Updates(map[string]interface{}{"status": do.OutboxStatusPending, "processing_lock": "", "claimed_at": 0, "next_attempt_at": 0})
+	if result.Error != nil {
+		return 0, errors.WithCode(code2.ErrDatabase, result.Error.Error())
+	}
+	return result.RowsAffected, nil
+}
+
 func (o *outbox) MarkDone(ctx context.Context, id int32) error {
 	return o.updateStatus(ctx, id, map[string]interface{}{
 		"status":          do.OutboxStatusDone,
 		"last_error":      "",
 		"processing_lock": "",
+		"claimed_at":      0,
 	})
 }
 
@@ -110,6 +138,7 @@ func (o *outbox) MarkRetry(ctx context.Context, id int32, retryCount int32, next
 		"next_attempt_at": nextAttemptAt,
 		"last_error":      trimError(lastError),
 		"processing_lock": "",
+		"claimed_at":      0,
 	})
 }
 
@@ -119,6 +148,7 @@ func (o *outbox) MarkDead(ctx context.Context, id int32, retryCount int32, lastE
 		"retry_count":     retryCount,
 		"last_error":      trimError(lastError),
 		"processing_lock": "",
+		"claimed_at":      0,
 	})
 }
 
@@ -126,6 +156,7 @@ func (o *outbox) ReleaseClaim(ctx context.Context, id int32) error {
 	return o.updateStatus(ctx, id, map[string]interface{}{
 		"status":          do.OutboxStatusPending,
 		"processing_lock": "",
+		"claimed_at":      0,
 	})
 }
 

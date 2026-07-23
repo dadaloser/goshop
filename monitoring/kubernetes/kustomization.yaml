@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - networkpolicy-observability-http.yaml
   - servicemonitor-api-admin.yaml
+  - servicemonitor-goods.yaml

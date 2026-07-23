@@ -46,6 +46,14 @@ var (
 	once sync.Once
 )
 
+// GormDB returns the validated order database for co-located transactional domains.
+func GormDB() *gorm.DB {
+	if factory, ok := data.(*dataFactory); ok {
+		return factory.db
+	}
+	return nil
+}
+
 func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 	if mysqlOpts == nil && data == nil {
 		return nil, errors.New("failed to get data store factory")

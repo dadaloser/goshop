@@ -14,6 +14,7 @@ const (
 	outboxPollInterval = 2 * time.Second
 	outboxBatchSize    = 20
 	outboxMaxRetry     = 5
+	outboxClaimTimeout = 5 * time.Minute
 )
 
 type goodsOutboxPayload struct {
@@ -95,7 +96,18 @@ func (s *service) processGoodsOutboxOnce(ctx context.Context) error {
 		return nil
 	}
 
-	events, err := outboxStore.ClaimPending(ctx, do.OutboxTopicGoodsSync, outboxBatchSize, time.Now().Unix())
+	now := time.Now()
+	requeued, err := outboxStore.RequeueStale(ctx, do.OutboxTopicGoodsSync, now.Add(-outboxClaimTimeout).Unix())
+	if err != nil {
+		return fmt.Errorf("requeue stale goods outbox claims: %w", err)
+	}
+	if requeued > 0 {
+		metricGoodsOutboxRecoveredTotal.Add(float64(requeued), do.OutboxTopicGoodsSync)
+	}
+	if err := observeGoodsOutboxBacklog(ctx, outboxStore); err != nil {
+		return err
+	}
+	events, err := outboxStore.ClaimPending(ctx, do.OutboxTopicGoodsSync, outboxBatchSize, now.Unix())
 	if err != nil {
 		return err
 	}
@@ -103,14 +115,21 @@ func (s *service) processGoodsOutboxOnce(ctx context.Context) error {
 		if event == nil {
 			continue
 		}
-		if err := processGoodsOutboxEvent(ctx, outboxStore, searchGoods, event); err != nil {
+		if err := processGoodsOutboxEvent(ctx, outboxStore, searchGoods, event, func(ctx context.Context, id uint64) (*do.GoodsSearchDO, error) {
+			current, err := s.data.Goods().Get(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			value := goodsSearchFromDTO(&dto.GoodsDTO{GoodsDO: *current})
+			return &value, nil
+		}); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func processGoodsOutboxEvent(ctx context.Context, outboxStore datav1.OutboxStore, searchGoods searchGoodsStore, event *do.OutboxEventDO) error {
+func processGoodsOutboxEvent(ctx context.Context, outboxStore datav1.OutboxStore, searchGoods searchGoodsStore, event *do.OutboxEventDO, resolvers ...func(context.Context, uint64) (*do.GoodsSearchDO, error)) error {
 	payload := goodsOutboxPayload{}
 	if err := json.Unmarshal([]byte(event.Payload), &payload); err != nil {
 		return outboxStore.MarkDead(ctx, event.ID, event.RetryCount+1, err.Error())
@@ -119,10 +138,16 @@ func processGoodsOutboxEvent(ctx context.Context, outboxStore datav1.OutboxStore
 	var processErr error
 	switch payload.Action {
 	case do.OutboxActionUpsert:
-		if payload.Goods == nil || payload.Goods.ID <= 0 {
+		if event.AggregateID <= 0 && (payload.Goods == nil || payload.Goods.ID <= 0) {
 			processErr = fmt.Errorf("invalid goods upsert payload")
 		} else {
-			processErr = searchGoods.Update(ctx, payload.Goods)
+			goods := payload.Goods
+			if len(resolvers) > 0 && resolvers[0] != nil {
+				goods, processErr = resolvers[0](ctx, uint64(event.AggregateID))
+			}
+			if processErr == nil {
+				processErr = searchGoods.Update(ctx, goods)
+			}
 		}
 	case do.OutboxActionDelete:
 		if payload.ID == 0 {
@@ -134,15 +159,18 @@ func processGoodsOutboxEvent(ctx context.Context, outboxStore datav1.OutboxStore
 		processErr = fmt.Errorf("unsupported outbox action %q", payload.Action)
 	}
 	if processErr == nil {
+		metricGoodsOutboxProcessedTotal.Inc(payload.Action, "success")
 		return outboxStore.MarkDone(ctx, event.ID)
 	}
 
 	retryCount := event.RetryCount + 1
 	if retryCount >= event.MaxRetryCount {
+		metricGoodsOutboxProcessedTotal.Inc(payload.Action, "dead")
 		return outboxStore.MarkDead(ctx, event.ID, retryCount, processErr.Error())
 	}
 
 	nextAttempt := time.Now().Add(backoffDuration(retryCount)).Unix()
+	metricGoodsOutboxProcessedTotal.Inc(payload.Action, "retry")
 	return outboxStore.MarkRetry(ctx, event.ID, retryCount, nextAttempt, processErr.Error())
 }
 

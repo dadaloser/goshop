@@ -42,6 +42,9 @@ const (
 	PermissionOrderPaySelf           Permission = "order:pay:self"
 	PermissionOrderStatusLogReadSelf Permission = "order:status_log:read:self"
 	PermissionInventoryReadPublic    Permission = "inventory:read:public"
+	PermissionReviewCreateSelf       Permission = "review:create:self"
+	PermissionReviewAppendSelf       Permission = "review:append:self"
+	PermissionReviewReadPublic       Permission = "review:read:public"
 
 	PermissionUserCreateAny           Permission = "user:create:any"
 	PermissionUserListAny             Permission = "user:list:any"
@@ -60,6 +63,9 @@ const (
 	PermissionRoleReadAny             Permission = "role:read:any"
 	PermissionRoleAssignAny           Permission = "role:assign:any"
 	PermissionRoleWriteAny            Permission = "role:write:any"
+	PermissionReviewModerateAny       Permission = "review:moderate:any"
+	PermissionReviewReplyAny          Permission = "review:reply:any"
+	PermissionReviewAggregateRebuild  Permission = "review:aggregate:rebuild:any"
 )
 
 var customerPermissions = []Permission{
@@ -72,6 +78,9 @@ var customerPermissions = []Permission{
 	PermissionOrderReadSelf,
 	PermissionOrderPaySelf,
 	PermissionOrderStatusLogReadSelf,
+	PermissionReviewCreateSelf,
+	PermissionReviewAppendSelf,
+	PermissionReviewReadPublic,
 }
 
 var allPermissions = []Permission{
@@ -85,6 +94,9 @@ var allPermissions = []Permission{
 	PermissionOrderPaySelf,
 	PermissionOrderStatusLogReadSelf,
 	PermissionInventoryReadPublic,
+	PermissionReviewCreateSelf,
+	PermissionReviewAppendSelf,
+	PermissionReviewReadPublic,
 	PermissionUserCreateAny,
 	PermissionUserListAny,
 	PermissionUserReadAny,
@@ -102,6 +114,9 @@ var allPermissions = []Permission{
 	PermissionRoleReadAny,
 	PermissionRoleAssignAny,
 	PermissionRoleWriteAny,
+	PermissionReviewModerateAny,
+	PermissionReviewReplyAny,
+	PermissionReviewAggregateRebuild,
 }
 
 // CustomerPermissions returns a copy of the permissions granted to storefront

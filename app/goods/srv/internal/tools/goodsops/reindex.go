@@ -50,6 +50,8 @@ func reindexGoods(ctx context.Context, dataFactory datav1.DataFactory, searchFac
 				MarketPriceFen: goods.MarketPriceFen,
 				GoodsBrief:     goods.GoodsBrief,
 				ShopPriceFen:   goods.ShopPriceFen,
+				SPUCode:        goods.SPUCode,
+				SKUCode:        goods.SKUCode,
 			}
 			if err := searchFactory.Goods().Update(ctx, &searchDoc); err != nil {
 				return err

@@ -195,6 +195,8 @@ message CreateGoodsInfo {
   int32 brandId = 20;
   int64 marketPriceFen = 21;
   int64 shopPriceFen = 22;
+  string spuCode = 23;
+  string skuCode = 24;
 }
 
 message GoodsReduceRequest {
@@ -221,6 +223,9 @@ message GoodsFilterRequest  {
   int32 brand = 10;
   int64 priceMinFen = 11;
   int64 priceMaxFen = 12;
+  bool includeOffSale = 13;
+  string spuCode = 14;
+  string skuCode = 15;
 }
 
 
@@ -248,6 +253,8 @@ message GoodsInfoResponse {
   BrandInfoResponse brand = 22;
   int64 marketPriceFen = 23;
   int64 shopPriceFen = 24;
+  string spuCode = 25;
+  string skuCode = 26;
 }
 
 message GoodsListResponse {

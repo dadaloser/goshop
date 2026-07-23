@@ -2,8 +2,12 @@ package es
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
+	proto "goshop/api/goods/v1"
+	searchv1 "goshop/app/goods/srv/internal/data_search/v1"
 	"goshop/app/goods/srv/internal/domain/do"
 	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
@@ -61,5 +65,20 @@ func TestGoodsWriteRejectsInvalidInput(t *testing.T) {
 				t.Fatalf("error = %v, want code %d", err, tt.code)
 			}
 		})
+	}
+}
+
+func TestGoodsSearchVisibilityAndSKUFilters(t *testing.T) {
+	query := buildGoodsSearchQuery(&searchv1.GoodsFilterRequest{GoodsFilterRequest: &proto.GoodsFilterRequest{SpuCode: "spu-1", SkuCode: "sku-1"}})
+	source, err := query.Source()
+	if err != nil {
+		t.Fatalf("query.Source() error = %v", err)
+	}
+	encoded, _ := json.Marshal(source)
+	text := string(encoded)
+	for _, want := range []string{`"on_sale"`, `"spu_code.keyword"`, `"sku_code.keyword"`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("query = %s, want %s", text, want)
+		}
 	}
 }

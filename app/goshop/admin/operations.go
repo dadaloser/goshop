@@ -137,7 +137,7 @@ func (h *operationsHandler) listGoods(c *gin.Context) {
 		return
 	}
 	page, size := page(c)
-	resp, err := h.goods.GoodsList(c, &goodspb.GoodsFilterRequest{Pages: page, PagePerNums: size, KeyWords: c.Query("keywords")})
+	resp, err := h.goods.GoodsList(c, &goodspb.GoodsFilterRequest{Pages: page, PagePerNums: size, KeyWords: c.Query("keywords"), SpuCode: strings.TrimSpace(c.Query("spu_code")), SkuCode: strings.TrimSpace(c.Query("sku_code")), IncludeOffSale: true})
 	writeRPC(c, resp, err)
 }
 func (h *operationsHandler) getGoods(c *gin.Context) {

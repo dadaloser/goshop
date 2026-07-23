@@ -100,6 +100,33 @@ func TestProcessGoodsOutboxEventMarksDeadAfterMaxRetry(t *testing.T) {
 	}
 }
 
+func TestProcessGoodsOutboxEventUsesCurrentMySQLState(t *testing.T) {
+	var indexed *do.GoodsSearchDO
+	err := processGoodsOutboxEvent(
+		context.Background(),
+		fakeOutboxStore{markDone: func(context.Context, int32) error { return nil }},
+		fakeSearchGoodsStore{update: func(_ context.Context, goods *do.GoodsSearchDO) error {
+			indexed = goods
+			return nil
+		}},
+		&do.OutboxEventDO{
+			BaseModel:   gorm2.BaseModel{ID: 9},
+			AggregateID: 7,
+			Action:      do.OutboxActionUpsert,
+			Payload:     `{"action":"UPSERT","id":7,"goods":{"id":7,"name":"stale"}}`,
+		},
+		func(context.Context, uint64) (*do.GoodsSearchDO, error) {
+			return &do.GoodsSearchDO{ID: 7, Name: "current", OnSale: true}, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("processGoodsOutboxEvent() error = %v", err)
+	}
+	if indexed == nil || indexed.Name != "current" || !indexed.OnSale {
+		t.Fatalf("indexed goods = %+v, want current MySQL state", indexed)
+	}
+}
+
 type assertErr string
 
 func (e assertErr) Error() string {
