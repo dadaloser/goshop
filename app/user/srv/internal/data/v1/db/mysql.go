@@ -98,79 +98,85 @@ func validateUserSchema(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("user schema validation failed: nil db")
 	}
-	if !db.Migrator().HasTable(&dv1.UserDO{}) {
-		return fmt.Errorf("user schema validation failed: required table %q does not exist", (&dv1.UserDO{}).TableName())
-	}
-
-	requiredColumns := []string{
-		"id",
-		"add_time",
-		"update_time",
-		"deleted_at",
-		"is_deleted",
-		"username",
-		"mobile",
-		"email",
-		"password",
-		"nick_name",
-		"birthday",
-		"gender",
-		"role",
-		"account_status",
-		"mobile_verified",
-		"email_verified",
-		"last_login_at",
-	}
-	for _, column := range requiredColumns {
-		if !db.Migrator().HasColumn(&dv1.UserDO{}, column) {
-			return fmt.Errorf("user schema validation failed: required column %q.%q does not exist", (&dv1.UserDO{}).TableName(), column)
-		}
-	}
-	for _, model := range []interface{ TableName() string }{&dv1.UserSessionDO{}, &dv1.VerificationCodeDO{}, &dv1.UserResourceScopeDO{}} {
-		if !db.Migrator().HasTable(model) {
-			return fmt.Errorf("user schema validation failed: required table %q does not exist", model.TableName())
-		}
-	}
-	rbacTables := []struct {
-		model   interface{ TableName() string }
-		columns []string
-	}{
-		{
-			model:   &dv1.RoleDO{},
-			columns: []string{"id", "name", "description"},
-		},
-		{
-			model:   &dv1.UserRoleDO{},
-			columns: []string{"id", "user_id", "role_id"},
-		},
-		{
-			model:   &dv1.RolePermissionDO{},
-			columns: []string{"id", "role_id", "permission"},
-		},
-		{
-			model:   &dv1.RoleDomainDO{},
-			columns: []string{"id", "role_id", "domain"},
-		},
-		{
-			model:   &dv1.UserAuditLogDO{},
-			columns: []string{"id", "user_id", "actor_user_id", "actor_principal_type", "action", "from_status", "to_status", "detail", "add_time"},
-		},
-		{
-			model:   &dv1.AdminAuditLogDO{},
-			columns: []string{"id", "target_user_id", "actor_user_id", "actor_principal_type", "action", "detail", "correlation_id", "request_id", "target_type", "target_id", "domain", "store_id", "team_id", "add_time"},
-		},
-	}
-	for _, table := range rbacTables {
+	for _, table := range userSchemaChecks() {
 		if !db.Migrator().HasTable(table.model) {
 			return fmt.Errorf("user schema validation failed: required table %q does not exist", table.model.TableName())
 		}
-		for _, column := range table.columns {
+		for _, column := range table.required {
 			if !db.Migrator().HasColumn(table.model, column) {
 				return fmt.Errorf("user schema validation failed: required column %q.%q does not exist", table.model.TableName(), column)
 			}
 		}
 	}
 	return nil
+}
+
+type schemaTableCheck struct {
+	model    interface{ TableName() string }
+	required []string
+}
+
+func userSchemaChecks() []schemaTableCheck {
+	return []schemaTableCheck{
+		{
+			model: &dv1.UserDO{},
+			required: []string{
+				"id",
+				"add_time",
+				"update_time",
+				"deleted_at",
+				"is_deleted",
+				"username",
+				"mobile",
+				"email",
+				"password",
+				"nick_name",
+				"birthday",
+				"gender",
+				"role",
+				"account_status",
+				"mobile_verified",
+				"email_verified",
+				"last_login_at",
+			},
+		},
+		{
+			model:    &dv1.UserSessionDO{},
+			required: []string{"id", "user_id", "refresh_token_hash", "device_id", "device_name", "created_at", "last_used_at", "expires_at", "revoked_at"},
+		},
+		{
+			model:    &dv1.VerificationCodeDO{},
+			required: []string{"id", "channel", "purpose", "destination_hash", "code_hash", "attempts", "expires_at", "consumed_at", "created_at"},
+		},
+		{
+			model:    &dv1.UserResourceScopeDO{},
+			required: []string{"id", "user_id", "domain", "store_id", "team_id", "created_at"},
+		},
+		{
+			model:    &dv1.RoleDO{},
+			required: []string{"id", "name", "description"},
+		},
+		{
+			model:    &dv1.UserRoleDO{},
+			required: []string{"id", "user_id", "role_id"},
+		},
+		{
+			model:    &dv1.RolePermissionDO{},
+			required: []string{"id", "role_id", "permission"},
+		},
+		{
+			model:    &dv1.RoleDomainDO{},
+			required: []string{"id", "role_id", "domain"},
+		},
+		{
+			model:    &dv1.UserAuditLogDO{},
+			required: []string{"id", "user_id", "actor_user_id", "actor_principal_type", "action", "from_status", "to_status", "detail", "add_time"},
+		},
+		{
+			model:    &dv1.AdminAuditLogDO{},
+			required: []string{"id", "target_user_id", "actor_user_id", "actor_principal_type", "action", "detail", "correlation_id", "request_id", "target_type", "target_id", "domain", "store_id", "team_id", "add_time"},
+		},
+	}
 }
 
 func seedUserRBAC(db *gorm.DB) error {

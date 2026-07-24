@@ -25,11 +25,11 @@ make config-secret-check
 echo "[release-check] startup validation"
 make startup-validation-check
 
-if [[ (-n "${GOSHOP_GOODS_SCHEMA_TEST_MYSQL_DSN:-}" && -n "${GOSHOP_ORDER_SCHEMA_TEST_MYSQL_DSN:-}") || (-n "${GOSHOP_SCHEMA_TEST_MYSQL_USERNAME:-}" && -n "${GOSHOP_SCHEMA_TEST_MYSQL_PASSWORD:-}") || (-n "${GOODS_MYSQL_USERNAME:-}" && -n "${GOODS_MYSQL_PASSWORD:-}" && -n "${ORDER_MYSQL_USERNAME:-}" && -n "${ORDER_MYSQL_PASSWORD:-}") ]]; then
+if [[ (-n "${GOSHOP_GOODS_SCHEMA_TEST_MYSQL_DSN:-}" && -n "${GOSHOP_ORDER_SCHEMA_TEST_MYSQL_DSN:-}" && -n "${GOSHOP_USER_SCHEMA_TEST_MYSQL_DSN:-}" && -n "${GOSHOP_INVENTORY_SCHEMA_TEST_MYSQL_DSN:-}") || (-n "${GOSHOP_SCHEMA_TEST_MYSQL_USERNAME:-}" && -n "${GOSHOP_SCHEMA_TEST_MYSQL_PASSWORD:-}") || (-n "${GOODS_MYSQL_USERNAME:-}" && -n "${GOODS_MYSQL_PASSWORD:-}" && -n "${ORDER_MYSQL_USERNAME:-}" && -n "${ORDER_MYSQL_PASSWORD:-}" && -n "${USER_MYSQL_USERNAME:-}" && -n "${USER_MYSQL_PASSWORD:-}" && -n "${INVENTORY_MYSQL_USERNAME:-}" && -n "${INVENTORY_MYSQL_PASSWORD:-}") ]]; then
   echo "[release-check] schema integration"
   make schema-integration-test
 else
-  echo "[release-check] schema integration skipped (set both GOSHOP_GOODS_SCHEMA_TEST_MYSQL_DSN and GOSHOP_ORDER_SCHEMA_TEST_MYSQL_DSN, shared GOSHOP_SCHEMA_TEST_MYSQL_USERNAME/GOSHOP_SCHEMA_TEST_MYSQL_PASSWORD, or GOODS_MYSQL_*/ORDER_MYSQL_* credentials)"
+  echo "[release-check] schema integration skipped (set all four *_SCHEMA_TEST_MYSQL_DSN values, shared GOSHOP_SCHEMA_TEST_MYSQL_USERNAME/GOSHOP_SCHEMA_TEST_MYSQL_PASSWORD, or GOODS_/ORDER_/USER_/INVENTORY_MYSQL_* credentials)"
 fi
 
 echo "[release-check] protobuf drift"

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -375,51 +377,31 @@ func mustNewInventoryIntegrationService(t *testing.T, dsn string) *inventoryServ
 func prepareInventoryIntegrationSchema(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
-	statements := []string{
-		`CREATE TABLE IF NOT EXISTS inventory (
-			id int NOT NULL AUTO_INCREMENT,
-			add_time datetime(3) NULL,
-			update_time datetime(3) NULL,
-			deleted_at datetime(3) NULL,
-			is_deleted tinyint(1) DEFAULT 0,
-			goods int DEFAULT 0,
-			stocks int DEFAULT 0,
-			total int DEFAULT 0,
-			available int DEFAULT 0,
-			locked int DEFAULT 0,
-			sold int DEFAULT 0,
-			version int DEFAULT 0,
-			PRIMARY KEY (id),
-			KEY idx_inventory_goods (goods),
-			KEY idx_inventory_deleted_at (deleted_at)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-		`CREATE TABLE IF NOT EXISTS stockselldetail (
-			order_sn varchar(200) NOT NULL,
-			status int NOT NULL,
-			detail varchar(200) NOT NULL,
-			UNIQUE KEY idx_order_sn (order_sn)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
-		`CREATE TABLE IF NOT EXISTS inventory_adjustment_logs (
-			id bigint unsigned NOT NULL AUTO_INCREMENT,
-			goods_id int NOT NULL,
-			before_available int NOT NULL,
-			after_available int NOT NULL,
-			actor_user_id int NOT NULL,
-			correlation_id varchar(64) NOT NULL,
-			request_id varchar(128) NOT NULL,
-			reason varchar(255) NOT NULL,
-			created_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-			PRIMARY KEY (id),
-			UNIQUE KEY uk_inventory_adjustment_correlation (correlation_id),
-			KEY idx_inventory_adjustment_goods (goods_id, created_at)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+	dropStatements := []string{
+		"DROP TABLE IF EXISTS `inventory_adjustment_logs`",
+		"DROP TABLE IF EXISTS `stockselldetail`",
+		"DROP TABLE IF EXISTS `inventory`",
 	}
-
-	for _, statement := range statements {
+	for _, statement := range dropStatements {
 		if err := db.Exec(statement).Error; err != nil {
-			t.Fatalf("prepare inventory integration schema error = %v", err)
+			t.Fatalf("cleanup inventory integration schema error = %v", err)
 		}
 	}
+	t.Cleanup(func() {
+		for _, statement := range dropStatements {
+			_ = db.Exec(statement).Error
+		}
+	})
+
+	for _, path := range inventoryMigrationFiles(t) {
+		applyMigrationFile(t, db, path)
+	}
+	applySelectedMigrationStatements(t, db,
+		filepath.Join(migrationRoot(t), "migrations/202607230002_admin_resource_scopes_and_refunds.up.sql"),
+		func(statement string) bool {
+			return strings.Contains(statement, "CREATE TABLE `inventory_adjustment_logs`")
+		},
+	)
 }
 
 func seedInventoryIntegrationFixture(t *testing.T, db *gorm.DB, goodsID int32, stocks int32, orderPrefix string) {
@@ -462,6 +444,57 @@ func splitMySQLAddr(addr string) (string, string, error) {
 		return addr, "3306", nil
 	}
 	return "", "", err
+}
+
+func inventoryMigrationFiles(t *testing.T) []string {
+	t.Helper()
+
+	root := migrationRoot(t)
+	return []string{
+		filepath.Join(root, "migrations/202607040002_inventory_create_core_tables.up.sql"),
+		filepath.Join(root, "migrations/202607090001_inventory_add_stock_lifecycle_columns.up.sql"),
+	}
+}
+
+func migrationRoot(t *testing.T) string {
+	t.Helper()
+
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller(0) failed")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "../../../../../../../"))
+}
+
+func applyMigrationFile(t *testing.T, db *gorm.DB, path string) {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile(%s) error = %v", path, err)
+	}
+	if err = db.Exec(string(content)).Error; err != nil {
+		t.Fatalf("apply migration %s error = %v", filepath.Base(path), err)
+	}
+}
+
+func applySelectedMigrationStatements(t *testing.T, db *gorm.DB, path string, keep func(statement string) bool) {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile(%s) error = %v", path, err)
+	}
+
+	for _, statement := range strings.Split(string(content), ";") {
+		statement = strings.TrimSpace(statement)
+		if statement == "" || !keep(statement) {
+			continue
+		}
+		if err = db.Exec(statement + ";").Error; err != nil {
+			t.Fatalf("apply filtered migration from %s error = %v\nstatement:\n%s", filepath.Base(path), err, statement)
+		}
+	}
 }
 
 func inventoryIntegrationDSNFromEnv() string {

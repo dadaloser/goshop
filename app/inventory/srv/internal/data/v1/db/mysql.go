@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"fmt"
+	"goshop/app/inventory/srv/internal/domain/do"
 	"goshop/app/pkg/code"
 	appgorm "goshop/app/pkg/gorm"
 	"goshop/app/pkg/options"
@@ -82,6 +83,12 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (v12.DataFactory, error) {
 		sqlDB.SetMaxOpenConns(mysqlOpts.MaxOpenConnections)
 		sqlDB.SetMaxIdleConns(mysqlOpts.MaxIdleConnections)
 		sqlDB.SetConnMaxLifetime(mysqlOpts.MaxConnectionLifetime)
+		if err = validateInventorySchema(db); err != nil {
+			_ = sqlDB.Close()
+			dbFactory = nil
+			initErr = err
+			return
+		}
 	})
 
 	if dbFactory == nil || initErr != nil {
@@ -92,4 +99,58 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (v12.DataFactory, error) {
 
 func (ds *mysqlStore) Begin() *gorm.DB {
 	return ds.db.Begin()
+}
+
+type schemaTableCheck struct {
+	model    interface{ TableName() string }
+	required []string
+}
+
+func validateInventorySchema(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("inventory schema validation failed: nil db")
+	}
+
+	for _, table := range inventorySchemaChecks() {
+		if !db.Migrator().HasTable(table.model) {
+			return fmt.Errorf("inventory schema validation failed: required table %q does not exist", table.model.TableName())
+		}
+		for _, column := range table.required {
+			if !db.Migrator().HasColumn(table.model, column) {
+				return fmt.Errorf("inventory schema validation failed: required column %q.%q does not exist", table.model.TableName(), column)
+			}
+		}
+	}
+
+	return nil
+}
+
+func inventorySchemaChecks() []schemaTableCheck {
+	return []schemaTableCheck{
+		{
+			model: &do.InventoryDO{},
+			required: []string{
+				"id",
+				"add_time",
+				"update_time",
+				"deleted_at",
+				"is_deleted",
+				"goods",
+				"stocks",
+				"total",
+				"available",
+				"locked",
+				"sold",
+				"version",
+			},
+		},
+		{
+			model:    &do.StockSellDetailDO{},
+			required: []string{"order_sn", "status", "detail"},
+		},
+		{
+			model:    &do.InventoryAdjustmentDO{},
+			required: []string{"id", "goods_id", "before_available", "after_available", "actor_user_id", "correlation_id", "request_id", "reason", "created_at"},
+		},
+	}
 }

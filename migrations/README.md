@@ -46,8 +46,8 @@ The first implementation milestone should add reviewed migrations for:
 
 ## Schema Smoke Test
 
-The repository now includes a real-MySQL schema smoke test for `goods-srv` and
-`order-srv` startup validation:
+The repository now includes a real-MySQL schema smoke test for `user-srv`,
+`goods-srv`, `order-srv`, and `inventory-srv` startup validation:
 
 ```bash
 make schema-integration-test
@@ -55,20 +55,29 @@ make schema-integration-test
 
 Set either:
 
-- both `GOSHOP_GOODS_SCHEMA_TEST_MYSQL_DSN` and `GOSHOP_ORDER_SCHEMA_TEST_MYSQL_DSN`
+- all of `GOSHOP_USER_SCHEMA_TEST_MYSQL_DSN`,
+  `GOSHOP_GOODS_SCHEMA_TEST_MYSQL_DSN`,
+  `GOSHOP_ORDER_SCHEMA_TEST_MYSQL_DSN`, and
+  `GOSHOP_INVENTORY_SCHEMA_TEST_MYSQL_DSN`
 - or shared `GOSHOP_SCHEMA_TEST_MYSQL_USERNAME` / `GOSHOP_SCHEMA_TEST_MYSQL_PASSWORD`
   with optional `GOSHOP_SCHEMA_TEST_MYSQL_HOST`,
   `GOSHOP_SCHEMA_TEST_MYSQL_PORT`,
+  `GOSHOP_USER_SCHEMA_TEST_MYSQL_DATABASE`,
   `GOSHOP_GOODS_SCHEMA_TEST_MYSQL_DATABASE`, and
-  `GOSHOP_ORDER_SCHEMA_TEST_MYSQL_DATABASE`
+  `GOSHOP_ORDER_SCHEMA_TEST_MYSQL_DATABASE`, and
+  `GOSHOP_INVENTORY_SCHEMA_TEST_MYSQL_DATABASE`
 - or existing service credentials:
+  `USER_MYSQL_USERNAME` / `USER_MYSQL_PASSWORD`,
   `GOODS_MYSQL_USERNAME` / `GOODS_MYSQL_PASSWORD` and
-  `ORDER_MYSQL_USERNAME` / `ORDER_MYSQL_PASSWORD`
+  `ORDER_MYSQL_USERNAME` / `ORDER_MYSQL_PASSWORD` and
+  `INVENTORY_MYSQL_USERNAME` / `INVENTORY_MYSQL_PASSWORD`
   with optional `GOODS_MYSQL_HOST`, `GOODS_MYSQL_PORT`,
-  `GOODS_MYSQL_DATABASE`, `ORDER_MYSQL_HOST`, `ORDER_MYSQL_PORT`, and
-  `ORDER_MYSQL_DATABASE`
+  `GOODS_MYSQL_DATABASE`, `ORDER_MYSQL_HOST`, `ORDER_MYSQL_PORT`,
+  `ORDER_MYSQL_DATABASE`, `USER_MYSQL_HOST`, `USER_MYSQL_PORT`,
+  `USER_MYSQL_DATABASE`, `INVENTORY_MYSQL_HOST`,
+  `INVENTORY_MYSQL_PORT`, and `INVENTORY_MYSQL_DATABASE`
 
-The test flow connects to the goods and order databases separately, drops the
-target service tables, applies the reviewed service-specific migrations from
-scratch, and verifies that startup schema validation passes with
+The test flow connects to each service database separately, drops the target
+service tables, applies the reviewed service-specific migrations from scratch,
+and verifies that startup schema validation passes with
 `mysql.auto-migrate=false`.
