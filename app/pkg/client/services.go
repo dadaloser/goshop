@@ -10,7 +10,7 @@ const (
 	ServiceInventory = "goshop-inventory-srv"
 	ServiceOrder     = "goshop-order-srv"
 	ServiceUser      = "goshop-user-srv"
-	ServiceReview    = ServiceOrder
+	ServiceReview    = "goshop-review-srv"
 )
 
 func ServiceEndpoint(service string) string {

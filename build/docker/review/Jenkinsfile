@@ -1,0 +1,56 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'version', defaultValue: 'dev', description: 'Image version tag prefix')
+        string(name: 'branch', defaultValue: 'local', description: 'Image version tag suffix')
+    }
+
+    environment {
+        REGISTRY = "47.99.50.241:30002"
+        IMAGE_NAMESPACE = "goshop"
+        IMAGE_NAME = "goshop-review-srv"
+        CMD_PATH = "./cmd/review"
+        CONFIG_PATH = "configs/review/srv.yaml"
+        GRPC_PORT = "8015"
+        HTTP_PORT = "8055"
+        TEST_PACKAGES = "./cmd/review ./app/review/..."
+    }
+
+    stages {
+        stage('quality and security gates') { steps { sh 'bash scripts/ci/jenkins-quality-gates.sh' } }
+        stage('test') {
+            steps {
+                sh 'env GOCACHE=.cache/go-build go test $TEST_PACKAGES'
+            }
+        }
+        stage('docker login') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'harbor-goshop', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASSWORD')]) {
+                    sh 'echo "$HARBOR_PASSWORD" | docker login -u "$HARBOR_USER" --password-stdin http://$REGISTRY'
+                }
+            }
+        }
+        stage('docker build') {
+            steps {
+                sh '''
+                    docker build \
+                      -f build/docker/Dockerfile \
+                      --build-arg CMD_PATH=$CMD_PATH \
+                      --build-arg CONFIG_PATH=$CONFIG_PATH \
+                      --build-arg GRPC_PORT=$GRPC_PORT \
+                      --build-arg HTTP_PORT=$HTTP_PORT \
+                      -t $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME:${version}.${branch} .
+                '''
+            }
+        }
+        stage('supply chain verification') {
+            steps {
+                sh 'bash scripts/ci/jenkins-image-gates.sh $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME:${version}.${branch} $IMAGE_NAME'
+            }
+        }
+        stage('docker push') { steps { sh 'docker push $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME:${version}.${branch}' } }
+        stage('sign image') { steps { withCredentials([file(credentialsId: 'cosign-goshop-key', variable: 'COSIGN_KEY'), string(credentialsId: 'cosign-goshop-password', variable: 'COSIGN_PASSWORD')]) { sh 'bash scripts/ci/jenkins-sign-image.sh $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME:${version}.${branch} $IMAGE_NAME' } } }
+    }
+    post { always { archiveArtifacts artifacts: '*.spdx.json,*.digest', allowEmptyArchive: true, fingerprint: true } }
+}

@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	gpb "goshop/api/order/v1"
-	rpb "goshop/api/review/v1"
 	"goshop/app/order/srv/config"
 	"goshop/app/order/srv/internal/boundary"
 	"goshop/app/order/srv/internal/controller/order/v1"
 	db2 "goshop/app/order/srv/internal/data/v1/db"
 	v13 "goshop/app/order/srv/internal/service/v1"
-	reviewsrv "goshop/app/review/srv"
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
 )
@@ -39,10 +37,7 @@ func newOrderServiceFactory(ctx context.Context, cfg *config.Config) (v13.Servic
 		return nil, err
 	}
 
-	serviceFactory := v13.NewService(dataFactory, cfg.Dtm, goodsGateway, inventoryGateway, cfg.Lifecycle.ToServiceConfig())
-	reviewStore := reviewsrv.NewStore(db2.GormDB())
-	serviceFactory.SetReviewService(reviewsrv.New(reviewStore, reviewsrv.NewDBOrderVerifier(db2.GormDB())))
-	return serviceFactory, nil
+	return v13.NewService(dataFactory, cfg.Dtm, goodsGateway, inventoryGateway, cfg.Lifecycle.ToServiceConfig()), nil
 }
 
 func newOrderRPCServerWithFactory(cfg *config.Config, orderSrvFactory v13.ServiceFactory) (*rpcserver.Server, error) {
@@ -57,9 +52,6 @@ func newOrderRPCServerWithFactory(cfg *config.Config, orderSrvFactory v13.Servic
 		return nil, err
 	}
 	gpb.RegisterOrderServer(grpcServer.Server, orderServer)
-	if provider, ok := orderSrvFactory.(interface{ ReviewService() *reviewsrv.Service }); ok && provider.ReviewService() != nil {
-		rpb.RegisterReviewServer(grpcServer.Server, reviewsrv.NewGRPCServer(provider.ReviewService()))
-	}
 	return grpcServer, nil
 }
 

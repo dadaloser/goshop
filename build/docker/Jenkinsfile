@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'SERVICE', choices: ['admin', 'api', 'goods', 'inventory', 'order', 'user'], description: 'Service to build')
+        choice(name: 'SERVICE', choices: ['admin', 'api', 'goods', 'inventory', 'order', 'review', 'user'], description: 'Service to build')
         string(name: 'version', defaultValue: 'dev', description: 'Image version tag prefix')
         string(name: 'branch', defaultValue: 'local', description: 'Image version tag suffix')
         booleanParam(name: 'RUN_TESTS', defaultValue: true, description: 'Run Go tests before building image')
@@ -59,6 +59,14 @@ pipeline {
                             grpcPort: '8013',
                             httpPort: '8053',
                             tests: './cmd/order ./app/order/...',
+                        ],
+                        review: [
+                            image: 'goshop-review-srv',
+                            cmd: './cmd/review',
+                            config: 'configs/review/srv.yaml',
+                            grpcPort: '8015',
+                            httpPort: '8055',
+                            tests: './cmd/review ./app/review/...',
                         ],
                         user: [
                             image: 'goshop-user-srv',

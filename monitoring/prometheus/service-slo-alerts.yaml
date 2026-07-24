@@ -17,7 +17,7 @@ spec:
     - name: goshop-service-slo
       rules:
         - alert: GoShopServiceUnavailable
-          expr: up{job=~"goshop-(api|admin|goods-srv|inventory-srv|order-srv|user-srv)"} == 0
+          expr: up{job=~"goshop-(api|admin|goods-srv|inventory-srv|order-srv|review-srv|user-srv)"} == 0
           for: 2m
           labels: {severity: critical, team: platform, owner: platform-oncall}
           annotations:

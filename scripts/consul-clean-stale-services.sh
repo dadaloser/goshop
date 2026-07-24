@@ -8,6 +8,7 @@ services=(
   goshop-goods-srv
   goshop-inventory-srv
   goshop-order-srv
+  goshop-review-srv
   goshop-api
   goshop-admin
 )

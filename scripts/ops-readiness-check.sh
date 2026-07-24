@@ -8,7 +8,7 @@ bash -n scripts/ci/jenkins-quality-gates.sh scripts/ci/jenkins-image-gates.sh sc
 ruby -e 'require "yaml"; ARGV.each { |f| Psych.parse_stream(File.read(f)) }' \
   monitoring/kubernetes/*.yaml monitoring/prometheus/*.yaml deployments/kubernetes/*.yaml deployments/kubernetes/canary/*.yaml chaos/kubernetes/*.yaml .github/workflows/*.yml
 
-for service in goshop-api goshop-admin goshop-goods-srv goshop-inventory-srv goshop-order-srv goshop-user-srv; do
+for service in goshop-api goshop-admin goshop-goods-srv goshop-inventory-srv goshop-order-srv goshop-review-srv goshop-user-srv; do
   rg -q "$service" monitoring/kubernetes || { echo "missing ServiceMonitor coverage for $service" >&2; exit 1; }
 done
 

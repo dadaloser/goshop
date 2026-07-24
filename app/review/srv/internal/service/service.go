@@ -33,10 +33,37 @@ type PurchaseVerifier interface {
 type Service struct {
 	repo     Repository
 	verifier PurchaseVerifier
+	outbox   OutboxWorkerConfig
 }
 
-func New(repo Repository, verifier PurchaseVerifier) *Service {
-	return &Service{repo: repo, verifier: verifier}
+type OutboxWorkerConfig struct {
+	PollInterval time.Duration
+	BatchSize    int
+}
+
+type Option func(*Service)
+
+func WithOutboxWorker(pollInterval time.Duration, batchSize int) Option {
+	return func(s *Service) {
+		s.outbox = OutboxWorkerConfig{
+			PollInterval: pollInterval,
+			BatchSize:    batchSize,
+		}.normalize()
+	}
+}
+
+func New(repo Repository, verifier PurchaseVerifier, opts ...Option) *Service {
+	svc := &Service{
+		repo:     repo,
+		verifier: verifier,
+		outbox:   OutboxWorkerConfig{}.normalize(),
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 func (s *Service) Create(ctx context.Context, user int32, orderSN string, goods, rating int32, content string) (*domain.Review, error) {
@@ -107,10 +134,11 @@ func (s *Service) RebuildRating(ctx context.Context, goods, actor int32, request
 	return s.repo.RebuildRating(ctx, goods, actor, requestID)
 }
 func (s *Service) RunOutbox(ctx context.Context) error {
-	ticker := time.NewTicker(2 * time.Second)
+	cfg := s.outbox.normalize()
+	ticker := time.NewTicker(cfg.PollInterval)
 	defer ticker.Stop()
 	for {
-		if err := s.repo.ProcessOutbox(ctx, 50); err != nil {
+		if err := s.repo.ProcessOutbox(ctx, cfg.BatchSize); err != nil {
 			log.Errorf("process review rating outbox: %v", err)
 		}
 		select {
@@ -119,6 +147,16 @@ func (s *Service) RunOutbox(ctx context.Context) error {
 		case <-ticker.C:
 		}
 	}
+}
+
+func (c OutboxWorkerConfig) normalize() OutboxWorkerConfig {
+	if c.PollInterval <= 0 {
+		c.PollInterval = 2 * time.Second
+	}
+	if c.BatchSize <= 0 {
+		c.BatchSize = 50
+	}
+	return c
 }
 
 type OrderVerifier struct{ client opb.OrderClient }

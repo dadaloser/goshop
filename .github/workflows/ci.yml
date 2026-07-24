@@ -150,6 +150,44 @@ jobs:
       - name: Run inventory real DB integration tests
         run: make inventory-integration-test
 
+  review-integration:
+    name: Review Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      REVIEW_MYSQL_USERNAME: root
+      REVIEW_MYSQL_PASSWORD: integration
+      REVIEW_MYSQL_HOST: 127.0.0.1
+      REVIEW_MYSQL_PORT: "3306"
+      REVIEW_MYSQL_DATABASE: goshop_review_ci
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: integration
+          MYSQL_DATABASE: goshop_review_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pintegration"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run review real DB integration tests
+        run: env GOCACHE=/tmp/goshop-gocache go test ./app/review/srv/internal/data -run 'TestReviewRatingOutboxSurvivesRestartRealDB' -v
+
   schema-integration:
     name: Schema Integration
     runs-on: ubuntu-latest
@@ -163,6 +201,7 @@ jobs:
       GOSHOP_GOODS_SCHEMA_TEST_MYSQL_DATABASE: goshop_schema_ci
       GOSHOP_ORDER_SCHEMA_TEST_MYSQL_DATABASE: goshop_schema_ci
       GOSHOP_INVENTORY_SCHEMA_TEST_MYSQL_DATABASE: goshop_schema_ci
+      GOSHOP_REVIEW_SCHEMA_TEST_MYSQL_DATABASE: goshop_schema_ci
 
     services:
       mysql:

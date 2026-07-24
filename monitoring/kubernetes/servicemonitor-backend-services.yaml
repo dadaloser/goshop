@@ -7,6 +7,6 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: In
-        values: [goshop-inventory-srv, goshop-order-srv, goshop-user-srv]
+        values: [goshop-inventory-srv, goshop-order-srv, goshop-review-srv, goshop-user-srv]
   endpoints:
     - {path: /metrics, interval: 30s, scrapeTimeout: 10s, port: metrics}

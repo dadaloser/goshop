@@ -27,6 +27,7 @@ docker build \
 | goods | `./cmd/goods` | `configs/goods/srv.yaml` | `8010` | `8051` |
 | inventory | `./cmd/inventory` | `configs/inventory/srv.yaml` | `8012` | `8052` |
 | order | `./cmd/order` | `configs/order/srv.yaml` | `8013` | `8053` |
+| review | `./cmd/review` | `configs/review/srv.yaml` | `8015` | `8055` |
 | user | `./cmd/user` | `configs/user/srv.yaml` | `8014` | `8054` |
 
 运行时可通过 `APP_CONFIG` 覆盖配置文件路径。
@@ -35,7 +36,7 @@ Jenkins 参数：
 
 | 参数 | 说明 |
 | --- | --- |
-| `SERVICE` | `admin`、`api`、`goods`、`inventory`、`order`、`user` |
+| `SERVICE` | `admin`、`api`、`goods`、`inventory`、`order`、`review`、`user` |
 | `version` | 镜像 tag 前缀，例如 `v1.0.0` |
 | `branch` | 镜像 tag 后缀，例如 `main`、`dev`、提交短 SHA |
 | `RUN_TESTS` | 是否在构建镜像前运行对应服务测试 |

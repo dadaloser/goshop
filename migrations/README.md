@@ -47,7 +47,7 @@ The first implementation milestone should add reviewed migrations for:
 ## Schema Smoke Test
 
 The repository now includes a real-MySQL schema smoke test for `user-srv`,
-`goods-srv`, `order-srv`, and `inventory-srv` startup validation:
+`goods-srv`, `order-srv`, `inventory-srv`, and `review-srv` startup validation:
 
 ```bash
 make schema-integration-test
@@ -58,24 +58,28 @@ Set either:
 - all of `GOSHOP_USER_SCHEMA_TEST_MYSQL_DSN`,
   `GOSHOP_GOODS_SCHEMA_TEST_MYSQL_DSN`,
   `GOSHOP_ORDER_SCHEMA_TEST_MYSQL_DSN`, and
-  `GOSHOP_INVENTORY_SCHEMA_TEST_MYSQL_DSN`
+  `GOSHOP_INVENTORY_SCHEMA_TEST_MYSQL_DSN`, and
+  `GOSHOP_REVIEW_SCHEMA_TEST_MYSQL_DSN`
 - or shared `GOSHOP_SCHEMA_TEST_MYSQL_USERNAME` / `GOSHOP_SCHEMA_TEST_MYSQL_PASSWORD`
   with optional `GOSHOP_SCHEMA_TEST_MYSQL_HOST`,
   `GOSHOP_SCHEMA_TEST_MYSQL_PORT`,
   `GOSHOP_USER_SCHEMA_TEST_MYSQL_DATABASE`,
   `GOSHOP_GOODS_SCHEMA_TEST_MYSQL_DATABASE`, and
   `GOSHOP_ORDER_SCHEMA_TEST_MYSQL_DATABASE`, and
-  `GOSHOP_INVENTORY_SCHEMA_TEST_MYSQL_DATABASE`
+  `GOSHOP_INVENTORY_SCHEMA_TEST_MYSQL_DATABASE`, and
+  `GOSHOP_REVIEW_SCHEMA_TEST_MYSQL_DATABASE`
 - or existing service credentials:
   `USER_MYSQL_USERNAME` / `USER_MYSQL_PASSWORD`,
   `GOODS_MYSQL_USERNAME` / `GOODS_MYSQL_PASSWORD` and
   `ORDER_MYSQL_USERNAME` / `ORDER_MYSQL_PASSWORD` and
-  `INVENTORY_MYSQL_USERNAME` / `INVENTORY_MYSQL_PASSWORD`
+  `INVENTORY_MYSQL_USERNAME` / `INVENTORY_MYSQL_PASSWORD` and
+  `REVIEW_MYSQL_USERNAME` / `REVIEW_MYSQL_PASSWORD`
   with optional `GOODS_MYSQL_HOST`, `GOODS_MYSQL_PORT`,
   `GOODS_MYSQL_DATABASE`, `ORDER_MYSQL_HOST`, `ORDER_MYSQL_PORT`,
   `ORDER_MYSQL_DATABASE`, `USER_MYSQL_HOST`, `USER_MYSQL_PORT`,
   `USER_MYSQL_DATABASE`, `INVENTORY_MYSQL_HOST`,
-  `INVENTORY_MYSQL_PORT`, and `INVENTORY_MYSQL_DATABASE`
+  `INVENTORY_MYSQL_PORT`, `INVENTORY_MYSQL_DATABASE`,
+  `REVIEW_MYSQL_HOST`, `REVIEW_MYSQL_PORT`, and `REVIEW_MYSQL_DATABASE`
 
 The test flow connects to each service database separately, drops the target
 service tables, applies the reviewed service-specific migrations from scratch,

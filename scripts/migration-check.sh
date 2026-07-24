@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 README="${ROOT_DIR}/migrations/README.md"
 USER_DB_FILE="app/user/srv/internal/data/v1/db/mysql.go"
+REVIEW_DB_FILE="app/review/srv/internal/data/db/mysql.go"
 MIGRATIONS_DIR="${ROOT_DIR}/migrations"
 
 if [[ ! -s "${README}" ]]; then
@@ -17,7 +18,7 @@ if [[ -z "${matches}" ]]; then
   exit 0
 fi
 
-unexpected="$(printf '%s\n' "${matches}" | awk -v allowed="${ROOT_DIR}/${USER_DB_FILE}" -F: '$1 != allowed { print }')"
+unexpected="$(printf '%s\n' "${matches}" | awk -v allowed_user="${ROOT_DIR}/${USER_DB_FILE}" -v allowed_review="${ROOT_DIR}/${REVIEW_DB_FILE}" -F: '$1 != allowed_user && $1 != allowed_review { print }')"
 if [[ -n "${unexpected}" ]]; then
   echo "unexpected GORM AutoMigrate usage found:" >&2
   printf '%s\n' "${unexpected}" >&2
@@ -27,6 +28,10 @@ fi
 
 if ! rg -q 'if mysqlOpts\.AutoMigrate' "${ROOT_DIR}/${USER_DB_FILE}"; then
   echo "user service AutoMigrate must remain guarded by mysql.auto-migrate" >&2
+  exit 1
+fi
+if ! rg -q 'if mysqlOpts\.AutoMigrate' "${ROOT_DIR}/${REVIEW_DB_FILE}"; then
+  echo "review service AutoMigrate must remain guarded by mysql.auto-migrate" >&2
   exit 1
 fi
 
@@ -74,6 +79,12 @@ assert_up_migration_contains 'idx_admin_audit_logs_actor' 'admin_audit_logs.acto
 assert_up_migration_contains 'CREATE TABLE `inventory`' 'inventory table'
 assert_up_migration_contains 'CREATE TABLE `stockselldetail`' 'stockselldetail table'
 assert_up_migration_contains 'CREATE TABLE `inventory_adjustment_logs`' 'inventory_adjustment_logs table'
+assert_up_migration_contains 'CREATE TABLE `reviews`' 'reviews table'
+assert_up_migration_contains 'CREATE TABLE `review_appends`' 'review_appends table'
+assert_up_migration_contains 'CREATE TABLE `review_replies`' 'review_replies table'
+assert_up_migration_contains 'CREATE TABLE `review_audit_logs`' 'review_audit_logs table'
+assert_up_migration_contains 'CREATE TABLE `review_outbox_events`' 'review_outbox_events table'
+assert_up_migration_contains 'CREATE TABLE `review_product_ratings`' 'review_product_ratings table'
 assert_up_migration_contains 'market_price_fen' 'goods.market_price_fen column'
 assert_up_migration_contains 'shop_price_fen' 'goods.shop_price_fen column'
 assert_up_migration_contains 'order_mount_fen' 'orderinfo.order_mount_fen column'

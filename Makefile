@@ -28,7 +28,7 @@ help:
 	@echo "  make migration-check  Fail on unsafe AutoMigrate usage or missing reviewed startup schema coverage"
 	@echo "  make config-secret-check  Fail if configs contain known secrets or unsafe defaults"
 	@echo "  make startup-validation-check  Fail if startup validation can be bypassed by log.development"
-	@echo "  make schema-integration-test  Run real-MySQL user/goods/order/inventory startup schema integration tests"
+	@echo "  make schema-integration-test  Run real-MySQL user/goods/order/inventory/review startup schema integration tests"
 	@echo "  make format-check  Fail if gofmt would change tracked Go files"
 	@echo "  make vet-check  Run go vet on app/gmicro/pkg business code"
 	@echo "  make lint-check  Run pinned golangci-lint version"

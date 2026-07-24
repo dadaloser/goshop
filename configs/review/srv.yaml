@@ -1,0 +1,69 @@
+server:
+  name: goshop-review-srv
+  host: "0.0.0.0"
+  port: 8015
+  http-port: 8055
+  healthz: true
+  enable-metrics: true
+  profiling: false
+  profiling-token: ""
+
+log:
+  name: goshop-review-srv
+  development: true
+  level: debug
+  format: console
+  enable-color: true
+  disable-caller: false
+  disable-stacktrace: false
+  output-paths: logs/goshop-review-srv.log,stdout
+  error-output-paths: logs/goshop-review-srv.error.log
+
+registry:
+  address: 192.168.1.92:8500
+  scheme: http
+
+rpc-security:
+  cert-file: "configs/tls/dev/internal.crt"
+  key-file: "configs/tls/dev/internal.key"
+  ca-file: "configs/tls/dev/internal.crt"
+  server-name: "goshop.internal"
+
+rpc-client-resilience:
+  enabled: true
+  timeout: 2s
+  max-concurrency: 100
+  error-ratio: 0.5
+  min-request-amount: 20
+  stat-interval: 10s
+  recovery-timeout: 30s
+
+telemetry:
+  name: goshop-review-srv
+  endpoint: "http://127.0.0.1:14268/api/traces"
+  sampler: 1.0
+  batcher: jaeger
+
+mysql:
+  host: "103.119.16.145"
+  port: "3306"
+  username: "" # use REVIEW_MYSQL_USERNAME or secret manager in production
+  password: "" # use REVIEW_MYSQL_PASSWORD or secret manager in production
+  database: "goshop_review_srv"
+  max-idle-connections: 100
+  max-open-connections: 100
+  max-connection-life-time: 10s
+  log-level: 4
+  auto-migrate: false
+  resilience:
+    enabled: true
+    timeout: 2s
+    max-concurrency: 100
+    error-ratio: 0.5
+    min-request-amount: 20
+    stat-interval: 10s
+    recovery-timeout: 30s
+
+outbox:
+  poll-interval: 2s
+  batch-size: 50
