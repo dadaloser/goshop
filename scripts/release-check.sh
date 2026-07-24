@@ -37,6 +37,9 @@ env GOCACHE="${GOCACHE_DIR}" go test -count=50 ./gmicro/server/rpcserver
 echo "[release-check] race and coverage"
 COVERPROFILE="/tmp/goshop-coverage.out" GOCACHE="${GOCACHE_DIR}" bash ./scripts/go-test-race-cover.sh
 
+echo "[release-check] core coverage thresholds"
+COVERPROFILE="/tmp/goshop-coverage.out" bash ./scripts/coverage-threshold-check.sh
+
 echo "[release-check] lint"
 bash ./scripts/lint.sh
 

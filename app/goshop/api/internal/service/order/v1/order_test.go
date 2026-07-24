@@ -3,7 +3,9 @@ package v1
 import (
 	"context"
 	stderrors "errors"
+	"sync"
 	"testing"
+	"time"
 
 	gpb "goshop/api/goods/v1"
 	ipb "goshop/api/inventory/v1"
@@ -11,6 +13,7 @@ import (
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/payment"
 	"goshop/app/pkg/code"
+	"goshop/app/pkg/options"
 	"goshop/pkg/errors"
 
 	"google.golang.org/grpc"
@@ -581,4 +584,376 @@ func TestPayCallbackMetricResult(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOrderPaymentRefundEndToEnd(t *testing.T) {
+	orders := newLifecycleOrderClient()
+	provider := &lifecyclePaymentProvider{
+		initiation: payment.InitiateResponse{
+			PaymentID:   "payment-1",
+			Provider:    "mock",
+			CheckoutURL: "https://pay.example.test/checkout/payment-1",
+			ExpiresAt:   time.Unix(1_800_000_000, 0).UTC(),
+		},
+	}
+	var confirmed []*ipb.SellInfo
+	svc := &orderService{
+		data: fakeDataFactory{
+			orderClient: orders,
+			inventoryClient: fakeInventoryClient{
+				confirm: func(_ context.Context, in *ipb.SellInfo, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+					confirmed = append(confirmed, in)
+					return &emptypb.Empty{}, nil
+				},
+			},
+		},
+		provider: provider,
+		paymentOpts: &options.PaymentOptions{
+			Enabled:         true,
+			Provider:        "mock",
+			CheckoutBaseURL: "https://pay.example.test/checkout",
+		},
+	}
+
+	orderSN, err := svc.SubmitOrder(context.Background(), 9, &SubmitOrderRequest{
+		Address: "上海市浦东新区",
+		Name:    "buyer",
+		Mobile:  "13800138000",
+		Post:    "请尽快发货",
+	})
+	if err != nil {
+		t.Fatalf("SubmitOrder() error = %v", err)
+	}
+
+	initiation, err := svc.InitiatePayment(context.Background(), 9, orderSN)
+	if err != nil {
+		t.Fatalf("InitiatePayment() error = %v", err)
+	}
+	if initiation == nil || initiation.PaymentID != "payment-1" || initiation.Provider != "mock" || initiation.AmountFen != 2999 {
+		t.Fatalf("InitiatePayment() response = %+v", initiation)
+	}
+
+	duplicate, err := svc.ProcessPayCallback(context.Background(), &payment.CallbackRequest{
+		Provider:  "mock",
+		EventID:   "evt-pay-1",
+		EventType: "payment_succeeded",
+		OrderSN:   orderSN,
+		TradeNo:   "trade-1",
+		AmountFen: 2999,
+	})
+	if err != nil {
+		t.Fatalf("ProcessPayCallback(payment_succeeded) error = %v", err)
+	}
+	if duplicate {
+		t.Fatal("ProcessPayCallback(payment_succeeded) duplicate=true, want false")
+	}
+	if status := orders.currentStatus(); status != orderStatusTradeSuccess {
+		t.Fatalf("order status after payment = %q, want %q", status, orderStatusTradeSuccess)
+	}
+	if len(confirmed) != 1 || confirmed[0].GetOrderSn() != orderSN {
+		t.Fatalf("inventory confirmations = %+v", confirmed)
+	}
+
+	if _, err := orders.UpdateOrderStatus(context.Background(), &opb.OrderStatus{OrderSn: orderSN, Status: orderStatusTradeFinish}); err != nil {
+		t.Fatalf("UpdateOrderStatus(TRADE_FINISHED) error = %v", err)
+	}
+	if _, err := orders.UpdateOrderStatus(context.Background(), &opb.OrderStatus{OrderSn: orderSN, Status: "REFUND_PENDING"}); err != nil {
+		t.Fatalf("UpdateOrderStatus(REFUND_PENDING) error = %v", err)
+	}
+
+	duplicate, err = svc.ProcessPayCallback(context.Background(), &payment.CallbackRequest{
+		Provider:  "mock",
+		EventID:   "evt-refund-1",
+		EventType: "refund_succeeded",
+		OrderSN:   orderSN,
+		TradeNo:   "trade-1",
+		AmountFen: 2999,
+	})
+	if err != nil {
+		t.Fatalf("ProcessPayCallback(refund_succeeded) error = %v", err)
+	}
+	if duplicate {
+		t.Fatal("ProcessPayCallback(refund_succeeded) duplicate=true, want false")
+	}
+	if status := orders.currentStatus(); status != "REFUNDED" {
+		t.Fatalf("order status after refund = %q, want %q", status, "REFUNDED")
+	}
+
+	duplicate, err = svc.ProcessPayCallback(context.Background(), &payment.CallbackRequest{
+		Provider:  "mock",
+		EventID:   "evt-refund-1",
+		EventType: "refund_succeeded",
+		OrderSN:   orderSN,
+		TradeNo:   "trade-1",
+		AmountFen: 2999,
+	})
+	if err != nil {
+		t.Fatalf("ProcessPayCallback(refund_succeeded replay) error = %v", err)
+	}
+	if !duplicate {
+		t.Fatal("ProcessPayCallback(refund_succeeded replay) duplicate=false, want true")
+	}
+	if len(orders.completedEvents) != 2 {
+		t.Fatalf("completed events = %d, want 2", len(orders.completedEvents))
+	}
+}
+
+func TestInitiatePaymentRejectsUnsupportedOrderState(t *testing.T) {
+	svc := NewOrderService(fakeDataFactory{
+		orderClient: fakeOrderClient{
+			detail: func(_ context.Context, _ *opb.OrderRequest, _ ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+				return &opb.OrderInfoDetailResponse{
+					OrderInfo: &opb.OrderInfoResponse{OrderSn: "order-1", Status: orderStatusTradeSuccess, TotalFen: 100},
+				}, nil
+			},
+		},
+	}).(*orderService)
+	svc.provider = &lifecyclePaymentProvider{}
+	svc.paymentOpts = &options.PaymentOptions{Enabled: true}
+
+	if _, err := svc.InitiatePayment(context.Background(), 9, "order-1"); !errors.IsCode(err, code.ErrOrderStatusInvalid) {
+		t.Fatalf("InitiatePayment() error = %v, want code %d", err, code.ErrOrderStatusInvalid)
+	}
+}
+
+func TestCancelOrderReleasesInventoryAndClosesOrder(t *testing.T) {
+	var released *ipb.SellInfo
+	var updated *opb.OrderStatus
+	svc := NewOrderService(fakeDataFactory{
+		orderClient: fakeOrderClient{
+			detail: func(_ context.Context, in *opb.OrderRequest, _ ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+				return &opb.OrderInfoDetailResponse{
+					OrderInfo: &opb.OrderInfoResponse{OrderSn: in.GetOrderSn(), Status: orderStatusPaying},
+					Goods:     []*opb.OrderItemResponse{{GoodsId: 101, Nums: 2}},
+				}, nil
+			},
+			update: func(_ context.Context, in *opb.OrderStatus, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				updated = in
+				return &emptypb.Empty{}, nil
+			},
+		},
+		inventoryClient: fakeInventoryClient{
+			release: func(_ context.Context, in *ipb.SellInfo, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				released = in
+				return &emptypb.Empty{}, nil
+			},
+		},
+	})
+
+	if err := svc.(*orderService).CancelOrder(context.Background(), 9, "order-1"); err != nil {
+		t.Fatalf("CancelOrder() error = %v", err)
+	}
+	if released == nil || released.GetOrderSn() != "order-1" || len(released.GetGoodsInfo()) != 1 {
+		t.Fatalf("released inventory = %+v", released)
+	}
+	if updated == nil || updated.GetStatus() != orderStatusTradeClosed {
+		t.Fatalf("updated status = %+v", updated)
+	}
+}
+
+func TestProcessPayCallbackFailureClosesOrder(t *testing.T) {
+	var released *ipb.SellInfo
+	var updated *opb.OrderStatus
+	svc := NewOrderService(fakeDataFactory{
+		orderClient: fakeOrderClient{
+			beginPaymentEvent: func(context.Context, *opb.PaymentEventRequest, ...grpc.CallOption) (*opb.PaymentEventResponse, error) {
+				return &opb.PaymentEventResponse{Id: 1, Accepted: true, OrderAmountFen: 100}, nil
+			},
+			getOrderBySN: func(context.Context, *opb.OrderLookupRequest, ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+				return &opb.OrderInfoDetailResponse{
+					OrderInfo: &opb.OrderInfoResponse{OrderSn: "order-1", Status: orderStatusPaying, TotalFen: 100},
+					Goods:     []*opb.OrderItemResponse{{GoodsId: 101, Nums: 1}},
+				}, nil
+			},
+			update: func(_ context.Context, in *opb.OrderStatus, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				updated = in
+				return &emptypb.Empty{}, nil
+			},
+			completePaymentEvent: func(context.Context, *opb.CompletePaymentEventRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+				return &emptypb.Empty{}, nil
+			},
+		},
+		inventoryClient: fakeInventoryClient{
+			release: func(_ context.Context, in *ipb.SellInfo, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+				released = in
+				return &emptypb.Empty{}, nil
+			},
+		},
+	})
+
+	duplicate, err := svc.(*orderService).ProcessPayCallback(context.Background(), &payment.CallbackRequest{
+		Provider:  "mock",
+		EventID:   "evt-fail-1",
+		EventType: "payment_failed",
+		OrderSN:   "order-1",
+		AmountFen: 100,
+	})
+	if err != nil {
+		t.Fatalf("ProcessPayCallback() error = %v", err)
+	}
+	if duplicate {
+		t.Fatal("ProcessPayCallback() duplicate=true, want false")
+	}
+	if released == nil || released.GetOrderSn() != "order-1" {
+		t.Fatalf("released inventory = %+v", released)
+	}
+	if updated == nil || updated.GetStatus() != orderStatusTradeClosed {
+		t.Fatalf("updated status = %+v", updated)
+	}
+}
+
+type lifecyclePaymentProvider struct {
+	initiation payment.InitiateResponse
+}
+
+func (f *lifecyclePaymentProvider) Initiate(context.Context, payment.InitiateRequest) (payment.InitiateResponse, error) {
+	return f.initiation, nil
+}
+
+func (f *lifecyclePaymentProvider) Refund(context.Context, payment.RefundRequest) (payment.RefundResponse, error) {
+	return payment.RefundResponse{}, nil
+}
+
+func (f *lifecyclePaymentProvider) ListTransactions(context.Context, time.Time, time.Time) ([]payment.Transaction, error) {
+	return nil, nil
+}
+
+type lifecycleOrderClient struct {
+	opb.OrderClient
+	mu              sync.Mutex
+	nextEventID     int64
+	order           *opb.OrderInfoDetailResponse
+	events          map[string]*lifecycleEvent
+	completedEvents []*opb.CompletePaymentEventRequest
+}
+
+type lifecycleEvent struct {
+	id        int64
+	completed bool
+}
+
+func newLifecycleOrderClient() *lifecycleOrderClient {
+	return &lifecycleOrderClient{
+		order: &opb.OrderInfoDetailResponse{
+			OrderInfo: &opb.OrderInfoResponse{
+				OrderSn:  "seed-order",
+				Status:   orderStatusWaitBuyerPay,
+				TotalFen: 2999,
+			},
+			Goods: []*opb.OrderItemResponse{
+				{GoodsId: 101, Nums: 1, GoodsPriceFen: 2999},
+			},
+		},
+		events: make(map[string]*lifecycleEvent),
+	}
+}
+
+func (f *lifecycleOrderClient) SubmitOrder(_ context.Context, in *opb.OrderRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.order = &opb.OrderInfoDetailResponse{
+		OrderInfo: &opb.OrderInfoResponse{
+			OrderSn:  in.GetOrderSn(),
+			UserId:   in.GetUserId(),
+			Status:   orderStatusWaitBuyerPay,
+			Address:  in.GetAddress(),
+			Name:     in.GetName(),
+			Mobile:   in.GetMobile(),
+			Post:     in.GetPost(),
+			TotalFen: 2999,
+		},
+		Goods: []*opb.OrderItemResponse{
+			{GoodsId: 101, Nums: 1, GoodsPriceFen: 2999},
+		},
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (f *lifecycleOrderClient) OrderDetail(_ context.Context, in *opb.OrderRequest, _ ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+	return f.lookupOrder(in.GetOrderSn()), nil
+}
+
+func (f *lifecycleOrderClient) GetOrderBySn(_ context.Context, in *opb.OrderLookupRequest, _ ...grpc.CallOption) (*opb.OrderInfoDetailResponse, error) {
+	return f.lookupOrder(in.GetOrderSn()), nil
+}
+
+func (f *lifecycleOrderClient) UpdateOrderStatus(_ context.Context, in *opb.OrderStatus, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.order.OrderInfo.Status = in.GetStatus()
+	if in.GetPayType() != "" {
+		f.order.OrderInfo.PayType = in.GetPayType()
+	}
+	if in.GetTradeNo() != "" {
+		f.order.OrderInfo.TradeNo = in.GetTradeNo()
+	}
+	if in.GetPayTime() > 0 {
+		f.order.OrderInfo.PayTime = in.GetPayTime()
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (f *lifecycleOrderClient) BeginPaymentEvent(_ context.Context, in *opb.PaymentEventRequest, _ ...grpc.CallOption) (*opb.PaymentEventResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if event, ok := f.events[in.GetEventId()]; ok {
+		return &opb.PaymentEventResponse{
+			Id:             event.id,
+			Accepted:       false,
+			Completed:      event.completed,
+			OrderAmountFen: f.order.GetOrderInfo().GetTotalFen(),
+			OrderStatus:    f.order.GetOrderInfo().GetStatus(),
+		}, nil
+	}
+	f.nextEventID++
+	f.events[in.GetEventId()] = &lifecycleEvent{id: f.nextEventID}
+	return &opb.PaymentEventResponse{
+		Id:             f.nextEventID,
+		Accepted:       true,
+		Completed:      false,
+		OrderAmountFen: f.order.GetOrderInfo().GetTotalFen(),
+		OrderStatus:    f.order.GetOrderInfo().GetStatus(),
+	}, nil
+}
+
+func (f *lifecycleOrderClient) CompletePaymentEvent(_ context.Context, in *opb.CompletePaymentEventRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, event := range f.events {
+		if event.id == in.GetId() {
+			event.completed = true
+			break
+		}
+	}
+	f.completedEvents = append(f.completedEvents, in)
+	return &emptypb.Empty{}, nil
+}
+
+func (f *lifecycleOrderClient) lookupOrder(orderSN string) *opb.OrderInfoDetailResponse {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return &opb.OrderInfoDetailResponse{
+		OrderInfo: &opb.OrderInfoResponse{
+			OrderSn:  orderSN,
+			UserId:   f.order.GetOrderInfo().GetUserId(),
+			Status:   f.order.GetOrderInfo().GetStatus(),
+			PayType:  f.order.GetOrderInfo().GetPayType(),
+			TradeNo:  f.order.GetOrderInfo().GetTradeNo(),
+			PayTime:  f.order.GetOrderInfo().GetPayTime(),
+			Address:  f.order.GetOrderInfo().GetAddress(),
+			Name:     f.order.GetOrderInfo().GetName(),
+			Mobile:   f.order.GetOrderInfo().GetMobile(),
+			Post:     f.order.GetOrderInfo().GetPost(),
+			TotalFen: f.order.GetOrderInfo().GetTotalFen(),
+		},
+		Goods: []*opb.OrderItemResponse{
+			{GoodsId: 101, Nums: 1, GoodsPriceFen: 2999},
+		},
+	}
+}
+
+func (f *lifecycleOrderClient) currentStatus() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.order.GetOrderInfo().GetStatus()
 }

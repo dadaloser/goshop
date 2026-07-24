@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,5 +71,29 @@ func TestHMACProviderRefundHonorsTimeout(t *testing.T) {
 	provider := NewProvider(&options.PaymentOptions{CallbackSecret: "secret", RefundURL: server.URL, RequestTimeout: 5 * time.Millisecond})
 	if _, err := provider.Refund(context.Background(), RefundRequest{RequestID: "refund-timeout", OrderSN: "order-1", AmountFen: 100}); err == nil {
 		t.Fatal("Refund() timeout error=nil")
+	}
+}
+
+func TestHMACProviderInitiateAndValidateInputs(t *testing.T) {
+	provider := NewProvider(&options.PaymentOptions{Provider: "mock", CheckoutBaseURL: "https://payments.example.test/checkout", CallbackSecret: "secret"})
+	result, err := provider.Initiate(context.Background(), InitiateRequest{OrderSN: "order-1", AmountFen: 100, Subject: "goshop order"})
+	if err != nil {
+		t.Fatalf("Initiate() error = %v", err)
+	}
+	if result.PaymentID == "" || result.Provider != "mock" || !strings.Contains(result.CheckoutURL, "order_sn=order-1") {
+		t.Fatalf("Initiate() response = %+v", result)
+	}
+	if _, err := provider.Initiate(context.Background(), InitiateRequest{}); err == nil {
+		t.Fatal("Initiate() invalid input error=nil")
+	}
+}
+
+func TestHMACProviderRejectsInvalidConfiguration(t *testing.T) {
+	provider := &HMACProvider{}
+	if _, err := provider.ListTransactions(context.Background(), time.Unix(1, 0), time.Unix(0, 0)); err == nil {
+		t.Fatal("ListTransactions() invalid window error=nil")
+	}
+	if err := provider.doJSON(context.Background(), http.MethodGet, "", nil, &struct{}{}); err == nil {
+		t.Fatal("doJSON() invalid configuration error=nil")
 	}
 }

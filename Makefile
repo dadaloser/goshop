@@ -1,4 +1,4 @@
-.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test schema-integration-test test-race-cover format-check vet-check lint-check rpcserver-flake-check release-check ops-check architecture-check
+.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test schema-integration-test test-race-cover coverage-threshold-check format-check vet-check lint-check rpcserver-flake-check release-check ops-check architecture-check
 
 GOLANGCI_LINT_VERSION ?= v2.12.2
 
@@ -30,6 +30,7 @@ help:
 	@echo "  make startup-validation-check  Fail if startup validation can be bypassed by log.development"
 	@echo "  make schema-integration-test  Run real-MySQL user/goods/order/inventory/review startup schema integration tests"
 	@echo "  make test-race-cover  Run race-enabled tests with merged coverage output"
+	@echo "  make coverage-threshold-check  Enforce coverage thresholds for core money/authz/order/payment/session code"
 	@echo "  make format-check  Fail if gofmt would change tracked Go files"
 	@echo "  make vet-check  Run go vet on app/gmicro/pkg business code"
 	@echo "  make lint-check  Run pinned golangci-lint version"
@@ -83,6 +84,9 @@ schema-integration-test:
 
 test-race-cover:
 	bash ./scripts/go-test-race-cover.sh
+
+coverage-threshold-check:
+	bash ./scripts/coverage-threshold-check.sh
 
 ops-check:
 	bash ./scripts/ops-readiness-check.sh

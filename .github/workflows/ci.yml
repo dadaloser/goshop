@@ -66,6 +66,9 @@ jobs:
       - name: Run tests
         run: make test-race-cover
 
+      - name: Enforce core coverage thresholds
+        run: make coverage-threshold-check
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v7
         with:
