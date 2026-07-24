@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 THIRD_PARTY_DIR="${ROOT_DIR}/third_party"
+PROTO_OUT_ROOT="${PROTO_OUT_ROOT:-${ROOT_DIR}}"
 
 # Regenerate all checked-in protobuf artifacts under api/.
 # Usage:
@@ -36,16 +37,18 @@ EOF
 generate_business_proto() {
   local dir="$1"
   local proto="$2"
+  local out_dir="${PROTO_OUT_ROOT}/${dir}"
 
   echo "==> generate ${dir}/${proto}"
   (
     cd "${ROOT_DIR}/${dir}"
+    mkdir -p "${out_dir}"
     protoc \
       --proto_path=. \
       --proto_path="${THIRD_PARTY_DIR}" \
-      --go_out=paths=source_relative:. \
-      --go-grpc_out=paths=source_relative:. \
-      --go-gin_out=paths=source_relative:. \
+      --go_out=paths=source_relative:"${out_dir}" \
+      --go-grpc_out=paths=source_relative:"${out_dir}" \
+      --go-gin_out=paths=source_relative:"${out_dir}" \
       "${proto}"
   )
 }
@@ -54,12 +57,13 @@ generate_metadata_proto() {
   echo "==> generate api/metadata/metadata.proto"
   (
     cd "${ROOT_DIR}/api/metadata"
+    mkdir -p "${PROTO_OUT_ROOT}/api/metadata"
     protoc \
       --proto_path=. \
       --proto_path="${THIRD_PARTY_DIR}" \
-      --go_out=paths=source_relative:. \
-      --go-grpc_out=paths=source_relative:. \
-      --go-http_out=paths=source_relative:. \
+      --go_out=paths=source_relative:"${PROTO_OUT_ROOT}/api/metadata" \
+      --go-grpc_out=paths=source_relative:"${PROTO_OUT_ROOT}/api/metadata" \
+      --go-http_out=paths=source_relative:"${PROTO_OUT_ROOT}/api/metadata" \
       metadata.proto
   )
 }
