@@ -275,6 +275,57 @@ func (s *OrderHttpServer) ListPaymentEvents_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *OrderHttpServer) ClaimRefundJobs_0(c *gin.Context) {
+	var in ClaimRefundJobsRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ClaimRefundJobs(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *OrderHttpServer) CompleteRefundJob_0(c *gin.Context) {
+	var in CompleteRefundJobRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.CompleteRefundJob(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *OrderHttpServer) ReconcilePayments_0(c *gin.Context) {
+	var in ReconcilePaymentsRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ReconcilePayments(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *OrderHttpServer) RegisterService() {
 
 	s.router.Handle("POST", "", s.CartItemList_0)
@@ -306,5 +357,11 @@ func (s *OrderHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.CompletePaymentEvent_0)
 
 	s.router.Handle("POST", "", s.ListPaymentEvents_0)
+
+	s.router.Handle("POST", "", s.ClaimRefundJobs_0)
+
+	s.router.Handle("POST", "", s.CompleteRefundJob_0)
+
+	s.router.Handle("POST", "", s.ReconcilePayments_0)
 
 }

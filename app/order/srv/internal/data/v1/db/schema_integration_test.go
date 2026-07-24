@@ -138,6 +138,11 @@ func prepareOrderSchemaMigrations(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
 	dropStatements := []string{
+		"DROP TABLE IF EXISTS `payment_reconciliation_items`",
+		"DROP TABLE IF EXISTS `payment_reconciliation_runs`",
+		"DROP TABLE IF EXISTS `payment_events`",
+		"DROP TABLE IF EXISTS `order_refund_outbox`",
+		"DROP TABLE IF EXISTS `order_refund_requests`",
 		"DROP TABLE IF EXISTS `order_status_logs`",
 		"DROP TABLE IF EXISTS `shoppingcart`",
 		"DROP TABLE IF EXISTS `ordergoods`",
@@ -178,6 +183,8 @@ func orderMigrationFiles(t *testing.T) []string {
 		filepath.Join(root, "migrations/202607100001_order_add_status_logs.up.sql"),
 		filepath.Join(root, "migrations/202607220004_order_add_money_fen_columns.up.sql"),
 		filepath.Join(root, "migrations/202607220006_order_drop_float_money_columns.up.sql"),
+		filepath.Join(root, "migrations/202607230003_order_add_payment_events.up.sql"),
+		filepath.Join(root, "migrations/202607240001_payment_refund_outbox_reconciliation.up.sql"),
 	}
 }
 

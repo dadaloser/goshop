@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"strings"
+	"time"
 
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/gmicro/code"
@@ -13,6 +14,12 @@ type paymentEventStore interface {
 	BeginPaymentEvent(context.Context, *do.PaymentEventDO) (*do.PaymentEventDO, *do.OrderInfoDO, bool, error)
 	CompletePaymentEvent(context.Context, uint64, bool, string) error
 	ListPaymentEvents(context.Context, string, int, int, bool) ([]do.PaymentEventDO, int64, int64, error)
+}
+
+type paymentWorkflowStore interface {
+	ClaimRefundJobs(context.Context, int, int, time.Duration) ([]do.RefundJob, error)
+	CompleteRefundJob(context.Context, uint64, bool, string, string, string, string, int) error
+	ReconcilePayments(context.Context, string, time.Time, time.Time, []do.PaymentEventDO) (*do.PaymentReconciliationRunDO, error)
 }
 
 func (os *orderService) BeginPaymentEvent(ctx context.Context, event *do.PaymentEventDO) (*do.PaymentEventDO, *do.OrderInfoDO, bool, error) {
@@ -26,6 +33,30 @@ func (os *orderService) BeginPaymentEvent(ctx context.Context, event *do.Payment
 	event.TradeNo = strings.TrimSpace(event.TradeNo)
 	event.EventType = strings.ToLower(strings.TrimSpace(event.EventType))
 	return store.BeginPaymentEvent(ctx, event)
+}
+
+func (os *orderService) ClaimRefundJobs(ctx context.Context, limit, maxAttempts int, lockTimeout time.Duration) ([]do.RefundJob, error) {
+	store, ok := os.data.Orders().(paymentWorkflowStore)
+	if !ok {
+		return nil, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+	}
+	return store.ClaimRefundJobs(ctx, limit, maxAttempts, lockTimeout)
+}
+
+func (os *orderService) CompleteRefundJob(ctx context.Context, id uint64, success bool, provider, providerRefundID, providerStatus, detail string, maxAttempts int) error {
+	store, ok := os.data.Orders().(paymentWorkflowStore)
+	if !ok {
+		return errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+	}
+	return store.CompleteRefundJob(ctx, id, success, strings.ToLower(strings.TrimSpace(provider)), strings.TrimSpace(providerRefundID), strings.ToLower(strings.TrimSpace(providerStatus)), detail, maxAttempts)
+}
+
+func (os *orderService) ReconcilePayments(ctx context.Context, provider string, from, to time.Time, transactions []do.PaymentEventDO) (*do.PaymentReconciliationRunDO, error) {
+	store, ok := os.data.Orders().(paymentWorkflowStore)
+	if !ok {
+		return nil, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+	}
+	return store.ReconcilePayments(ctx, provider, from, to, transactions)
 }
 func (os *orderService) CompletePaymentEvent(ctx context.Context, id uint64, success bool, detail string) error {
 	store, ok := os.data.Orders().(paymentEventStore)

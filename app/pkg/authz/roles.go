@@ -1,6 +1,9 @@
 package authz
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
 
 // LegacyUserRole is the historical numeric role stored on the user record.
 // It remains for compatibility only and must not be used as the primary staff
@@ -64,6 +67,45 @@ func IsValidBusinessDomain(value string) bool {
 		}
 	}
 	return false
+}
+
+type ResourceScopeDimension string
+
+const (
+	ResourceScopeDimensionNone  ResourceScopeDimension = "none"
+	ResourceScopeDimensionStore ResourceScopeDimension = "store"
+	ResourceScopeDimensionTeam  ResourceScopeDimension = "team"
+)
+
+func ResourceScopeDimensionForDomain(domain BusinessDomain) ResourceScopeDimension {
+	switch domain {
+	case BusinessDomainPlatform:
+		return ResourceScopeDimensionNone
+	case BusinessDomainOps:
+		return ResourceScopeDimensionTeam
+	default:
+		return ResourceScopeDimensionStore
+	}
+}
+
+func ResourceScopeMatchesDomain(
+	domain BusinessDomain,
+	storeID string,
+	teamID string,
+) bool {
+	storeID = strings.TrimSpace(storeID)
+	teamID = strings.TrimSpace(teamID)
+
+	switch ResourceScopeDimensionForDomain(domain) {
+	case ResourceScopeDimensionNone:
+		return storeID == "" && teamID == ""
+	case ResourceScopeDimensionStore:
+		return storeID != "" && teamID == ""
+	case ResourceScopeDimensionTeam:
+		return storeID == "" && teamID != ""
+	default:
+		return false
+	}
 }
 
 type RoleDefinition struct {
@@ -288,4 +330,28 @@ func domainSet(domains []BusinessDomain) map[BusinessDomain]struct{} {
 		set[domain] = struct{}{}
 	}
 	return set
+}
+
+var reservedNonStaffRoleNames = []string{
+	"admin_bootstrap",
+	"basic",
+	"business_admin",
+	"normal_permission",
+	"primary_admin",
+}
+
+func ReservedNonStaffRoleNames() []string {
+	result := make([]string, len(reservedNonStaffRoleNames))
+	copy(result, reservedNonStaffRoleNames)
+	sort.Strings(result)
+	return result
+}
+
+func IsReservedNonStaffRoleName(roleName string) bool {
+	for _, reserved := range reservedNonStaffRoleNames {
+		if reserved == roleName {
+			return true
+		}
+	}
+	return false
 }

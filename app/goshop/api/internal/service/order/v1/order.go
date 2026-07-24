@@ -144,7 +144,7 @@ func (os *orderService) ProcessPayCallback(ctx context.Context, req *payment.Cal
 	}
 	orders := os.data.Orders()
 	refundAmount := int64(0)
-	if req.EventType == "refund_succeeded" {
+	if req.EventType == "refund_succeeded" || req.EventType == "refund_failed" {
 		refundAmount = req.AmountFen
 	}
 	begin, err := orders.BeginPaymentEvent(ctx, &opb.PaymentEventRequest{Provider: req.Provider, EventId: req.EventID, OrderSn: req.OrderSN, TradeNo: req.TradeNo, EventType: req.EventType, ProviderAmountFen: req.AmountFen, RefundAmountFen: refundAmount})
@@ -164,8 +164,9 @@ func (os *orderService) ProcessPayCallback(ctx context.Context, req *payment.Cal
 			log.Errorf("complete payment event failed: event_id=%s error=%v", req.EventID, completeErr)
 		}
 	}()
-	amountMismatch := req.EventType != "refund_succeeded" && req.AmountFen != begin.GetOrderAmountFen()
-	invalidRefund := req.EventType == "refund_succeeded" && (req.AmountFen <= 0 || req.AmountFen > begin.GetOrderAmountFen())
+	isRefund := req.EventType == "refund_succeeded" || req.EventType == "refund_failed"
+	amountMismatch := !isRefund && req.AmountFen != begin.GetOrderAmountFen()
+	invalidRefund := isRefund && (req.AmountFen <= 0 || req.AmountFen > begin.GetOrderAmountFen())
 	if amountMismatch || invalidRefund {
 		detail = "payment amount mismatch"
 		return false, errors.WithCode(code.ErrOrderStatusInvalid, detail)
@@ -201,6 +202,8 @@ func (os *orderService) ProcessPayCallback(ctx context.Context, req *payment.Cal
 		}
 	case "refund_succeeded":
 		target = "REFUNDED"
+	case "refund_failed":
+		target = "REFUND_FAILED"
 	default:
 		detail = "unknown payment event"
 		return false, errors.WithCode(code.ErrOrderStatusInvalid, detail)
@@ -222,7 +225,7 @@ func paymentEventAllowed(eventType, status string) bool {
 	switch eventType {
 	case "payment_succeeded", "payment_failed":
 		return status == orderStatusWaitBuyerPay || status == orderStatusPaying
-	case "refund_succeeded":
+	case "refund_succeeded", "refund_failed":
 		return status == "REFUND_PENDING"
 	default:
 		return false

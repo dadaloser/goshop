@@ -986,6 +986,27 @@ type fakeShopCartStore struct {
 	delete func(context.Context, uint64, uint64) error
 }
 
+func TestRefundStatusTransitionMatrix(t *testing.T) {
+	tests := []struct {
+		name, from, to string
+		want           bool
+	}{
+		{"finished to pending", OrderStatusTradeFinished, OrderStatusRefundPending, true},
+		{"pending to refunded", OrderStatusRefundPending, OrderStatusRefunded, true},
+		{"pending to failed", OrderStatusRefundPending, OrderStatusRefundFailed, true},
+		{"failed to retry", OrderStatusRefundFailed, OrderStatusRefundPending, true},
+		{"failed cannot skip to refunded", OrderStatusRefundFailed, OrderStatusRefunded, false},
+		{"refunded terminal", OrderStatusRefunded, OrderStatusRefundPending, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := canTransitionOrderStatus(tt.from, tt.to); got != tt.want {
+				t.Fatalf("transition %s -> %s = %v want %v", tt.from, tt.to, got, tt.want)
+			}
+		})
+	}
+}
+
 func (fakeShopCartStore) List(context.Context, uint64, bool, metav1.ListMeta, []string) (*do.ShoppingCartDOList, error) {
 	return nil, nil
 }

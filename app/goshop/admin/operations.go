@@ -79,12 +79,18 @@ func requireResourceScope(domain authz.BusinessDomain) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource domain denied"})
 			return
 		}
+		storeID := strings.TrimSpace(c.GetHeader("X-Store-ID"))
+		teamID := strings.TrimSpace(c.GetHeader("X-Team-ID"))
+		if !authz.ResourceScopeMatchesDomain(domain, storeID, teamID) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope shape denied"})
+			return
+		}
 		claims := gauth.ExtractClaims(c)
 		if !scopeAllows(claims["resource_domains"], string(domain)) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource domain denied"})
 			return
 		}
-		if !scopeAllows(claims["resource_stores"], c.GetHeader("X-Store-ID")) || !scopeAllows(claims["resource_teams"], c.GetHeader("X-Team-ID")) {
+		if !scopeAllows(claims["resource_stores"], storeID) || !scopeAllows(claims["resource_teams"], teamID) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope denied"})
 			return
 		}

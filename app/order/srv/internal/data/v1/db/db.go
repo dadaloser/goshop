@@ -175,5 +175,10 @@ func orderSchemaChecks() []schemaTableCheck {
 				"order_id", "order_sn", "from_status", "to_status", "reason", "source", "operator",
 			},
 		},
+		{model: &dv1.RefundRequestDO{}, required: []string{"id", "order_sn", "amount_fen", "status", "provider", "provider_refund_id", "failure_reason", "correlation_id"}},
+		{model: &dv1.RefundOutboxDO{}, required: []string{"id", "refund_request_id", "status", "attempts", "available_at", "locked_at", "last_error"}},
+		{model: &dv1.PaymentEventDO{}, required: []string{"id", "provider", "event_id", "order_sn", "event_type", "provider_amount_fen", "status", "received_at"}},
+		{model: &dv1.PaymentReconciliationRunDO{}, required: []string{"id", "provider", "window_start", "window_end", "checked_count", "mismatch_count", "status"}},
+		{model: &dv1.PaymentReconciliationItemDO{}, required: []string{"id", "run_id", "provider_event_id", "result", "provider_amount_fen", "local_amount_fen"}},
 	}
 }

@@ -35,6 +35,9 @@ const (
 	Order_BeginPaymentEvent_FullMethodName    = "/Order/BeginPaymentEvent"
 	Order_CompletePaymentEvent_FullMethodName = "/Order/CompletePaymentEvent"
 	Order_ListPaymentEvents_FullMethodName    = "/Order/ListPaymentEvents"
+	Order_ClaimRefundJobs_FullMethodName      = "/Order/ClaimRefundJobs"
+	Order_CompleteRefundJob_FullMethodName    = "/Order/CompleteRefundJob"
+	Order_ReconcilePayments_FullMethodName    = "/Order/ReconcilePayments"
 )
 
 // OrderClient is the client API for Order service.
@@ -58,6 +61,9 @@ type OrderClient interface {
 	BeginPaymentEvent(ctx context.Context, in *PaymentEventRequest, opts ...grpc.CallOption) (*PaymentEventResponse, error)
 	CompletePaymentEvent(ctx context.Context, in *CompletePaymentEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListPaymentEvents(ctx context.Context, in *PaymentEventListRequest, opts ...grpc.CallOption) (*PaymentEventListResponse, error)
+	ClaimRefundJobs(ctx context.Context, in *ClaimRefundJobsRequest, opts ...grpc.CallOption) (*ClaimRefundJobsResponse, error)
+	CompleteRefundJob(ctx context.Context, in *CompleteRefundJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ReconcilePayments(ctx context.Context, in *ReconcilePaymentsRequest, opts ...grpc.CallOption) (*ReconcilePaymentsResponse, error)
 }
 
 type orderClient struct {
@@ -218,6 +224,36 @@ func (c *orderClient) ListPaymentEvents(ctx context.Context, in *PaymentEventLis
 	return out, nil
 }
 
+func (c *orderClient) ClaimRefundJobs(ctx context.Context, in *ClaimRefundJobsRequest, opts ...grpc.CallOption) (*ClaimRefundJobsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClaimRefundJobsResponse)
+	err := c.cc.Invoke(ctx, Order_ClaimRefundJobs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *orderClient) CompleteRefundJob(ctx context.Context, in *CompleteRefundJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Order_CompleteRefundJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *orderClient) ReconcilePayments(ctx context.Context, in *ReconcilePaymentsRequest, opts ...grpc.CallOption) (*ReconcilePaymentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReconcilePaymentsResponse)
+	err := c.cc.Invoke(ctx, Order_ReconcilePayments_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OrderServer is the server API for Order service.
 // All implementations must embed UnimplementedOrderServer
 // for forward compatibility.
@@ -239,6 +275,9 @@ type OrderServer interface {
 	BeginPaymentEvent(context.Context, *PaymentEventRequest) (*PaymentEventResponse, error)
 	CompletePaymentEvent(context.Context, *CompletePaymentEventRequest) (*emptypb.Empty, error)
 	ListPaymentEvents(context.Context, *PaymentEventListRequest) (*PaymentEventListResponse, error)
+	ClaimRefundJobs(context.Context, *ClaimRefundJobsRequest) (*ClaimRefundJobsResponse, error)
+	CompleteRefundJob(context.Context, *CompleteRefundJobRequest) (*emptypb.Empty, error)
+	ReconcilePayments(context.Context, *ReconcilePaymentsRequest) (*ReconcilePaymentsResponse, error)
 	mustEmbedUnimplementedOrderServer()
 }
 
@@ -293,6 +332,15 @@ func (UnimplementedOrderServer) CompletePaymentEvent(context.Context, *CompleteP
 }
 func (UnimplementedOrderServer) ListPaymentEvents(context.Context, *PaymentEventListRequest) (*PaymentEventListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListPaymentEvents not implemented")
+}
+func (UnimplementedOrderServer) ClaimRefundJobs(context.Context, *ClaimRefundJobsRequest) (*ClaimRefundJobsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClaimRefundJobs not implemented")
+}
+func (UnimplementedOrderServer) CompleteRefundJob(context.Context, *CompleteRefundJobRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompleteRefundJob not implemented")
+}
+func (UnimplementedOrderServer) ReconcilePayments(context.Context, *ReconcilePaymentsRequest) (*ReconcilePaymentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReconcilePayments not implemented")
 }
 func (UnimplementedOrderServer) mustEmbedUnimplementedOrderServer() {}
 func (UnimplementedOrderServer) testEmbeddedByValue()               {}
@@ -585,6 +633,60 @@ func _Order_ListPaymentEvents_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Order_ClaimRefundJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClaimRefundJobsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).ClaimRefundJobs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_ClaimRefundJobs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).ClaimRefundJobs(ctx, req.(*ClaimRefundJobsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Order_CompleteRefundJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteRefundJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).CompleteRefundJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_CompleteRefundJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).CompleteRefundJob(ctx, req.(*CompleteRefundJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Order_ReconcilePayments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReconcilePaymentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).ReconcilePayments(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_ReconcilePayments_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).ReconcilePayments(ctx, req.(*ReconcilePaymentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Order_ServiceDesc is the grpc.ServiceDesc for Order service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -651,6 +753,18 @@ var Order_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListPaymentEvents",
 			Handler:    _Order_ListPaymentEvents_Handler,
+		},
+		{
+			MethodName: "ClaimRefundJobs",
+			Handler:    _Order_ClaimRefundJobs_Handler,
+		},
+		{
+			MethodName: "CompleteRefundJob",
+			Handler:    _Order_CompleteRefundJob_Handler,
+		},
+		{
+			MethodName: "ReconcilePayments",
+			Handler:    _Order_ReconcilePayments_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

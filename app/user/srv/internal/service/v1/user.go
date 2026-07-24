@@ -181,6 +181,9 @@ func (u *userService) ReplaceResourceScopes(ctx context.Context, userID uint64, 
 		if !authz.IsValidBusinessDomain(scope.Domain) {
 			return nil, errors.WithCode(code2.ErrValidation, "resource scope domain is invalid")
 		}
+		if !authz.ResourceScopeMatchesDomain(authz.BusinessDomain(scope.Domain), scope.StoreID, scope.TeamID) {
+			return nil, errors.WithCode(code2.ErrValidation, "resource scope does not match domain dimension")
+		}
 		key := scope.Domain + "\x00" + scope.StoreID + "\x00" + scope.TeamID
 		if _, exists := seen[key]; exists {
 			continue
@@ -519,6 +522,9 @@ func (u *userService) CreateStaffRole(ctx context.Context, role StaffRoleDTO) (*
 	if role.Name == "" {
 		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
 	}
+	if authz.IsReservedNonStaffRoleName(role.Name) {
+		return nil, errors.WithCode(code2.ErrValidation, "bootstrap and compatibility role names cannot be used as staff roles")
+	}
 	if authz.IsValidStaffRole(role.Name) {
 		return nil, errors.WithCode(code2.ErrValidation, "built-in staff roles cannot be created again")
 	}
@@ -557,6 +563,9 @@ func (u *userService) UpdateStaffRole(ctx context.Context, role StaffRoleDTO) (*
 	if role.Name == "" {
 		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
 	}
+	if authz.IsReservedNonStaffRoleName(role.Name) {
+		return nil, errors.WithCode(code2.ErrValidation, "bootstrap and compatibility role names cannot be used as staff roles")
+	}
 	if role.Description == "" {
 		return nil, errors.WithCode(code2.ErrValidation, "staff role description is required")
 	}
@@ -592,6 +601,9 @@ func (u *userService) DeleteStaffRole(ctx context.Context, roleName string) erro
 	roleName = strings.ToLower(strings.TrimSpace(roleName))
 	if roleName == "" {
 		return errors.WithCode(code2.ErrValidation, "staff role name is required")
+	}
+	if authz.IsReservedNonStaffRoleName(roleName) {
+		return errors.WithCode(code2.ErrValidation, "bootstrap and compatibility role names cannot be used as staff roles")
 	}
 	if authz.IsValidStaffRole(roleName) {
 		return errors.WithCode(code2.ErrValidation, "built-in staff roles cannot be deleted")
@@ -1031,6 +1043,9 @@ func (u *userService) validateKnownRoleNames(ctx context.Context, roleNames []st
 		known[strings.ToLower(strings.TrimSpace(role.Name))] = struct{}{}
 	}
 	for _, roleName := range roleNames {
+		if authz.IsReservedNonStaffRoleName(roleName) {
+			return errors.WithCode(code2.ErrValidation, "staff roles contain reserved non-staff values")
+		}
 		if _, ok := known[roleName]; !ok {
 			return errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
 		}

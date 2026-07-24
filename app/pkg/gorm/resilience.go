@@ -84,18 +84,6 @@ func (p *ResiliencePlugin) Initialize(db *gormio.DB) error {
 	); err != nil {
 		return err
 	}
-	if err := db.Callback().Row().Before("*").Register(
-		p.beforeName("row"),
-		p.before("row"),
-	); err != nil {
-		return err
-	}
-	if err := db.Callback().Row().After("*").Register(
-		p.afterName("row"),
-		p.after,
-	); err != nil {
-		return err
-	}
 	if err := db.Callback().Raw().Before("*").Register(
 		p.beforeName("raw"),
 		p.before("raw"),

@@ -8,6 +8,20 @@ func TestValidateOrderSchemaRejectsNilDB(t *testing.T) {
 	}
 }
 
+func TestOrderSchemaChecksIncludePaymentWorkflowTables(t *testing.T) {
+	want := map[string]bool{"order_refund_requests": false, "order_refund_outbox": false, "payment_events": false, "payment_reconciliation_runs": false, "payment_reconciliation_items": false}
+	for _, check := range orderSchemaChecks() {
+		if _, ok := want[check.model.TableName()]; ok {
+			want[check.model.TableName()] = true
+		}
+	}
+	for table, found := range want {
+		if !found {
+			t.Errorf("payment workflow schema check missing %s", table)
+		}
+	}
+}
+
 func TestOrderSchemaChecksRequireFenColumnsAndForbidLegacyFloatColumns(t *testing.T) {
 	var orderInfoCheck *schemaTableCheck
 	var orderGoodsCheck *schemaTableCheck

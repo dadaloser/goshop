@@ -24,6 +24,7 @@ import (
 	"goshop/app/pkg/authz"
 	appclient "goshop/app/pkg/client"
 	"goshop/gmicro/server/restserver"
+	"goshop/pkg/log"
 
 	"github.com/gin-gonic/gin"
 )
@@ -58,6 +59,16 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	tokenVersions := tokenversion.NewRedisStore()
 	//原来的过程其实很复杂
 	serviceFactory := service.NewServiceWithPayment(data, cfg.Sms, cfg.Jwt, cfg.Payment, codeStore, loginAttempts, smsAttempts, tokenVersions)
+	if cfg.Payment != nil && cfg.Payment.Enabled {
+		worker := paymenthandler.NewWorker(data.Orders(), paymenthandler.NewProvider(cfg.Payment), cfg.Payment)
+		go func() {
+			if err := worker.Run(ctx); err != nil {
+				// Run exits with an error only for an unrecoverable lifecycle failure.
+				// Individual provider and persistence failures remain retryable.
+				log.Errorf("payment worker stopped: %v", err)
+			}
+		}()
+	}
 	if callbackService, ok := serviceFactory.Orders().(paymenthandler.CallbackService); ok {
 		v1.POST("/internal/payment/callback/:provider", paymenthandler.NewCallbackHandler(cfg.Payment, callbackService).Handle)
 	}

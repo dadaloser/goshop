@@ -92,8 +92,14 @@ payment:
   enabled: false
   provider: mock
   checkout-base-url: "https://payments.example.invalid/checkout"
+  refund-url: "https://payments.example.invalid/refunds"
+  reconcile-url: "https://payments.example.invalid/transactions"
   callback-secret: "" # set API_PAYMENT_CALLBACK_SECRET or use a secret manager
   callback-max-skew: 5m
+  request-timeout: 10s
+  worker-interval: 5s
+  worker-batch-size: 20
+  max-attempts: 8
 
 # JWT 配置
 jwt:

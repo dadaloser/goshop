@@ -313,6 +313,15 @@ func TestUserService_CreateStaffRoleValidatesAndCreatesCustomRole(t *testing.T) 
 	}); !errors.IsCode(err, code2.ErrValidation) {
 		t.Fatalf("CreateStaffRole() builtin duplicate error = %v, want ErrValidation", err)
 	}
+
+	if _, err = svc.CreateStaffRole(context.Background(), StaffRoleDTO{
+		Name:        "primary_admin",
+		Description: "legacy bootstrap alias",
+		Permissions: []string{string(authz.PermissionOrderReadAny)},
+		Domains:     []string{string(authz.BusinessDomainOps)},
+	}); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("CreateStaffRole() reserved non-staff role error = %v, want ErrValidation", err)
+	}
 }
 
 func TestUserService_DeleteStaffRoleValidatesAndDeletesCustomRole(t *testing.T) {
@@ -330,8 +339,50 @@ func TestUserService_DeleteStaffRoleValidatesAndDeletesCustomRole(t *testing.T) 
 		t.Fatalf("DeleteStaffRole() builtin delete error = %v, want ErrValidation", err)
 	}
 
+	if err := svc.DeleteStaffRole(context.Background(), "basic"); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("DeleteStaffRole() reserved non-staff role error = %v, want ErrValidation", err)
+	}
+
 	if err := svc.DeleteStaffRole(context.Background(), "!!!"); !errors.IsCode(err, code2.ErrValidation) {
 		t.Fatalf("DeleteStaffRole() invalid name error = %v, want ErrValidation", err)
+	}
+}
+
+func TestUserService_ReplaceResourceScopesValidatesDomainDimensions(t *testing.T) {
+	store := &fakeUserStore{}
+	svc := NewUserService(store)
+
+	scopes, err := svc.ReplaceResourceScopes(context.Background(), 7, []ResourceScopeDTO{
+		{Domain: string(authz.BusinessDomainCatalog), StoreID: "store-a"},
+		{Domain: string(authz.BusinessDomainOps), TeamID: "warehouse-a"},
+		{Domain: string(authz.BusinessDomainPlatform)},
+	})
+	if err != nil {
+		t.Fatalf("ReplaceResourceScopes() error = %v", err)
+	}
+	if len(scopes) != 3 {
+		t.Fatalf("len(ReplaceResourceScopes()) = %d, want 3", len(scopes))
+	}
+	if len(store.replacedResourceScopes) != 3 {
+		t.Fatalf("len(replaced resource scopes) = %d, want 3", len(store.replacedResourceScopes))
+	}
+
+	if _, err := svc.ReplaceResourceScopes(context.Background(), 7, []ResourceScopeDTO{
+		{Domain: string(authz.BusinessDomainCatalog), TeamID: "warehouse-a"},
+	}); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("ReplaceResourceScopes() catalog team-only error = %v, want ErrValidation", err)
+	}
+
+	if _, err := svc.ReplaceResourceScopes(context.Background(), 7, []ResourceScopeDTO{
+		{Domain: string(authz.BusinessDomainOps), StoreID: "store-a"},
+	}); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("ReplaceResourceScopes() ops store-only error = %v, want ErrValidation", err)
+	}
+
+	if _, err := svc.ReplaceResourceScopes(context.Background(), 7, []ResourceScopeDTO{
+		{Domain: string(authz.BusinessDomainPlatform), StoreID: "store-a"},
+	}); !errors.IsCode(err, code2.ErrValidation) {
+		t.Fatalf("ReplaceResourceScopes() platform scoped error = %v, want ErrValidation", err)
 	}
 }
 
@@ -549,27 +600,28 @@ func TestUserService_ListAdminAuditLogsPassesFilters(t *testing.T) {
 }
 
 type fakeUserStore struct {
-	usersByIdentifier  map[string]*dv1.UserDO
-	userByID           map[uint64]*dv1.UserDO
-	authByID           map[uint64]*dv1.UserAuthDO
-	roles              []dv1.RoleDO
-	createdRole        *dv1.RoleDO
-	updatedRole        *dv1.RoleDO
-	deletedRoleName    string
-	replacedUserID     uint64
-	replacedRoles      []string
-	replacedActor      *dv1.AuditActor
-	created            *dv1.UserDO
-	createdStaff       *dv1.UserDO
-	createdStaffRoles  []string
-	createdStaffActor  *dv1.AuditActor
-	updatedStatusID    uint64
-	updatedStatus      string
-	updatedStatusActor *dv1.AuditActor
-	auditFilters       dv1.UserAuditLogFilters
-	adminAuditFilters  dv1.AdminAuditLogFilters
-	createdAdminAudit  *dv1.AdminAuditLogDO
-	deletedID          uint64
+	usersByIdentifier      map[string]*dv1.UserDO
+	userByID               map[uint64]*dv1.UserDO
+	authByID               map[uint64]*dv1.UserAuthDO
+	roles                  []dv1.RoleDO
+	createdRole            *dv1.RoleDO
+	updatedRole            *dv1.RoleDO
+	deletedRoleName        string
+	replacedUserID         uint64
+	replacedRoles          []string
+	replacedActor          *dv1.AuditActor
+	replacedResourceScopes []dv1.UserResourceScopeDO
+	created                *dv1.UserDO
+	createdStaff           *dv1.UserDO
+	createdStaffRoles      []string
+	createdStaffActor      *dv1.AuditActor
+	updatedStatusID        uint64
+	updatedStatus          string
+	updatedStatusActor     *dv1.AuditActor
+	auditFilters           dv1.UserAuditLogFilters
+	adminAuditFilters      dv1.AdminAuditLogFilters
+	createdAdminAudit      *dv1.AdminAuditLogDO
+	deletedID              uint64
 }
 
 func (f *fakeUserStore) List(context.Context, []string, metav1.ListMeta) (*dv1.UserDOList, error) {
@@ -678,6 +730,11 @@ func (f *fakeUserStore) ReplaceUserRoles(_ context.Context, userID uint64, roleN
 		}
 	}
 	return nil, errors.WithCode(code.ErrUserNotFound, "not found")
+}
+
+func (f *fakeUserStore) ReplaceResourceScopes(_ context.Context, _ uint64, scopes []dv1.UserResourceScopeDO) error {
+	f.replacedResourceScopes = append([]dv1.UserResourceScopeDO(nil), scopes...)
+	return nil
 }
 
 func (f *fakeUserStore) ListAuditLogs(_ context.Context, _ uint64, filters dv1.UserAuditLogFilters, _ metav1.ListMeta) (*dv1.UserAuditLogDOList, error) {

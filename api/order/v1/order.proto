@@ -23,6 +23,9 @@ service Order {
     rpc BeginPaymentEvent(PaymentEventRequest) returns (PaymentEventResponse);
     rpc CompletePaymentEvent(CompletePaymentEventRequest) returns (google.protobuf.Empty);
     rpc ListPaymentEvents(PaymentEventListRequest) returns (PaymentEventListResponse);
+    rpc ClaimRefundJobs(ClaimRefundJobsRequest) returns (ClaimRefundJobsResponse);
+    rpc CompleteRefundJob(CompleteRefundJobRequest) returns (google.protobuf.Empty);
+    rpc ReconcilePayments(ReconcilePaymentsRequest) returns (ReconcilePaymentsResponse);
 }
 
 message PaymentEventRequest { string provider = 1; string eventId = 2; string orderSn = 3; string tradeNo = 4; string eventType = 5; int64 providerAmountFen = 6; int64 refundAmountFen = 7; }
@@ -31,6 +34,13 @@ message CompletePaymentEventRequest { int64 id = 1; bool success = 2; string err
 message PaymentEventListRequest { string orderSn = 1; int32 page = 2; int32 pageSize = 3; bool mismatchesOnly = 4; }
 message PaymentEventRecord { int64 id = 1; string provider = 2; string eventId = 3; string orderSn = 4; string tradeNo = 5; string eventType = 6; int64 orderAmountFen = 7; int64 providerAmountFen = 8; int64 refundAmountFen = 9; string status = 10; string errorDetail = 11; int64 receivedAt = 12; int64 completedAt = 13; }
 message PaymentEventListResponse { int32 total = 1; repeated PaymentEventRecord data = 2; int32 mismatchCount = 3; }
+message ClaimRefundJobsRequest { int32 limit = 1; int32 maxAttempts = 2; int64 lockTimeoutSeconds = 3; }
+message RefundJob { int64 id = 1; int64 refundRequestId = 2; string orderSn = 3; string tradeNo = 4; int64 amountFen = 5; string reason = 6; string correlationId = 7; int32 attempts = 8; }
+message ClaimRefundJobsResponse { repeated RefundJob jobs = 1; }
+message CompleteRefundJobRequest { int64 id = 1; bool success = 2; string provider = 3; string providerRefundId = 4; string providerStatus = 5; string errorDetail = 6; int32 maxAttempts = 7; }
+message ProviderTransaction { string eventId = 1; string orderSn = 2; string tradeNo = 3; string eventType = 4; int64 amountFen = 5; int64 occurredAt = 6; }
+message ReconcilePaymentsRequest { string provider = 1; int64 windowStart = 2; int64 windowEnd = 3; repeated ProviderTransaction transactions = 4; }
+message ReconcilePaymentsResponse { int64 runId = 1; int32 checkedCount = 2; int32 mismatchCount = 3; }
 
 message UserInfo {
     int32 id = 1;

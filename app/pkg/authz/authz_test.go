@@ -157,3 +157,35 @@ func TestCanManageRoleSet(t *testing.T) {
 		}
 	}
 }
+
+func TestReservedNonStaffRoleNamesDoNotOverlapBuiltinStaffRoles(t *testing.T) {
+	for _, roleName := range ReservedNonStaffRoleNames() {
+		if IsValidStaffRole(roleName) {
+			t.Fatalf("reserved non-staff role %q overlaps builtin staff role", roleName)
+		}
+	}
+}
+
+func TestResourceScopeMatchesDomain(t *testing.T) {
+	tests := []struct {
+		name   string
+		domain BusinessDomain
+		store  string
+		team   string
+		want   bool
+	}{
+		{name: "platform without identifiers", domain: BusinessDomainPlatform, want: true},
+		{name: "platform rejects store", domain: BusinessDomainPlatform, store: "store-a", want: false},
+		{name: "catalog requires store", domain: BusinessDomainCatalog, store: "store-a", want: true},
+		{name: "catalog rejects missing store", domain: BusinessDomainCatalog, want: false},
+		{name: "catalog rejects team", domain: BusinessDomainCatalog, store: "store-a", team: "team-a", want: false},
+		{name: "ops requires team", domain: BusinessDomainOps, team: "warehouse-a", want: true},
+		{name: "ops rejects store", domain: BusinessDomainOps, store: "store-a", team: "warehouse-a", want: false},
+	}
+
+	for _, tt := range tests {
+		if got := ResourceScopeMatchesDomain(tt.domain, tt.store, tt.team); got != tt.want {
+			t.Fatalf("%s: ResourceScopeMatchesDomain(%q, %q, %q) = %v, want %v", tt.name, tt.domain, tt.store, tt.team, got, tt.want)
+		}
+	}
+}

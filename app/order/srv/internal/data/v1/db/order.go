@@ -71,9 +71,25 @@ func (o *orders) CompletePaymentEvent(ctx context.Context, id uint64, success bo
 		updates["completed_at"] = &now
 		updates["error_detail"] = ""
 	}
-	result := o.db.WithContext(ctx).Model(&do.PaymentEventDO{}).Where("id = ? AND status = ?", id, "processing").Updates(updates)
-	if result.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, result.Error.Error())
+	err := o.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var event do.PaymentEventDO
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND status = ?", id, "processing").First(&event).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&event).Updates(updates).Error; err != nil {
+			return err
+		}
+		if success && (event.EventType == "refund_succeeded" || event.EventType == "refund_failed") {
+			refundStatus, failure := "REFUNDED", ""
+			if event.EventType == "refund_failed" {
+				refundStatus, failure = "FAILED", "provider reported refund failure"
+			}
+			return tx.Model(&do.RefundRequestDO{}).Where("order_sn = ? AND status IN ?", event.OrderSN, []string{"REFUND_PENDING", "PROCESSING"}).Order("id DESC").Limit(1).Updates(map[string]interface{}{"status": refundStatus, "provider": event.Provider, "failure_reason": failure, "updated_at": time.Now().UTC()}).Error
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -269,6 +285,11 @@ func (o *orders) CreateRefundRequest(ctx context.Context, txn *gorm.DB, request 
 		db = txn
 	}
 	if err := db.WithContext(ctx).Create(request).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	now := time.Now().UTC()
+	outbox := &do.RefundOutboxDO{RefundRequestID: request.ID, Status: "pending", AvailableAt: now, CreatedAt: now, UpdatedAt: now}
+	if err := db.WithContext(ctx).Create(outbox).Error; err != nil {
 		return errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 	return nil

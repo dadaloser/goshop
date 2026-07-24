@@ -27,6 +27,13 @@ func TestResiliencePluginRegistersCallbacks(t *testing.T) {
 		t.Fatalf("Use() error = %v", err)
 	}
 
+	if got := db.Callback().Row().Get("goshop:dependency_resilience:before_row"); got != nil {
+		t.Fatal("Row().Get(before_row) returned a callback, want nil")
+	}
+	if got := db.Callback().Row().Get("goshop:dependency_resilience:after_row"); got != nil {
+		t.Fatal("Row().Get(after_row) returned a callback, want nil")
+	}
+
 	var destination []struct{ ID int }
 	if err := db.WithContext(t.Context()).Find(&destination).Error; err != nil {
 		t.Fatalf("Find() error = %v", err)

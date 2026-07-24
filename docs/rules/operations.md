@@ -87,6 +87,27 @@ startup context and exit on cancellation.
 - Do not log JWTs, passwords, SMS secrets, full DSNs, private keys, or user
   private payloads.
 
+## Payment Provider Protocol
+
+- Refunds use `POST payment.refund-url` with `request_id`, `order_sn`,
+  `trade_no`, `amount_fen`, and `reason`. `request_id` is the provider
+  idempotency key. Successful responses return `provider_refund_id` and
+  `status`; terminal success values are `refunded` and `succeeded`.
+- Reconciliation uses `GET payment.reconcile-url?from=<RFC3339>&to=<RFC3339>`.
+  The JSON response contains `transactions` with stable provider `event_id`,
+  order/trade IDs, event type, amount in fen, and occurrence time.
+- Outbound provider requests sign
+  `timestamp + "\n" + HTTP method + "\n" + exact body` with HMAC-SHA256.
+- Callbacks must send `X-Payment-Timestamp`, an unpredictable unique
+  `X-Payment-Nonce`, and `X-Payment-Signature`. The callback signature covers
+  `timestamp + "\n" + provider + "\n" + nonce + "\n" + exact body`.
+  Redis atomically reserves the provider/nonce pair for twice the allowed clock
+  skew. The database `(provider,event_id)` constraint supplies a second
+  idempotency layer.
+- Refund jobs use database leases, bounded exponential retry, and a dead-letter
+  state after `payment.max-attempts`. Dead refunds transition both the refund and
+  order to `FAILED`/`REFUND_FAILED` for operator handling.
+
 ## Testing And Verification
 
 Common verification commands:

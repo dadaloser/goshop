@@ -17,7 +17,18 @@ import (
 )
 
 func registerAdminReviewRoutes(server *restserver.Server, cfg *config.Config, users upb.UserClient, reviews rpb.ReviewClient) error {
-	auth, err := newStaffJWTAuth(cfg.Jwt, tokenrevocation.NewRedisStore(), tokenversion.NewRedisStore(), users)
+	return registerAdminReviewRoutesWithStores(server, cfg, users, reviews, tokenrevocation.NewRedisStore(), tokenversion.NewRedisStore())
+}
+
+func registerAdminReviewRoutesWithStores(
+	server *restserver.Server,
+	cfg *config.Config,
+	users upb.UserClient,
+	reviews rpb.ReviewClient,
+	revokedTokens tokenrevocation.Store,
+	tokenVersions tokenversion.Store,
+) error {
+	auth, err := newStaffJWTAuth(cfg.Jwt, revokedTokens, tokenVersions, users)
 	if err != nil {
 		return err
 	}

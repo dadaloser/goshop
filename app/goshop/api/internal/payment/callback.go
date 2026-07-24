@@ -23,11 +23,16 @@ type CallbackService interface {
 type CallbackHandler struct {
 	opts    *options.PaymentOptions
 	service CallbackService
+	nonces  NonceStore
 	now     func() time.Time
 }
 
 func NewCallbackHandler(opts *options.PaymentOptions, service CallbackService) *CallbackHandler {
-	return &CallbackHandler{opts: opts, service: service, now: time.Now}
+	return NewCallbackHandlerWithNonceStore(opts, service, NewRedisNonceStore())
+}
+
+func NewCallbackHandlerWithNonceStore(opts *options.PaymentOptions, service CallbackService, nonces NonceStore) *CallbackHandler {
+	return &CallbackHandler{opts: opts, service: service, nonces: nonces, now: time.Now}
 }
 
 type callbackPayload struct {
@@ -49,8 +54,23 @@ func (h *CallbackHandler) Handle(c *gin.Context) {
 		return
 	}
 	provider := strings.ToLower(strings.TrimSpace(c.Param("provider")))
-	if !h.verify(provider, c.GetHeader("X-Payment-Timestamp"), c.GetHeader("X-Payment-Signature"), body) {
+	timestamp := c.GetHeader("X-Payment-Timestamp")
+	nonce := strings.TrimSpace(c.GetHeader("X-Payment-Nonce"))
+	if nonce == "" || !h.verify(provider, timestamp, nonce, c.GetHeader("X-Payment-Signature"), body) {
 		c.JSON(http.StatusUnauthorized, gin.H{"msg": "invalid callback signature"})
+		return
+	}
+	if h.nonces == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"msg": "callback replay protection unavailable"})
+		return
+	}
+	reserved, reserveErr := h.nonces.Reserve(c, provider+":"+nonce, 2*h.opts.CallbackMaxSkew)
+	if reserveErr != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"msg": "callback replay protection unavailable"})
+		return
+	}
+	if !reserved {
+		c.JSON(http.StatusConflict, gin.H{"msg": "callback nonce replayed"})
 		return
 	}
 	var payload callbackPayload
@@ -65,7 +85,7 @@ func (h *CallbackHandler) Handle(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true, "duplicate": duplicate})
 }
-func (h *CallbackHandler) verify(provider, timestamp, signature string, body []byte) bool {
+func (h *CallbackHandler) verify(provider, timestamp, nonce, signature string, body []byte) bool {
 	unix, err := strconv.ParseInt(timestamp, 10, 64)
 	if err != nil {
 		return false
@@ -79,7 +99,7 @@ func (h *CallbackHandler) verify(provider, timestamp, signature string, body []b
 		return false
 	}
 	mac := hmac.New(sha256.New, []byte(h.opts.CallbackSecret))
-	_, _ = mac.Write([]byte(timestamp + "\n" + provider + "\n"))
+	_, _ = mac.Write([]byte(timestamp + "\n" + provider + "\n" + nonce + "\n"))
 	_, _ = mac.Write(body)
 	return hmac.Equal(provided, mac.Sum(nil))
 }

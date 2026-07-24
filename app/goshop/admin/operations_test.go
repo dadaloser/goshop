@@ -14,24 +14,29 @@ import (
 func TestRequireResourceScopeRejectsCrossDomainAndStore(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tests := []struct {
-		name, domain, store string
-		claims              map[string]any
-		want                int
+		name, domain, store, team string
+		claims                    map[string]any
+		want                      int
 	}{
 		{name: "allowed catalog store", domain: "catalog", store: "store-a", claims: map[string]any{"resource_domains": []string{"catalog"}, "resource_stores": []string{"store-a"}}, want: http.StatusNoContent},
 		{name: "cross domain", domain: "operations", store: "store-a", claims: map[string]any{"resource_domains": []string{"catalog"}, "resource_stores": []string{"store-a"}}, want: http.StatusForbidden},
 		{name: "cross store", domain: "catalog", store: "store-b", claims: map[string]any{"resource_domains": []string{"catalog"}, "resource_stores": []string{"store-a"}}, want: http.StatusForbidden},
+		{name: "catalog requires store", domain: "catalog", claims: map[string]any{"resource_domains": []string{"catalog"}}, want: http.StatusForbidden},
+		{name: "ops requires team", domain: "operations", team: "warehouse-a", claims: map[string]any{"resource_domains": []string{"operations"}, "resource_teams": []string{"warehouse-a"}}, want: http.StatusNoContent},
+		{name: "ops rejects store shape", domain: "operations", store: "store-a", claims: map[string]any{"resource_domains": []string{"operations"}, "resource_stores": []string{"store-a"}}, want: http.StatusForbidden},
+		{name: "platform rejects store shape", domain: "platform", store: "store-a", claims: map[string]any{"resource_domains": []string{"platform"}}, want: http.StatusForbidden},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := gin.New()
 			r.GET("/", func(c *gin.Context) {
 				c.Set(middlewares.JWTPayloadKey, tt.claims)
-				requireResourceScope(authz.BusinessDomainCatalog)(c)
+				requireResourceScope(authz.BusinessDomain(tt.domain))(c)
 			}, func(c *gin.Context) { c.Status(http.StatusNoContent) })
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			req.Header.Set("X-Resource-Domain", tt.domain)
 			req.Header.Set("X-Store-ID", tt.store)
+			req.Header.Set("X-Team-ID", tt.team)
 			rec := httptest.NewRecorder()
 			r.ServeHTTP(rec, req)
 			if rec.Code != tt.want {

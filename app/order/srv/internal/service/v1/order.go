@@ -34,6 +34,7 @@ const (
 	OrderStatusTradeClosed   = "TRADE_CLOSED"
 	OrderStatusTradeFinished = "TRADE_FINISHED"
 	OrderStatusRefundPending = "REFUND_PENDING"
+	OrderStatusRefundFailed  = "REFUND_FAILED"
 	OrderStatusRefunded      = "REFUNDED"
 )
 
@@ -44,6 +45,7 @@ var validOrderStatuses = map[string]struct{}{
 	OrderStatusTradeClosed:   {},
 	OrderStatusTradeFinished: {},
 	OrderStatusRefundPending: {},
+	OrderStatusRefundFailed:  {},
 	OrderStatusRefunded:      {},
 }
 
@@ -623,7 +625,9 @@ func canTransitionOrderStatus(current, next string) bool {
 	case OrderStatusTradeSuccess:
 		return next == OrderStatusTradeFinished || next == OrderStatusRefundPending
 	case OrderStatusRefundPending:
-		return next == OrderStatusRefunded
+		return next == OrderStatusRefunded || next == OrderStatusRefundFailed
+	case OrderStatusRefundFailed:
+		return next == OrderStatusRefundPending
 	case OrderStatusRefunded:
 		return false
 	default:
