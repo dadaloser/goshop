@@ -156,7 +156,9 @@ func (p *HMACProvider) doJSON(ctx context.Context, method, endpoint string, inpu
 	if err != nil {
 		return fmt.Errorf("execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("provider returned status %d", resp.StatusCode)

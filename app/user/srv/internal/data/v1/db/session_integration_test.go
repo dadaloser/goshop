@@ -19,6 +19,18 @@ func TestRotateSessionAllowsOnlyOneConcurrentRefreshRealDB(t *testing.T) {
 	store := &users{db: db}
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	currentHash := repeatedSessionHash(1)
+	username := "session-e2e-user"
+	password := "hashed-password"
+	if err := db.WithContext(context.Background()).Create(&dv1.UserDO{
+		BaseModel: dv1.BaseModel{ID: 1001},
+		Username:  &username,
+		Mobile:    "13900000001",
+		Password:  password,
+		NickName:  "session-e2e",
+		Status:    "active",
+	}).Error; err != nil {
+		t.Fatalf("seed user error = %v", err)
+	}
 	session := &dv1.UserSessionDO{
 		ID:               "session-refresh-e2e-1",
 		UserID:           1001,

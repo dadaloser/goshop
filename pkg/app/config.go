@@ -56,7 +56,7 @@ func addConfigFlag(basename string, fs *pflag.FlagSet) {
 	})
 }
 
-// nolint: deadcode,unused
+// nolint:unused
 func printConfig() {
 	keys := viper.AllKeys()
 	if len(keys) > 0 {

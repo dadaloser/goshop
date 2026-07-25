@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GOCACHE_DIR="${GOCACHE:-/tmp/goshop-gocache}"
-GOTOOLCHAIN_VERSION="${GOTOOLCHAIN_VERSION:-go1.26.0}"
+GOTOOLCHAIN_VERSION="${GOTOOLCHAIN_VERSION:-go1.26.5}"
 
 cd "${ROOT_DIR}"
 

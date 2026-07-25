@@ -101,13 +101,6 @@ func (u *userService) sessions() (sessionStore, error) {
 	return store, nil
 }
 
-func copySessionTokenHash(hash []byte) []byte {
-	if len(hash) == 0 {
-		return nil
-	}
-	return append([]byte(nil), hash...)
-}
-
 func requireSessionID(sessionID string) error {
 	if sessionID == "" {
 		return errors.WithCode(code.ErrUserAccountInactive, "session is not active")

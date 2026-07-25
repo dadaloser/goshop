@@ -21,10 +21,6 @@ import (
 )
 
 // 初始化路由
-func initRouter(g *restserver.Server, cfg *config.Config, users upbv1.UserClient) error {
-	return initRouterWithBusinessClients(g, cfg, users, nil, nil, nil)
-}
-
 func initRouterWithBusinessClients(g *restserver.Server, cfg *config.Config, users upbv1.UserClient, goods goodspb.GoodsClient, inventory inventorypb.InventoryClient, orders orderpb.OrderClient) error {
 	return initRouterWithDependencies(g, cfg, users, goods, inventory, orders, tokenrevocation.NewRedisStore(), tokenversion.NewRedisStore())
 }
