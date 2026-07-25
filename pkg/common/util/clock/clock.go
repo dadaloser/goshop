@@ -287,26 +287,22 @@ func (i *IntervalClock) Since(ts time.Time) time.Duration {
 	return i.Time.Sub(ts)
 }
 
-// After is currently unimplemented, will panic.
-// TODO: make interval clock use FakeClock so this can be implemented.
+// After is intentionally unsupported on IntervalClock and will panic.
 func (*IntervalClock) After(d time.Duration) <-chan time.Time {
 	panic("IntervalClock doesn't implement After")
 }
 
-// AfterFunc is currently unimplemented, will panic.
-// TODO: make interval clock use FakeClock so this can be implemented.
+// AfterFunc is intentionally unsupported on IntervalClock and will panic.
 func (*IntervalClock) AfterFunc(d time.Duration, cb func()) Timer {
 	panic("IntervalClock doesn't implement AfterFunc")
 }
 
-// NewTimer is currently unimplemented, will panic.
-// TODO: make interval clock use FakeClock so this can be implemented.
+// NewTimer is intentionally unsupported on IntervalClock and will panic.
 func (*IntervalClock) NewTimer(d time.Duration) Timer {
 	panic("IntervalClock doesn't implement NewTimer")
 }
 
-// NewTicker is currently unimplemented, will panic.
-// TODO: make interval clock use FakeClock so this can be implemented.
+// NewTicker is intentionally unsupported on IntervalClock and will panic.
 func (*IntervalClock) NewTicker(d time.Duration) Ticker {
 	panic("IntervalClock doesn't implement NewTicker")
 }

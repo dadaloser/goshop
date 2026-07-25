@@ -4,5 +4,6 @@ kind: Kustomization
 resources:
   - dependency-resilience-alerts.yaml
   - order-ops-alerts.yaml
+  - review-ops-alerts.yaml
   - goods-outbox-alerts.yaml
   - service-slo-alerts.yaml

@@ -57,10 +57,8 @@ func (v *Error) ErrorBody() string {
 			// anything that defines String() is better than raw struct
 			s = fmt.Sprintf("%s: %s", v.Type, t.String())
 		default:
-			// fallback to raw struct
-			// TODO: internal types have panic guards against json.Marshalling to prevent
-			// accidental use of internal types in external serialized form.  For now, use
-			// %#v, although it would be better to show a more expressive output in the future
+			// Fall back to %#v because some internal types intentionally panic on JSON
+			// marshalling to prevent accidental external serialization.
 			s = fmt.Sprintf("%s: %#v", v.Type, value)
 		}
 	}
@@ -75,7 +73,8 @@ func (v *Error) ErrorBody() string {
 // CauseType in api/types.go.
 type ErrorType string
 
-// TODO: These values are duplicated in api/types.go, but there's a circular dep.  Fix it.
+// These values remain duplicated in api/types.go because the current package
+// graph would create a circular dependency.
 const (
 	// ErrorTypeNotFound is used to report failure to find a requested value
 	// (e.g. looking up an ID).  See NotFound().

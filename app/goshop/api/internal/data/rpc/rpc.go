@@ -45,7 +45,7 @@ var (
 	factoryMu sync.Mutex
 )
 
-// rpc的连接， 基于服务发现
+// GetDataFactoryOr builds the shared RPC-backed gateway factory via service discovery.
 func GetDataFactoryOr(
 	ctx context.Context,
 	options *options.RegistryOptions,
@@ -53,7 +53,7 @@ func GetDataFactoryOr(
 	rpcResilience *resilience.Options,
 ) (data.DataFactory, error) {
 	if ctx == nil {
-		ctx = context.TODO()
+		ctx = context.Background()
 	}
 	if dbFactory != nil {
 		return dbFactory, nil

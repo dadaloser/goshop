@@ -23,7 +23,6 @@ type service struct {
 }
 
 func (s *service) Inventory() InventorySrv {
-	//TODO implement me
 	return newInventoryService(s)
 }
 

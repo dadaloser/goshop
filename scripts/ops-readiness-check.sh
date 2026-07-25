@@ -27,5 +27,7 @@ test "$alerts" -eq "$runbooks"
 test -f docs/runbooks/deploy-rollback-incident.md
 test -f docs/slo/service-slo.md
 test -f performance/k6/core-business.js
+test -f chaos/records/drill-record-template.md
+test -f chaos/records/2026-07-24-review-canary-rollback-drill.md
 
 echo "operations readiness check passed"

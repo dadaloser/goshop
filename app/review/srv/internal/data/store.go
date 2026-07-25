@@ -136,7 +136,10 @@ func (s *Store) ProcessOutbox(ctx context.Context, limit int) error {
 	if limit <= 0 {
 		limit = 50
 	}
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := observeReviewOutboxBacklog(ctx, s.db); err != nil {
+		return err
+	}
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var events []domain.OutboxEvent
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("status = ? AND next_attempt_at <= ?", "PENDING", time.Now().Unix()).Order("id").Limit(limit).Find(&events).Error; err != nil {
 			return err
@@ -161,6 +164,10 @@ func (s *Store) ProcessOutbox(ctx context.Context, limit int) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	return observeReviewOutboxBacklog(ctx, s.db)
 }
 func translate(err error) error {
 	if stderrors.Is(err, gorm.ErrRecordNotFound) {

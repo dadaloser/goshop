@@ -1,0 +1,36 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: goshop-review-ops-alerts
+  labels:
+    app.kubernetes.io/name: goshop
+    app.kubernetes.io/component: review-observability
+spec:
+  groups:
+    - name: goshop-review-ops
+      rules:
+        - alert: ReviewServiceErrorRatioHigh
+          expr: |
+            goshop:rpc_error_ratio:rate5m{job="goshop-review-srv"} > 0.02
+          for: 10m
+          labels:
+            severity: warning
+            team: commerce
+            owner: commerce-oncall
+          annotations:
+            summary: "Review service error ratio is elevated"
+            description: "The review gRPC service has exceeded a 2% error ratio for 10 minutes. Check moderation, reply, and rating rebuild failures."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#error-ratio"
+
+        - alert: ReviewRatingOutboxBacklogHigh
+          expr: |
+            review_service_outbox_backlog{status="PENDING"} > 100
+          for: 10m
+          labels:
+            severity: warning
+            team: commerce
+            owner: commerce-oncall
+          annotations:
+            summary: "Review rating outbox backlog is elevated"
+            description: "More than 100 review rating rebuild events have remained pending for 10 minutes. Check review worker health and MySQL latency."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#review-rating-outbox"

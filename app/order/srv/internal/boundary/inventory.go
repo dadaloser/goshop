@@ -29,7 +29,7 @@ func NewInventoryRPCGatewayContext(
 	rpcResilience *resilience.Options,
 ) (InventoryGateway, error) {
 	if ctx == nil {
-		ctx = context.TODO()
+		ctx = context.Background()
 	}
 	inventoryClient, _, err := client.NewInventoryClient(
 		ctx,

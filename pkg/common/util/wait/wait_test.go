@@ -51,13 +51,13 @@ func TestUntil(t *testing.T) {
 }
 
 func TestUntilWithContext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	UntilWithContext(ctx, func(context.Context) {
 		t.Fatal("should not have been invoked")
 	}, 0)
 
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx, cancel = context.WithCancel(context.Background())
 	called := make(chan struct{})
 	go func() {
 		UntilWithContext(ctx, func(context.Context) {
@@ -91,13 +91,13 @@ func TestNonSlidingUntil(t *testing.T) {
 }
 
 func TestNonSlidingUntilWithContext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	NonSlidingUntilWithContext(ctx, func(context.Context) {
 		t.Fatal("should not have been invoked")
 	}, 0)
 
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx, cancel = context.WithCancel(context.Background())
 	called := make(chan struct{})
 	go func() {
 		NonSlidingUntilWithContext(ctx, func(context.Context) {
@@ -144,13 +144,13 @@ func TestJitterUntil(t *testing.T) {
 }
 
 func TestJitterUntilWithContext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	JitterUntilWithContext(ctx, func(context.Context) {
 		t.Fatal("should not have been invoked")
 	}, 0, 1.0, true)
 
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx, cancel = context.WithCancel(context.Background())
 	called := make(chan struct{})
 	go func() {
 		JitterUntilWithContext(ctx, func(context.Context) {

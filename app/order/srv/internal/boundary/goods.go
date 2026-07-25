@@ -33,7 +33,7 @@ func NewGoodsRPCGatewayContext(
 	rpcResilience *resilience.Options,
 ) (GoodsGateway, error) {
 	if ctx == nil {
-		ctx = context.TODO()
+		ctx = context.Background()
 	}
 	goodsClient, _, err := client.NewGoodsClient(
 		ctx,

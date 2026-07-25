@@ -99,7 +99,7 @@ func (g *Guard) Start(ctx context.Context, resource string) (*Call, error) {
 		return nil, errors.New("resilience resource must be non-empty and must not contain ':'")
 	}
 	if ctx == nil {
-		ctx = context.TODO()
+		ctx = context.Background()
 	}
 	if err := g.configure(resource); err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (g *Guard) Start(ctx context.Context, resource string) (*Call, error) {
 // Context returns the timeout-bounded context for the dependency operation.
 func (c *Call) Context() context.Context {
 	if c == nil {
-		return context.TODO()
+		return context.Background()
 	}
 	return c.ctx
 }

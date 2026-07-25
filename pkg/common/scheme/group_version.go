@@ -191,8 +191,8 @@ func (gv GroupVersion) Identifier() string {
 
 // KindForGroupVersionKinds identifies the preferred GroupVersionKind out of a list. It returns ok false
 // if none of the options match the group. It prefers a match to group and version over just group.
-// TODO: Move GroupVersion to a package under pkg/runtime, since it's used by scheme.
-// TODO: Introduce an adapter type between GroupVersion and runtime.GroupVersioner, and use LegacyCodec(GroupVersion)
+// GroupVersion still lives in scheme for compatibility with existing callers.
+// A future runtime-layer extraction should preserve LegacyCodec compatibility.
 //
 //	in fewer places.
 func (gv GroupVersion) KindForGroupVersionKinds(kinds []GroupVersionKind) (target GroupVersionKind, ok bool) {
@@ -240,8 +240,8 @@ func (gv GroupVersion) WithResource(resource string) GroupVersionResource {
 }
 
 // GroupVersions can be used to represent a set of desired group versions.
-// TODO: Move GroupVersions to a package under pkg/runtime, since it's used by scheme.
-// TODO: Introduce an adapter type between GroupVersions and runtime.GroupVersioner, and use LegacyCodec(GroupVersion)
+// GroupVersions still lives in scheme for compatibility with existing callers.
+// A future runtime-layer extraction should preserve LegacyCodec compatibility.
 //
 //	in fewer places.
 type GroupVersions []GroupVersion
@@ -301,7 +301,7 @@ func (gvk GroupVersionKind) ToAPIVersionAndKind() (string, string) {
 // FromAPIVersionAndKind returns a GVK representing the provided fields for types that
 // do not use TypeMeta. This method exists to support test types and legacy serializations
 // that have a distinct group and kind.
-// TODO: further reduce usage of this method.
+// This helper mainly exists for legacy serializations and test fixtures.
 func FromAPIVersionAndKind(apiVersion, kind string) GroupVersionKind {
 	if gv, err := ParseGroupVersion(apiVersion); err == nil {
 		return GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: kind}

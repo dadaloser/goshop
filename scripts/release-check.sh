@@ -11,7 +11,7 @@ echo "[release-check] format"
 test -z "$(gofmt -l .)"
 
 echo "[release-check] vet"
-env GOCACHE="${GOCACHE_DIR}" go vet ./app/... ./gmicro/... ./pkg/...
+bash ./scripts/go-vet-check.sh
 
 echo "[release-check] panic scan"
 make panic-check

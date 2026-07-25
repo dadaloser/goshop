@@ -32,7 +32,7 @@ help:
 	@echo "  make test-race-cover  Run race-enabled tests with merged coverage output"
 	@echo "  make coverage-threshold-check  Enforce coverage thresholds for core money/authz/order/payment/session code"
 	@echo "  make format-check  Fail if gofmt would change tracked Go files"
-	@echo "  make vet-check  Run go vet on app/gmicro/pkg business code"
+	@echo "  make vet-check  Run go vet with an approved murmur3 exception policy"
 	@echo "  make lint-check  Run pinned golangci-lint version"
 	@echo "  make rpcserver-flake-check  Run rpcserver tests with -count=50"
 	@echo "  make release-check  Run the trusted release baseline gate"
@@ -65,7 +65,7 @@ format-check:
 	test -z "$$(gofmt -l .)"
 
 vet-check:
-	env GOCACHE=/tmp/goshop-gocache go vet ./app/... ./gmicro/... ./pkg/...
+	bash ./scripts/go-vet-check.sh
 
 lint-check:
 	GOLANGCI_LINT_VERSION=$(GOLANGCI_LINT_VERSION) bash ./scripts/lint.sh
