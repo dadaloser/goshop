@@ -28,6 +28,8 @@ type UserResourceScope struct {
 	Domain        string                 `protobuf:"bytes,1,opt,name=domain,proto3" json:"domain,omitempty"`
 	StoreId       string                 `protobuf:"bytes,2,opt,name=storeId,proto3" json:"storeId,omitempty"`
 	TeamId        string                 `protobuf:"bytes,3,opt,name=teamId,proto3" json:"teamId,omitempty"`
+	ResourceType  string                 `protobuf:"bytes,4,opt,name=resourceType,proto3" json:"resourceType,omitempty"`
+	ResourceId    string                 `protobuf:"bytes,5,opt,name=resourceId,proto3" json:"resourceId,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -79,6 +81,20 @@ func (x *UserResourceScope) GetStoreId() string {
 func (x *UserResourceScope) GetTeamId() string {
 	if x != nil {
 		return x.TeamId
+	}
+	return ""
+}
+
+func (x *UserResourceScope) GetResourceType() string {
+	if x != nil {
+		return x.ResourceType
+	}
+	return ""
+}
+
+func (x *UserResourceScope) GetResourceId() string {
+	if x != nil {
+		return x.ResourceId
 	}
 	return ""
 }
@@ -254,6 +270,7 @@ type CreateSessionRequest struct {
 	DeviceName       string                 `protobuf:"bytes,3,opt,name=deviceName,proto3" json:"deviceName,omitempty"`
 	RefreshTokenHash []byte                 `protobuf:"bytes,4,opt,name=refreshTokenHash,proto3" json:"refreshTokenHash,omitempty"`
 	ExpiresAt        uint64                 `protobuf:"varint,5,opt,name=expiresAt,proto3" json:"expiresAt,omitempty"`
+	PrincipalType    string                 `protobuf:"bytes,6,opt,name=principalType,proto3" json:"principalType,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -321,6 +338,13 @@ func (x *CreateSessionRequest) GetExpiresAt() uint64 {
 		return x.ExpiresAt
 	}
 	return 0
+}
+
+func (x *CreateSessionRequest) GetPrincipalType() string {
+	if x != nil {
+		return x.PrincipalType
+	}
+	return ""
 }
 
 type RefreshSessionRequest struct {
@@ -615,6 +639,682 @@ func (x *SessionValidationResponse) GetActive() bool {
 	return false
 }
 
+type StaffSessionRecord struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	UserId        int32                  `protobuf:"varint,2,opt,name=userId,proto3" json:"userId,omitempty"`
+	DeviceId      string                 `protobuf:"bytes,3,opt,name=deviceId,proto3" json:"deviceId,omitempty"`
+	DeviceName    string                 `protobuf:"bytes,4,opt,name=deviceName,proto3" json:"deviceName,omitempty"`
+	PrincipalType string                 `protobuf:"bytes,5,opt,name=principalType,proto3" json:"principalType,omitempty"`
+	CreatedAt     uint64                 `protobuf:"varint,6,opt,name=createdAt,proto3" json:"createdAt,omitempty"`
+	LastUsedAt    uint64                 `protobuf:"varint,7,opt,name=lastUsedAt,proto3" json:"lastUsedAt,omitempty"`
+	ExpiresAt     uint64                 `protobuf:"varint,8,opt,name=expiresAt,proto3" json:"expiresAt,omitempty"`
+	RevokedAt     uint64                 `protobuf:"varint,9,opt,name=revokedAt,proto3" json:"revokedAt,omitempty"`
+	Roles         []string               `protobuf:"bytes,10,rep,name=roles,proto3" json:"roles,omitempty"`
+	Active        bool                   `protobuf:"varint,11,opt,name=active,proto3" json:"active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StaffSessionRecord) Reset() {
+	*x = StaffSessionRecord{}
+	mi := &file_user_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StaffSessionRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StaffSessionRecord) ProtoMessage() {}
+
+func (x *StaffSessionRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StaffSessionRecord.ProtoReflect.Descriptor instead.
+func (*StaffSessionRecord) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *StaffSessionRecord) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *StaffSessionRecord) GetUserId() int32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *StaffSessionRecord) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+func (x *StaffSessionRecord) GetDeviceName() string {
+	if x != nil {
+		return x.DeviceName
+	}
+	return ""
+}
+
+func (x *StaffSessionRecord) GetPrincipalType() string {
+	if x != nil {
+		return x.PrincipalType
+	}
+	return ""
+}
+
+func (x *StaffSessionRecord) GetCreatedAt() uint64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *StaffSessionRecord) GetLastUsedAt() uint64 {
+	if x != nil {
+		return x.LastUsedAt
+	}
+	return 0
+}
+
+func (x *StaffSessionRecord) GetExpiresAt() uint64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+func (x *StaffSessionRecord) GetRevokedAt() uint64 {
+	if x != nil {
+		return x.RevokedAt
+	}
+	return 0
+}
+
+func (x *StaffSessionRecord) GetRoles() []string {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
+func (x *StaffSessionRecord) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+type ListStaffSessionsRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	UserId         int32                  `protobuf:"varint,1,opt,name=userId,proto3" json:"userId,omitempty"`
+	Role           string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	CreatedAfter   uint64                 `protobuf:"varint,3,opt,name=createdAfter,proto3" json:"createdAfter,omitempty"`
+	CreatedBefore  uint64                 `protobuf:"varint,4,opt,name=createdBefore,proto3" json:"createdBefore,omitempty"`
+	LastUsedAfter  uint64                 `protobuf:"varint,5,opt,name=lastUsedAfter,proto3" json:"lastUsedAfter,omitempty"`
+	LastUsedBefore uint64                 `protobuf:"varint,6,opt,name=lastUsedBefore,proto3" json:"lastUsedBefore,omitempty"`
+	ActiveOnly     bool                   `protobuf:"varint,7,opt,name=activeOnly,proto3" json:"activeOnly,omitempty"`
+	Pn             uint32                 `protobuf:"varint,8,opt,name=pn,proto3" json:"pn,omitempty"`
+	PSize          uint32                 `protobuf:"varint,9,opt,name=pSize,proto3" json:"pSize,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListStaffSessionsRequest) Reset() {
+	*x = ListStaffSessionsRequest{}
+	mi := &file_user_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListStaffSessionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListStaffSessionsRequest) ProtoMessage() {}
+
+func (x *ListStaffSessionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListStaffSessionsRequest.ProtoReflect.Descriptor instead.
+func (*ListStaffSessionsRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListStaffSessionsRequest) GetUserId() int32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *ListStaffSessionsRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *ListStaffSessionsRequest) GetCreatedAfter() uint64 {
+	if x != nil {
+		return x.CreatedAfter
+	}
+	return 0
+}
+
+func (x *ListStaffSessionsRequest) GetCreatedBefore() uint64 {
+	if x != nil {
+		return x.CreatedBefore
+	}
+	return 0
+}
+
+func (x *ListStaffSessionsRequest) GetLastUsedAfter() uint64 {
+	if x != nil {
+		return x.LastUsedAfter
+	}
+	return 0
+}
+
+func (x *ListStaffSessionsRequest) GetLastUsedBefore() uint64 {
+	if x != nil {
+		return x.LastUsedBefore
+	}
+	return 0
+}
+
+func (x *ListStaffSessionsRequest) GetActiveOnly() bool {
+	if x != nil {
+		return x.ActiveOnly
+	}
+	return false
+}
+
+func (x *ListStaffSessionsRequest) GetPn() uint32 {
+	if x != nil {
+		return x.Pn
+	}
+	return 0
+}
+
+func (x *ListStaffSessionsRequest) GetPSize() uint32 {
+	if x != nil {
+		return x.PSize
+	}
+	return 0
+}
+
+type ListStaffSessionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Total         int32                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	Items         []*StaffSessionRecord  `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListStaffSessionsResponse) Reset() {
+	*x = ListStaffSessionsResponse{}
+	mi := &file_user_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListStaffSessionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListStaffSessionsResponse) ProtoMessage() {}
+
+func (x *ListStaffSessionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListStaffSessionsResponse.ProtoReflect.Descriptor instead.
+func (*ListStaffSessionsResponse) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ListStaffSessionsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListStaffSessionsResponse) GetItems() []*StaffSessionRecord {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type RevokeStaffSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=sessionId,proto3" json:"sessionId,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeStaffSessionRequest) Reset() {
+	*x = RevokeStaffSessionRequest{}
+	mi := &file_user_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeStaffSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeStaffSessionRequest) ProtoMessage() {}
+
+func (x *RevokeStaffSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeStaffSessionRequest.ProtoReflect.Descriptor instead.
+func (*RevokeStaffSessionRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *RevokeStaffSessionRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+type RevokeStaffUserSessionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int32                  `protobuf:"varint,1,opt,name=userId,proto3" json:"userId,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeStaffUserSessionsRequest) Reset() {
+	*x = RevokeStaffUserSessionsRequest{}
+	mi := &file_user_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeStaffUserSessionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeStaffUserSessionsRequest) ProtoMessage() {}
+
+func (x *RevokeStaffUserSessionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeStaffUserSessionsRequest.ProtoReflect.Descriptor instead.
+func (*RevokeStaffUserSessionsRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *RevokeStaffUserSessionsRequest) GetUserId() int32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+type BreakGlassApproval struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	RequesterUserId int32                  `protobuf:"varint,2,opt,name=requesterUserId,proto3" json:"requesterUserId,omitempty"`
+	ApproverUserId  int32                  `protobuf:"varint,3,opt,name=approverUserId,proto3" json:"approverUserId,omitempty"`
+	Status          string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Reason          string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
+	RequestId       string                 `protobuf:"bytes,6,opt,name=requestId,proto3" json:"requestId,omitempty"`
+	CreatedAt       uint64                 `protobuf:"varint,7,opt,name=createdAt,proto3" json:"createdAt,omitempty"`
+	ApprovedAt      uint64                 `protobuf:"varint,8,opt,name=approvedAt,proto3" json:"approvedAt,omitempty"`
+	ExpiresAt       uint64                 `protobuf:"varint,9,opt,name=expiresAt,proto3" json:"expiresAt,omitempty"`
+	UsedAt          uint64                 `protobuf:"varint,10,opt,name=usedAt,proto3" json:"usedAt,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *BreakGlassApproval) Reset() {
+	*x = BreakGlassApproval{}
+	mi := &file_user_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BreakGlassApproval) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BreakGlassApproval) ProtoMessage() {}
+
+func (x *BreakGlassApproval) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BreakGlassApproval.ProtoReflect.Descriptor instead.
+func (*BreakGlassApproval) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *BreakGlassApproval) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *BreakGlassApproval) GetRequesterUserId() int32 {
+	if x != nil {
+		return x.RequesterUserId
+	}
+	return 0
+}
+
+func (x *BreakGlassApproval) GetApproverUserId() int32 {
+	if x != nil {
+		return x.ApproverUserId
+	}
+	return 0
+}
+
+func (x *BreakGlassApproval) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *BreakGlassApproval) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *BreakGlassApproval) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *BreakGlassApproval) GetCreatedAt() uint64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *BreakGlassApproval) GetApprovedAt() uint64 {
+	if x != nil {
+		return x.ApprovedAt
+	}
+	return 0
+}
+
+func (x *BreakGlassApproval) GetExpiresAt() uint64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+func (x *BreakGlassApproval) GetUsedAt() uint64 {
+	if x != nil {
+		return x.UsedAt
+	}
+	return 0
+}
+
+type CreateBreakGlassApprovalRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	RequesterUserId int32                  `protobuf:"varint,1,opt,name=requesterUserId,proto3" json:"requesterUserId,omitempty"`
+	Reason          string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	RequestId       string                 `protobuf:"bytes,3,opt,name=requestId,proto3" json:"requestId,omitempty"`
+	ExpiresAt       uint64                 `protobuf:"varint,4,opt,name=expiresAt,proto3" json:"expiresAt,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *CreateBreakGlassApprovalRequest) Reset() {
+	*x = CreateBreakGlassApprovalRequest{}
+	mi := &file_user_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateBreakGlassApprovalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateBreakGlassApprovalRequest) ProtoMessage() {}
+
+func (x *CreateBreakGlassApprovalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateBreakGlassApprovalRequest.ProtoReflect.Descriptor instead.
+func (*CreateBreakGlassApprovalRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *CreateBreakGlassApprovalRequest) GetRequesterUserId() int32 {
+	if x != nil {
+		return x.RequesterUserId
+	}
+	return 0
+}
+
+func (x *CreateBreakGlassApprovalRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *CreateBreakGlassApprovalRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *CreateBreakGlassApprovalRequest) GetExpiresAt() uint64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+type ApproveBreakGlassApprovalRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ApprovalId     string                 `protobuf:"bytes,1,opt,name=approvalId,proto3" json:"approvalId,omitempty"`
+	ApproverUserId int32                  `protobuf:"varint,2,opt,name=approverUserId,proto3" json:"approverUserId,omitempty"`
+	RequestId      string                 `protobuf:"bytes,3,opt,name=requestId,proto3" json:"requestId,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ApproveBreakGlassApprovalRequest) Reset() {
+	*x = ApproveBreakGlassApprovalRequest{}
+	mi := &file_user_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveBreakGlassApprovalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveBreakGlassApprovalRequest) ProtoMessage() {}
+
+func (x *ApproveBreakGlassApprovalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveBreakGlassApprovalRequest.ProtoReflect.Descriptor instead.
+func (*ApproveBreakGlassApprovalRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ApproveBreakGlassApprovalRequest) GetApprovalId() string {
+	if x != nil {
+		return x.ApprovalId
+	}
+	return ""
+}
+
+func (x *ApproveBreakGlassApprovalRequest) GetApproverUserId() int32 {
+	if x != nil {
+		return x.ApproverUserId
+	}
+	return 0
+}
+
+func (x *ApproveBreakGlassApprovalRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+type ConsumeBreakGlassApprovalRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ApprovalId      string                 `protobuf:"bytes,1,opt,name=approvalId,proto3" json:"approvalId,omitempty"`
+	RequesterUserId int32                  `protobuf:"varint,2,opt,name=requesterUserId,proto3" json:"requesterUserId,omitempty"`
+	RequestId       string                 `protobuf:"bytes,3,opt,name=requestId,proto3" json:"requestId,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ConsumeBreakGlassApprovalRequest) Reset() {
+	*x = ConsumeBreakGlassApprovalRequest{}
+	mi := &file_user_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConsumeBreakGlassApprovalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConsumeBreakGlassApprovalRequest) ProtoMessage() {}
+
+func (x *ConsumeBreakGlassApprovalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_user_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConsumeBreakGlassApprovalRequest.ProtoReflect.Descriptor instead.
+func (*ConsumeBreakGlassApprovalRequest) Descriptor() ([]byte, []int) {
+	return file_user_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ConsumeBreakGlassApprovalRequest) GetApprovalId() string {
+	if x != nil {
+		return x.ApprovalId
+	}
+	return ""
+}
+
+func (x *ConsumeBreakGlassApprovalRequest) GetRequesterUserId() int32 {
+	if x != nil {
+		return x.RequesterUserId
+	}
+	return 0
+}
+
+func (x *ConsumeBreakGlassApprovalRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
 type PasswordCheckInfo struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Password          string                 `protobuf:"bytes,1,opt,name=password,proto3" json:"password,omitempty"`
@@ -625,7 +1325,7 @@ type PasswordCheckInfo struct {
 
 func (x *PasswordCheckInfo) Reset() {
 	*x = PasswordCheckInfo{}
-	mi := &file_user_proto_msgTypes[10]
+	mi := &file_user_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -637,7 +1337,7 @@ func (x *PasswordCheckInfo) String() string {
 func (*PasswordCheckInfo) ProtoMessage() {}
 
 func (x *PasswordCheckInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[10]
+	mi := &file_user_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -650,7 +1350,7 @@ func (x *PasswordCheckInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PasswordCheckInfo.ProtoReflect.Descriptor instead.
 func (*PasswordCheckInfo) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{10}
+	return file_user_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *PasswordCheckInfo) GetPassword() string {
@@ -676,7 +1376,7 @@ type CheckResponse struct {
 
 func (x *CheckResponse) Reset() {
 	*x = CheckResponse{}
-	mi := &file_user_proto_msgTypes[11]
+	mi := &file_user_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -688,7 +1388,7 @@ func (x *CheckResponse) String() string {
 func (*CheckResponse) ProtoMessage() {}
 
 func (x *CheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[11]
+	mi := &file_user_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -701,7 +1401,7 @@ func (x *CheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckResponse.ProtoReflect.Descriptor instead.
 func (*CheckResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{11}
+	return file_user_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CheckResponse) GetSuccess() bool {
@@ -721,7 +1421,7 @@ type PageInfo struct {
 
 func (x *PageInfo) Reset() {
 	*x = PageInfo{}
-	mi := &file_user_proto_msgTypes[12]
+	mi := &file_user_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -733,7 +1433,7 @@ func (x *PageInfo) String() string {
 func (*PageInfo) ProtoMessage() {}
 
 func (x *PageInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[12]
+	mi := &file_user_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -746,7 +1446,7 @@ func (x *PageInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PageInfo.ProtoReflect.Descriptor instead.
 func (*PageInfo) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{12}
+	return file_user_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *PageInfo) GetPn() uint32 {
@@ -772,7 +1472,7 @@ type MobileRequest struct {
 
 func (x *MobileRequest) Reset() {
 	*x = MobileRequest{}
-	mi := &file_user_proto_msgTypes[13]
+	mi := &file_user_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -784,7 +1484,7 @@ func (x *MobileRequest) String() string {
 func (*MobileRequest) ProtoMessage() {}
 
 func (x *MobileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[13]
+	mi := &file_user_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -797,7 +1497,7 @@ func (x *MobileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MobileRequest.ProtoReflect.Descriptor instead.
 func (*MobileRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{13}
+	return file_user_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *MobileRequest) GetMobile() string {
@@ -816,7 +1516,7 @@ type IdRequest struct {
 
 func (x *IdRequest) Reset() {
 	*x = IdRequest{}
-	mi := &file_user_proto_msgTypes[14]
+	mi := &file_user_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -828,7 +1528,7 @@ func (x *IdRequest) String() string {
 func (*IdRequest) ProtoMessage() {}
 
 func (x *IdRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[14]
+	mi := &file_user_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -841,7 +1541,7 @@ func (x *IdRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IdRequest.ProtoReflect.Descriptor instead.
 func (*IdRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{14}
+	return file_user_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *IdRequest) GetId() int32 {
@@ -866,7 +1566,7 @@ type CreateUserInfo struct {
 
 func (x *CreateUserInfo) Reset() {
 	*x = CreateUserInfo{}
-	mi := &file_user_proto_msgTypes[15]
+	mi := &file_user_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -878,7 +1578,7 @@ func (x *CreateUserInfo) String() string {
 func (*CreateUserInfo) ProtoMessage() {}
 
 func (x *CreateUserInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[15]
+	mi := &file_user_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -891,7 +1591,7 @@ func (x *CreateUserInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateUserInfo.ProtoReflect.Descriptor instead.
 func (*CreateUserInfo) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{15}
+	return file_user_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CreateUserInfo) GetNickName() string {
@@ -957,7 +1657,7 @@ type UpdateUserInfo struct {
 
 func (x *UpdateUserInfo) Reset() {
 	*x = UpdateUserInfo{}
-	mi := &file_user_proto_msgTypes[16]
+	mi := &file_user_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -969,7 +1669,7 @@ func (x *UpdateUserInfo) String() string {
 func (*UpdateUserInfo) ProtoMessage() {}
 
 func (x *UpdateUserInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[16]
+	mi := &file_user_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -982,7 +1682,7 @@ func (x *UpdateUserInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateUserInfo.ProtoReflect.Descriptor instead.
 func (*UpdateUserInfo) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{16}
+	return file_user_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *UpdateUserInfo) GetId() int32 {
@@ -1037,7 +1737,7 @@ type AuditActor struct {
 
 func (x *AuditActor) Reset() {
 	*x = AuditActor{}
-	mi := &file_user_proto_msgTypes[17]
+	mi := &file_user_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1049,7 +1749,7 @@ func (x *AuditActor) String() string {
 func (*AuditActor) ProtoMessage() {}
 
 func (x *AuditActor) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[17]
+	mi := &file_user_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1062,7 +1762,7 @@ func (x *AuditActor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuditActor.ProtoReflect.Descriptor instead.
 func (*AuditActor) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{17}
+	return file_user_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *AuditActor) GetActorUserId() int32 {
@@ -1091,7 +1791,7 @@ type CreateStaffUserRequest struct {
 
 func (x *CreateStaffUserRequest) Reset() {
 	*x = CreateStaffUserRequest{}
-	mi := &file_user_proto_msgTypes[18]
+	mi := &file_user_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1103,7 +1803,7 @@ func (x *CreateStaffUserRequest) String() string {
 func (*CreateStaffUserRequest) ProtoMessage() {}
 
 func (x *CreateStaffUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[18]
+	mi := &file_user_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1116,7 +1816,7 @@ func (x *CreateStaffUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateStaffUserRequest.ProtoReflect.Descriptor instead.
 func (*CreateStaffUserRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{18}
+	return file_user_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *CreateStaffUserRequest) GetUser() *CreateUserInfo {
@@ -1158,7 +1858,7 @@ type UpdateUserStatusRequest struct {
 
 func (x *UpdateUserStatusRequest) Reset() {
 	*x = UpdateUserStatusRequest{}
-	mi := &file_user_proto_msgTypes[19]
+	mi := &file_user_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1170,7 +1870,7 @@ func (x *UpdateUserStatusRequest) String() string {
 func (*UpdateUserStatusRequest) ProtoMessage() {}
 
 func (x *UpdateUserStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[19]
+	mi := &file_user_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1183,7 +1883,7 @@ func (x *UpdateUserStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateUserStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateUserStatusRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{19}
+	return file_user_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *UpdateUserStatusRequest) GetId() int32 {
@@ -1226,7 +1926,7 @@ type UserInfoResponse struct {
 
 func (x *UserInfoResponse) Reset() {
 	*x = UserInfoResponse{}
-	mi := &file_user_proto_msgTypes[20]
+	mi := &file_user_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1238,7 +1938,7 @@ func (x *UserInfoResponse) String() string {
 func (*UserInfoResponse) ProtoMessage() {}
 
 func (x *UserInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[20]
+	mi := &file_user_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1251,7 +1951,7 @@ func (x *UserInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserInfoResponse.ProtoReflect.Descriptor instead.
 func (*UserInfoResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{20}
+	return file_user_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *UserInfoResponse) GetId() int32 {
@@ -1341,13 +2041,14 @@ type UserAuthResponse struct {
 	ResourceDomains []string               `protobuf:"bytes,6,rep,name=resourceDomains,proto3" json:"resourceDomains,omitempty"`
 	ResourceStores  []string               `protobuf:"bytes,7,rep,name=resourceStores,proto3" json:"resourceStores,omitempty"`
 	ResourceTeams   []string               `protobuf:"bytes,8,rep,name=resourceTeams,proto3" json:"resourceTeams,omitempty"`
+	ResourceScopes  []*UserResourceScope   `protobuf:"bytes,9,rep,name=resourceScopes,proto3" json:"resourceScopes,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *UserAuthResponse) Reset() {
 	*x = UserAuthResponse{}
-	mi := &file_user_proto_msgTypes[21]
+	mi := &file_user_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1359,7 +2060,7 @@ func (x *UserAuthResponse) String() string {
 func (*UserAuthResponse) ProtoMessage() {}
 
 func (x *UserAuthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[21]
+	mi := &file_user_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1372,7 +2073,7 @@ func (x *UserAuthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserAuthResponse.ProtoReflect.Descriptor instead.
 func (*UserAuthResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{21}
+	return file_user_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *UserAuthResponse) GetUser() *UserInfoResponse {
@@ -1431,6 +2132,13 @@ func (x *UserAuthResponse) GetResourceTeams() []string {
 	return nil
 }
 
+func (x *UserAuthResponse) GetResourceScopes() []*UserResourceScope {
+	if x != nil {
+		return x.ResourceScopes
+	}
+	return nil
+}
+
 type UserListResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Total         int32                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
@@ -1441,7 +2149,7 @@ type UserListResponse struct {
 
 func (x *UserListResponse) Reset() {
 	*x = UserListResponse{}
-	mi := &file_user_proto_msgTypes[22]
+	mi := &file_user_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1453,7 +2161,7 @@ func (x *UserListResponse) String() string {
 func (*UserListResponse) ProtoMessage() {}
 
 func (x *UserListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[22]
+	mi := &file_user_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1466,7 +2174,7 @@ func (x *UserListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserListResponse.ProtoReflect.Descriptor instead.
 func (*UserListResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{22}
+	return file_user_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *UserListResponse) GetTotal() int32 {
@@ -1496,7 +2204,7 @@ type StaffRole struct {
 
 func (x *StaffRole) Reset() {
 	*x = StaffRole{}
-	mi := &file_user_proto_msgTypes[23]
+	mi := &file_user_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1508,7 +2216,7 @@ func (x *StaffRole) String() string {
 func (*StaffRole) ProtoMessage() {}
 
 func (x *StaffRole) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[23]
+	mi := &file_user_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1521,7 +2229,7 @@ func (x *StaffRole) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StaffRole.ProtoReflect.Descriptor instead.
 func (*StaffRole) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{23}
+	return file_user_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *StaffRole) GetName() string {
@@ -1568,7 +2276,7 @@ type StaffRoleListResponse struct {
 
 func (x *StaffRoleListResponse) Reset() {
 	*x = StaffRoleListResponse{}
-	mi := &file_user_proto_msgTypes[24]
+	mi := &file_user_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1580,7 +2288,7 @@ func (x *StaffRoleListResponse) String() string {
 func (*StaffRoleListResponse) ProtoMessage() {}
 
 func (x *StaffRoleListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[24]
+	mi := &file_user_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1593,7 +2301,7 @@ func (x *StaffRoleListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StaffRoleListResponse.ProtoReflect.Descriptor instead.
 func (*StaffRoleListResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{24}
+	return file_user_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *StaffRoleListResponse) GetRoles() []*StaffRole {
@@ -1613,7 +2321,7 @@ type CreateStaffRoleRequest struct {
 
 func (x *CreateStaffRoleRequest) Reset() {
 	*x = CreateStaffRoleRequest{}
-	mi := &file_user_proto_msgTypes[25]
+	mi := &file_user_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1625,7 +2333,7 @@ func (x *CreateStaffRoleRequest) String() string {
 func (*CreateStaffRoleRequest) ProtoMessage() {}
 
 func (x *CreateStaffRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[25]
+	mi := &file_user_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1638,7 +2346,7 @@ func (x *CreateStaffRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateStaffRoleRequest.ProtoReflect.Descriptor instead.
 func (*CreateStaffRoleRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{25}
+	return file_user_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *CreateStaffRoleRequest) GetRole() *StaffRole {
@@ -1665,7 +2373,7 @@ type UpdateStaffRoleRequest struct {
 
 func (x *UpdateStaffRoleRequest) Reset() {
 	*x = UpdateStaffRoleRequest{}
-	mi := &file_user_proto_msgTypes[26]
+	mi := &file_user_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1677,7 +2385,7 @@ func (x *UpdateStaffRoleRequest) String() string {
 func (*UpdateStaffRoleRequest) ProtoMessage() {}
 
 func (x *UpdateStaffRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[26]
+	mi := &file_user_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1690,7 +2398,7 @@ func (x *UpdateStaffRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateStaffRoleRequest.ProtoReflect.Descriptor instead.
 func (*UpdateStaffRoleRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{26}
+	return file_user_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *UpdateStaffRoleRequest) GetRole() *StaffRole {
@@ -1717,7 +2425,7 @@ type DeleteStaffRoleRequest struct {
 
 func (x *DeleteStaffRoleRequest) Reset() {
 	*x = DeleteStaffRoleRequest{}
-	mi := &file_user_proto_msgTypes[27]
+	mi := &file_user_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1729,7 +2437,7 @@ func (x *DeleteStaffRoleRequest) String() string {
 func (*DeleteStaffRoleRequest) ProtoMessage() {}
 
 func (x *DeleteStaffRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[27]
+	mi := &file_user_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1742,7 +2450,7 @@ func (x *DeleteStaffRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteStaffRoleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteStaffRoleRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{27}
+	return file_user_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *DeleteStaffRoleRequest) GetName() string {
@@ -1770,7 +2478,7 @@ type ReplaceUserStaffRolesRequest struct {
 
 func (x *ReplaceUserStaffRolesRequest) Reset() {
 	*x = ReplaceUserStaffRolesRequest{}
-	mi := &file_user_proto_msgTypes[28]
+	mi := &file_user_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1782,7 +2490,7 @@ func (x *ReplaceUserStaffRolesRequest) String() string {
 func (*ReplaceUserStaffRolesRequest) ProtoMessage() {}
 
 func (x *ReplaceUserStaffRolesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[28]
+	mi := &file_user_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1795,7 +2503,7 @@ func (x *ReplaceUserStaffRolesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplaceUserStaffRolesRequest.ProtoReflect.Descriptor instead.
 func (*ReplaceUserStaffRolesRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{28}
+	return file_user_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ReplaceUserStaffRolesRequest) GetUserId() int32 {
@@ -1830,7 +2538,7 @@ type UserRoleBindingResponse struct {
 
 func (x *UserRoleBindingResponse) Reset() {
 	*x = UserRoleBindingResponse{}
-	mi := &file_user_proto_msgTypes[29]
+	mi := &file_user_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1842,7 +2550,7 @@ func (x *UserRoleBindingResponse) String() string {
 func (*UserRoleBindingResponse) ProtoMessage() {}
 
 func (x *UserRoleBindingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[29]
+	mi := &file_user_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1855,7 +2563,7 @@ func (x *UserRoleBindingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserRoleBindingResponse.ProtoReflect.Descriptor instead.
 func (*UserRoleBindingResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{29}
+	return file_user_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *UserRoleBindingResponse) GetUserId() int32 {
@@ -1890,7 +2598,7 @@ type StaffUserResponse struct {
 
 func (x *StaffUserResponse) Reset() {
 	*x = StaffUserResponse{}
-	mi := &file_user_proto_msgTypes[30]
+	mi := &file_user_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1902,7 +2610,7 @@ func (x *StaffUserResponse) String() string {
 func (*StaffUserResponse) ProtoMessage() {}
 
 func (x *StaffUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[30]
+	mi := &file_user_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1915,7 +2623,7 @@ func (x *StaffUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StaffUserResponse.ProtoReflect.Descriptor instead.
 func (*StaffUserResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{30}
+	return file_user_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *StaffUserResponse) GetUser() *UserInfoResponse {
@@ -1955,7 +2663,7 @@ type UserAuditLogPageRequest struct {
 
 func (x *UserAuditLogPageRequest) Reset() {
 	*x = UserAuditLogPageRequest{}
-	mi := &file_user_proto_msgTypes[31]
+	mi := &file_user_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1967,7 +2675,7 @@ func (x *UserAuditLogPageRequest) String() string {
 func (*UserAuditLogPageRequest) ProtoMessage() {}
 
 func (x *UserAuditLogPageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[31]
+	mi := &file_user_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1980,7 +2688,7 @@ func (x *UserAuditLogPageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserAuditLogPageRequest.ProtoReflect.Descriptor instead.
 func (*UserAuditLogPageRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{31}
+	return file_user_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *UserAuditLogPageRequest) GetUserId() int32 {
@@ -2056,7 +2764,7 @@ type UserAuditLog struct {
 
 func (x *UserAuditLog) Reset() {
 	*x = UserAuditLog{}
-	mi := &file_user_proto_msgTypes[32]
+	mi := &file_user_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2068,7 +2776,7 @@ func (x *UserAuditLog) String() string {
 func (*UserAuditLog) ProtoMessage() {}
 
 func (x *UserAuditLog) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[32]
+	mi := &file_user_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2081,7 +2789,7 @@ func (x *UserAuditLog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserAuditLog.ProtoReflect.Descriptor instead.
 func (*UserAuditLog) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{32}
+	return file_user_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *UserAuditLog) GetId() int64 {
@@ -2157,7 +2865,7 @@ type UserAuditLogListResponse struct {
 
 func (x *UserAuditLogListResponse) Reset() {
 	*x = UserAuditLogListResponse{}
-	mi := &file_user_proto_msgTypes[33]
+	mi := &file_user_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2169,7 +2877,7 @@ func (x *UserAuditLogListResponse) String() string {
 func (*UserAuditLogListResponse) ProtoMessage() {}
 
 func (x *UserAuditLogListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[33]
+	mi := &file_user_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2182,7 +2890,7 @@ func (x *UserAuditLogListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserAuditLogListResponse.ProtoReflect.Descriptor instead.
 func (*UserAuditLogListResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{33}
+	return file_user_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *UserAuditLogListResponse) GetTotal() int32 {
@@ -2221,7 +2929,7 @@ type AdminAuditLog struct {
 
 func (x *AdminAuditLog) Reset() {
 	*x = AdminAuditLog{}
-	mi := &file_user_proto_msgTypes[34]
+	mi := &file_user_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2233,7 +2941,7 @@ func (x *AdminAuditLog) String() string {
 func (*AdminAuditLog) ProtoMessage() {}
 
 func (x *AdminAuditLog) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[34]
+	mi := &file_user_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2246,7 +2954,7 @@ func (x *AdminAuditLog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAuditLog.ProtoReflect.Descriptor instead.
 func (*AdminAuditLog) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{34}
+	return file_user_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *AdminAuditLog) GetId() int64 {
@@ -2356,7 +3064,7 @@ type CreateAdminAuditLogRequest struct {
 
 func (x *CreateAdminAuditLogRequest) Reset() {
 	*x = CreateAdminAuditLogRequest{}
-	mi := &file_user_proto_msgTypes[35]
+	mi := &file_user_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2368,7 +3076,7 @@ func (x *CreateAdminAuditLogRequest) String() string {
 func (*CreateAdminAuditLogRequest) ProtoMessage() {}
 
 func (x *CreateAdminAuditLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[35]
+	mi := &file_user_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2381,7 +3089,7 @@ func (x *CreateAdminAuditLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAdminAuditLogRequest.ProtoReflect.Descriptor instead.
 func (*CreateAdminAuditLogRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{35}
+	return file_user_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *CreateAdminAuditLogRequest) GetLog() *AdminAuditLog {
@@ -2407,7 +3115,7 @@ type AdminAuditLogPageRequest struct {
 
 func (x *AdminAuditLogPageRequest) Reset() {
 	*x = AdminAuditLogPageRequest{}
-	mi := &file_user_proto_msgTypes[36]
+	mi := &file_user_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2419,7 +3127,7 @@ func (x *AdminAuditLogPageRequest) String() string {
 func (*AdminAuditLogPageRequest) ProtoMessage() {}
 
 func (x *AdminAuditLogPageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[36]
+	mi := &file_user_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2432,7 +3140,7 @@ func (x *AdminAuditLogPageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAuditLogPageRequest.ProtoReflect.Descriptor instead.
 func (*AdminAuditLogPageRequest) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{36}
+	return file_user_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *AdminAuditLogPageRequest) GetTargetUserId() int32 {
@@ -2501,7 +3209,7 @@ type AdminAuditLogListResponse struct {
 
 func (x *AdminAuditLogListResponse) Reset() {
 	*x = AdminAuditLogListResponse{}
-	mi := &file_user_proto_msgTypes[37]
+	mi := &file_user_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2513,7 +3221,7 @@ func (x *AdminAuditLogListResponse) String() string {
 func (*AdminAuditLogListResponse) ProtoMessage() {}
 
 func (x *AdminAuditLogListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_user_proto_msgTypes[37]
+	mi := &file_user_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2526,7 +3234,7 @@ func (x *AdminAuditLogListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdminAuditLogListResponse.ProtoReflect.Descriptor instead.
 func (*AdminAuditLogListResponse) Descriptor() ([]byte, []int) {
-	return file_user_proto_rawDescGZIP(), []int{37}
+	return file_user_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *AdminAuditLogListResponse) GetTotal() int32 {
@@ -2548,11 +3256,15 @@ var File_user_proto protoreflect.FileDescriptor
 const file_user_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
-	"user.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\"]\n" +
+	"user.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\"\xa1\x01\n" +
 	"\x11UserResourceScope\x12\x16\n" +
 	"\x06domain\x18\x01 \x01(\tR\x06domain\x12\x18\n" +
 	"\astoreId\x18\x02 \x01(\tR\astoreId\x12\x16\n" +
-	"\x06teamId\x18\x03 \x01(\tR\x06teamId\"\x89\x01\n" +
+	"\x06teamId\x18\x03 \x01(\tR\x06teamId\x12\"\n" +
+	"\fresourceType\x18\x04 \x01(\tR\fresourceType\x12\x1e\n" +
+	"\n" +
+	"resourceId\x18\x05 \x01(\tR\n" +
+	"resourceId\"\x89\x01\n" +
 	" ReplaceUserResourceScopesRequest\x12\x16\n" +
 	"\x06userId\x18\x01 \x01(\x05R\x06userId\x12*\n" +
 	"\x06scopes\x18\x02 \x03(\v2\x12.UserResourceScopeR\x06scopes\x12!\n" +
@@ -2564,7 +3276,7 @@ const file_user_proto_rawDesc = "" +
 	"\x06userId\x18\x01 \x01(\x05R\x06userId\x12\x1e\n" +
 	"\n" +
 	"loggedInAt\x18\x02 \x01(\x04R\n" +
-	"loggedInAt\"\xb4\x01\n" +
+	"loggedInAt\"\xda\x01\n" +
 	"\x14CreateSessionRequest\x12\x16\n" +
 	"\x06userId\x18\x01 \x01(\x05R\x06userId\x12\x1a\n" +
 	"\bdeviceId\x18\x02 \x01(\tR\bdeviceId\x12\x1e\n" +
@@ -2572,7 +3284,8 @@ const file_user_proto_rawDesc = "" +
 	"deviceName\x18\x03 \x01(\tR\n" +
 	"deviceName\x12*\n" +
 	"\x10refreshTokenHash\x18\x04 \x01(\fR\x10refreshTokenHash\x12\x1c\n" +
-	"\texpiresAt\x18\x05 \x01(\x04R\texpiresAt\"\xa5\x01\n" +
+	"\texpiresAt\x18\x05 \x01(\x04R\texpiresAt\x12$\n" +
+	"\rprincipalType\x18\x06 \x01(\tR\rprincipalType\"\xa5\x01\n" +
 	"\x15RefreshSessionRequest\x12\x1c\n" +
 	"\tsessionId\x18\x01 \x01(\tR\tsessionId\x12*\n" +
 	"\x10currentTokenHash\x18\x02 \x01(\fR\x10currentTokenHash\x12$\n" +
@@ -2593,7 +3306,74 @@ const file_user_proto_rawDesc = "" +
 	"deviceName\x12\x1c\n" +
 	"\texpiresAt\x18\x05 \x01(\x04R\texpiresAt\"3\n" +
 	"\x19SessionValidationResponse\x12\x16\n" +
-	"\x06active\x18\x01 \x01(\bR\x06active\"]\n" +
+	"\x06active\x18\x01 \x01(\bR\x06active\"\xc6\x02\n" +
+	"\x12StaffSessionRecord\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
+	"\x06userId\x18\x02 \x01(\x05R\x06userId\x12\x1a\n" +
+	"\bdeviceId\x18\x03 \x01(\tR\bdeviceId\x12\x1e\n" +
+	"\n" +
+	"deviceName\x18\x04 \x01(\tR\n" +
+	"deviceName\x12$\n" +
+	"\rprincipalType\x18\x05 \x01(\tR\rprincipalType\x12\x1c\n" +
+	"\tcreatedAt\x18\x06 \x01(\x04R\tcreatedAt\x12\x1e\n" +
+	"\n" +
+	"lastUsedAt\x18\a \x01(\x04R\n" +
+	"lastUsedAt\x12\x1c\n" +
+	"\texpiresAt\x18\b \x01(\x04R\texpiresAt\x12\x1c\n" +
+	"\trevokedAt\x18\t \x01(\x04R\trevokedAt\x12\x14\n" +
+	"\x05roles\x18\n" +
+	" \x03(\tR\x05roles\x12\x16\n" +
+	"\x06active\x18\v \x01(\bR\x06active\"\xa4\x02\n" +
+	"\x18ListStaffSessionsRequest\x12\x16\n" +
+	"\x06userId\x18\x01 \x01(\x05R\x06userId\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\x12\"\n" +
+	"\fcreatedAfter\x18\x03 \x01(\x04R\fcreatedAfter\x12$\n" +
+	"\rcreatedBefore\x18\x04 \x01(\x04R\rcreatedBefore\x12$\n" +
+	"\rlastUsedAfter\x18\x05 \x01(\x04R\rlastUsedAfter\x12&\n" +
+	"\x0elastUsedBefore\x18\x06 \x01(\x04R\x0elastUsedBefore\x12\x1e\n" +
+	"\n" +
+	"activeOnly\x18\a \x01(\bR\n" +
+	"activeOnly\x12\x0e\n" +
+	"\x02pn\x18\b \x01(\rR\x02pn\x12\x14\n" +
+	"\x05pSize\x18\t \x01(\rR\x05pSize\"\\\n" +
+	"\x19ListStaffSessionsResponse\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x05R\x05total\x12)\n" +
+	"\x05items\x18\x02 \x03(\v2\x13.StaffSessionRecordR\x05items\"9\n" +
+	"\x19RevokeStaffSessionRequest\x12\x1c\n" +
+	"\tsessionId\x18\x01 \x01(\tR\tsessionId\"8\n" +
+	"\x1eRevokeStaffUserSessionsRequest\x12\x16\n" +
+	"\x06userId\x18\x01 \x01(\x05R\x06userId\"\xb8\x02\n" +
+	"\x12BreakGlassApproval\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
+	"\x0frequesterUserId\x18\x02 \x01(\x05R\x0frequesterUserId\x12&\n" +
+	"\x0eapproverUserId\x18\x03 \x01(\x05R\x0eapproverUserId\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason\x12\x1c\n" +
+	"\trequestId\x18\x06 \x01(\tR\trequestId\x12\x1c\n" +
+	"\tcreatedAt\x18\a \x01(\x04R\tcreatedAt\x12\x1e\n" +
+	"\n" +
+	"approvedAt\x18\b \x01(\x04R\n" +
+	"approvedAt\x12\x1c\n" +
+	"\texpiresAt\x18\t \x01(\x04R\texpiresAt\x12\x16\n" +
+	"\x06usedAt\x18\n" +
+	" \x01(\x04R\x06usedAt\"\x9f\x01\n" +
+	"\x1fCreateBreakGlassApprovalRequest\x12(\n" +
+	"\x0frequesterUserId\x18\x01 \x01(\x05R\x0frequesterUserId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\x12\x1c\n" +
+	"\trequestId\x18\x03 \x01(\tR\trequestId\x12\x1c\n" +
+	"\texpiresAt\x18\x04 \x01(\x04R\texpiresAt\"\x88\x01\n" +
+	" ApproveBreakGlassApprovalRequest\x12\x1e\n" +
+	"\n" +
+	"approvalId\x18\x01 \x01(\tR\n" +
+	"approvalId\x12&\n" +
+	"\x0eapproverUserId\x18\x02 \x01(\x05R\x0eapproverUserId\x12\x1c\n" +
+	"\trequestId\x18\x03 \x01(\tR\trequestId\"\x8a\x01\n" +
+	" ConsumeBreakGlassApprovalRequest\x12\x1e\n" +
+	"\n" +
+	"approvalId\x18\x01 \x01(\tR\n" +
+	"approvalId\x12(\n" +
+	"\x0frequesterUserId\x18\x02 \x01(\x05R\x0frequesterUserId\x12\x1c\n" +
+	"\trequestId\x18\x03 \x01(\tR\trequestId\"]\n" +
 	"\x11PasswordCheckInfo\x12\x1a\n" +
 	"\bpassword\x18\x01 \x01(\tR\bpassword\x12,\n" +
 	"\x11encryptedPassword\x18\x02 \x01(\tR\x11encryptedPassword\")\n" +
@@ -2646,7 +3426,7 @@ const file_user_proto_rawDesc = "" +
 	" \x01(\tR\x06status\x12&\n" +
 	"\x0emobileVerified\x18\v \x01(\bR\x0emobileVerified\x12$\n" +
 	"\remailVerified\x18\f \x01(\bR\remailVerified\x12 \n" +
-	"\vlastLoginAt\x18\r \x01(\x04R\vlastLoginAtJ\x04\b\x02\x10\x03J\x04\b\a\x10\b\"\xb7\x02\n" +
+	"\vlastLoginAt\x18\r \x01(\x04R\vlastLoginAtJ\x04\b\x02\x10\x03J\x04\b\a\x10\b\"\xf3\x02\n" +
 	"\x10UserAuthResponse\x12%\n" +
 	"\x04user\x18\x01 \x01(\v2\x11.UserInfoResponseR\x04user\x12\"\n" +
 	"\fpasswordHash\x18\x02 \x01(\tR\fpasswordHash\x12\x1e\n" +
@@ -2659,7 +3439,8 @@ const file_user_proto_rawDesc = "" +
 	"\vpermissions\x18\x05 \x03(\tR\vpermissions\x12(\n" +
 	"\x0fresourceDomains\x18\x06 \x03(\tR\x0fresourceDomains\x12&\n" +
 	"\x0eresourceStores\x18\a \x03(\tR\x0eresourceStores\x12$\n" +
-	"\rresourceTeams\x18\b \x03(\tR\rresourceTeams\"O\n" +
+	"\rresourceTeams\x18\b \x03(\tR\rresourceTeams\x12:\n" +
+	"\x0eresourceScopes\x18\t \x03(\v2\x12.UserResourceScopeR\x0eresourceScopes\"O\n" +
 	"\x10UserListResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12%\n" +
 	"\x04data\x18\x02 \x03(\v2\x11.UserInfoResponseR\x04data\"\x97\x01\n" +
@@ -2750,7 +3531,7 @@ const file_user_proto_rawDesc = "" +
 	"\rcreatedBefore\x18\b \x01(\x04R\rcreatedBefore\"U\n" +
 	"\x19AdminAuditLogListResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12\"\n" +
-	"\x04data\x18\x02 \x03(\v2\x0e.AdminAuditLogR\x04data2\xc4\x0e\n" +
+	"\x04data\x18\x02 \x03(\v2\x0e.AdminAuditLogR\x04data2\xab\x12\n" +
 	"\x04User\x12A\n" +
 	"\vGetUserList\x12\t.PageInfo\x1a\x11.UserListResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/users\x12P\n" +
 	"\x0fGetUserByMobile\x12\x0e.MobileRequest\x1a\x11.UserInfoResponse\"\x1a\x82\xd3\xe4\x93\x02\x14:\x01*\"\x0f/v1/user/mobile\x12D\n" +
@@ -2787,7 +3568,13 @@ const file_user_proto_rawDesc = "" +
 	"\rRevokeSession\x12\x15.RevokeSessionRequest\x1a\x16.google.protobuf.Empty\x127\n" +
 	"\x11RevokeAllSessions\x12\n" +
 	".IdRequest\x1a\x16.google.protobuf.Empty\x12F\n" +
-	"\x0fValidateSession\x12\x17.ValidateSessionRequest\x1a\x1a.SessionValidationResponse\x12^\n" +
+	"\x0fValidateSession\x12\x17.ValidateSessionRequest\x1a\x1a.SessionValidationResponse\x12J\n" +
+	"\x11ListStaffSessions\x12\x19.ListStaffSessionsRequest\x1a\x1a.ListStaffSessionsResponse\x12H\n" +
+	"\x12RevokeStaffSession\x12\x1a.RevokeStaffSessionRequest\x1a\x16.google.protobuf.Empty\x12R\n" +
+	"\x17RevokeStaffUserSessions\x12\x1f.RevokeStaffUserSessionsRequest\x1a\x16.google.protobuf.Empty\x12Q\n" +
+	"\x18CreateBreakGlassApproval\x12 .CreateBreakGlassApprovalRequest\x1a\x13.BreakGlassApproval\x12S\n" +
+	"\x19ApproveBreakGlassApproval\x12!.ApproveBreakGlassApprovalRequest\x1a\x13.BreakGlassApproval\x12S\n" +
+	"\x19ConsumeBreakGlassApproval\x12!.ConsumeBreakGlassApprovalRequest\x1a\x13.BreakGlassApproval\x12^\n" +
 	"\x19ReplaceUserResourceScopes\x12!.ReplaceUserResourceScopesRequest\x1a\x1e.UserResourceScopeListResponseB\aZ\x05./;v1b\x06proto3"
 
 var (
@@ -2802,7 +3589,7 @@ func file_user_proto_rawDescGZIP() []byte {
 	return file_user_proto_rawDescData
 }
 
-var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_user_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_user_proto_goTypes = []any{
 	(*UserResourceScope)(nil),                // 0: UserResourceScope
 	(*ReplaceUserResourceScopesRequest)(nil), // 1: ReplaceUserResourceScopesRequest
@@ -2814,115 +3601,138 @@ var file_user_proto_goTypes = []any{
 	(*ValidateSessionRequest)(nil),           // 7: ValidateSessionRequest
 	(*SessionResponse)(nil),                  // 8: SessionResponse
 	(*SessionValidationResponse)(nil),        // 9: SessionValidationResponse
-	(*PasswordCheckInfo)(nil),                // 10: PasswordCheckInfo
-	(*CheckResponse)(nil),                    // 11: CheckResponse
-	(*PageInfo)(nil),                         // 12: PageInfo
-	(*MobileRequest)(nil),                    // 13: MobileRequest
-	(*IdRequest)(nil),                        // 14: IdRequest
-	(*CreateUserInfo)(nil),                   // 15: CreateUserInfo
-	(*UpdateUserInfo)(nil),                   // 16: UpdateUserInfo
-	(*AuditActor)(nil),                       // 17: AuditActor
-	(*CreateStaffUserRequest)(nil),           // 18: CreateStaffUserRequest
-	(*UpdateUserStatusRequest)(nil),          // 19: UpdateUserStatusRequest
-	(*UserInfoResponse)(nil),                 // 20: UserInfoResponse
-	(*UserAuthResponse)(nil),                 // 21: UserAuthResponse
-	(*UserListResponse)(nil),                 // 22: UserListResponse
-	(*StaffRole)(nil),                        // 23: StaffRole
-	(*StaffRoleListResponse)(nil),            // 24: StaffRoleListResponse
-	(*CreateStaffRoleRequest)(nil),           // 25: CreateStaffRoleRequest
-	(*UpdateStaffRoleRequest)(nil),           // 26: UpdateStaffRoleRequest
-	(*DeleteStaffRoleRequest)(nil),           // 27: DeleteStaffRoleRequest
-	(*ReplaceUserStaffRolesRequest)(nil),     // 28: ReplaceUserStaffRolesRequest
-	(*UserRoleBindingResponse)(nil),          // 29: UserRoleBindingResponse
-	(*StaffUserResponse)(nil),                // 30: StaffUserResponse
-	(*UserAuditLogPageRequest)(nil),          // 31: UserAuditLogPageRequest
-	(*UserAuditLog)(nil),                     // 32: UserAuditLog
-	(*UserAuditLogListResponse)(nil),         // 33: UserAuditLogListResponse
-	(*AdminAuditLog)(nil),                    // 34: AdminAuditLog
-	(*CreateAdminAuditLogRequest)(nil),       // 35: CreateAdminAuditLogRequest
-	(*AdminAuditLogPageRequest)(nil),         // 36: AdminAuditLogPageRequest
-	(*AdminAuditLogListResponse)(nil),        // 37: AdminAuditLogListResponse
-	(*emptypb.Empty)(nil),                    // 38: google.protobuf.Empty
+	(*StaffSessionRecord)(nil),               // 10: StaffSessionRecord
+	(*ListStaffSessionsRequest)(nil),         // 11: ListStaffSessionsRequest
+	(*ListStaffSessionsResponse)(nil),        // 12: ListStaffSessionsResponse
+	(*RevokeStaffSessionRequest)(nil),        // 13: RevokeStaffSessionRequest
+	(*RevokeStaffUserSessionsRequest)(nil),   // 14: RevokeStaffUserSessionsRequest
+	(*BreakGlassApproval)(nil),               // 15: BreakGlassApproval
+	(*CreateBreakGlassApprovalRequest)(nil),  // 16: CreateBreakGlassApprovalRequest
+	(*ApproveBreakGlassApprovalRequest)(nil), // 17: ApproveBreakGlassApprovalRequest
+	(*ConsumeBreakGlassApprovalRequest)(nil), // 18: ConsumeBreakGlassApprovalRequest
+	(*PasswordCheckInfo)(nil),                // 19: PasswordCheckInfo
+	(*CheckResponse)(nil),                    // 20: CheckResponse
+	(*PageInfo)(nil),                         // 21: PageInfo
+	(*MobileRequest)(nil),                    // 22: MobileRequest
+	(*IdRequest)(nil),                        // 23: IdRequest
+	(*CreateUserInfo)(nil),                   // 24: CreateUserInfo
+	(*UpdateUserInfo)(nil),                   // 25: UpdateUserInfo
+	(*AuditActor)(nil),                       // 26: AuditActor
+	(*CreateStaffUserRequest)(nil),           // 27: CreateStaffUserRequest
+	(*UpdateUserStatusRequest)(nil),          // 28: UpdateUserStatusRequest
+	(*UserInfoResponse)(nil),                 // 29: UserInfoResponse
+	(*UserAuthResponse)(nil),                 // 30: UserAuthResponse
+	(*UserListResponse)(nil),                 // 31: UserListResponse
+	(*StaffRole)(nil),                        // 32: StaffRole
+	(*StaffRoleListResponse)(nil),            // 33: StaffRoleListResponse
+	(*CreateStaffRoleRequest)(nil),           // 34: CreateStaffRoleRequest
+	(*UpdateStaffRoleRequest)(nil),           // 35: UpdateStaffRoleRequest
+	(*DeleteStaffRoleRequest)(nil),           // 36: DeleteStaffRoleRequest
+	(*ReplaceUserStaffRolesRequest)(nil),     // 37: ReplaceUserStaffRolesRequest
+	(*UserRoleBindingResponse)(nil),          // 38: UserRoleBindingResponse
+	(*StaffUserResponse)(nil),                // 39: StaffUserResponse
+	(*UserAuditLogPageRequest)(nil),          // 40: UserAuditLogPageRequest
+	(*UserAuditLog)(nil),                     // 41: UserAuditLog
+	(*UserAuditLogListResponse)(nil),         // 42: UserAuditLogListResponse
+	(*AdminAuditLog)(nil),                    // 43: AdminAuditLog
+	(*CreateAdminAuditLogRequest)(nil),       // 44: CreateAdminAuditLogRequest
+	(*AdminAuditLogPageRequest)(nil),         // 45: AdminAuditLogPageRequest
+	(*AdminAuditLogListResponse)(nil),        // 46: AdminAuditLogListResponse
+	(*emptypb.Empty)(nil),                    // 47: google.protobuf.Empty
 }
 var file_user_proto_depIdxs = []int32{
 	0,  // 0: ReplaceUserResourceScopesRequest.scopes:type_name -> UserResourceScope
-	17, // 1: ReplaceUserResourceScopesRequest.actor:type_name -> AuditActor
+	26, // 1: ReplaceUserResourceScopesRequest.actor:type_name -> AuditActor
 	0,  // 2: UserResourceScopeListResponse.scopes:type_name -> UserResourceScope
-	15, // 3: CreateStaffUserRequest.user:type_name -> CreateUserInfo
-	17, // 4: CreateStaffUserRequest.actor:type_name -> AuditActor
-	17, // 5: UpdateUserStatusRequest.actor:type_name -> AuditActor
-	20, // 6: UserAuthResponse.user:type_name -> UserInfoResponse
-	20, // 7: UserListResponse.data:type_name -> UserInfoResponse
-	23, // 8: StaffRoleListResponse.roles:type_name -> StaffRole
-	23, // 9: CreateStaffRoleRequest.role:type_name -> StaffRole
-	17, // 10: CreateStaffRoleRequest.actor:type_name -> AuditActor
-	23, // 11: UpdateStaffRoleRequest.role:type_name -> StaffRole
-	17, // 12: UpdateStaffRoleRequest.actor:type_name -> AuditActor
-	17, // 13: DeleteStaffRoleRequest.actor:type_name -> AuditActor
-	17, // 14: ReplaceUserStaffRolesRequest.actor:type_name -> AuditActor
-	20, // 15: StaffUserResponse.user:type_name -> UserInfoResponse
-	32, // 16: UserAuditLogListResponse.data:type_name -> UserAuditLog
-	34, // 17: CreateAdminAuditLogRequest.log:type_name -> AdminAuditLog
-	34, // 18: AdminAuditLogListResponse.data:type_name -> AdminAuditLog
-	12, // 19: User.GetUserList:input_type -> PageInfo
-	13, // 20: User.GetUserByMobile:input_type -> MobileRequest
-	14, // 21: User.GetUserById:input_type -> IdRequest
-	18, // 22: User.CreateStaffUser:input_type -> CreateStaffUserRequest
-	19, // 23: User.UpdateUserStatus:input_type -> UpdateUserStatusRequest
-	38, // 24: User.ListStaffRoles:input_type -> google.protobuf.Empty
-	25, // 25: User.CreateStaffRole:input_type -> CreateStaffRoleRequest
-	26, // 26: User.UpdateStaffRole:input_type -> UpdateStaffRoleRequest
-	27, // 27: User.DeleteStaffRole:input_type -> DeleteStaffRoleRequest
-	14, // 28: User.GetUserStaffRoles:input_type -> IdRequest
-	28, // 29: User.ReplaceUserStaffRoles:input_type -> ReplaceUserStaffRolesRequest
-	31, // 30: User.ListUserAuditLogs:input_type -> UserAuditLogPageRequest
-	35, // 31: User.CreateAdminAuditLog:input_type -> CreateAdminAuditLogRequest
-	36, // 32: User.ListAdminAuditLogs:input_type -> AdminAuditLogPageRequest
-	13, // 33: User.GetUserAuthByMobile:input_type -> MobileRequest
-	14, // 34: User.GetUserAuthById:input_type -> IdRequest
-	15, // 35: User.CreateUser:input_type -> CreateUserInfo
-	16, // 36: User.UpdateUser:input_type -> UpdateUserInfo
-	14, // 37: User.DeleteUser:input_type -> IdRequest
-	10, // 38: User.CheckPassWord:input_type -> PasswordCheckInfo
-	3,  // 39: User.RecordLogin:input_type -> RecordLoginRequest
-	4,  // 40: User.CreateSession:input_type -> CreateSessionRequest
-	5,  // 41: User.RefreshSession:input_type -> RefreshSessionRequest
-	6,  // 42: User.RevokeSession:input_type -> RevokeSessionRequest
-	14, // 43: User.RevokeAllSessions:input_type -> IdRequest
-	7,  // 44: User.ValidateSession:input_type -> ValidateSessionRequest
-	1,  // 45: User.ReplaceUserResourceScopes:input_type -> ReplaceUserResourceScopesRequest
-	22, // 46: User.GetUserList:output_type -> UserListResponse
-	20, // 47: User.GetUserByMobile:output_type -> UserInfoResponse
-	20, // 48: User.GetUserById:output_type -> UserInfoResponse
-	30, // 49: User.CreateStaffUser:output_type -> StaffUserResponse
-	20, // 50: User.UpdateUserStatus:output_type -> UserInfoResponse
-	24, // 51: User.ListStaffRoles:output_type -> StaffRoleListResponse
-	23, // 52: User.CreateStaffRole:output_type -> StaffRole
-	23, // 53: User.UpdateStaffRole:output_type -> StaffRole
-	38, // 54: User.DeleteStaffRole:output_type -> google.protobuf.Empty
-	29, // 55: User.GetUserStaffRoles:output_type -> UserRoleBindingResponse
-	29, // 56: User.ReplaceUserStaffRoles:output_type -> UserRoleBindingResponse
-	33, // 57: User.ListUserAuditLogs:output_type -> UserAuditLogListResponse
-	38, // 58: User.CreateAdminAuditLog:output_type -> google.protobuf.Empty
-	37, // 59: User.ListAdminAuditLogs:output_type -> AdminAuditLogListResponse
-	21, // 60: User.GetUserAuthByMobile:output_type -> UserAuthResponse
-	21, // 61: User.GetUserAuthById:output_type -> UserAuthResponse
-	20, // 62: User.CreateUser:output_type -> UserInfoResponse
-	38, // 63: User.UpdateUser:output_type -> google.protobuf.Empty
-	38, // 64: User.DeleteUser:output_type -> google.protobuf.Empty
-	11, // 65: User.CheckPassWord:output_type -> CheckResponse
-	38, // 66: User.RecordLogin:output_type -> google.protobuf.Empty
-	8,  // 67: User.CreateSession:output_type -> SessionResponse
-	8,  // 68: User.RefreshSession:output_type -> SessionResponse
-	38, // 69: User.RevokeSession:output_type -> google.protobuf.Empty
-	38, // 70: User.RevokeAllSessions:output_type -> google.protobuf.Empty
-	9,  // 71: User.ValidateSession:output_type -> SessionValidationResponse
-	2,  // 72: User.ReplaceUserResourceScopes:output_type -> UserResourceScopeListResponse
-	46, // [46:73] is the sub-list for method output_type
-	19, // [19:46] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	10, // 3: ListStaffSessionsResponse.items:type_name -> StaffSessionRecord
+	24, // 4: CreateStaffUserRequest.user:type_name -> CreateUserInfo
+	26, // 5: CreateStaffUserRequest.actor:type_name -> AuditActor
+	26, // 6: UpdateUserStatusRequest.actor:type_name -> AuditActor
+	29, // 7: UserAuthResponse.user:type_name -> UserInfoResponse
+	0,  // 8: UserAuthResponse.resourceScopes:type_name -> UserResourceScope
+	29, // 9: UserListResponse.data:type_name -> UserInfoResponse
+	32, // 10: StaffRoleListResponse.roles:type_name -> StaffRole
+	32, // 11: CreateStaffRoleRequest.role:type_name -> StaffRole
+	26, // 12: CreateStaffRoleRequest.actor:type_name -> AuditActor
+	32, // 13: UpdateStaffRoleRequest.role:type_name -> StaffRole
+	26, // 14: UpdateStaffRoleRequest.actor:type_name -> AuditActor
+	26, // 15: DeleteStaffRoleRequest.actor:type_name -> AuditActor
+	26, // 16: ReplaceUserStaffRolesRequest.actor:type_name -> AuditActor
+	29, // 17: StaffUserResponse.user:type_name -> UserInfoResponse
+	41, // 18: UserAuditLogListResponse.data:type_name -> UserAuditLog
+	43, // 19: CreateAdminAuditLogRequest.log:type_name -> AdminAuditLog
+	43, // 20: AdminAuditLogListResponse.data:type_name -> AdminAuditLog
+	21, // 21: User.GetUserList:input_type -> PageInfo
+	22, // 22: User.GetUserByMobile:input_type -> MobileRequest
+	23, // 23: User.GetUserById:input_type -> IdRequest
+	27, // 24: User.CreateStaffUser:input_type -> CreateStaffUserRequest
+	28, // 25: User.UpdateUserStatus:input_type -> UpdateUserStatusRequest
+	47, // 26: User.ListStaffRoles:input_type -> google.protobuf.Empty
+	34, // 27: User.CreateStaffRole:input_type -> CreateStaffRoleRequest
+	35, // 28: User.UpdateStaffRole:input_type -> UpdateStaffRoleRequest
+	36, // 29: User.DeleteStaffRole:input_type -> DeleteStaffRoleRequest
+	23, // 30: User.GetUserStaffRoles:input_type -> IdRequest
+	37, // 31: User.ReplaceUserStaffRoles:input_type -> ReplaceUserStaffRolesRequest
+	40, // 32: User.ListUserAuditLogs:input_type -> UserAuditLogPageRequest
+	44, // 33: User.CreateAdminAuditLog:input_type -> CreateAdminAuditLogRequest
+	45, // 34: User.ListAdminAuditLogs:input_type -> AdminAuditLogPageRequest
+	22, // 35: User.GetUserAuthByMobile:input_type -> MobileRequest
+	23, // 36: User.GetUserAuthById:input_type -> IdRequest
+	24, // 37: User.CreateUser:input_type -> CreateUserInfo
+	25, // 38: User.UpdateUser:input_type -> UpdateUserInfo
+	23, // 39: User.DeleteUser:input_type -> IdRequest
+	19, // 40: User.CheckPassWord:input_type -> PasswordCheckInfo
+	3,  // 41: User.RecordLogin:input_type -> RecordLoginRequest
+	4,  // 42: User.CreateSession:input_type -> CreateSessionRequest
+	5,  // 43: User.RefreshSession:input_type -> RefreshSessionRequest
+	6,  // 44: User.RevokeSession:input_type -> RevokeSessionRequest
+	23, // 45: User.RevokeAllSessions:input_type -> IdRequest
+	7,  // 46: User.ValidateSession:input_type -> ValidateSessionRequest
+	11, // 47: User.ListStaffSessions:input_type -> ListStaffSessionsRequest
+	13, // 48: User.RevokeStaffSession:input_type -> RevokeStaffSessionRequest
+	14, // 49: User.RevokeStaffUserSessions:input_type -> RevokeStaffUserSessionsRequest
+	16, // 50: User.CreateBreakGlassApproval:input_type -> CreateBreakGlassApprovalRequest
+	17, // 51: User.ApproveBreakGlassApproval:input_type -> ApproveBreakGlassApprovalRequest
+	18, // 52: User.ConsumeBreakGlassApproval:input_type -> ConsumeBreakGlassApprovalRequest
+	1,  // 53: User.ReplaceUserResourceScopes:input_type -> ReplaceUserResourceScopesRequest
+	31, // 54: User.GetUserList:output_type -> UserListResponse
+	29, // 55: User.GetUserByMobile:output_type -> UserInfoResponse
+	29, // 56: User.GetUserById:output_type -> UserInfoResponse
+	39, // 57: User.CreateStaffUser:output_type -> StaffUserResponse
+	29, // 58: User.UpdateUserStatus:output_type -> UserInfoResponse
+	33, // 59: User.ListStaffRoles:output_type -> StaffRoleListResponse
+	32, // 60: User.CreateStaffRole:output_type -> StaffRole
+	32, // 61: User.UpdateStaffRole:output_type -> StaffRole
+	47, // 62: User.DeleteStaffRole:output_type -> google.protobuf.Empty
+	38, // 63: User.GetUserStaffRoles:output_type -> UserRoleBindingResponse
+	38, // 64: User.ReplaceUserStaffRoles:output_type -> UserRoleBindingResponse
+	42, // 65: User.ListUserAuditLogs:output_type -> UserAuditLogListResponse
+	47, // 66: User.CreateAdminAuditLog:output_type -> google.protobuf.Empty
+	46, // 67: User.ListAdminAuditLogs:output_type -> AdminAuditLogListResponse
+	30, // 68: User.GetUserAuthByMobile:output_type -> UserAuthResponse
+	30, // 69: User.GetUserAuthById:output_type -> UserAuthResponse
+	29, // 70: User.CreateUser:output_type -> UserInfoResponse
+	47, // 71: User.UpdateUser:output_type -> google.protobuf.Empty
+	47, // 72: User.DeleteUser:output_type -> google.protobuf.Empty
+	20, // 73: User.CheckPassWord:output_type -> CheckResponse
+	47, // 74: User.RecordLogin:output_type -> google.protobuf.Empty
+	8,  // 75: User.CreateSession:output_type -> SessionResponse
+	8,  // 76: User.RefreshSession:output_type -> SessionResponse
+	47, // 77: User.RevokeSession:output_type -> google.protobuf.Empty
+	47, // 78: User.RevokeAllSessions:output_type -> google.protobuf.Empty
+	9,  // 79: User.ValidateSession:output_type -> SessionValidationResponse
+	12, // 80: User.ListStaffSessions:output_type -> ListStaffSessionsResponse
+	47, // 81: User.RevokeStaffSession:output_type -> google.protobuf.Empty
+	47, // 82: User.RevokeStaffUserSessions:output_type -> google.protobuf.Empty
+	15, // 83: User.CreateBreakGlassApproval:output_type -> BreakGlassApproval
+	15, // 84: User.ApproveBreakGlassApproval:output_type -> BreakGlassApproval
+	15, // 85: User.ConsumeBreakGlassApproval:output_type -> BreakGlassApproval
+	2,  // 86: User.ReplaceUserResourceScopes:output_type -> UserResourceScopeListResponse
+	54, // [54:87] is the sub-list for method output_type
+	21, // [21:54] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_user_proto_init() }
@@ -2936,7 +3746,7 @@ func file_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_user_proto_rawDesc), len(file_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   38,
+			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

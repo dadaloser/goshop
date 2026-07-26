@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
 	code2 "goshop/gmicro/code"
@@ -15,6 +16,7 @@ import (
 type SessionDTO struct {
 	ID               string
 	UserID           int32
+	PrincipalType    string
 	RefreshTokenHash []byte
 	DeviceID         string
 	DeviceName       string
@@ -28,6 +30,9 @@ type sessionStore interface {
 	RevokeSession(ctx context.Context, userID uint64, sessionID string, at time.Time) error
 	RevokeAllSessions(ctx context.Context, userID uint64, at time.Time) error
 	SessionActive(ctx context.Context, userID uint64, sessionID string, at time.Time) (bool, error)
+	ListStaffSessions(ctx context.Context, filters dv1.StaffSessionFilters) ([]dv1.StaffSessionRecordDO, int64, error)
+	RevokeStaffSession(ctx context.Context, sessionID string, at time.Time) error
+	RevokeStaffUserSessions(ctx context.Context, userID uint64, at time.Time) error
 }
 
 func (u *userService) RecordLogin(ctx context.Context, userID uint64, at time.Time) error {
@@ -40,8 +45,12 @@ func (u *userService) RecordLogin(ctx context.Context, userID uint64, at time.Ti
 
 func (u *userService) CreateSession(ctx context.Context, session SessionDTO) (*SessionDTO, error) {
 	now := time.Now().UTC()
+	principalType := session.PrincipalType
+	if principalType == "" {
+		principalType = string(authz.PrincipalCustomer)
+	}
 	model := &dv1.UserSessionDO{
-		ID: uuid.NewString(), UserID: session.UserID,
+		ID: uuid.NewString(), UserID: session.UserID, PrincipalType: principalType,
 		RefreshTokenHash: append([]byte(nil), session.RefreshTokenHash...),
 		DeviceID:         session.DeviceID, DeviceName: session.DeviceName,
 		CreatedAt: now, LastUsedAt: now, ExpiresAt: session.ExpiresAt.UTC(),
@@ -54,6 +63,7 @@ func (u *userService) CreateSession(ctx context.Context, session SessionDTO) (*S
 		return nil, err
 	}
 	session.ID = model.ID
+	session.PrincipalType = principalType
 	return &session, nil
 }
 
@@ -66,7 +76,7 @@ func (u *userService) RefreshSession(ctx context.Context, sessionID string, curr
 	if err != nil {
 		return nil, err
 	}
-	return &SessionDTO{ID: model.ID, UserID: model.UserID, DeviceID: model.DeviceID, DeviceName: model.DeviceName, ExpiresAt: model.ExpiresAt}, nil
+	return &SessionDTO{ID: model.ID, UserID: model.UserID, PrincipalType: model.PrincipalType, DeviceID: model.DeviceID, DeviceName: model.DeviceName, ExpiresAt: model.ExpiresAt}, nil
 }
 
 func (u *userService) RevokeSession(ctx context.Context, userID uint64, sessionID string) error {
@@ -91,6 +101,65 @@ func (u *userService) ValidateSession(ctx context.Context, userID uint64, sessio
 		return false, err
 	}
 	return store.SessionActive(ctx, userID, sessionID, time.Now().UTC())
+}
+
+func (u *userService) ListStaffSessions(ctx context.Context, filters StaffSessionFilterDTO) (*StaffSessionDTOList, error) {
+	store, err := u.sessions()
+	if err != nil {
+		return nil, err
+	}
+	if filters.Page < 1 {
+		filters.Page = 1
+	}
+	if filters.PageSize < 1 || filters.PageSize > 100 {
+		filters.PageSize = 20
+	}
+	items, total, err := store.ListStaffSessions(ctx, dv1.StaffSessionFilters{
+		UserID:         filters.UserID,
+		Role:           filters.Role,
+		ActiveOnly:     filters.ActiveOnly,
+		CreatedAfter:   filters.CreatedAfter,
+		CreatedBefore:  filters.CreatedBefore,
+		LastUsedAfter:  filters.LastUsedAfter,
+		LastUsedBefore: filters.LastUsedBefore,
+		Offset:         (filters.Page - 1) * filters.PageSize,
+		Limit:          filters.PageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := &StaffSessionDTOList{TotalCount: total, Items: make([]StaffSessionDTO, 0, len(items))}
+	for _, item := range items {
+		result.Items = append(result.Items, StaffSessionDTO{
+			ID:            item.ID,
+			UserID:        item.UserID,
+			PrincipalType: item.PrincipalType,
+			DeviceID:      item.DeviceID,
+			DeviceName:    item.DeviceName,
+			CreatedAt:     item.CreatedAt,
+			LastUsedAt:    item.LastUsedAt,
+			ExpiresAt:     item.ExpiresAt,
+			RevokedAt:     item.RevokedAt,
+			Roles:         append([]string(nil), item.Roles...),
+		})
+	}
+	return result, nil
+}
+
+func (u *userService) RevokeStaffSession(ctx context.Context, sessionID string) error {
+	store, err := u.sessions()
+	if err != nil {
+		return err
+	}
+	return store.RevokeStaffSession(ctx, sessionID, time.Now().UTC())
+}
+
+func (u *userService) RevokeStaffUserSessions(ctx context.Context, userID uint64) error {
+	store, err := u.sessions()
+	if err != nil {
+		return err
+	}
+	return store.RevokeStaffUserSessions(ctx, userID, time.Now().UTC())
 }
 
 func (u *userService) sessions() (sessionStore, error) {

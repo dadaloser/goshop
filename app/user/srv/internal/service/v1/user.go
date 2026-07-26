@@ -47,6 +47,7 @@ type UserAuthDTO struct {
 	ResourceDomains []string
 	ResourceStores  []string
 	ResourceTeams   []string
+	ResourceScopes  []ResourceScopeDTO
 }
 
 type StaffRoleDTO struct {
@@ -121,6 +122,49 @@ type AdminAuditLogDTOList struct {
 	Items      []*AdminAuditLogDTO
 }
 
+type StaffSessionDTO struct {
+	ID            string
+	UserID        int32
+	PrincipalType string
+	DeviceID      string
+	DeviceName    string
+	CreatedAt     time.Time
+	LastUsedAt    time.Time
+	ExpiresAt     time.Time
+	RevokedAt     *time.Time
+	Roles         []string
+}
+
+type StaffSessionDTOList struct {
+	TotalCount int64
+	Items      []StaffSessionDTO
+}
+
+type StaffSessionFilterDTO struct {
+	UserID         int32
+	Role           string
+	ActiveOnly     bool
+	CreatedAfter   *time.Time
+	CreatedBefore  *time.Time
+	LastUsedAfter  *time.Time
+	LastUsedBefore *time.Time
+	Page           int
+	PageSize       int
+}
+
+type BreakGlassApprovalDTO struct {
+	ID              string
+	RequesterUserID int32
+	ApproverUserID  int32
+	Status          string
+	Reason          string
+	RequestID       string
+	CreatedAt       time.Time
+	ApprovedAt      *time.Time
+	ExpiresAt       time.Time
+	UsedAt          *time.Time
+}
+
 type AdminAuditLogFilterDTO struct {
 	TargetUserID       int32
 	Action             string
@@ -157,10 +201,20 @@ type UserSrv interface {
 	RevokeSession(ctx context.Context, userID uint64, sessionID string) error
 	RevokeAllSessions(ctx context.Context, userID uint64) error
 	ValidateSession(ctx context.Context, userID uint64, sessionID string) (bool, error)
+	ListStaffSessions(ctx context.Context, filters StaffSessionFilterDTO) (*StaffSessionDTOList, error)
+	RevokeStaffSession(ctx context.Context, sessionID string) error
+	RevokeStaffUserSessions(ctx context.Context, userID uint64) error
+	CreateBreakGlassApproval(ctx context.Context, requesterUserID int32, reason, requestID string, expiresAt time.Time) (*BreakGlassApprovalDTO, error)
+	ApproveBreakGlassApproval(ctx context.Context, approvalID string, approverUserID int32, requestID string) (*BreakGlassApprovalDTO, error)
+	ConsumeBreakGlassApproval(ctx context.Context, approvalID string, requesterUserID int32, requestID string) (*BreakGlassApprovalDTO, error)
 	ReplaceResourceScopes(ctx context.Context, userID uint64, scopes []ResourceScopeDTO) ([]ResourceScopeDTO, error)
 }
 
-type ResourceScopeDTO struct{ Domain, StoreID, TeamID string }
+type ResourceScopeDTO struct {
+	Domain, StoreID, TeamID string
+	ResourceType            string
+	ResourceID              string
+}
 type resourceScopeStore interface {
 	ReplaceResourceScopes(context.Context, uint64, []dv1.UserResourceScopeDO) error
 }
@@ -183,12 +237,25 @@ func (u *userService) ReplaceResourceScopes(ctx context.Context, userID uint64, 
 		if !authz.ResourceScopeMatchesDomain(authz.BusinessDomain(scope.Domain), scope.StoreID, scope.TeamID) {
 			return nil, errors.WithCode(code2.ErrValidation, "resource scope does not match domain dimension")
 		}
-		key := scope.Domain + "\x00" + scope.StoreID + "\x00" + scope.TeamID
+		scope.ResourceType = strings.ToLower(strings.TrimSpace(scope.ResourceType))
+		scope.ResourceID = strings.TrimSpace(scope.ResourceID)
+		if (scope.ResourceType == "") != (scope.ResourceID == "") {
+			return nil, errors.WithCode(code2.ErrValidation, "resource scope resource binding is incomplete")
+		}
+		key := scope.Domain + "\x00" + scope.StoreID + "\x00" + scope.TeamID + "\x00" + scope.ResourceType + "\x00" + scope.ResourceID
 		if _, exists := seen[key]; exists {
 			continue
 		}
 		seen[key] = struct{}{}
-		models = append(models, dv1.UserResourceScopeDO{UserID: int32(userID), Domain: scope.Domain, StoreID: scope.StoreID, TeamID: scope.TeamID, CreatedAt: time.Now().UTC()})
+		models = append(models, dv1.UserResourceScopeDO{
+			UserID:       int32(userID),
+			Domain:       scope.Domain,
+			StoreID:      scope.StoreID,
+			TeamID:       scope.TeamID,
+			ResourceType: scope.ResourceType,
+			ResourceID:   scope.ResourceID,
+			CreatedAt:    time.Now().UTC(),
+		})
 		normalized = append(normalized, scope)
 	}
 	if err := store.ReplaceResourceScopes(ctx, userID, models); err != nil {
@@ -839,7 +906,22 @@ func newUserAuthDTO(user *dv1.UserAuthDO) (*UserAuthDTO, error) {
 		ResourceDomains: append([]string(nil), user.ResourceDomains...),
 		ResourceStores:  append([]string(nil), user.ResourceStores...),
 		ResourceTeams:   append([]string(nil), user.ResourceTeams...),
+		ResourceScopes:  resourceScopeDTOsFromDO(user.ResourceScopes),
 	}, nil
+}
+
+func resourceScopeDTOsFromDO(values []dv1.UserResourceScopeDO) []ResourceScopeDTO {
+	result := make([]ResourceScopeDTO, 0, len(values))
+	for _, value := range values {
+		result = append(result, ResourceScopeDTO{
+			Domain:       value.Domain,
+			StoreID:      value.StoreID,
+			TeamID:       value.TeamID,
+			ResourceType: value.ResourceType,
+			ResourceID:   value.ResourceID,
+		})
+	}
+	return result
 }
 
 func PublicDTOFromMutation(user *UserDTO) (*UserPublicDTO, error) {

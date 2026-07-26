@@ -45,11 +45,13 @@ type callbackPayload struct {
 
 func (h *CallbackHandler) Handle(c *gin.Context) {
 	if h == nil || h.opts == nil || !h.opts.Enabled || h.service == nil {
+		metricPaymentCallbackHTTP.Inc("unavailable")
 		c.JSON(http.StatusServiceUnavailable, gin.H{"msg": "payment callback unavailable"})
 		return
 	}
 	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
 	if err != nil {
+		metricPaymentCallbackHTTP.Inc("invalid_body")
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid callback"})
 		return
 	}
@@ -57,31 +59,42 @@ func (h *CallbackHandler) Handle(c *gin.Context) {
 	timestamp := c.GetHeader("X-Payment-Timestamp")
 	nonce := strings.TrimSpace(c.GetHeader("X-Payment-Nonce"))
 	if nonce == "" || !h.verify(provider, timestamp, nonce, c.GetHeader("X-Payment-Signature"), body) {
+		metricPaymentCallbackHTTP.Inc("invalid_signature")
 		c.JSON(http.StatusUnauthorized, gin.H{"msg": "invalid callback signature"})
 		return
 	}
 	if h.nonces == nil {
+		metricPaymentCallbackHTTP.Inc("nonce_store_unavailable")
 		c.JSON(http.StatusServiceUnavailable, gin.H{"msg": "callback replay protection unavailable"})
 		return
 	}
 	reserved, reserveErr := h.nonces.Reserve(c, provider+":"+nonce, 2*h.opts.CallbackMaxSkew)
 	if reserveErr != nil {
+		metricPaymentCallbackHTTP.Inc("nonce_store_error")
 		c.JSON(http.StatusServiceUnavailable, gin.H{"msg": "callback replay protection unavailable"})
 		return
 	}
 	if !reserved {
+		metricPaymentCallbackHTTP.Inc("duplicate")
 		c.JSON(http.StatusConflict, gin.H{"msg": "callback nonce replayed"})
 		return
 	}
 	var payload callbackPayload
 	if err = json.Unmarshal(body, &payload); err != nil || payload.EventID == "" || payload.EventType == "" || payload.OrderSN == "" || payload.AmountFen < 0 {
+		metricPaymentCallbackHTTP.Inc("invalid_payload")
 		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid callback payload"})
 		return
 	}
 	duplicate, err := h.service.ProcessPayCallback(c, &CallbackRequest{Provider: provider, EventID: payload.EventID, EventType: payload.EventType, OrderSN: payload.OrderSN, TradeNo: payload.TradeNo, AmountFen: payload.AmountFen})
 	if err != nil {
+		metricPaymentCallbackHTTP.Inc("rejected")
 		c.JSON(http.StatusConflict, gin.H{"msg": "callback rejected"})
 		return
+	}
+	if duplicate {
+		metricPaymentCallbackHTTP.Inc("duplicate")
+	} else {
+		metricPaymentCallbackHTTP.Inc("accepted")
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true, "duplicate": duplicate})
 }

@@ -66,10 +66,22 @@ service User{
     rpc RevokeSession(RevokeSessionRequest) returns (google.protobuf.Empty);
     rpc RevokeAllSessions(IdRequest) returns (google.protobuf.Empty);
     rpc ValidateSession(ValidateSessionRequest) returns (SessionValidationResponse);
+    rpc ListStaffSessions(ListStaffSessionsRequest) returns (ListStaffSessionsResponse);
+    rpc RevokeStaffSession(RevokeStaffSessionRequest) returns (google.protobuf.Empty);
+    rpc RevokeStaffUserSessions(RevokeStaffUserSessionsRequest) returns (google.protobuf.Empty);
+    rpc CreateBreakGlassApproval(CreateBreakGlassApprovalRequest) returns (BreakGlassApproval);
+    rpc ApproveBreakGlassApproval(ApproveBreakGlassApprovalRequest) returns (BreakGlassApproval);
+    rpc ConsumeBreakGlassApproval(ConsumeBreakGlassApprovalRequest) returns (BreakGlassApproval);
     rpc ReplaceUserResourceScopes(ReplaceUserResourceScopesRequest) returns (UserResourceScopeListResponse);
 }
 
-message UserResourceScope { string domain = 1; string storeId = 2; string teamId = 3; }
+message UserResourceScope {
+    string domain = 1;
+    string storeId = 2;
+    string teamId = 3;
+    string resourceType = 4;
+    string resourceId = 5;
+}
 message ReplaceUserResourceScopesRequest { int32 userId = 1; repeated UserResourceScope scopes = 2; AuditActor actor = 3; }
 message UserResourceScopeListResponse { int32 userId = 1; repeated UserResourceScope scopes = 2; }
 
@@ -84,6 +96,7 @@ message CreateSessionRequest {
     string deviceName = 3;
     bytes refreshTokenHash = 4;
     uint64 expiresAt = 5;
+    string principalType = 6;
 }
 
 message RefreshSessionRequest {
@@ -113,6 +126,72 @@ message SessionResponse {
 
 message SessionValidationResponse {
     bool active = 1;
+}
+
+message StaffSessionRecord {
+    string id = 1;
+    int32 userId = 2;
+    string deviceId = 3;
+    string deviceName = 4;
+    string principalType = 5;
+    uint64 createdAt = 6;
+    uint64 lastUsedAt = 7;
+    uint64 expiresAt = 8;
+    uint64 revokedAt = 9;
+    repeated string roles = 10;
+    bool active = 11;
+}
+
+message ListStaffSessionsRequest {
+    int32 userId = 1;
+    string role = 2;
+    uint64 createdAfter = 3;
+    uint64 createdBefore = 4;
+    uint64 lastUsedAfter = 5;
+    uint64 lastUsedBefore = 6;
+    bool activeOnly = 7;
+    uint32 pn = 8;
+    uint32 pSize = 9;
+}
+
+message ListStaffSessionsResponse {
+    int32 total = 1;
+    repeated StaffSessionRecord items = 2;
+}
+
+message RevokeStaffSessionRequest { string sessionId = 1; }
+message RevokeStaffUserSessionsRequest { int32 userId = 1; }
+
+message BreakGlassApproval {
+    string id = 1;
+    int32 requesterUserId = 2;
+    int32 approverUserId = 3;
+    string status = 4;
+    string reason = 5;
+    string requestId = 6;
+    uint64 createdAt = 7;
+    uint64 approvedAt = 8;
+    uint64 expiresAt = 9;
+    uint64 usedAt = 10;
+}
+
+message CreateBreakGlassApprovalRequest {
+    int32 requesterUserId = 1;
+    string reason = 2;
+    string requestId = 3;
+    uint64 expiresAt = 4;
+}
+
+message ApproveBreakGlassApprovalRequest {
+    string approvalId = 1;
+    int32 approverUserId = 2;
+    string requestId = 3;
+}
+
+message ConsumeBreakGlassApprovalRequest {
+    string approvalId = 1;
+    int32 requesterUserId = 2;
+    string requestId = 3;
 }
 
 message PasswordCheckInfo {
@@ -200,6 +279,7 @@ message UserAuthResponse {
     repeated string resourceDomains = 6;
     repeated string resourceStores = 7;
     repeated string resourceTeams = 8;
+    repeated UserResourceScope resourceScopes = 9;
 }
 
 message UserListResponse {

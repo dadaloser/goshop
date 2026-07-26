@@ -672,26 +672,40 @@ func (u *users) buildAuthUser(ctx context.Context, user *dv1.UserDO) (*dv1.UserA
 	if err = u.db.WithContext(ctx).Where("user_id = ?", user.ID).Find(&scopes).Error; err != nil {
 		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
-	domains := make([]string, 0, len(scopes))
-	stores := make([]string, 0, len(scopes))
-	teams := make([]string, 0, len(scopes))
+	domainSet := make(map[string]struct{}, len(scopes))
+	storeSet := make(map[string]struct{}, len(scopes))
+	teamSet := make(map[string]struct{}, len(scopes))
+	resourceScopes := make([]dv1.UserResourceScopeDO, 0, len(scopes))
 	for _, scope := range scopes {
 		if scope.Domain != "" {
-			domains = append(domains, scope.Domain)
+			domainSet[scope.Domain] = struct{}{}
 		}
 		if scope.StoreID != "" {
-			stores = append(stores, scope.StoreID)
+			storeSet[scope.StoreID] = struct{}{}
 		}
 		if scope.TeamID != "" {
-			teams = append(teams, scope.TeamID)
+			teamSet[scope.TeamID] = struct{}{}
 		}
+		resourceScopes = append(resourceScopes, scope)
+	}
+	domains := make([]string, 0, len(domainSet))
+	for value := range domainSet {
+		domains = append(domains, value)
+	}
+	stores := make([]string, 0, len(storeSet))
+	for value := range storeSet {
+		stores = append(stores, value)
+	}
+	teams := make([]string, 0, len(teamSet))
+	for value := range teamSet {
+		teams = append(teams, value)
 	}
 
 	return &dv1.UserAuthDO{
 		UserDO:          *user,
 		StaffRoles:      roles,
 		Permissions:     permissions,
-		ResourceDomains: domains, ResourceStores: stores, ResourceTeams: teams,
+		ResourceDomains: domains, ResourceStores: stores, ResourceTeams: teams, ResourceScopes: resourceScopes,
 	}, nil
 }
 

@@ -463,6 +463,108 @@ func (s *UserHttpServer) ValidateSession_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *UserHttpServer) ListStaffSessions_0(c *gin.Context) {
+	var in ListStaffSessionsRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListStaffSessions(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) RevokeStaffSession_0(c *gin.Context) {
+	var in RevokeStaffSessionRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.RevokeStaffSession(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) RevokeStaffUserSessions_0(c *gin.Context) {
+	var in RevokeStaffUserSessionsRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.RevokeStaffUserSessions(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) CreateBreakGlassApproval_0(c *gin.Context) {
+	var in CreateBreakGlassApprovalRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.CreateBreakGlassApproval(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) ApproveBreakGlassApproval_0(c *gin.Context) {
+	var in ApproveBreakGlassApprovalRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ApproveBreakGlassApproval(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) ConsumeBreakGlassApproval_0(c *gin.Context) {
+	var in ConsumeBreakGlassApprovalRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ConsumeBreakGlassApproval(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *UserHttpServer) ReplaceUserResourceScopes_0(c *gin.Context) {
 	var in ReplaceUserResourceScopesRequest
 
@@ -533,6 +635,18 @@ func (s *UserHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.RevokeAllSessions_0)
 
 	s.router.Handle("POST", "", s.ValidateSession_0)
+
+	s.router.Handle("POST", "", s.ListStaffSessions_0)
+
+	s.router.Handle("POST", "", s.RevokeStaffSession_0)
+
+	s.router.Handle("POST", "", s.RevokeStaffUserSessions_0)
+
+	s.router.Handle("POST", "", s.CreateBreakGlassApproval_0)
+
+	s.router.Handle("POST", "", s.ApproveBreakGlassApproval_0)
+
+	s.router.Handle("POST", "", s.ConsumeBreakGlassApproval_0)
 
 	s.router.Handle("POST", "", s.ReplaceUserResourceScopes_0)
 

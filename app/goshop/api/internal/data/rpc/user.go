@@ -24,7 +24,7 @@ func (u *users) RecordLogin(ctx context.Context, userID uint64, at time.Time) er
 
 func (u *users) CreateSession(ctx context.Context, userID uint64, deviceID, deviceName, refreshToken string, expiresAt time.Time) (data.Session, error) {
 	hash := sha256.Sum256([]byte(refreshToken))
-	resp, err := u.uc.CreateSession(ctx, &upbv1.CreateSessionRequest{UserId: int32(userID), DeviceId: deviceID, DeviceName: deviceName, RefreshTokenHash: hash[:], ExpiresAt: uint64(expiresAt.Unix())})
+	resp, err := u.uc.CreateSession(ctx, &upbv1.CreateSessionRequest{UserId: int32(userID), DeviceId: deviceID, DeviceName: deviceName, RefreshTokenHash: hash[:], ExpiresAt: uint64(expiresAt.Unix()), PrincipalType: string(authz.PrincipalCustomer)})
 	if err != nil {
 		return data.Session{}, err
 	}

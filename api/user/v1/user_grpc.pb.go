@@ -46,6 +46,12 @@ const (
 	User_RevokeSession_FullMethodName             = "/User/RevokeSession"
 	User_RevokeAllSessions_FullMethodName         = "/User/RevokeAllSessions"
 	User_ValidateSession_FullMethodName           = "/User/ValidateSession"
+	User_ListStaffSessions_FullMethodName         = "/User/ListStaffSessions"
+	User_RevokeStaffSession_FullMethodName        = "/User/RevokeStaffSession"
+	User_RevokeStaffUserSessions_FullMethodName   = "/User/RevokeStaffUserSessions"
+	User_CreateBreakGlassApproval_FullMethodName  = "/User/CreateBreakGlassApproval"
+	User_ApproveBreakGlassApproval_FullMethodName = "/User/ApproveBreakGlassApproval"
+	User_ConsumeBreakGlassApproval_FullMethodName = "/User/ConsumeBreakGlassApproval"
 	User_ReplaceUserResourceScopes_FullMethodName = "/User/ReplaceUserResourceScopes"
 )
 
@@ -79,6 +85,12 @@ type UserClient interface {
 	RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RevokeAllSessions(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ValidateSession(ctx context.Context, in *ValidateSessionRequest, opts ...grpc.CallOption) (*SessionValidationResponse, error)
+	ListStaffSessions(ctx context.Context, in *ListStaffSessionsRequest, opts ...grpc.CallOption) (*ListStaffSessionsResponse, error)
+	RevokeStaffSession(ctx context.Context, in *RevokeStaffSessionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RevokeStaffUserSessions(ctx context.Context, in *RevokeStaffUserSessionsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CreateBreakGlassApproval(ctx context.Context, in *CreateBreakGlassApprovalRequest, opts ...grpc.CallOption) (*BreakGlassApproval, error)
+	ApproveBreakGlassApproval(ctx context.Context, in *ApproveBreakGlassApprovalRequest, opts ...grpc.CallOption) (*BreakGlassApproval, error)
+	ConsumeBreakGlassApproval(ctx context.Context, in *ConsumeBreakGlassApprovalRequest, opts ...grpc.CallOption) (*BreakGlassApproval, error)
 	ReplaceUserResourceScopes(ctx context.Context, in *ReplaceUserResourceScopesRequest, opts ...grpc.CallOption) (*UserResourceScopeListResponse, error)
 }
 
@@ -350,6 +362,66 @@ func (c *userClient) ValidateSession(ctx context.Context, in *ValidateSessionReq
 	return out, nil
 }
 
+func (c *userClient) ListStaffSessions(ctx context.Context, in *ListStaffSessionsRequest, opts ...grpc.CallOption) (*ListStaffSessionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListStaffSessionsResponse)
+	err := c.cc.Invoke(ctx, User_ListStaffSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) RevokeStaffSession(ctx context.Context, in *RevokeStaffSessionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, User_RevokeStaffSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) RevokeStaffUserSessions(ctx context.Context, in *RevokeStaffUserSessionsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, User_RevokeStaffUserSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) CreateBreakGlassApproval(ctx context.Context, in *CreateBreakGlassApprovalRequest, opts ...grpc.CallOption) (*BreakGlassApproval, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BreakGlassApproval)
+	err := c.cc.Invoke(ctx, User_CreateBreakGlassApproval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) ApproveBreakGlassApproval(ctx context.Context, in *ApproveBreakGlassApprovalRequest, opts ...grpc.CallOption) (*BreakGlassApproval, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BreakGlassApproval)
+	err := c.cc.Invoke(ctx, User_ApproveBreakGlassApproval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) ConsumeBreakGlassApproval(ctx context.Context, in *ConsumeBreakGlassApprovalRequest, opts ...grpc.CallOption) (*BreakGlassApproval, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BreakGlassApproval)
+	err := c.cc.Invoke(ctx, User_ConsumeBreakGlassApproval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userClient) ReplaceUserResourceScopes(ctx context.Context, in *ReplaceUserResourceScopesRequest, opts ...grpc.CallOption) (*UserResourceScopeListResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UserResourceScopeListResponse)
@@ -390,6 +462,12 @@ type UserServer interface {
 	RevokeSession(context.Context, *RevokeSessionRequest) (*emptypb.Empty, error)
 	RevokeAllSessions(context.Context, *IdRequest) (*emptypb.Empty, error)
 	ValidateSession(context.Context, *ValidateSessionRequest) (*SessionValidationResponse, error)
+	ListStaffSessions(context.Context, *ListStaffSessionsRequest) (*ListStaffSessionsResponse, error)
+	RevokeStaffSession(context.Context, *RevokeStaffSessionRequest) (*emptypb.Empty, error)
+	RevokeStaffUserSessions(context.Context, *RevokeStaffUserSessionsRequest) (*emptypb.Empty, error)
+	CreateBreakGlassApproval(context.Context, *CreateBreakGlassApprovalRequest) (*BreakGlassApproval, error)
+	ApproveBreakGlassApproval(context.Context, *ApproveBreakGlassApprovalRequest) (*BreakGlassApproval, error)
+	ConsumeBreakGlassApproval(context.Context, *ConsumeBreakGlassApprovalRequest) (*BreakGlassApproval, error)
 	ReplaceUserResourceScopes(context.Context, *ReplaceUserResourceScopesRequest) (*UserResourceScopeListResponse, error)
 	mustEmbedUnimplementedUserServer()
 }
@@ -478,6 +556,24 @@ func (UnimplementedUserServer) RevokeAllSessions(context.Context, *IdRequest) (*
 }
 func (UnimplementedUserServer) ValidateSession(context.Context, *ValidateSessionRequest) (*SessionValidationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ValidateSession not implemented")
+}
+func (UnimplementedUserServer) ListStaffSessions(context.Context, *ListStaffSessionsRequest) (*ListStaffSessionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListStaffSessions not implemented")
+}
+func (UnimplementedUserServer) RevokeStaffSession(context.Context, *RevokeStaffSessionRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeStaffSession not implemented")
+}
+func (UnimplementedUserServer) RevokeStaffUserSessions(context.Context, *RevokeStaffUserSessionsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeStaffUserSessions not implemented")
+}
+func (UnimplementedUserServer) CreateBreakGlassApproval(context.Context, *CreateBreakGlassApprovalRequest) (*BreakGlassApproval, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateBreakGlassApproval not implemented")
+}
+func (UnimplementedUserServer) ApproveBreakGlassApproval(context.Context, *ApproveBreakGlassApprovalRequest) (*BreakGlassApproval, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApproveBreakGlassApproval not implemented")
+}
+func (UnimplementedUserServer) ConsumeBreakGlassApproval(context.Context, *ConsumeBreakGlassApprovalRequest) (*BreakGlassApproval, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConsumeBreakGlassApproval not implemented")
 }
 func (UnimplementedUserServer) ReplaceUserResourceScopes(context.Context, *ReplaceUserResourceScopesRequest) (*UserResourceScopeListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReplaceUserResourceScopes not implemented")
@@ -971,6 +1067,114 @@ func _User_ValidateSession_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_ListStaffSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListStaffSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).ListStaffSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_ListStaffSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).ListStaffSessions(ctx, req.(*ListStaffSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_RevokeStaffSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeStaffSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).RevokeStaffSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_RevokeStaffSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).RevokeStaffSession(ctx, req.(*RevokeStaffSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_RevokeStaffUserSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeStaffUserSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).RevokeStaffUserSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_RevokeStaffUserSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).RevokeStaffUserSessions(ctx, req.(*RevokeStaffUserSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_CreateBreakGlassApproval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBreakGlassApprovalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).CreateBreakGlassApproval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_CreateBreakGlassApproval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).CreateBreakGlassApproval(ctx, req.(*CreateBreakGlassApprovalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_ApproveBreakGlassApproval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApproveBreakGlassApprovalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).ApproveBreakGlassApproval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_ApproveBreakGlassApproval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).ApproveBreakGlassApproval(ctx, req.(*ApproveBreakGlassApprovalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_ConsumeBreakGlassApproval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConsumeBreakGlassApprovalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).ConsumeBreakGlassApproval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_ConsumeBreakGlassApproval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).ConsumeBreakGlassApproval(ctx, req.(*ConsumeBreakGlassApprovalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _User_ReplaceUserResourceScopes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ReplaceUserResourceScopesRequest)
 	if err := dec(in); err != nil {
@@ -1099,6 +1303,30 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateSession",
 			Handler:    _User_ValidateSession_Handler,
+		},
+		{
+			MethodName: "ListStaffSessions",
+			Handler:    _User_ListStaffSessions_Handler,
+		},
+		{
+			MethodName: "RevokeStaffSession",
+			Handler:    _User_RevokeStaffSession_Handler,
+		},
+		{
+			MethodName: "RevokeStaffUserSessions",
+			Handler:    _User_RevokeStaffUserSessions_Handler,
+		},
+		{
+			MethodName: "CreateBreakGlassApproval",
+			Handler:    _User_CreateBreakGlassApproval_Handler,
+		},
+		{
+			MethodName: "ApproveBreakGlassApproval",
+			Handler:    _User_ApproveBreakGlassApproval_Handler,
+		},
+		{
+			MethodName: "ConsumeBreakGlassApproval",
+			Handler:    _User_ConsumeBreakGlassApproval_Handler,
 		},
 		{
 			MethodName: "ReplaceUserResourceScopes",

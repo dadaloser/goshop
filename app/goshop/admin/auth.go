@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -42,6 +43,21 @@ type staffAuthHandler struct {
 type staffLoginRequest struct {
 	Username string `json:"username" binding:"required,min=1,max=100"`
 	Password string `json:"password" binding:"required,min=1,max=72"`
+}
+
+type breakGlassApprovalRequest struct {
+	RequesterUserID int32  `json:"requester_user_id" binding:"required"`
+	Reason          string `json:"reason" binding:"required,min=3,max=255"`
+	TTLSeconds      int64  `json:"ttl_seconds"`
+}
+
+type breakGlassApproveRequest struct {
+	ApproverUserID int32 `json:"approver_user_id" binding:"required"`
+}
+
+type breakGlassSessionRequest struct {
+	ApprovalID      string `json:"approval_id" binding:"required"`
+	RequesterUserID int32  `json:"requester_user_id" binding:"required"`
 }
 
 func newStaffAuthHandler(
@@ -128,7 +144,15 @@ func (h *staffAuthHandler) Login(ctx *gin.Context) {
 		return
 	}
 
-	token, expiresAt, err := h.createToken(ctx.Request.Context(), authUser)
+	sessionID, err := h.createStaffSession(ctx, authUser.GetUser().GetId())
+	if err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{
+			"code": http.StatusBadGateway,
+			"msg":  "staff session create failed",
+		})
+		return
+	}
+	token, expiresAt, err := h.createToken(ctx.Request.Context(), authUser, sessionID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code": http.StatusInternalServerError,
@@ -141,7 +165,7 @@ func (h *staffAuthHandler) Login(ctx *gin.Context) {
 		ActorUserId:        authUser.GetUser().GetId(),
 		ActorPrincipalType: string(authz.PrincipalStaff),
 		Action:             "staff_login_succeeded",
-		Detail:             fmt.Sprintf("roles:%s", strings.Join(authUser.GetStaffRoles(), ",")),
+		Detail:             fmt.Sprintf("roles:%s session_id:%s", strings.Join(authUser.GetStaffRoles(), ","), sessionID),
 	}); err != nil {
 		ctx.JSON(http.StatusBadGateway, gin.H{
 			"code": http.StatusBadGateway,
@@ -193,6 +217,11 @@ func (h *staffAuthHandler) Logout(ctx *gin.Context) {
 		})
 		return
 	}
+	if claims := gauth.ExtractClaims(ctx); claims != nil && h.users != nil {
+		if sessionID, _ := claims["session_id"].(string); strings.TrimSpace(sessionID) != "" {
+			_, _ = h.users.RevokeStaffSession(ctx.Request.Context(), &upbv1.RevokeStaffSessionRequest{SessionId: sessionID})
+		}
+	}
 
 	ctx.JSON(http.StatusOK, gin.H{"ok": true})
 }
@@ -221,6 +250,9 @@ func (h *staffAuthHandler) LogoutAll(ctx *gin.Context) {
 			"msg":  "staff logout_all failed",
 		})
 		return
+	}
+	if h.users != nil {
+		_, _ = h.users.RevokeStaffUserSessions(ctx.Request.Context(), &upbv1.RevokeStaffUserSessionsRequest{UserId: int32(userID)})
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"ok": true})
@@ -269,6 +301,27 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 		})
 		return
 	}
+	var request breakGlassSessionRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code": http.StatusBadRequest,
+			"msg":  "invalid break-glass request",
+		})
+		return
+	}
+	approval, err := h.users.ConsumeBreakGlassApproval(ctx.Request.Context(), &upbv1.ConsumeBreakGlassApprovalRequest{
+		ApprovalId:      strings.TrimSpace(request.ApprovalID),
+		RequesterUserId: request.RequesterUserID,
+		RequestId:       requestID(ctx),
+	})
+	if err != nil || approval == nil {
+		breakGlassEvents.Inc("approval_missing")
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"code": http.StatusForbidden,
+			"msg":  "break-glass approval is required",
+		})
+		return
+	}
 
 	timeout := h.adminAuth.EffectiveBreakGlassTTL()
 	if h.jwtOpts.Timeout > 0 && h.jwtOpts.Timeout < timeout {
@@ -296,13 +349,14 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 		return
 	}
 	if err = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{
+		TargetUserId:       request.RequesterUserID,
 		ActorPrincipalType: string(authz.PrincipalAdminBootstrap),
 		Action:             "break_glass_session_issued",
-		Detail:             fmt.Sprintf("correlation_id:%s key_id:%s grants:none", correlationID, keyID),
+		Detail:             fmt.Sprintf("correlation_id:%s key_id:%s approval_id:%s approver_user_id:%d grants:none", correlationID, keyID, approval.GetId(), approval.GetApproverUserId()),
 		CorrelationId:      correlationID,
 		RequestId:          requestID(ctx),
 		TargetType:         "break_glass_session",
-		TargetId:           correlationID,
+		TargetId:           approval.GetId(),
 		Domain:             string(authz.BusinessDomainPlatform),
 	}); err != nil {
 		breakGlassEvents.Inc("audit_failed")
@@ -324,7 +378,83 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 	})
 }
 
-func (h *staffAuthHandler) createToken(ctx context.Context, authUser *upbv1.UserAuthResponse) (string, int64, error) {
+func (h *staffAuthHandler) CreateBreakGlassApproval(ctx *gin.Context) {
+	if h == nil || h.users == nil || h.adminAuth == nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable, "msg": "break-glass approval backend is not initialized"})
+		return
+	}
+	var request breakGlassApprovalRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid break-glass approval request"})
+		return
+	}
+	ttl := time.Duration(request.TTLSeconds) * time.Second
+	if ttl <= 0 {
+		ttl = h.adminAuth.EffectiveBreakGlassTTL()
+	}
+	approval, err := h.users.CreateBreakGlassApproval(ctx.Request.Context(), &upbv1.CreateBreakGlassApprovalRequest{
+		RequesterUserId: request.RequesterUserID,
+		Reason:          strings.TrimSpace(request.Reason),
+		RequestId:       requestID(ctx),
+		ExpiresAt:       uint64(time.Now().Add(ttl).Unix()),
+	})
+	if err != nil || approval == nil {
+		breakGlassEvents.Inc("request_failed")
+		ctx.JSON(http.StatusBadGateway, gin.H{"code": http.StatusBadGateway, "msg": "create break-glass approval failed"})
+		return
+	}
+	_ = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{
+		TargetUserId:       request.RequesterUserID,
+		ActorPrincipalType: string(authz.PrincipalAdminBootstrap),
+		Action:             "break_glass_approval_requested",
+		Detail:             fmt.Sprintf("approval_id:%s reason:%s", approval.GetId(), strings.TrimSpace(request.Reason)),
+		CorrelationId:      approval.GetId(),
+		RequestId:          requestID(ctx),
+		TargetType:         "break_glass_approval",
+		TargetId:           approval.GetId(),
+		Domain:             string(authz.BusinessDomainPlatform),
+	})
+	breakGlassEvents.Inc("requested")
+	ctx.JSON(http.StatusOK, approval)
+}
+
+func (h *staffAuthHandler) ApproveBreakGlassApproval(ctx *gin.Context) {
+	if h == nil || h.users == nil {
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable, "msg": "break-glass approval backend is not initialized"})
+		return
+	}
+	var request breakGlassApproveRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid break-glass approval confirmation"})
+		return
+	}
+	approval, err := h.users.ApproveBreakGlassApproval(ctx.Request.Context(), &upbv1.ApproveBreakGlassApprovalRequest{
+		ApprovalId:     strings.TrimSpace(ctx.Param("approval_id")),
+		ApproverUserId: request.ApproverUserID,
+		RequestId:      requestID(ctx),
+	})
+	if err != nil || approval == nil {
+		breakGlassEvents.Inc("approve_failed")
+		ctx.JSON(http.StatusBadGateway, gin.H{"code": http.StatusBadGateway, "msg": "approve break-glass request failed"})
+		return
+	}
+	_ = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{
+		TargetUserId:       approval.GetRequesterUserId(),
+		ActorUserId:        approval.GetApproverUserId(),
+		ActorPrincipalType: string(authz.PrincipalAdminBootstrap),
+		Action:             "break_glass_approval_approved",
+		Detail:             fmt.Sprintf("approval_id:%s", approval.GetId()),
+		CorrelationId:      approval.GetId(),
+		RequestId:          requestID(ctx),
+		TargetType:         "break_glass_approval",
+		TargetId:           approval.GetId(),
+		Domain:             string(authz.BusinessDomainPlatform),
+	})
+	breakGlassEvents.Inc("approved")
+	ctx.JSON(http.StatusOK, approval)
+}
+
+func (h *staffAuthHandler) createToken(ctx context.Context, authUser *upbv1.UserAuthResponse, sessionID string) (string, int64, error) {
 	tokenVersion, err := h.currentTokenVersion(ctx, authUser.GetUser().GetId())
 	if err != nil {
 		return "", 0, err
@@ -339,9 +469,11 @@ func (h *staffAuthHandler) createToken(ctx context.Context, authUser *upbv1.User
 		AccountStatus:   authUser.GetUser().GetStatus(),
 		Scope:           append([]string(nil), authUser.GetPermissions()...),
 		TokenVersion:    tokenVersion,
+		SessionID:       sessionID,
 		ResourceDomains: effectiveResourceDomains(authUser),
 		ResourceStores:  append([]string(nil), authUser.GetResourceStores()...),
 		ResourceTeams:   append([]string(nil), authUser.GetResourceTeams()...),
+		ResourceScopes:  effectiveResourceScopes(authUser),
 		RegisteredClaims: jwt.RegisteredClaims{
 			NotBefore: jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(h.jwtOpts.Timeout)),
@@ -380,11 +512,62 @@ func effectiveResourceDomains(user *upbv1.UserAuthResponse) []string {
 	return roleDomains(user.GetStaffRoles())
 }
 
+func effectiveResourceScopes(user *upbv1.UserAuthResponse) []string {
+	if user == nil {
+		return nil
+	}
+	result := make([]string, 0, len(user.GetResourceScopes()))
+	for _, scope := range user.GetResourceScopes() {
+		result = append(result, authz.EncodeResourceScope(authz.ResourceScope{
+			Domain:       scope.GetDomain(),
+			StoreID:      scope.GetStoreId(),
+			TeamID:       scope.GetTeamId(),
+			ResourceType: scope.GetResourceType(),
+			ResourceID:   scope.GetResourceId(),
+		}))
+	}
+	return result
+}
+
 func (h *staffAuthHandler) currentTokenVersion(ctx context.Context, userID int32) (uint64, error) {
 	if h == nil || h.tokenVersions == nil || userID <= 0 {
 		return 0, nil
 	}
 	return h.tokenVersions.CurrentVersion(ctx, uint64(userID))
+}
+
+func (h *staffAuthHandler) createStaffSession(ctx *gin.Context, userID int32) (string, error) {
+	if h == nil || h.users == nil || h.jwtOpts == nil {
+		return "", status.Error(codes.FailedPrecondition, "staff session backend is not initialized")
+	}
+	tokenHash := make([]byte, 32)
+	if _, err := rand.Read(tokenHash); err != nil {
+		return "", err
+	}
+	deviceID := strings.TrimSpace(ctx.GetHeader("X-Device-ID"))
+	if deviceID == "" {
+		deviceID = "admin-web"
+	}
+	deviceName := strings.TrimSpace(ctx.GetHeader("X-Device-Name"))
+	if deviceName == "" {
+		deviceName = strings.TrimSpace(ctx.GetHeader("User-Agent"))
+	}
+	if deviceName == "" {
+		deviceName = "admin-console"
+	}
+	session, err := h.users.CreateSession(ctx.Request.Context(), &upbv1.CreateSessionRequest{
+		UserId:           userID,
+		DeviceId:         deviceID,
+		DeviceName:       deviceName,
+		RefreshTokenHash: tokenHash,
+		ExpiresAt:        uint64(time.Now().Add(h.jwtOpts.Timeout).Unix()),
+		PrincipalType:    string(authz.PrincipalStaff),
+	})
+	if err != nil {
+		return "", err
+	}
+	_, _ = h.users.RecordLogin(ctx.Request.Context(), &upbv1.RecordLoginRequest{UserId: userID, LoggedInAt: uint64(time.Now().Unix())})
+	return session.GetId(), nil
 }
 
 func (h *staffAuthHandler) createAdminAuditLog(ctx context.Context, logEntry *upbv1.AdminAuditLog) error {
@@ -440,6 +623,12 @@ func newStaffJWTAuth(
 		if tokenVersions != nil {
 			currentVersion, err := tokenVersions.CurrentVersion(c.Request.Context(), userID)
 			if err != nil || currentVersion != tokenVersionFromClaims(claims) {
+				return false
+			}
+		}
+		if sessionID, _ := claims["session_id"].(string); strings.TrimSpace(sessionID) != "" {
+			active, err := users.ValidateSession(c.Request.Context(), &upbv1.ValidateSessionRequest{UserId: int32(userID), SessionId: sessionID})
+			if err != nil || active == nil || !active.GetActive() {
 				return false
 			}
 		}

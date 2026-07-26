@@ -326,6 +326,57 @@ func (s *OrderHttpServer) ReconcilePayments_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *OrderHttpServer) ListPaymentReconciliationRuns_0(c *gin.Context) {
+	var in ListPaymentReconciliationRunsRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListPaymentReconciliationRuns(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *OrderHttpServer) ListPaymentReconciliationItems_0(c *gin.Context) {
+	var in ListPaymentReconciliationItemsRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListPaymentReconciliationItems(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *OrderHttpServer) RetryDeadRefundJob_0(c *gin.Context) {
+	var in RetryDeadRefundJobRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.RetryDeadRefundJob(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *OrderHttpServer) RegisterService() {
 
 	s.router.Handle("POST", "", s.CartItemList_0)
@@ -363,5 +414,11 @@ func (s *OrderHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.CompleteRefundJob_0)
 
 	s.router.Handle("POST", "", s.ReconcilePayments_0)
+
+	s.router.Handle("POST", "", s.ListPaymentReconciliationRuns_0)
+
+	s.router.Handle("POST", "", s.ListPaymentReconciliationItems_0)
+
+	s.router.Handle("POST", "", s.RetryDeadRefundJob_0)
 
 }

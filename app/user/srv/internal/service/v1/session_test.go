@@ -45,6 +45,18 @@ func (f fakeSessionUserStore) SessionActive(ctx context.Context, userID uint64, 
 	return f.sessionActive(ctx, userID, sessionID, at)
 }
 
+func (f fakeSessionUserStore) ListStaffSessions(context.Context, dv1.StaffSessionFilters) ([]dv1.StaffSessionRecordDO, int64, error) {
+	return nil, 0, nil
+}
+
+func (f fakeSessionUserStore) RevokeStaffSession(context.Context, string, time.Time) error {
+	return nil
+}
+
+func (f fakeSessionUserStore) RevokeStaffUserSessions(context.Context, uint64, time.Time) error {
+	return nil
+}
+
 func TestUserServiceSessionLifecycle(t *testing.T) {
 	now := time.Now().UTC()
 	hash := []byte("12345678901234567890123456789012")

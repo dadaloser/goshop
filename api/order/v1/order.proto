@@ -26,6 +26,9 @@ service Order {
     rpc ClaimRefundJobs(ClaimRefundJobsRequest) returns (ClaimRefundJobsResponse);
     rpc CompleteRefundJob(CompleteRefundJobRequest) returns (google.protobuf.Empty);
     rpc ReconcilePayments(ReconcilePaymentsRequest) returns (ReconcilePaymentsResponse);
+    rpc ListPaymentReconciliationRuns(ListPaymentReconciliationRunsRequest) returns (ListPaymentReconciliationRunsResponse);
+    rpc ListPaymentReconciliationItems(ListPaymentReconciliationItemsRequest) returns (ListPaymentReconciliationItemsResponse);
+    rpc RetryDeadRefundJob(RetryDeadRefundJobRequest) returns (RetryDeadRefundJobResponse);
 }
 
 message PaymentEventRequest { string provider = 1; string eventId = 2; string orderSn = 3; string tradeNo = 4; string eventType = 5; int64 providerAmountFen = 6; int64 refundAmountFen = 7; }
@@ -41,6 +44,14 @@ message CompleteRefundJobRequest { int64 id = 1; bool success = 2; string provid
 message ProviderTransaction { string eventId = 1; string orderSn = 2; string tradeNo = 3; string eventType = 4; int64 amountFen = 5; int64 occurredAt = 6; }
 message ReconcilePaymentsRequest { string provider = 1; int64 windowStart = 2; int64 windowEnd = 3; repeated ProviderTransaction transactions = 4; }
 message ReconcilePaymentsResponse { int64 runId = 1; int32 checkedCount = 2; int32 mismatchCount = 3; }
+message ListPaymentReconciliationRunsRequest { string provider = 1; int64 windowStart = 2; int64 windowEnd = 3; int32 page = 4; int32 pageSize = 5; }
+message PaymentReconciliationRunRecord { int64 id = 1; string provider = 2; int64 windowStart = 3; int64 windowEnd = 4; int64 startedAt = 5; int64 finishedAt = 6; int32 checkedCount = 7; int32 mismatchCount = 8; string status = 9; }
+message ListPaymentReconciliationRunsResponse { int32 total = 1; repeated PaymentReconciliationRunRecord data = 2; }
+message ListPaymentReconciliationItemsRequest { string provider = 1; int64 windowStart = 2; int64 windowEnd = 3; string result = 4; int64 runId = 5; int32 page = 6; int32 pageSize = 7; }
+message PaymentReconciliationItemRecord { int64 id = 1; int64 runId = 2; string providerEventId = 3; string orderSn = 4; string tradeNo = 5; string eventType = 6; int64 providerAmountFen = 7; int64 localAmountFen = 8; string result = 9; string detail = 10; int64 createdAt = 11; }
+message ListPaymentReconciliationItemsResponse { int32 total = 1; repeated PaymentReconciliationItemRecord data = 2; }
+message RetryDeadRefundJobRequest { int64 id = 1; }
+message RetryDeadRefundJobResponse { int64 id = 1; string status = 2; int32 attempts = 3; string correlationId = 4; }
 
 message UserInfo {
     int32 id = 1;

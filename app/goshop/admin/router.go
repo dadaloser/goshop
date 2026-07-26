@@ -55,6 +55,8 @@ func initRouterWithDependencies(
 	v1.POST("/auth/logout", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authController.Logout)
 	v1.POST("/auth/logout_all", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authController.LogoutAll)
 	v1.GET("/auth/me", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authController.Me)
+	v1.POST("/break_glass/approvals", requireAdminToken(cfg.AdminAuth), authController.CreateBreakGlassApproval)
+	v1.POST("/break_glass/approvals/:approval_id/approve", requireAdminToken(cfg.AdminAuth), requireAdminConfirmation(cfg.AdminAuth), authController.ApproveBreakGlassApproval)
 	v1.POST("/break_glass/session", requireAdminToken(cfg.AdminAuth), authController.BootstrapSession)
 	v1.GET("/admin/audit_logs", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authz.RequirePermission(authz.PermissionAuditReadAny), ucontroller.ListAdminAuditLogs)
 
@@ -69,6 +71,9 @@ func initRouterWithDependencies(
 	ugroup.PUT(":id/resource_scopes", authz.RequirePermission(authz.PermissionRoleAssignAny), requireRole(authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainPlatform), requireAdminConfirmation(cfg.AdminAuth), ucontroller.ReplaceResourceScopes)
 	staffGroup := v1.Group("/staff", staffAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff))
 	staffGroup.GET("roles", authz.RequirePermission(authz.PermissionRoleReadAny), ucontroller.ListStaffRoles)
+	staffGroup.GET("sessions", requireRole(authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainPlatform), authz.RequirePermission(authz.PermissionStaffSessionReadAny), ucontroller.ListStaffSessions)
+	staffGroup.POST("sessions/:session_id/revoke", requireRole(authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireTargetResourceScope(authz.BusinessDomainPlatform, "staff_session", "session_id"), authz.RequirePermission(authz.PermissionStaffSessionRevokeAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.RevokeStaffSession)
+	staffGroup.POST(":id/sessions/revoke", requireRole(authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireTargetResourceScope(authz.BusinessDomainPlatform, "staff_user", "id"), authz.RequirePermission(authz.PermissionStaffSessionRevokeAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.RevokeStaffUserSessions)
 	staffGroup.POST("roles", authz.RequirePermission(authz.PermissionRoleWriteAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.CreateStaffRole)
 	staffGroup.PUT("roles/:name", authz.RequirePermission(authz.PermissionRoleWriteAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.UpdateStaffRole)
 	staffGroup.DELETE("roles/:name", authz.RequirePermission(authz.PermissionRoleWriteAny), requireAdminConfirmation(cfg.AdminAuth), ucontroller.DeleteStaffRole)

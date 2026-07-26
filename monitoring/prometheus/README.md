@@ -10,6 +10,7 @@ This kustomization deploys:
 
 - `dependency-resilience-alerts.yaml`
 - `order-ops-alerts.yaml`
+- `payment-ops-alerts.yaml`
 - `review-ops-alerts.yaml`
 
 Before applying in production, confirm the target namespace and Prometheus

@@ -1,0 +1,49 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: goshop-payment-ops-alerts
+  labels:
+    app.kubernetes.io/name: goshop
+    app.kubernetes.io/component: payment-observability
+spec:
+  groups:
+    - name: goshop-payment-ops
+      rules:
+        - alert: PaymentRefundDeadJobsDetected
+          expr: |
+            increase(goshop_api_payment_worker_refund_jobs_total{result="dead"}[15m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            team: finance
+            owner: finance-oncall
+          annotations:
+            summary: "Dead refund jobs were detected"
+            description: "At least one payment refund worker job exhausted retries and moved to dead-letter status in the last 15 minutes."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#payment-refund-dead-jobs"
+
+        - alert: PaymentCallbackReplayElevated
+          expr: |
+            increase(goshop_api_payment_callback_http_total{result="duplicate"}[15m]) > 10
+          for: 10m
+          labels:
+            severity: warning
+            team: finance
+            owner: finance-oncall
+          annotations:
+            summary: "Payment callback replay volume is elevated"
+            description: "Payment callback duplicate/replay detections exceeded 10 in 15 minutes. Inspect provider retries, nonce store health, and possible replay traffic."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#payment-callback-replay"
+
+        - alert: PaymentReconciliationMismatchPresent
+          expr: |
+            goshop_api_payment_worker_reconciliation_mismatch_count > 0
+          for: 15m
+          labels:
+            severity: warning
+            team: finance
+            owner: finance-oncall
+          annotations:
+            summary: "Payment reconciliation mismatches are present"
+            description: "The latest payment reconciliation run reported at least one mismatch. Review reconciliation items by provider/window/result and verify order, payment, and refund totals."
+            runbook_url: "https://github.com/imooc/goshop/blob/main/docs/runbooks/service-alerts.md#payment-reconciliation-mismatch"

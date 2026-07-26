@@ -20,24 +20,27 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Order_CartItemList_FullMethodName         = "/Order/CartItemList"
-	Order_CreateCartItem_FullMethodName       = "/Order/CreateCartItem"
-	Order_UpdateCartItem_FullMethodName       = "/Order/UpdateCartItem"
-	Order_DeleteCartItem_FullMethodName       = "/Order/DeleteCartItem"
-	Order_CreateOrder_FullMethodName          = "/Order/CreateOrder"
-	Order_CreateOrderCom_FullMethodName       = "/Order/CreateOrderCom"
-	Order_SubmitOrder_FullMethodName          = "/Order/SubmitOrder"
-	Order_OrderList_FullMethodName            = "/Order/OrderList"
-	Order_OrderDetail_FullMethodName          = "/Order/OrderDetail"
-	Order_OrderStatusLogs_FullMethodName      = "/Order/OrderStatusLogs"
-	Order_GetOrderBySn_FullMethodName         = "/Order/GetOrderBySn"
-	Order_UpdateOrderStatus_FullMethodName    = "/Order/UpdateOrderStatus"
-	Order_BeginPaymentEvent_FullMethodName    = "/Order/BeginPaymentEvent"
-	Order_CompletePaymentEvent_FullMethodName = "/Order/CompletePaymentEvent"
-	Order_ListPaymentEvents_FullMethodName    = "/Order/ListPaymentEvents"
-	Order_ClaimRefundJobs_FullMethodName      = "/Order/ClaimRefundJobs"
-	Order_CompleteRefundJob_FullMethodName    = "/Order/CompleteRefundJob"
-	Order_ReconcilePayments_FullMethodName    = "/Order/ReconcilePayments"
+	Order_CartItemList_FullMethodName                   = "/Order/CartItemList"
+	Order_CreateCartItem_FullMethodName                 = "/Order/CreateCartItem"
+	Order_UpdateCartItem_FullMethodName                 = "/Order/UpdateCartItem"
+	Order_DeleteCartItem_FullMethodName                 = "/Order/DeleteCartItem"
+	Order_CreateOrder_FullMethodName                    = "/Order/CreateOrder"
+	Order_CreateOrderCom_FullMethodName                 = "/Order/CreateOrderCom"
+	Order_SubmitOrder_FullMethodName                    = "/Order/SubmitOrder"
+	Order_OrderList_FullMethodName                      = "/Order/OrderList"
+	Order_OrderDetail_FullMethodName                    = "/Order/OrderDetail"
+	Order_OrderStatusLogs_FullMethodName                = "/Order/OrderStatusLogs"
+	Order_GetOrderBySn_FullMethodName                   = "/Order/GetOrderBySn"
+	Order_UpdateOrderStatus_FullMethodName              = "/Order/UpdateOrderStatus"
+	Order_BeginPaymentEvent_FullMethodName              = "/Order/BeginPaymentEvent"
+	Order_CompletePaymentEvent_FullMethodName           = "/Order/CompletePaymentEvent"
+	Order_ListPaymentEvents_FullMethodName              = "/Order/ListPaymentEvents"
+	Order_ClaimRefundJobs_FullMethodName                = "/Order/ClaimRefundJobs"
+	Order_CompleteRefundJob_FullMethodName              = "/Order/CompleteRefundJob"
+	Order_ReconcilePayments_FullMethodName              = "/Order/ReconcilePayments"
+	Order_ListPaymentReconciliationRuns_FullMethodName  = "/Order/ListPaymentReconciliationRuns"
+	Order_ListPaymentReconciliationItems_FullMethodName = "/Order/ListPaymentReconciliationItems"
+	Order_RetryDeadRefundJob_FullMethodName             = "/Order/RetryDeadRefundJob"
 )
 
 // OrderClient is the client API for Order service.
@@ -64,6 +67,9 @@ type OrderClient interface {
 	ClaimRefundJobs(ctx context.Context, in *ClaimRefundJobsRequest, opts ...grpc.CallOption) (*ClaimRefundJobsResponse, error)
 	CompleteRefundJob(ctx context.Context, in *CompleteRefundJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ReconcilePayments(ctx context.Context, in *ReconcilePaymentsRequest, opts ...grpc.CallOption) (*ReconcilePaymentsResponse, error)
+	ListPaymentReconciliationRuns(ctx context.Context, in *ListPaymentReconciliationRunsRequest, opts ...grpc.CallOption) (*ListPaymentReconciliationRunsResponse, error)
+	ListPaymentReconciliationItems(ctx context.Context, in *ListPaymentReconciliationItemsRequest, opts ...grpc.CallOption) (*ListPaymentReconciliationItemsResponse, error)
+	RetryDeadRefundJob(ctx context.Context, in *RetryDeadRefundJobRequest, opts ...grpc.CallOption) (*RetryDeadRefundJobResponse, error)
 }
 
 type orderClient struct {
@@ -254,6 +260,36 @@ func (c *orderClient) ReconcilePayments(ctx context.Context, in *ReconcilePaymen
 	return out, nil
 }
 
+func (c *orderClient) ListPaymentReconciliationRuns(ctx context.Context, in *ListPaymentReconciliationRunsRequest, opts ...grpc.CallOption) (*ListPaymentReconciliationRunsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPaymentReconciliationRunsResponse)
+	err := c.cc.Invoke(ctx, Order_ListPaymentReconciliationRuns_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *orderClient) ListPaymentReconciliationItems(ctx context.Context, in *ListPaymentReconciliationItemsRequest, opts ...grpc.CallOption) (*ListPaymentReconciliationItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPaymentReconciliationItemsResponse)
+	err := c.cc.Invoke(ctx, Order_ListPaymentReconciliationItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *orderClient) RetryDeadRefundJob(ctx context.Context, in *RetryDeadRefundJobRequest, opts ...grpc.CallOption) (*RetryDeadRefundJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RetryDeadRefundJobResponse)
+	err := c.cc.Invoke(ctx, Order_RetryDeadRefundJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OrderServer is the server API for Order service.
 // All implementations must embed UnimplementedOrderServer
 // for forward compatibility.
@@ -278,6 +314,9 @@ type OrderServer interface {
 	ClaimRefundJobs(context.Context, *ClaimRefundJobsRequest) (*ClaimRefundJobsResponse, error)
 	CompleteRefundJob(context.Context, *CompleteRefundJobRequest) (*emptypb.Empty, error)
 	ReconcilePayments(context.Context, *ReconcilePaymentsRequest) (*ReconcilePaymentsResponse, error)
+	ListPaymentReconciliationRuns(context.Context, *ListPaymentReconciliationRunsRequest) (*ListPaymentReconciliationRunsResponse, error)
+	ListPaymentReconciliationItems(context.Context, *ListPaymentReconciliationItemsRequest) (*ListPaymentReconciliationItemsResponse, error)
+	RetryDeadRefundJob(context.Context, *RetryDeadRefundJobRequest) (*RetryDeadRefundJobResponse, error)
 	mustEmbedUnimplementedOrderServer()
 }
 
@@ -341,6 +380,15 @@ func (UnimplementedOrderServer) CompleteRefundJob(context.Context, *CompleteRefu
 }
 func (UnimplementedOrderServer) ReconcilePayments(context.Context, *ReconcilePaymentsRequest) (*ReconcilePaymentsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReconcilePayments not implemented")
+}
+func (UnimplementedOrderServer) ListPaymentReconciliationRuns(context.Context, *ListPaymentReconciliationRunsRequest) (*ListPaymentReconciliationRunsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPaymentReconciliationRuns not implemented")
+}
+func (UnimplementedOrderServer) ListPaymentReconciliationItems(context.Context, *ListPaymentReconciliationItemsRequest) (*ListPaymentReconciliationItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPaymentReconciliationItems not implemented")
+}
+func (UnimplementedOrderServer) RetryDeadRefundJob(context.Context, *RetryDeadRefundJobRequest) (*RetryDeadRefundJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RetryDeadRefundJob not implemented")
 }
 func (UnimplementedOrderServer) mustEmbedUnimplementedOrderServer() {}
 func (UnimplementedOrderServer) testEmbeddedByValue()               {}
@@ -687,6 +735,60 @@ func _Order_ReconcilePayments_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Order_ListPaymentReconciliationRuns_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPaymentReconciliationRunsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).ListPaymentReconciliationRuns(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_ListPaymentReconciliationRuns_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).ListPaymentReconciliationRuns(ctx, req.(*ListPaymentReconciliationRunsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Order_ListPaymentReconciliationItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPaymentReconciliationItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).ListPaymentReconciliationItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_ListPaymentReconciliationItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).ListPaymentReconciliationItems(ctx, req.(*ListPaymentReconciliationItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Order_RetryDeadRefundJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RetryDeadRefundJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).RetryDeadRefundJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_RetryDeadRefundJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).RetryDeadRefundJob(ctx, req.(*RetryDeadRefundJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Order_ServiceDesc is the grpc.ServiceDesc for Order service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -765,6 +867,18 @@ var Order_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReconcilePayments",
 			Handler:    _Order_ReconcilePayments_Handler,
+		},
+		{
+			MethodName: "ListPaymentReconciliationRuns",
+			Handler:    _Order_ListPaymentReconciliationRuns_Handler,
+		},
+		{
+			MethodName: "ListPaymentReconciliationItems",
+			Handler:    _Order_ListPaymentReconciliationItems_Handler,
+		},
+		{
+			MethodName: "RetryDeadRefundJob",
+			Handler:    _Order_RetryDeadRefundJob_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

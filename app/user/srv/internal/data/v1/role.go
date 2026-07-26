@@ -50,4 +50,5 @@ type UserAuthDO struct {
 	ResourceDomains []string
 	ResourceStores  []string
 	ResourceTeams   []string
+	ResourceScopes  []UserResourceScopeDO
 }

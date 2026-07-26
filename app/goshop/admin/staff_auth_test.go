@@ -50,8 +50,9 @@ func TestInitRouterRestrictsBootstrapTokenToBreakGlass(t *testing.T) {
 		t.Fatalf("bootstrap header status = %d, want 401", rec.Code)
 	}
 
-	breakGlassReq := httptest.NewRequest(http.MethodPost, "/v1/break_glass/session", nil)
+	breakGlassReq := httptest.NewRequest(http.MethodPost, "/v1/break_glass/session", strings.NewReader(`{"approval_id":"approval-1","requester_user_id":7}`))
 	breakGlassReq.Header.Set("X-Admin-Token", "bootstrap-secret")
+	breakGlassReq.Header.Set("Content-Type", "application/json")
 	breakGlassRec := httptest.NewRecorder()
 	server.ServeHTTP(breakGlassRec, breakGlassReq)
 	if breakGlassRec.Code != http.StatusOK {
@@ -975,6 +976,8 @@ type fakeAdminUserClient struct {
 	auditLogsReq           *upbv1.UserAuditLogPageRequest
 	adminAuditLogsResponse *upbv1.AdminAuditLogListResponse
 	adminAuditLogsReq      *upbv1.AdminAuditLogPageRequest
+	createSessionReq       *upbv1.CreateSessionRequest
+	consumeBreakGlassReq   *upbv1.ConsumeBreakGlassApprovalRequest
 }
 
 func (f *fakeAdminUserClient) GetUserList(context.Context, *upbv1.PageInfo, ...grpc.CallOption) (*upbv1.UserListResponse, error) {
@@ -1116,6 +1119,56 @@ func (f *fakeAdminUserClient) DeleteUser(context.Context, *upbv1.IdRequest, ...g
 
 func (f *fakeAdminUserClient) CheckPassWord(context.Context, *upbv1.PasswordCheckInfo, ...grpc.CallOption) (*upbv1.CheckResponse, error) {
 	return &upbv1.CheckResponse{Success: true}, nil
+}
+
+func (f *fakeAdminUserClient) RecordLogin(context.Context, *upbv1.RecordLoginRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+func (f *fakeAdminUserClient) CreateSession(_ context.Context, req *upbv1.CreateSessionRequest, _ ...grpc.CallOption) (*upbv1.SessionResponse, error) {
+	f.createSessionReq = req
+	return &upbv1.SessionResponse{Id: "staff-session-1", UserId: req.GetUserId(), DeviceId: req.GetDeviceId(), DeviceName: req.GetDeviceName(), ExpiresAt: req.GetExpiresAt()}, nil
+}
+
+func (f *fakeAdminUserClient) RefreshSession(context.Context, *upbv1.RefreshSessionRequest, ...grpc.CallOption) (*upbv1.SessionResponse, error) {
+	return &upbv1.SessionResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) RevokeSession(context.Context, *upbv1.RevokeSessionRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+func (f *fakeAdminUserClient) RevokeAllSessions(context.Context, *upbv1.IdRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+func (f *fakeAdminUserClient) ValidateSession(context.Context, *upbv1.ValidateSessionRequest, ...grpc.CallOption) (*upbv1.SessionValidationResponse, error) {
+	return &upbv1.SessionValidationResponse{Active: true}, nil
+}
+
+func (f *fakeAdminUserClient) ListStaffSessions(context.Context, *upbv1.ListStaffSessionsRequest, ...grpc.CallOption) (*upbv1.ListStaffSessionsResponse, error) {
+	return &upbv1.ListStaffSessionsResponse{}, nil
+}
+
+func (f *fakeAdminUserClient) RevokeStaffSession(context.Context, *upbv1.RevokeStaffSessionRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+func (f *fakeAdminUserClient) RevokeStaffUserSessions(context.Context, *upbv1.RevokeStaffUserSessionsRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+func (f *fakeAdminUserClient) CreateBreakGlassApproval(context.Context, *upbv1.CreateBreakGlassApprovalRequest, ...grpc.CallOption) (*upbv1.BreakGlassApproval, error) {
+	return &upbv1.BreakGlassApproval{Id: "approval-1", RequesterUserId: 7, Status: "pending"}, nil
+}
+
+func (f *fakeAdminUserClient) ApproveBreakGlassApproval(context.Context, *upbv1.ApproveBreakGlassApprovalRequest, ...grpc.CallOption) (*upbv1.BreakGlassApproval, error) {
+	return &upbv1.BreakGlassApproval{Id: "approval-1", RequesterUserId: 7, ApproverUserId: 8, Status: "approved"}, nil
+}
+
+func (f *fakeAdminUserClient) ConsumeBreakGlassApproval(_ context.Context, req *upbv1.ConsumeBreakGlassApprovalRequest, _ ...grpc.CallOption) (*upbv1.BreakGlassApproval, error) {
+	f.consumeBreakGlassReq = req
+	return &upbv1.BreakGlassApproval{Id: req.GetApprovalId(), RequesterUserId: req.GetRequesterUserId(), ApproverUserId: 8, Status: "used"}, nil
 }
 
 var _ upbv1.UserClient = &fakeAdminUserClient{}

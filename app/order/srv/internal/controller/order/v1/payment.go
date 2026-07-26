@@ -19,6 +19,9 @@ type paymentService interface {
 	ClaimRefundJobs(context.Context, int, int, time.Duration) ([]do.RefundJob, error)
 	CompleteRefundJob(context.Context, uint64, bool, string, string, string, string, int) error
 	ReconcilePayments(context.Context, string, time.Time, time.Time, []do.PaymentEventDO) (*do.PaymentReconciliationRunDO, error)
+	ListPaymentReconciliationRuns(context.Context, string, *time.Time, *time.Time, int, int) ([]do.PaymentReconciliationRunDO, int64, error)
+	ListPaymentReconciliationItems(context.Context, string, *time.Time, *time.Time, string, uint64, int, int) ([]do.PaymentReconciliationItemDO, int64, error)
+	RetryDeadRefundJob(context.Context, uint64) (*do.RefundJob, error)
 }
 
 func (os *orderServer) ClaimRefundJobs(ctx context.Context, req *pb.ClaimRefundJobsRequest) (*pb.ClaimRefundJobsResponse, error) {
@@ -62,6 +65,75 @@ func (os *orderServer) ReconcilePayments(ctx context.Context, req *pb.ReconcileP
 		return nil, err
 	}
 	return &pb.ReconcilePaymentsResponse{RunId: int64(run.ID), CheckedCount: int32(run.CheckedCount), MismatchCount: int32(run.MismatchCount)}, nil
+}
+
+func (os *orderServer) ListPaymentReconciliationRuns(ctx context.Context, req *pb.ListPaymentReconciliationRunsRequest) (*pb.ListPaymentReconciliationRunsResponse, error) {
+	service, err := os.paymentService()
+	if err != nil {
+		return nil, err
+	}
+	runs, total, err := service.ListPaymentReconciliationRuns(ctx, req.GetProvider(), optionalUnixTime(req.GetWindowStart()), optionalUnixTime(req.GetWindowEnd()), int(req.GetPage()), int(req.GetPageSize()))
+	if err != nil {
+		return nil, err
+	}
+	resp := &pb.ListPaymentReconciliationRunsResponse{Total: int32(total), Data: make([]*pb.PaymentReconciliationRunRecord, 0, len(runs))}
+	for _, run := range runs {
+		record := &pb.PaymentReconciliationRunRecord{
+			Id:            int64(run.ID),
+			Provider:      run.Provider,
+			WindowStart:   run.WindowStart.Unix(),
+			WindowEnd:     run.WindowEnd.Unix(),
+			StartedAt:     run.StartedAt.Unix(),
+			CheckedCount:  int32(run.CheckedCount),
+			MismatchCount: int32(run.MismatchCount),
+			Status:        run.Status,
+		}
+		if run.FinishedAt != nil {
+			record.FinishedAt = run.FinishedAt.Unix()
+		}
+		resp.Data = append(resp.Data, record)
+	}
+	return resp, nil
+}
+
+func (os *orderServer) ListPaymentReconciliationItems(ctx context.Context, req *pb.ListPaymentReconciliationItemsRequest) (*pb.ListPaymentReconciliationItemsResponse, error) {
+	service, err := os.paymentService()
+	if err != nil {
+		return nil, err
+	}
+	items, total, err := service.ListPaymentReconciliationItems(ctx, req.GetProvider(), optionalUnixTime(req.GetWindowStart()), optionalUnixTime(req.GetWindowEnd()), req.GetResult(), uint64(req.GetRunId()), int(req.GetPage()), int(req.GetPageSize()))
+	if err != nil {
+		return nil, err
+	}
+	resp := &pb.ListPaymentReconciliationItemsResponse{Total: int32(total), Data: make([]*pb.PaymentReconciliationItemRecord, 0, len(items))}
+	for _, item := range items {
+		resp.Data = append(resp.Data, &pb.PaymentReconciliationItemRecord{
+			Id:                int64(item.ID),
+			RunId:             int64(item.RunID),
+			ProviderEventId:   item.ProviderEventID,
+			OrderSn:           item.OrderSN,
+			TradeNo:           item.TradeNo,
+			EventType:         item.EventType,
+			ProviderAmountFen: item.ProviderAmountFen,
+			LocalAmountFen:    item.LocalAmountFen,
+			Result:            item.Result,
+			Detail:            item.Detail,
+			CreatedAt:         item.CreatedAt.Unix(),
+		})
+	}
+	return resp, nil
+}
+
+func (os *orderServer) RetryDeadRefundJob(ctx context.Context, req *pb.RetryDeadRefundJobRequest) (*pb.RetryDeadRefundJobResponse, error) {
+	service, err := os.paymentService()
+	if err != nil {
+		return nil, err
+	}
+	job, err := service.RetryDeadRefundJob(ctx, uint64(req.GetId()))
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RetryDeadRefundJobResponse{Id: int64(job.OutboxID), Status: "retry", Attempts: int32(job.Attempts), CorrelationId: job.CorrelationID}, nil
 }
 
 func (os *orderServer) paymentService() (paymentService, error) {
@@ -111,4 +183,12 @@ func (os *orderServer) ListPaymentEvents(ctx context.Context, req *pb.PaymentEve
 		resp.Data = append(resp.Data, &pb.PaymentEventRecord{Id: int64(item.ID), Provider: item.Provider, EventId: item.EventID, OrderSn: item.OrderSN, TradeNo: item.TradeNo, EventType: item.EventType, OrderAmountFen: item.OrderAmountFen, ProviderAmountFen: item.ProviderAmountFen, RefundAmountFen: item.RefundAmountFen, Status: item.Status, ErrorDetail: item.ErrorDetail, ReceivedAt: item.ReceivedAt.Unix(), CompletedAt: completed})
 	}
 	return resp, nil
+}
+
+func optionalUnixTime(value int64) *time.Time {
+	if value <= 0 {
+		return nil
+	}
+	parsed := time.Unix(value, 0).UTC()
+	return &parsed
 }

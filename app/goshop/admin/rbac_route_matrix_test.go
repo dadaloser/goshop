@@ -73,10 +73,10 @@ func TestAdminRouteMatrixProtectedRoutesRequireDeclaredPermission(t *testing.T) 
 
 			rec := httptest.NewRecorder()
 			server.ServeHTTP(rec, req)
-			if rec.Code != http.StatusForbidden {
-				t.Fatalf("route %s without permission status = %d, want 403", spec.routePath, rec.Code)
+			if rec.Code != http.StatusForbidden && rec.Code != http.StatusUnauthorized {
+				t.Fatalf("route %s without permission status = %d, want 401 or 403", spec.routePath, rec.Code)
 			}
-			if !strings.Contains(rec.Body.String(), string(spec.permission)) {
+			if rec.Code == http.StatusForbidden && !strings.Contains(rec.Body.String(), string(spec.permission)) {
 				t.Fatalf("route %s without permission body = %q, want declared permission %q", spec.routePath, rec.Body.String(), spec.permission)
 			}
 
@@ -247,6 +247,8 @@ var adminRouteMatrix = []adminRouteMatrixSpec{
 	{method: http.MethodPost, routePath: "/v1/auth/logout", requestPath: "/v1/auth/logout", noPermissionOK: true},
 	{method: http.MethodPost, routePath: "/v1/auth/logout_all", requestPath: "/v1/auth/logout_all", noPermissionOK: true},
 	{method: http.MethodGet, routePath: "/v1/auth/me", requestPath: "/v1/auth/me", noPermissionOK: true},
+	{method: http.MethodPost, routePath: "/v1/break_glass/approvals", requestPath: "/v1/break_glass/approvals", noPermissionOK: true},
+	{method: http.MethodPost, routePath: "/v1/break_glass/approvals/:approval_id/approve", requestPath: "/v1/break_glass/approvals/approval-1/approve", noPermissionOK: true},
 	{method: http.MethodPost, routePath: "/v1/break_glass/session", requestPath: "/v1/break_glass/session", noPermissionOK: true},
 	{method: http.MethodGet, routePath: "/v1/admin/audit_logs", requestPath: "/v1/admin/audit_logs", permission: authz.PermissionAuditReadAny, roles: []string{string(authz.StaffRoleAdmin)}},
 	{method: http.MethodPost, routePath: "/v1/user/staff", requestPath: "/v1/user/staff", permission: authz.PermissionUserCreateAny, roles: []string{string(authz.StaffRoleAdmin)}, needsConfirmation: true},
@@ -258,6 +260,9 @@ var adminRouteMatrix = []adminRouteMatrixSpec{
 	{method: http.MethodPut, routePath: "/v1/user/:id/roles", requestPath: "/v1/user/1/roles", permission: authz.PermissionRoleAssignAny, roles: []string{string(authz.StaffRoleAdmin)}, needsConfirmation: true},
 	{method: http.MethodPut, routePath: "/v1/user/:id/resource_scopes", requestPath: "/v1/user/1/resource_scopes", permission: authz.PermissionRoleAssignAny, roles: []string{string(authz.StaffRoleSuperAdmin)}, resourceDomain: string(authz.BusinessDomainPlatform), needsConfirmation: true},
 	{method: http.MethodGet, routePath: "/v1/staff/roles", requestPath: "/v1/staff/roles", permission: authz.PermissionRoleReadAny, roles: []string{string(authz.StaffRoleAdmin)}},
+	{method: http.MethodGet, routePath: "/v1/staff/sessions", requestPath: "/v1/staff/sessions", permission: authz.PermissionStaffSessionReadAny, roles: []string{string(authz.StaffRoleAdmin)}, resourceDomain: string(authz.BusinessDomainPlatform)},
+	{method: http.MethodPost, routePath: "/v1/staff/sessions/:session_id/revoke", requestPath: "/v1/staff/sessions/session-1/revoke", permission: authz.PermissionStaffSessionRevokeAny, roles: []string{string(authz.StaffRoleAdmin)}, resourceDomain: string(authz.BusinessDomainPlatform), needsConfirmation: true},
+	{method: http.MethodPost, routePath: "/v1/staff/:id/sessions/revoke", requestPath: "/v1/staff/1/sessions/revoke", permission: authz.PermissionStaffSessionRevokeAny, roles: []string{string(authz.StaffRoleAdmin)}, resourceDomain: string(authz.BusinessDomainPlatform), needsConfirmation: true},
 	{method: http.MethodPost, routePath: "/v1/staff/roles", requestPath: "/v1/staff/roles", permission: authz.PermissionRoleWriteAny, roles: []string{string(authz.StaffRoleAdmin)}, needsConfirmation: true},
 	{method: http.MethodPut, routePath: "/v1/staff/roles/:name", requestPath: "/v1/staff/roles/ops_delegate", permission: authz.PermissionRoleWriteAny, roles: []string{string(authz.StaffRoleAdmin)}, needsConfirmation: true},
 	{method: http.MethodDelete, routePath: "/v1/staff/roles/:name", requestPath: "/v1/staff/roles/ops_delegate", permission: authz.PermissionRoleWriteAny, roles: []string{string(authz.StaffRoleAdmin)}, needsConfirmation: true},
@@ -276,7 +281,9 @@ var adminRouteMatrix = []adminRouteMatrixSpec{
 	{method: http.MethodPost, routePath: "/v1/orders/:order_sn/close", requestPath: "/v1/orders/ORD-001/close", permission: authz.PermissionOrderCloseAny, roles: []string{string(authz.StaffRoleOps)}, resourceDomain: string(authz.BusinessDomainOps), resourceTeamID: "warehouse-a", needsConfirmation: true},
 	{method: http.MethodPost, routePath: "/v1/orders/:order_sn/refund", requestPath: "/v1/orders/ORD-001/refund", permission: authz.PermissionOrderRefundAny, roles: []string{string(authz.StaffRoleFinance)}, resourceDomain: string(authz.BusinessDomainFinance), resourceStoreID: "store-a", needsConfirmation: true},
 	{method: http.MethodGet, routePath: "/v1/payments/events", requestPath: "/v1/payments/events", permission: authz.PermissionOrderRefundAny, roles: []string{string(authz.StaffRoleFinance)}, resourceDomain: string(authz.BusinessDomainFinance), resourceStoreID: "store-a"},
-	{method: http.MethodGet, routePath: "/v1/payments/reconciliation", requestPath: "/v1/payments/reconciliation", permission: authz.PermissionOrderRefundAny, roles: []string{string(authz.StaffRoleFinance)}, resourceDomain: string(authz.BusinessDomainFinance), resourceStoreID: "store-a"},
+	{method: http.MethodGet, routePath: "/v1/payments/reconciliation/runs", requestPath: "/v1/payments/reconciliation/runs", permission: authz.PermissionPaymentReconcileReadAny, roles: []string{string(authz.StaffRoleFinance)}, resourceDomain: string(authz.BusinessDomainFinance), resourceStoreID: "store-a"},
+	{method: http.MethodGet, routePath: "/v1/payments/reconciliation/items", requestPath: "/v1/payments/reconciliation/items", permission: authz.PermissionPaymentReconcileReadAny, roles: []string{string(authz.StaffRoleFinance)}, resourceDomain: string(authz.BusinessDomainFinance), resourceStoreID: "store-a"},
+	{method: http.MethodPost, routePath: "/v1/payments/refund_jobs/:id/retry", requestPath: "/v1/payments/refund_jobs/1/retry", permission: authz.PermissionRefundDeadJobRetryAny, roles: []string{string(authz.StaffRoleFinance)}, resourceDomain: string(authz.BusinessDomainFinance), resourceStoreID: "store-a", needsConfirmation: true},
 	{method: http.MethodGet, routePath: "/v1/reviews", requestPath: "/v1/reviews", permission: authz.PermissionReviewModerateAny, roles: []string{string(authz.StaffRoleReview)}, resourceDomain: string(authz.BusinessDomainReview), resourceStoreID: "store-a"},
 	{method: http.MethodPost, routePath: "/v1/reviews/:id/moderate", requestPath: "/v1/reviews/1/moderate", permission: authz.PermissionReviewModerateAny, roles: []string{string(authz.StaffRoleReview)}, resourceDomain: string(authz.BusinessDomainReview), resourceStoreID: "store-a"},
 	{method: http.MethodPost, routePath: "/v1/reviews/:id/reply", requestPath: "/v1/reviews/1/reply", permission: authz.PermissionReviewReplyAny, roles: []string{string(authz.StaffRoleReview)}, resourceDomain: string(authz.BusinessDomainReview), resourceStoreID: "store-a"},

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	stderrors "errors"
+	"strings"
 	"time"
 
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
 	code2 "goshop/gmicro/code"
@@ -34,6 +36,9 @@ func (u *users) RecordLogin(ctx context.Context, id uint64, at time.Time) error 
 func (u *users) CreateSession(ctx context.Context, session *dv1.UserSessionDO) error {
 	if session == nil || session.UserID == 0 || session.ID == "" || len(session.RefreshTokenHash) != 32 {
 		return errors.WithCode(code2.ErrValidation, "invalid session")
+	}
+	if strings.TrimSpace(session.PrincipalType) == "" {
+		session.PrincipalType = string(authz.PrincipalCustomer)
 	}
 	if err := u.db.WithContext(ctx).Create(session).Error; err != nil {
 		return errors.WithCode(code2.ErrDatabase, err.Error())
@@ -100,4 +105,104 @@ func (u *users) SessionActive(ctx context.Context, userID uint64, sessionID stri
 		return false, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 	return count == 1, nil
+}
+
+func (u *users) ListStaffSessions(ctx context.Context, filters dv1.StaffSessionFilters) ([]dv1.StaffSessionRecordDO, int64, error) {
+	if filters.Limit <= 0 || filters.Limit > 100 {
+		filters.Limit = 20
+	}
+	base := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).Where("principal_type = ?", string(authz.PrincipalStaff))
+	if filters.UserID > 0 {
+		base = base.Where("user_id = ?", filters.UserID)
+	}
+	if filters.ActiveOnly {
+		base = base.Where("revoked_at IS NULL AND expires_at > ?", time.Now().UTC())
+	}
+	if filters.CreatedAfter != nil {
+		base = base.Where("created_at >= ?", filters.CreatedAfter.UTC())
+	}
+	if filters.CreatedBefore != nil {
+		base = base.Where("created_at <= ?", filters.CreatedBefore.UTC())
+	}
+	if filters.LastUsedAfter != nil {
+		base = base.Where("last_used_at >= ?", filters.LastUsedAfter.UTC())
+	}
+	if filters.LastUsedBefore != nil {
+		base = base.Where("last_used_at <= ?", filters.LastUsedBefore.UTC())
+	}
+	if role := strings.ToLower(strings.TrimSpace(filters.Role)); role != "" {
+		subQuery := u.db.WithContext(ctx).
+			Table("user_roles AS ur").
+			Select("DISTINCT ur.user_id").
+			Joins("JOIN roles AS r ON r.id = ur.role_id").
+			Where("LOWER(r.name) = ?", role)
+		base = base.Where("user_id IN (?)", subQuery)
+	}
+	var total int64
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	rows := make([]dv1.StaffSessionRecordDO, 0, filters.Limit)
+	if err := base.Select("id, user_id, principal_type, device_id, device_name, created_at, last_used_at, expires_at, revoked_at").
+		Order("last_used_at DESC").
+		Offset(filters.Offset).
+		Limit(filters.Limit).
+		Find(&rows).Error; err != nil {
+		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	if len(rows) == 0 {
+		return rows, total, nil
+	}
+	userIDs := make([]int32, 0, len(rows))
+	indexByUser := map[int32][]int{}
+	for i, row := range rows {
+		if _, ok := indexByUser[row.UserID]; !ok {
+			userIDs = append(userIDs, row.UserID)
+		}
+		indexByUser[row.UserID] = append(indexByUser[row.UserID], i)
+	}
+	type roleRow struct {
+		UserID int32
+		Name   string
+	}
+	roleRows := make([]roleRow, 0, len(userIDs))
+	if err := u.db.WithContext(ctx).
+		Table("user_roles AS ur").
+		Select("ur.user_id AS user_id, r.name AS name").
+		Joins("JOIN roles AS r ON r.id = ur.role_id").
+		Where("ur.user_id IN ?", userIDs).
+		Order("r.name ASC").
+		Scan(&roleRows).Error; err != nil {
+		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	for _, role := range roleRows {
+		for _, idx := range indexByUser[role.UserID] {
+			rows[idx].Roles = append(rows[idx].Roles, role.Name)
+		}
+	}
+	return rows, total, nil
+}
+
+func (u *users) RevokeStaffSession(ctx context.Context, sessionID string, at time.Time) error {
+	if sessionID == "" {
+		return errors.WithCode(code2.ErrValidation, "session id is required")
+	}
+	if err := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).
+		Where("id = ? AND principal_type = ? AND revoked_at IS NULL", sessionID, string(authz.PrincipalStaff)).
+		Update("revoked_at", at.UTC()).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return nil
+}
+
+func (u *users) RevokeStaffUserSessions(ctx context.Context, userID uint64, at time.Time) error {
+	if userID == 0 {
+		return errors.WithCode(code.ErrUserNotFound, "user not found")
+	}
+	if err := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).
+		Where("user_id = ? AND principal_type = ? AND revoked_at IS NULL", userID, string(authz.PrincipalStaff)).
+		Update("revoked_at", at.UTC()).Error; err != nil {
+		return errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return nil
 }

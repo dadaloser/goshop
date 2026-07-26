@@ -7,6 +7,7 @@ import "time"
 type UserSessionDO struct {
 	ID               string     `gorm:"column:id;type:char(36);primaryKey"`
 	UserID           int32      `gorm:"column:user_id;not null;index"`
+	PrincipalType    string     `gorm:"column:principal_type;type:varchar(32);not null"`
 	RefreshTokenHash []byte     `gorm:"column:refresh_token_hash;type:binary(32);not null;uniqueIndex"`
 	DeviceID         string     `gorm:"column:device_id;type:varchar(128);not null"`
 	DeviceName       string     `gorm:"column:device_name;type:varchar(128);not null"`
@@ -17,6 +18,31 @@ type UserSessionDO struct {
 }
 
 func (*UserSessionDO) TableName() string { return "user_sessions" }
+
+type StaffSessionRecordDO struct {
+	ID            string
+	UserID        int32
+	PrincipalType string
+	DeviceID      string
+	DeviceName    string
+	CreatedAt     time.Time
+	LastUsedAt    time.Time
+	ExpiresAt     time.Time
+	RevokedAt     *time.Time
+	Roles         []string
+}
+
+type StaffSessionFilters struct {
+	UserID         int32
+	Role           string
+	ActiveOnly     bool
+	CreatedAfter   *time.Time
+	CreatedBefore  *time.Time
+	LastUsedAfter  *time.Time
+	LastUsedBefore *time.Time
+	Offset         int
+	Limit          int
+}
 
 // VerificationCodeDO describes the reviewed verification-code schema used for
 // delivery audit and future database-backed channels. Usable codes remain hashed.

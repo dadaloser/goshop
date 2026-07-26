@@ -20,6 +20,9 @@ type paymentWorkflowStore interface {
 	ClaimRefundJobs(context.Context, int, int, time.Duration) ([]do.RefundJob, error)
 	CompleteRefundJob(context.Context, uint64, bool, string, string, string, string, int) error
 	ReconcilePayments(context.Context, string, time.Time, time.Time, []do.PaymentEventDO) (*do.PaymentReconciliationRunDO, error)
+	ListPaymentReconciliationRuns(context.Context, string, *time.Time, *time.Time, int, int) ([]do.PaymentReconciliationRunDO, int64, error)
+	ListPaymentReconciliationItems(context.Context, string, *time.Time, *time.Time, string, uint64, int, int) ([]do.PaymentReconciliationItemDO, int64, error)
+	RetryDeadRefundJob(context.Context, uint64) (*do.RefundJob, error)
 }
 
 func (os *orderService) BeginPaymentEvent(ctx context.Context, event *do.PaymentEventDO) (*do.PaymentEventDO, *do.OrderInfoDO, bool, error) {
@@ -57,6 +60,42 @@ func (os *orderService) ReconcilePayments(ctx context.Context, provider string, 
 		return nil, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
 	}
 	return store.ReconcilePayments(ctx, provider, from, to, transactions)
+}
+
+func (os *orderService) ListPaymentReconciliationRuns(ctx context.Context, provider string, from, to *time.Time, page, pageSize int) ([]do.PaymentReconciliationRunDO, int64, error) {
+	store, ok := os.data.Orders().(paymentWorkflowStore)
+	if !ok {
+		return nil, 0, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	return store.ListPaymentReconciliationRuns(ctx, strings.ToLower(strings.TrimSpace(provider)), from, to, (page-1)*pageSize, pageSize)
+}
+
+func (os *orderService) ListPaymentReconciliationItems(ctx context.Context, provider string, from, to *time.Time, result string, runID uint64, page, pageSize int) ([]do.PaymentReconciliationItemDO, int64, error) {
+	store, ok := os.data.Orders().(paymentWorkflowStore)
+	if !ok {
+		return nil, 0, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	return store.ListPaymentReconciliationItems(ctx, strings.ToLower(strings.TrimSpace(provider)), from, to, strings.ToLower(strings.TrimSpace(result)), runID, (page-1)*pageSize, pageSize)
+}
+
+func (os *orderService) RetryDeadRefundJob(ctx context.Context, id uint64) (*do.RefundJob, error) {
+	store, ok := os.data.Orders().(paymentWorkflowStore)
+	if !ok {
+		return nil, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+	}
+	return store.RetryDeadRefundJob(ctx, id)
 }
 func (os *orderService) CompletePaymentEvent(ctx context.Context, id uint64, success bool, detail string) error {
 	store, ok := os.data.Orders().(paymentEventStore)

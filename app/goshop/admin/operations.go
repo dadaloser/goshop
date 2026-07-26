@@ -39,25 +39,27 @@ func registerOperationsRoutes(v1 *gin.RouterGroup, staffAuth middlewares.AuthStr
 	goods.GET("", authz.RequirePermission(authz.PermissionGoodsReadAny), h.listGoods)
 	goods.GET(":id", authz.RequirePermission(authz.PermissionGoodsReadAny), h.getGoods)
 	goods.POST("", authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.createGoods)
-	goods.PUT(":id", authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.updateGoods)
-	goods.DELETE(":id", authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.deleteGoods)
+	goods.PUT(":id", requireTargetResourceScope(authz.BusinessDomainCatalog, "goods", "id"), authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.updateGoods)
+	goods.DELETE(":id", requireTargetResourceScope(authz.BusinessDomainCatalog, "goods", "id"), authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.deleteGoods)
 
 	inventory := v1.Group("/inventory", staff...)
 	inventory.Use(requireRole(authz.StaffRoleOps, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainOps))
 	inventory.GET(":goods_id", authz.RequirePermission(authz.PermissionInventoryReadAny), h.getInventory)
-	inventory.PUT(":goods_id", authz.RequirePermission(authz.PermissionInventoryWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.adjustInventory)
+	inventory.PUT(":goods_id", requireTargetResourceScope(authz.BusinessDomainOps, "goods", "goods_id"), authz.RequirePermission(authz.PermissionInventoryWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.adjustInventory)
 	inventory.GET("flows/:order_sn", authz.RequirePermission(authz.PermissionInventoryAuditReadAny), h.inventoryFlow)
 	inventory.GET(":goods_id/adjustments", authz.RequirePermission(authz.PermissionInventoryAuditReadAny), h.inventoryAdjustments)
 
 	orders := v1.Group("/orders", staff...)
 	orders.GET("", requireResourceScopeForRoles(), authz.RequirePermission(authz.PermissionOrderReadAny), h.listOrders)
 	orders.GET(":order_sn", requireResourceScopeForRoles(), authz.RequirePermission(authz.PermissionOrderReadAny), h.getOrder)
-	orders.POST(":order_sn/close", requireRole(authz.StaffRoleOps, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainOps), authz.RequirePermission(authz.PermissionOrderCloseAny), requireAdminConfirmation(cfg.AdminAuth), h.closeOrder)
-	orders.POST(":order_sn/refund", requireRole(authz.StaffRoleFinance, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainFinance), authz.RequirePermission(authz.PermissionOrderRefundAny), requireAdminConfirmation(cfg.AdminAuth), h.refundOrder)
+	orders.POST(":order_sn/close", requireRole(authz.StaffRoleOps, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireTargetResourceScope(authz.BusinessDomainOps, "order", "order_sn"), authz.RequirePermission(authz.PermissionOrderCloseAny), requireAdminConfirmation(cfg.AdminAuth), h.closeOrder)
+	orders.POST(":order_sn/refund", requireRole(authz.StaffRoleFinance, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireTargetResourceScope(authz.BusinessDomainFinance, "order", "order_sn"), authz.RequirePermission(authz.PermissionOrderRefundAny), requireAdminConfirmation(cfg.AdminAuth), h.refundOrder)
 	payments := v1.Group("/payments", staff...)
-	payments.Use(requireRole(authz.StaffRoleFinance, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainFinance), authz.RequirePermission(authz.PermissionOrderRefundAny))
-	payments.GET("events", h.listPaymentEvents)
-	payments.GET("reconciliation", h.reconcilePayments)
+	payments.Use(requireRole(authz.StaffRoleFinance, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainFinance))
+	payments.GET("events", authz.RequirePermission(authz.PermissionOrderRefundAny), h.listPaymentEvents)
+	payments.GET("reconciliation/runs", authz.RequirePermission(authz.PermissionPaymentReconcileReadAny), h.listPaymentReconciliationRuns)
+	payments.GET("reconciliation/items", authz.RequirePermission(authz.PermissionPaymentReconcileReadAny), h.listPaymentReconciliationItems)
+	payments.POST("refund_jobs/:id/retry", authz.RequirePermission(authz.PermissionRefundDeadJobRetryAny), requireAdminConfirmation(cfg.AdminAuth), h.retryDeadRefundJob)
 }
 
 func requireRole(allowed ...authz.StaffRole) gin.HandlerFunc {
@@ -85,12 +87,38 @@ func requireResourceScope(domain authz.BusinessDomain) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope shape denied"})
 			return
 		}
-		claims := gauth.ExtractClaims(c)
-		if !scopeAllows(claims["resource_domains"], string(domain)) {
+		if !claimsAllowScope(gauth.ExtractClaims(c), authz.ResourceScope{Domain: string(domain), StoreID: storeID, TeamID: teamID}) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope denied"})
+			return
+		}
+		c.Next()
+	}
+}
+
+func requireTargetResourceScope(domain authz.BusinessDomain, resourceType, param string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if strings.TrimSpace(c.GetHeader("X-Resource-Domain")) != string(domain) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource domain denied"})
 			return
 		}
-		if !scopeAllows(claims["resource_stores"], storeID) || !scopeAllows(claims["resource_teams"], teamID) {
+		storeID := strings.TrimSpace(c.GetHeader("X-Store-ID"))
+		teamID := strings.TrimSpace(c.GetHeader("X-Team-ID"))
+		if !authz.ResourceScopeMatchesDomain(domain, storeID, teamID) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope shape denied"})
+			return
+		}
+		resourceID := strings.TrimSpace(c.Param(param))
+		if resourceID == "" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "resource id is required"})
+			return
+		}
+		if !claimsAllowScope(gauth.ExtractClaims(c), authz.ResourceScope{
+			Domain:       string(domain),
+			StoreID:      storeID,
+			TeamID:       teamID,
+			ResourceType: resourceType,
+			ResourceID:   resourceID,
+		}) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope denied"})
 			return
 		}
@@ -119,6 +147,23 @@ func scopeAllows(raw any, requested string) bool {
 	}
 	values := stringSet(raw)
 	return values["*"] || values[requested]
+}
+
+func claimsAllowScope(claims map[string]any, requested authz.ResourceScope) bool {
+	resourceScopes := authz.ParseResourceScopes(claims["resource_scopes"])
+	if len(resourceScopes) > 0 {
+		return authz.ResourceScopeAllows(resourceScopes, requested)
+	}
+	if !scopeAllows(claims["resource_domains"], requested.Domain) {
+		return false
+	}
+	if !scopeAllows(claims["resource_stores"], requested.StoreID) {
+		return false
+	}
+	if !scopeAllows(claims["resource_teams"], requested.TeamID) {
+		return false
+	}
+	return true
 }
 
 func stringSet(raw any) map[string]bool {
@@ -336,6 +381,54 @@ func (h *operationsHandler) reconcilePayments(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"checked": resp.GetTotal(), "mismatch_count": resp.GetMismatchCount(), "items": resp.GetData()})
 }
 
+func (h *operationsHandler) listPaymentReconciliationRuns(c *gin.Context) {
+	if !h.ready(c, h.orders != nil) {
+		return
+	}
+	p, s := page(c)
+	resp, err := h.orders.ListPaymentReconciliationRuns(c, &orderpb.ListPaymentReconciliationRunsRequest{
+		Provider:    strings.TrimSpace(c.Query("provider")),
+		WindowStart: parseUnixQuery(c.Query("window_start")),
+		WindowEnd:   parseUnixQuery(c.Query("window_end")),
+		Page:        p,
+		PageSize:    s,
+	})
+	writeRPC(c, resp, err)
+}
+
+func (h *operationsHandler) listPaymentReconciliationItems(c *gin.Context) {
+	if !h.ready(c, h.orders != nil) {
+		return
+	}
+	p, s := page(c)
+	runID, _ := strconv.ParseInt(strings.TrimSpace(c.Query("run_id")), 10, 64)
+	resp, err := h.orders.ListPaymentReconciliationItems(c, &orderpb.ListPaymentReconciliationItemsRequest{
+		Provider:    strings.TrimSpace(c.Query("provider")),
+		WindowStart: parseUnixQuery(c.Query("window_start")),
+		WindowEnd:   parseUnixQuery(c.Query("window_end")),
+		Result:      strings.TrimSpace(c.Query("result")),
+		RunId:       runID,
+		Page:        p,
+		PageSize:    s,
+	})
+	writeRPC(c, resp, err)
+}
+
+func (h *operationsHandler) retryDeadRefundJob(c *gin.Context) {
+	if !h.ready(c, h.orders != nil) {
+		return
+	}
+	id, ok := pathInt64(c, "id")
+	if !ok {
+		return
+	}
+	resp, err := h.orders.RetryDeadRefundJob(c, &orderpb.RetryDeadRefundJobRequest{Id: id})
+	if err == nil {
+		err = h.audit(c, "refund_dead_job_retried", "refund_job", strconv.FormatInt(id, 10))
+	}
+	writeRPC(c, resp, err)
+}
+
 func (h *operationsHandler) ready(c *gin.Context, ready bool) bool {
 	if ready {
 		return true
@@ -383,6 +476,23 @@ func pathID(c *gin.Context, name string) (int32, bool) {
 		return 0, false
 	}
 	return int32(value), true
+}
+
+func pathInt64(c *gin.Context, name string) (int64, bool) {
+	value, err := strconv.ParseInt(c.Param(name), 10, 64)
+	if err != nil || value <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid resource id"})
+		return 0, false
+	}
+	return value, true
+}
+
+func parseUnixQuery(value string) int64 {
+	parsed, _ := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+	if parsed < 0 {
+		return 0
+	}
+	return parsed
 }
 func page(c *gin.Context) (int32, int32) {
 	p, _ := strconv.ParseInt(c.DefaultQuery("page", "1"), 10, 32)

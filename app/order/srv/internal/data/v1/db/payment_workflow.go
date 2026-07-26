@@ -242,3 +242,101 @@ func (o *orders) ReconcilePayments(ctx context.Context, provider string, from, t
 	}
 	return run, nil
 }
+
+func (o *orders) ListPaymentReconciliationRuns(ctx context.Context, provider string, from, to *time.Time, offset, limit int) ([]do.PaymentReconciliationRunDO, int64, error) {
+	query := o.db.WithContext(ctx).Model(&do.PaymentReconciliationRunDO{})
+	if provider != "" {
+		query = query.Where("provider = ?", provider)
+	}
+	if from != nil {
+		query = query.Where("window_start >= ?", from.UTC())
+	}
+	if to != nil {
+		query = query.Where("window_end <= ?", to.UTC())
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	items := make([]do.PaymentReconciliationRunDO, 0, limit)
+	if err := query.Order("id DESC").Offset(offset).Limit(limit).Find(&items).Error; err != nil {
+		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return items, total, nil
+}
+
+func (o *orders) ListPaymentReconciliationItems(ctx context.Context, provider string, from, to *time.Time, result string, runID uint64, offset, limit int) ([]do.PaymentReconciliationItemDO, int64, error) {
+	query := o.db.WithContext(ctx).Table("payment_reconciliation_items AS i").Joins("JOIN payment_reconciliation_runs AS r ON r.id = i.run_id")
+	if provider != "" {
+		query = query.Where("r.provider = ?", provider)
+	}
+	if from != nil {
+		query = query.Where("r.window_start >= ?", from.UTC())
+	}
+	if to != nil {
+		query = query.Where("r.window_end <= ?", to.UTC())
+	}
+	if result != "" {
+		query = query.Where("i.result = ?", result)
+	}
+	if runID > 0 {
+		query = query.Where("i.run_id = ?", runID)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	items := make([]do.PaymentReconciliationItemDO, 0, limit)
+	if err := query.Select("i.*").Order("i.id DESC").Offset(offset).Limit(limit).Scan(&items).Error; err != nil {
+		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return items, total, nil
+}
+
+func (o *orders) RetryDeadRefundJob(ctx context.Context, id uint64) (*do.RefundJob, error) {
+	if id == 0 {
+		return nil, errors.WithCode(code2.ErrValidation, "refund job id is required")
+	}
+	now := time.Now().UTC()
+	job := &do.RefundJob{}
+	err := o.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var outbox do.RefundOutboxDO
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND status = ?", id, "dead").First(&outbox).Error; err != nil {
+			return err
+		}
+		var refund do.RefundRequestDO
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", outbox.RefundRequestID).First(&refund).Error; err != nil {
+			return err
+		}
+		if refund.Status == "FAILED" {
+			if err := tx.Model(&refund).Updates(map[string]interface{}{"status": "PROCESSING", "failure_reason": "", "updated_at": now}).Error; err != nil {
+				return err
+			}
+		}
+		var order do.OrderInfoDO
+		if err := tx.Where("order_sn = ?", refund.OrderSN).First(&order).Error; err != nil {
+			return err
+		}
+		if order.Status == OrderStatusRefundFailedDB {
+			if err := updateRefundOrderStatus(tx, refund.OrderSN, OrderStatusRefundFailedDB, OrderStatusRefundPendingDB, "refund dead-letter retry requested"); err != nil {
+				return err
+			}
+		}
+		if err := tx.Model(&outbox).Updates(map[string]interface{}{"status": "retry", "attempts": 0, "available_at": now, "locked_at": nil, "last_error": "", "updated_at": now}).Error; err != nil {
+			return err
+		}
+		job.OutboxID = outbox.ID
+		job.RefundRequestID = refund.ID
+		job.OrderSN = refund.OrderSN
+		job.AmountFen = refund.AmountFen
+		job.Reason = refund.Reason
+		job.CorrelationID = refund.CorrelationID
+		job.Attempts = 0
+		job.TradeNo = order.TradeNo
+		return nil
+	})
+	if err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return job, nil
+}

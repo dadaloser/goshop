@@ -20,6 +20,7 @@ type CustomClaims struct {
 	ResourceDomains []string `json:"resource_domains,omitempty"`
 	ResourceStores  []string `json:"resource_stores,omitempty"`
 	ResourceTeams   []string `json:"resource_teams,omitempty"`
+	ResourceScopes  []string `json:"resource_scopes,omitempty"`
 	jwt.RegisteredClaims
 }
 

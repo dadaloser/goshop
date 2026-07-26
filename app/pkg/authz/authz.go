@@ -58,6 +58,11 @@ const (
 	PermissionOrderReadAny            Permission = "order:read:any"
 	PermissionOrderCloseAny           Permission = "order:close:any"
 	PermissionOrderRefundAny          Permission = "order:refund:any"
+	PermissionStaffSessionReadAny     Permission = "staff_session:read:any"
+	PermissionStaffSessionRevokeAny   Permission = "staff_session:revoke:any"
+	PermissionBreakGlassApproveAny    Permission = "break_glass:approve:any"
+	PermissionPaymentReconcileReadAny Permission = "payment:reconciliation:read:any"
+	PermissionRefundDeadJobRetryAny   Permission = "refund:dead_job:retry:any"
 	PermissionPaymentCallbackSimulate Permission = "payment:callback:simulate"
 	PermissionAuditReadAny            Permission = "audit:read:any"
 	PermissionRoleReadAny             Permission = "role:read:any"
@@ -109,6 +114,11 @@ var allPermissions = []Permission{
 	PermissionOrderReadAny,
 	PermissionOrderCloseAny,
 	PermissionOrderRefundAny,
+	PermissionStaffSessionReadAny,
+	PermissionStaffSessionRevokeAny,
+	PermissionBreakGlassApproveAny,
+	PermissionPaymentReconcileReadAny,
+	PermissionRefundDeadJobRetryAny,
 	PermissionPaymentCallbackSimulate,
 	PermissionAuditReadAny,
 	PermissionRoleReadAny,

@@ -41,6 +41,16 @@ func DTOToResponse(userDTO srvv1.UserPublicDTO) *upbv1.UserInfoResponse {
 }
 
 func AuthDTOToResponse(userDTO srvv1.UserAuthDTO) *upbv1.UserAuthResponse {
+	resourceScopes := make([]*upbv1.UserResourceScope, 0, len(userDTO.ResourceScopes))
+	for _, scope := range userDTO.ResourceScopes {
+		resourceScopes = append(resourceScopes, &upbv1.UserResourceScope{
+			Domain:       scope.Domain,
+			StoreId:      scope.StoreID,
+			TeamId:       scope.TeamID,
+			ResourceType: scope.ResourceType,
+			ResourceId:   scope.ResourceID,
+		})
+	}
 	return &upbv1.UserAuthResponse{
 		User:            DTOToResponse(userDTO.UserPublicDTO),
 		PasswordHash:    userDTO.PasswordHash,
@@ -50,6 +60,7 @@ func AuthDTOToResponse(userDTO srvv1.UserAuthDTO) *upbv1.UserAuthResponse {
 		ResourceDomains: append([]string(nil), userDTO.ResourceDomains...),
 		ResourceStores:  append([]string(nil), userDTO.ResourceStores...),
 		ResourceTeams:   append([]string(nil), userDTO.ResourceTeams...),
+		ResourceScopes:  resourceScopes,
 	}
 }
 

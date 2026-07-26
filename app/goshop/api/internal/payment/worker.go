@@ -64,6 +64,14 @@ func (w *Worker) processRefundBatch(ctx context.Context) error {
 		if _, err := w.orders.CompleteRefundJob(ctx, complete); err != nil {
 			return fmt.Errorf("complete refund job %d: %w", job.GetId(), err)
 		}
+		result := "succeeded"
+		if refundErr != nil {
+			result = "retry"
+			if int(job.GetAttempts()) >= w.opts.MaxAttempts {
+				result = "dead"
+			}
+		}
+		metricPaymentRefundJobsTotal.Inc(result)
 	}
 	return nil
 }
@@ -95,8 +103,17 @@ func (w *Worker) reconcileWindow(ctx context.Context, from, to time.Time) error 
 	for _, transaction := range transactions {
 		items = append(items, &opb.ProviderTransaction{EventId: transaction.EventID, OrderSn: transaction.OrderSN, TradeNo: transaction.TradeNo, EventType: transaction.EventType, AmountFen: transaction.AmountFen, OccurredAt: transaction.OccurredAt.Unix()})
 	}
-	if _, err := w.orders.ReconcilePayments(ctx, &opb.ReconcilePaymentsRequest{Provider: w.opts.Provider, WindowStart: from.Unix(), WindowEnd: to.Unix(), Transactions: items}); err != nil {
+	resp, err := w.orders.ReconcilePayments(ctx, &opb.ReconcilePaymentsRequest{Provider: w.opts.Provider, WindowStart: from.Unix(), WindowEnd: to.Unix(), Transactions: items})
+	if err != nil {
 		return fmt.Errorf("persist payment reconciliation: %w", err)
 	}
+	result := "matched"
+	if resp != nil && resp.GetMismatchCount() > 0 {
+		result = "mismatch"
+		metricPaymentReconciliationMismatchCount.Set(float64(resp.GetMismatchCount()), w.opts.Provider)
+	} else {
+		metricPaymentReconciliationMismatchCount.Set(0, w.opts.Provider)
+	}
+	metricPaymentReconciliationRunsTotal.Inc(result)
 	return nil
 }
