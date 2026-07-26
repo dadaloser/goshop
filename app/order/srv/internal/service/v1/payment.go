@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"goshop/app/order/srv/internal/domain/do"
+	appcode "goshop/app/pkg/code"
 	"goshop/gmicro/code"
 	"goshop/pkg/errors"
 )
@@ -23,6 +24,7 @@ type paymentWorkflowStore interface {
 	ListPaymentReconciliationRuns(context.Context, string, *time.Time, *time.Time, int, int) ([]do.PaymentReconciliationRunDO, int64, error)
 	ListPaymentReconciliationItems(context.Context, string, *time.Time, *time.Time, string, uint64, int, int) ([]do.PaymentReconciliationItemDO, int64, error)
 	RetryDeadRefundJob(context.Context, uint64) (*do.RefundJob, error)
+	GetOrderTrace(context.Context, do.OrderTraceLookup) (*do.OrderTrace, error)
 }
 
 func (os *orderService) BeginPaymentEvent(ctx context.Context, event *do.PaymentEventDO) (*do.PaymentEventDO, *do.OrderInfoDO, bool, error) {
@@ -96,6 +98,27 @@ func (os *orderService) RetryDeadRefundJob(ctx context.Context, id uint64) (*do.
 		return nil, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
 	}
 	return store.RetryDeadRefundJob(ctx, id)
+}
+
+func (os *orderService) GetOrderTrace(ctx context.Context, lookup do.OrderTraceLookup) (*do.OrderTrace, error) {
+	store, ok := os.data.Orders().(paymentWorkflowStore)
+	if !ok {
+		return nil, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+	}
+	lookup.OrderSN = strings.TrimSpace(lookup.OrderSN)
+	lookup.TradeNo = strings.TrimSpace(lookup.TradeNo)
+	lookup.CorrelationID = strings.TrimSpace(lookup.CorrelationID)
+	if lookup.OrderSN == "" && lookup.TradeNo == "" && lookup.CorrelationID == "" {
+		return nil, errors.WithCode(code.ErrValidation, "order_sn, trade_no or correlation_id is required")
+	}
+	trace, err := store.GetOrderTrace(ctx, lookup)
+	if err != nil {
+		return nil, err
+	}
+	if trace == nil || trace.Order == nil {
+		return nil, errors.WithCode(appcode.ErrOrderNotFound, "order not found")
+	}
+	return trace, nil
 }
 func (os *orderService) CompletePaymentEvent(ctx context.Context, id uint64, success bool, detail string) error {
 	store, ok := os.data.Orders().(paymentEventStore)

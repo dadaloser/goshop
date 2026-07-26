@@ -36,6 +36,10 @@ type GoodsSrv interface {
 
 	//批量查询商品
 	BatchGet(ctx context.Context, ids []uint64) ([]*dto.GoodsDTO, error)
+
+	ListOutboxEvents(ctx context.Context, topic, status string, page, pageSize int) ([]*do.OutboxEventDO, int64, error)
+	ReplayOutbox(ctx context.Context, ids []int32, status string, limit int) ([]int32, error)
+	Reindex(ctx context.Context, ids []uint64, all bool) ([]uint64, error)
 }
 
 type goodsService struct {

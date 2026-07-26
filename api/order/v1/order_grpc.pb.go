@@ -41,6 +41,7 @@ const (
 	Order_ListPaymentReconciliationRuns_FullMethodName  = "/Order/ListPaymentReconciliationRuns"
 	Order_ListPaymentReconciliationItems_FullMethodName = "/Order/ListPaymentReconciliationItems"
 	Order_RetryDeadRefundJob_FullMethodName             = "/Order/RetryDeadRefundJob"
+	Order_GetOrderTrace_FullMethodName                  = "/Order/GetOrderTrace"
 )
 
 // OrderClient is the client API for Order service.
@@ -70,6 +71,7 @@ type OrderClient interface {
 	ListPaymentReconciliationRuns(ctx context.Context, in *ListPaymentReconciliationRunsRequest, opts ...grpc.CallOption) (*ListPaymentReconciliationRunsResponse, error)
 	ListPaymentReconciliationItems(ctx context.Context, in *ListPaymentReconciliationItemsRequest, opts ...grpc.CallOption) (*ListPaymentReconciliationItemsResponse, error)
 	RetryDeadRefundJob(ctx context.Context, in *RetryDeadRefundJobRequest, opts ...grpc.CallOption) (*RetryDeadRefundJobResponse, error)
+	GetOrderTrace(ctx context.Context, in *OrderTraceRequest, opts ...grpc.CallOption) (*OrderTraceResponse, error)
 }
 
 type orderClient struct {
@@ -290,6 +292,16 @@ func (c *orderClient) RetryDeadRefundJob(ctx context.Context, in *RetryDeadRefun
 	return out, nil
 }
 
+func (c *orderClient) GetOrderTrace(ctx context.Context, in *OrderTraceRequest, opts ...grpc.CallOption) (*OrderTraceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OrderTraceResponse)
+	err := c.cc.Invoke(ctx, Order_GetOrderTrace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OrderServer is the server API for Order service.
 // All implementations must embed UnimplementedOrderServer
 // for forward compatibility.
@@ -317,6 +329,7 @@ type OrderServer interface {
 	ListPaymentReconciliationRuns(context.Context, *ListPaymentReconciliationRunsRequest) (*ListPaymentReconciliationRunsResponse, error)
 	ListPaymentReconciliationItems(context.Context, *ListPaymentReconciliationItemsRequest) (*ListPaymentReconciliationItemsResponse, error)
 	RetryDeadRefundJob(context.Context, *RetryDeadRefundJobRequest) (*RetryDeadRefundJobResponse, error)
+	GetOrderTrace(context.Context, *OrderTraceRequest) (*OrderTraceResponse, error)
 	mustEmbedUnimplementedOrderServer()
 }
 
@@ -389,6 +402,9 @@ func (UnimplementedOrderServer) ListPaymentReconciliationItems(context.Context, 
 }
 func (UnimplementedOrderServer) RetryDeadRefundJob(context.Context, *RetryDeadRefundJobRequest) (*RetryDeadRefundJobResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RetryDeadRefundJob not implemented")
+}
+func (UnimplementedOrderServer) GetOrderTrace(context.Context, *OrderTraceRequest) (*OrderTraceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOrderTrace not implemented")
 }
 func (UnimplementedOrderServer) mustEmbedUnimplementedOrderServer() {}
 func (UnimplementedOrderServer) testEmbeddedByValue()               {}
@@ -789,6 +805,24 @@ func _Order_RetryDeadRefundJob_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Order_GetOrderTrace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OrderTraceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrderServer).GetOrderTrace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Order_GetOrderTrace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrderServer).GetOrderTrace(ctx, req.(*OrderTraceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Order_ServiceDesc is the grpc.ServiceDesc for Order service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -879,6 +913,10 @@ var Order_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RetryDeadRefundJob",
 			Handler:    _Order_RetryDeadRefundJob_Handler,
+		},
+		{
+			MethodName: "GetOrderTrace",
+			Handler:    _Order_GetOrderTrace_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

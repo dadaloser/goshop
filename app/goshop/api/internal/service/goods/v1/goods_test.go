@@ -178,6 +178,18 @@ func (f *fakeGoodsClient) CreateBanner(context.Context, *gpb.BannerRequest, ...g
 	return nil, nil
 }
 
+func (f *fakeGoodsClient) ListGoodsOutboxEvents(context.Context, *gpb.ListGoodsOutboxEventsRequest, ...grpc.CallOption) (*gpb.ListGoodsOutboxEventsResponse, error) {
+	return nil, nil
+}
+
+func (f *fakeGoodsClient) ReplayGoodsOutbox(context.Context, *gpb.ListGoodsOutboxReplayRequest, ...grpc.CallOption) (*gpb.ListGoodsOutboxReplayResponse, error) {
+	return nil, nil
+}
+
+func (f *fakeGoodsClient) ReindexGoods(context.Context, *gpb.GoodsReindexRequest, ...grpc.CallOption) (*gpb.GoodsReindexResponse, error) {
+	return nil, nil
+}
+
 func (f *fakeGoodsClient) DeleteBanner(context.Context, *gpb.BannerRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, nil
 }

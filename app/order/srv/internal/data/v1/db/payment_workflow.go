@@ -2,11 +2,13 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
 
 	"goshop/app/order/srv/internal/domain/do"
+	appcode "goshop/app/pkg/code"
 	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
 
@@ -339,4 +341,158 @@ func (o *orders) RetryDeadRefundJob(ctx context.Context, id uint64) (*do.RefundJ
 		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 	return job, nil
+}
+
+func (o *orders) GetOrderTrace(ctx context.Context, lookup do.OrderTraceLookup) (*do.OrderTrace, error) {
+	order, matchedBy, matchedValue, err := o.resolveTraceOrder(ctx, lookup)
+	if err != nil {
+		return nil, err
+	}
+
+	statusLogs, err := o.loadTraceStatusLogs(ctx, order.OrderSn)
+	if err != nil {
+		return nil, err
+	}
+	paymentEvents, _, _, err := o.ListPaymentEvents(ctx, order.OrderSn, 0, 100, false)
+	if err != nil {
+		return nil, err
+	}
+	refunds, err := o.loadTraceRefunds(ctx, order.OrderSn)
+	if err != nil {
+		return nil, err
+	}
+
+	return &do.OrderTrace{
+		MatchedBy:     matchedBy,
+		MatchedValue:  matchedValue,
+		Order:         order,
+		StatusLogs:    statusLogs,
+		PaymentEvents: paymentEvents,
+		Refunds:       refunds,
+	}, nil
+}
+
+func (o *orders) resolveTraceOrder(ctx context.Context, lookup do.OrderTraceLookup) (*do.OrderInfoDO, string, string, error) {
+	if lookup.OrderSN != "" {
+		order, err := o.Get(ctx, lookup.OrderSN)
+		if err != nil {
+			return nil, "", "", err
+		}
+		return order, "order_sn", lookup.OrderSN, nil
+	}
+
+	var orderSN string
+	query := o.db.WithContext(ctx)
+	switch {
+	case lookup.TradeNo != "":
+		if err := query.Table("orderinfo").Select("order_sn").Where("trade_no = ?", lookup.TradeNo).Limit(1).Scan(&orderSN).Error; err != nil {
+			return nil, "", "", errors.WithCode(code2.ErrDatabase, err.Error())
+		}
+		if strings.TrimSpace(orderSN) == "" {
+			return nil, "", "", errors.WithCode(appcode.ErrOrderNotFound, "order not found")
+		}
+		order, err := o.Get(ctx, orderSN)
+		if err != nil {
+			return nil, "", "", err
+		}
+		return order, "trade_no", lookup.TradeNo, nil
+	case lookup.CorrelationID != "":
+		if err := query.Table("order_refund_requests").Select("order_sn").Where("correlation_id = ?", lookup.CorrelationID).Limit(1).Scan(&orderSN).Error; err != nil {
+			return nil, "", "", errors.WithCode(code2.ErrDatabase, err.Error())
+		}
+		if strings.TrimSpace(orderSN) == "" {
+			return nil, "", "", errors.WithCode(appcode.ErrOrderNotFound, "order not found")
+		}
+		order, err := o.Get(ctx, orderSN)
+		if err != nil {
+			return nil, "", "", err
+		}
+		return order, "correlation_id", lookup.CorrelationID, nil
+	default:
+		return nil, "", "", errors.WithCode(code2.ErrValidation, "order_sn, trade_no or correlation_id is required")
+	}
+}
+
+func (o *orders) loadTraceStatusLogs(ctx context.Context, orderSN string) ([]*do.OrderStatusLogDO, error) {
+	entries := make([]*do.OrderStatusLogDO, 0)
+	if err := o.db.WithContext(ctx).
+		Where("order_sn = ?", orderSN).
+		Order("add_time asc, id asc").
+		Find(&entries).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return entries, nil
+}
+
+func (o *orders) loadTraceRefunds(ctx context.Context, orderSN string) ([]do.RefundTraceRecord, error) {
+	type refundTraceRow struct {
+		RefundRequestID      uint64
+		OrderSN              string
+		ActorUserID          int32
+		AmountFen            int64
+		Reason               string
+		Status               string
+		Provider             string
+		ProviderRefundID     string
+		FailureReason        string
+		CorrelationID        string
+		RefundCreatedAt      time.Time
+		RefundUpdatedAt      time.Time
+		RefundJobID          sql.NullInt64
+		RefundJobStatus      sql.NullString
+		RefundJobAttempts    sql.NullInt64
+		RefundJobAvailableAt sql.NullTime
+		RefundJobLockedAt    sql.NullTime
+		RefundJobLastError   sql.NullString
+	}
+
+	rows := make([]refundTraceRow, 0)
+	if err := o.db.WithContext(ctx).
+		Table("order_refund_requests AS r").
+		Select(`r.id AS refund_request_id, r.order_sn, r.actor_user_id, r.amount_fen, r.reason, r.status, r.provider, r.provider_refund_id, r.failure_reason, r.correlation_id, r.created_at AS refund_created_at, r.updated_at AS refund_updated_at, o.id AS refund_job_id, o.status AS refund_job_status, o.attempts AS refund_job_attempts, o.available_at AS refund_job_available_at, o.locked_at AS refund_job_locked_at, o.last_error AS refund_job_last_error`).
+		Joins("LEFT JOIN order_refund_outbox AS o ON o.refund_request_id = r.id").
+		Where("r.order_sn = ?", orderSN).
+		Order("r.id ASC").
+		Scan(&rows).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+
+	refunds := make([]do.RefundTraceRecord, 0, len(rows))
+	for _, row := range rows {
+		record := do.RefundTraceRecord{
+			RefundRequest: do.RefundRequestDO{
+				ID:               row.RefundRequestID,
+				OrderSN:          row.OrderSN,
+				ActorUserID:      row.ActorUserID,
+				AmountFen:        row.AmountFen,
+				Reason:           row.Reason,
+				Status:           row.Status,
+				Provider:         row.Provider,
+				ProviderRefundID: row.ProviderRefundID,
+				FailureReason:    row.FailureReason,
+				CorrelationID:    row.CorrelationID,
+				CreatedAt:        row.RefundCreatedAt,
+				UpdatedAt:        row.RefundUpdatedAt,
+			},
+		}
+		if row.RefundJobID.Valid {
+			outbox := &do.RefundOutboxDO{
+				ID:              uint64(row.RefundJobID.Int64),
+				RefundRequestID: row.RefundRequestID,
+				Status:          row.RefundJobStatus.String,
+				Attempts:        int(row.RefundJobAttempts.Int64),
+				LastError:       row.RefundJobLastError.String,
+			}
+			if row.RefundJobAvailableAt.Valid {
+				outbox.AvailableAt = row.RefundJobAvailableAt.Time
+			}
+			if row.RefundJobLockedAt.Valid {
+				lockedAt := row.RefundJobLockedAt.Time
+				outbox.LockedAt = &lockedAt
+			}
+			record.RefundOutbox = outbox
+		}
+		refunds = append(refunds, record)
+	}
+	return refunds, nil
 }

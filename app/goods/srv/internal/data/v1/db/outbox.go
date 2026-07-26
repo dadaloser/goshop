@@ -97,6 +97,17 @@ func (o *outbox) ListByStatus(ctx context.Context, topic, status string, limit i
 	return events, nil
 }
 
+func (o *outbox) ListByIDs(ctx context.Context, ids []int32) ([]*do.OutboxEventDO, error) {
+	if len(ids) == 0 {
+		return []*do.OutboxEventDO{}, nil
+	}
+	var events []*do.OutboxEventDO
+	if err := o.db.WithContext(ctx).Where("id IN ?", ids).Order("id asc").Find(&events).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return events, nil
+}
+
 func (o *outbox) CountByStatus(ctx context.Context, topic, status string) (int64, error) {
 	query := o.db.WithContext(ctx).Model(&do.OutboxEventDO{})
 	if strings.TrimSpace(topic) != "" {

@@ -2078,6 +2078,474 @@ func (x *GoodsListResponse) GetData() []*GoodsInfoResponse {
 	return nil
 }
 
+type ListGoodsOutboxEventsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Topic         string                 `protobuf:"bytes,1,opt,name=topic,proto3" json:"topic,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,4,opt,name=pageSize,proto3" json:"pageSize,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGoodsOutboxEventsRequest) Reset() {
+	*x = ListGoodsOutboxEventsRequest{}
+	mi := &file_goods_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGoodsOutboxEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGoodsOutboxEventsRequest) ProtoMessage() {}
+
+func (x *ListGoodsOutboxEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_goods_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGoodsOutboxEventsRequest.ProtoReflect.Descriptor instead.
+func (*ListGoodsOutboxEventsRequest) Descriptor() ([]byte, []int) {
+	return file_goods_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *ListGoodsOutboxEventsRequest) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *ListGoodsOutboxEventsRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ListGoodsOutboxEventsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListGoodsOutboxEventsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type GoodsOutboxEventRecord struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Topic         string                 `protobuf:"bytes,2,opt,name=topic,proto3" json:"topic,omitempty"`
+	AggregateType string                 `protobuf:"bytes,3,opt,name=aggregateType,proto3" json:"aggregateType,omitempty"`
+	AggregateId   int32                  `protobuf:"varint,4,opt,name=aggregateId,proto3" json:"aggregateId,omitempty"`
+	Action        string                 `protobuf:"bytes,5,opt,name=action,proto3" json:"action,omitempty"`
+	Status        string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	RetryCount    int32                  `protobuf:"varint,7,opt,name=retryCount,proto3" json:"retryCount,omitempty"`
+	MaxRetryCount int32                  `protobuf:"varint,8,opt,name=maxRetryCount,proto3" json:"maxRetryCount,omitempty"`
+	LastError     string                 `protobuf:"bytes,9,opt,name=lastError,proto3" json:"lastError,omitempty"`
+	NextAttemptAt int64                  `protobuf:"varint,10,opt,name=nextAttemptAt,proto3" json:"nextAttemptAt,omitempty"`
+	ClaimedAt     int64                  `protobuf:"varint,11,opt,name=claimedAt,proto3" json:"claimedAt,omitempty"`
+	AddTime       int64                  `protobuf:"varint,12,opt,name=addTime,proto3" json:"addTime,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GoodsOutboxEventRecord) Reset() {
+	*x = GoodsOutboxEventRecord{}
+	mi := &file_goods_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GoodsOutboxEventRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GoodsOutboxEventRecord) ProtoMessage() {}
+
+func (x *GoodsOutboxEventRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_goods_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GoodsOutboxEventRecord.ProtoReflect.Descriptor instead.
+func (*GoodsOutboxEventRecord) Descriptor() ([]byte, []int) {
+	return file_goods_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *GoodsOutboxEventRecord) GetId() int32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *GoodsOutboxEventRecord) GetTopic() string {
+	if x != nil {
+		return x.Topic
+	}
+	return ""
+}
+
+func (x *GoodsOutboxEventRecord) GetAggregateType() string {
+	if x != nil {
+		return x.AggregateType
+	}
+	return ""
+}
+
+func (x *GoodsOutboxEventRecord) GetAggregateId() int32 {
+	if x != nil {
+		return x.AggregateId
+	}
+	return 0
+}
+
+func (x *GoodsOutboxEventRecord) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *GoodsOutboxEventRecord) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *GoodsOutboxEventRecord) GetRetryCount() int32 {
+	if x != nil {
+		return x.RetryCount
+	}
+	return 0
+}
+
+func (x *GoodsOutboxEventRecord) GetMaxRetryCount() int32 {
+	if x != nil {
+		return x.MaxRetryCount
+	}
+	return 0
+}
+
+func (x *GoodsOutboxEventRecord) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
+}
+
+func (x *GoodsOutboxEventRecord) GetNextAttemptAt() int64 {
+	if x != nil {
+		return x.NextAttemptAt
+	}
+	return 0
+}
+
+func (x *GoodsOutboxEventRecord) GetClaimedAt() int64 {
+	if x != nil {
+		return x.ClaimedAt
+	}
+	return 0
+}
+
+func (x *GoodsOutboxEventRecord) GetAddTime() int64 {
+	if x != nil {
+		return x.AddTime
+	}
+	return 0
+}
+
+type ListGoodsOutboxEventsResponse struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Total         int32                     `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	Data          []*GoodsOutboxEventRecord `protobuf:"bytes,2,rep,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGoodsOutboxEventsResponse) Reset() {
+	*x = ListGoodsOutboxEventsResponse{}
+	mi := &file_goods_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGoodsOutboxEventsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGoodsOutboxEventsResponse) ProtoMessage() {}
+
+func (x *ListGoodsOutboxEventsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_goods_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGoodsOutboxEventsResponse.ProtoReflect.Descriptor instead.
+func (*ListGoodsOutboxEventsResponse) Descriptor() ([]byte, []int) {
+	return file_goods_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *ListGoodsOutboxEventsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListGoodsOutboxEventsResponse) GetData() []*GoodsOutboxEventRecord {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+type ListGoodsOutboxReplayRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ids           []int32                `protobuf:"varint,1,rep,packed,name=ids,proto3" json:"ids,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGoodsOutboxReplayRequest) Reset() {
+	*x = ListGoodsOutboxReplayRequest{}
+	mi := &file_goods_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGoodsOutboxReplayRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGoodsOutboxReplayRequest) ProtoMessage() {}
+
+func (x *ListGoodsOutboxReplayRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_goods_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGoodsOutboxReplayRequest.ProtoReflect.Descriptor instead.
+func (*ListGoodsOutboxReplayRequest) Descriptor() ([]byte, []int) {
+	return file_goods_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *ListGoodsOutboxReplayRequest) GetIds() []int32 {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *ListGoodsOutboxReplayRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ListGoodsOutboxReplayRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListGoodsOutboxReplayResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Replayed      int32                  `protobuf:"varint,1,opt,name=replayed,proto3" json:"replayed,omitempty"`
+	Ids           []int32                `protobuf:"varint,2,rep,packed,name=ids,proto3" json:"ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGoodsOutboxReplayResponse) Reset() {
+	*x = ListGoodsOutboxReplayResponse{}
+	mi := &file_goods_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGoodsOutboxReplayResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGoodsOutboxReplayResponse) ProtoMessage() {}
+
+func (x *ListGoodsOutboxReplayResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_goods_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGoodsOutboxReplayResponse.ProtoReflect.Descriptor instead.
+func (*ListGoodsOutboxReplayResponse) Descriptor() ([]byte, []int) {
+	return file_goods_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *ListGoodsOutboxReplayResponse) GetReplayed() int32 {
+	if x != nil {
+		return x.Replayed
+	}
+	return 0
+}
+
+func (x *ListGoodsOutboxReplayResponse) GetIds() []int32 {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+type GoodsReindexRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	GoodsIds      []int32                `protobuf:"varint,1,rep,packed,name=goodsIds,proto3" json:"goodsIds,omitempty"`
+	All           bool                   `protobuf:"varint,2,opt,name=all,proto3" json:"all,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GoodsReindexRequest) Reset() {
+	*x = GoodsReindexRequest{}
+	mi := &file_goods_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GoodsReindexRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GoodsReindexRequest) ProtoMessage() {}
+
+func (x *GoodsReindexRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_goods_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GoodsReindexRequest.ProtoReflect.Descriptor instead.
+func (*GoodsReindexRequest) Descriptor() ([]byte, []int) {
+	return file_goods_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *GoodsReindexRequest) GetGoodsIds() []int32 {
+	if x != nil {
+		return x.GoodsIds
+	}
+	return nil
+}
+
+func (x *GoodsReindexRequest) GetAll() bool {
+	if x != nil {
+		return x.All
+	}
+	return false
+}
+
+type GoodsReindexResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Reindexed     int32                  `protobuf:"varint,1,opt,name=reindexed,proto3" json:"reindexed,omitempty"`
+	GoodsIds      []int32                `protobuf:"varint,2,rep,packed,name=goodsIds,proto3" json:"goodsIds,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GoodsReindexResponse) Reset() {
+	*x = GoodsReindexResponse{}
+	mi := &file_goods_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GoodsReindexResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GoodsReindexResponse) ProtoMessage() {}
+
+func (x *GoodsReindexResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_goods_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GoodsReindexResponse.ProtoReflect.Descriptor instead.
+func (*GoodsReindexResponse) Descriptor() ([]byte, []int) {
+	return file_goods_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *GoodsReindexResponse) GetReindexed() int32 {
+	if x != nil {
+		return x.Reindexed
+	}
+	return 0
+}
+
+func (x *GoodsReindexResponse) GetGoodsIds() []int32 {
+	if x != nil {
+		return x.GoodsIds
+	}
+	return nil
+}
+
 var File_goods_proto protoreflect.FileDescriptor
 
 const file_goods_proto_rawDesc = "" +
@@ -2253,14 +2721,54 @@ const file_goods_proto_rawDesc = "" +
 	"\x10\vR\vmarketPriceR\tshopPrice\"Q\n" +
 	"\x11GoodsListResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12&\n" +
-	"\x04data\x18\x02 \x03(\v2\x12.GoodsInfoResponseR\x04data2\xaf\v\n" +
+	"\x04data\x18\x02 \x03(\v2\x12.GoodsInfoResponseR\x04data\"|\n" +
+	"\x1cListGoodsOutboxEventsRequest\x12\x14\n" +
+	"\x05topic\x18\x01 \x01(\tR\x05topic\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x12\n" +
+	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1a\n" +
+	"\bpageSize\x18\x04 \x01(\x05R\bpageSize\"\xf8\x02\n" +
+	"\x16GoodsOutboxEventRecord\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x14\n" +
+	"\x05topic\x18\x02 \x01(\tR\x05topic\x12$\n" +
+	"\raggregateType\x18\x03 \x01(\tR\raggregateType\x12 \n" +
+	"\vaggregateId\x18\x04 \x01(\x05R\vaggregateId\x12\x16\n" +
+	"\x06action\x18\x05 \x01(\tR\x06action\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x1e\n" +
+	"\n" +
+	"retryCount\x18\a \x01(\x05R\n" +
+	"retryCount\x12$\n" +
+	"\rmaxRetryCount\x18\b \x01(\x05R\rmaxRetryCount\x12\x1c\n" +
+	"\tlastError\x18\t \x01(\tR\tlastError\x12$\n" +
+	"\rnextAttemptAt\x18\n" +
+	" \x01(\x03R\rnextAttemptAt\x12\x1c\n" +
+	"\tclaimedAt\x18\v \x01(\x03R\tclaimedAt\x12\x18\n" +
+	"\aaddTime\x18\f \x01(\x03R\aaddTime\"b\n" +
+	"\x1dListGoodsOutboxEventsResponse\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x05R\x05total\x12+\n" +
+	"\x04data\x18\x02 \x03(\v2\x17.GoodsOutboxEventRecordR\x04data\"^\n" +
+	"\x1cListGoodsOutboxReplayRequest\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\x05R\x03ids\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"M\n" +
+	"\x1dListGoodsOutboxReplayResponse\x12\x1a\n" +
+	"\breplayed\x18\x01 \x01(\x05R\breplayed\x12\x10\n" +
+	"\x03ids\x18\x02 \x03(\x05R\x03ids\"C\n" +
+	"\x13GoodsReindexRequest\x12\x1a\n" +
+	"\bgoodsIds\x18\x01 \x03(\x05R\bgoodsIds\x12\x10\n" +
+	"\x03all\x18\x02 \x01(\bR\x03all\"P\n" +
+	"\x14GoodsReindexResponse\x12\x1c\n" +
+	"\treindexed\x18\x01 \x01(\x05R\treindexed\x12\x1a\n" +
+	"\bgoodsIds\x18\x02 \x03(\x05R\bgoodsIds2\x98\r\n" +
 	"\x05Goods\x124\n" +
 	"\tGoodsList\x12\x13.GoodsFilterRequest\x1a\x12.GoodsListResponse\x126\n" +
 	"\rBatchGetGoods\x12\x11.BatchGoodsIdInfo\x1a\x12.GoodsListResponse\x123\n" +
 	"\vCreateGoods\x12\x10.CreateGoodsInfo\x1a\x12.GoodsInfoResponse\x127\n" +
 	"\vDeleteGoods\x12\x10.DeleteGoodsInfo\x1a\x16.google.protobuf.Empty\x127\n" +
 	"\vUpdateGoods\x12\x10.CreateGoodsInfo\x1a\x16.google.protobuf.Empty\x126\n" +
-	"\x0eGetGoodsDetail\x12\x10.GoodInfoRequest\x1a\x12.GoodsInfoResponse\x12D\n" +
+	"\x0eGetGoodsDetail\x12\x10.GoodInfoRequest\x1a\x12.GoodsInfoResponse\x12V\n" +
+	"\x15ListGoodsOutboxEvents\x12\x1d.ListGoodsOutboxEventsRequest\x1a\x1e.ListGoodsOutboxEventsResponse\x12R\n" +
+	"\x11ReplayGoodsOutbox\x12\x1d.ListGoodsOutboxReplayRequest\x1a\x1e.ListGoodsOutboxReplayResponse\x12;\n" +
+	"\fReindexGoods\x12\x14.GoodsReindexRequest\x1a\x15.GoodsReindexResponse\x12D\n" +
 	"\x13GetAllCategorysList\x12\x16.google.protobuf.Empty\x1a\x15.CategoryListResponse\x12@\n" +
 	"\x0eGetSubCategory\x12\x14.CategoryListRequest\x1a\x18.SubCategoryListResponse\x12=\n" +
 	"\x0eCreateCategory\x12\x14.CategoryInfoRequest\x1a\x15.CategoryInfoResponse\x12@\n" +
@@ -2294,39 +2802,46 @@ func file_goods_proto_rawDescGZIP() []byte {
 	return file_goods_proto_rawDescData
 }
 
-var file_goods_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_goods_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_goods_proto_goTypes = []any{
-	(*CategoryListRequest)(nil),        // 0: CategoryListRequest
-	(*CategoryInfoRequest)(nil),        // 1: CategoryInfoRequest
-	(*DeleteCategoryRequest)(nil),      // 2: DeleteCategoryRequest
-	(*QueryCategoryRequest)(nil),       // 3: QueryCategoryRequest
-	(*CategoryInfoResponse)(nil),       // 4: CategoryInfoResponse
-	(*CategoryListResponse)(nil),       // 5: CategoryListResponse
-	(*SubCategoryListResponse)(nil),    // 6: SubCategoryListResponse
-	(*CategoryBrandFilterRequest)(nil), // 7: CategoryBrandFilterRequest
-	(*FilterRequest)(nil),              // 8: FilterRequest
-	(*CategoryBrandRequest)(nil),       // 9: CategoryBrandRequest
-	(*CategoryBrandResponse)(nil),      // 10: CategoryBrandResponse
-	(*BannerRequest)(nil),              // 11: BannerRequest
-	(*BannerResponse)(nil),             // 12: BannerResponse
-	(*BrandFilterRequest)(nil),         // 13: BrandFilterRequest
-	(*BrandRequest)(nil),               // 14: BrandRequest
-	(*BrandInfoResponse)(nil),          // 15: BrandInfoResponse
-	(*BrandListResponse)(nil),          // 16: BrandListResponse
-	(*BannerListResponse)(nil),         // 17: BannerListResponse
-	(*CategoryBrandListResponse)(nil),  // 18: CategoryBrandListResponse
-	(*BatchGoodsIdInfo)(nil),           // 19: BatchGoodsIdInfo
-	(*DeleteGoodsInfo)(nil),            // 20: DeleteGoodsInfo
-	(*CategoryBriefInfoResponse)(nil),  // 21: CategoryBriefInfoResponse
-	(*CategoryFilterRequest)(nil),      // 22: CategoryFilterRequest
-	(*GoodInfoRequest)(nil),            // 23: GoodInfoRequest
-	(*CreateGoodsInfo)(nil),            // 24: CreateGoodsInfo
-	(*GoodsReduceRequest)(nil),         // 25: GoodsReduceRequest
-	(*BatchCategoryInfoRequest)(nil),   // 26: BatchCategoryInfoRequest
-	(*GoodsFilterRequest)(nil),         // 27: GoodsFilterRequest
-	(*GoodsInfoResponse)(nil),          // 28: GoodsInfoResponse
-	(*GoodsListResponse)(nil),          // 29: GoodsListResponse
-	(*emptypb.Empty)(nil),              // 30: google.protobuf.Empty
+	(*CategoryListRequest)(nil),           // 0: CategoryListRequest
+	(*CategoryInfoRequest)(nil),           // 1: CategoryInfoRequest
+	(*DeleteCategoryRequest)(nil),         // 2: DeleteCategoryRequest
+	(*QueryCategoryRequest)(nil),          // 3: QueryCategoryRequest
+	(*CategoryInfoResponse)(nil),          // 4: CategoryInfoResponse
+	(*CategoryListResponse)(nil),          // 5: CategoryListResponse
+	(*SubCategoryListResponse)(nil),       // 6: SubCategoryListResponse
+	(*CategoryBrandFilterRequest)(nil),    // 7: CategoryBrandFilterRequest
+	(*FilterRequest)(nil),                 // 8: FilterRequest
+	(*CategoryBrandRequest)(nil),          // 9: CategoryBrandRequest
+	(*CategoryBrandResponse)(nil),         // 10: CategoryBrandResponse
+	(*BannerRequest)(nil),                 // 11: BannerRequest
+	(*BannerResponse)(nil),                // 12: BannerResponse
+	(*BrandFilterRequest)(nil),            // 13: BrandFilterRequest
+	(*BrandRequest)(nil),                  // 14: BrandRequest
+	(*BrandInfoResponse)(nil),             // 15: BrandInfoResponse
+	(*BrandListResponse)(nil),             // 16: BrandListResponse
+	(*BannerListResponse)(nil),            // 17: BannerListResponse
+	(*CategoryBrandListResponse)(nil),     // 18: CategoryBrandListResponse
+	(*BatchGoodsIdInfo)(nil),              // 19: BatchGoodsIdInfo
+	(*DeleteGoodsInfo)(nil),               // 20: DeleteGoodsInfo
+	(*CategoryBriefInfoResponse)(nil),     // 21: CategoryBriefInfoResponse
+	(*CategoryFilterRequest)(nil),         // 22: CategoryFilterRequest
+	(*GoodInfoRequest)(nil),               // 23: GoodInfoRequest
+	(*CreateGoodsInfo)(nil),               // 24: CreateGoodsInfo
+	(*GoodsReduceRequest)(nil),            // 25: GoodsReduceRequest
+	(*BatchCategoryInfoRequest)(nil),      // 26: BatchCategoryInfoRequest
+	(*GoodsFilterRequest)(nil),            // 27: GoodsFilterRequest
+	(*GoodsInfoResponse)(nil),             // 28: GoodsInfoResponse
+	(*GoodsListResponse)(nil),             // 29: GoodsListResponse
+	(*ListGoodsOutboxEventsRequest)(nil),  // 30: ListGoodsOutboxEventsRequest
+	(*GoodsOutboxEventRecord)(nil),        // 31: GoodsOutboxEventRecord
+	(*ListGoodsOutboxEventsResponse)(nil), // 32: ListGoodsOutboxEventsResponse
+	(*ListGoodsOutboxReplayRequest)(nil),  // 33: ListGoodsOutboxReplayRequest
+	(*ListGoodsOutboxReplayResponse)(nil), // 34: ListGoodsOutboxReplayResponse
+	(*GoodsReindexRequest)(nil),           // 35: GoodsReindexRequest
+	(*GoodsReindexResponse)(nil),          // 36: GoodsReindexResponse
+	(*emptypb.Empty)(nil),                 // 37: google.protobuf.Empty
 }
 var file_goods_proto_depIdxs = []int32{
 	4,  // 0: CategoryListResponse.data:type_name -> CategoryInfoResponse
@@ -2340,59 +2855,66 @@ var file_goods_proto_depIdxs = []int32{
 	21, // 8: GoodsInfoResponse.category:type_name -> CategoryBriefInfoResponse
 	15, // 9: GoodsInfoResponse.brand:type_name -> BrandInfoResponse
 	28, // 10: GoodsListResponse.data:type_name -> GoodsInfoResponse
-	27, // 11: Goods.GoodsList:input_type -> GoodsFilterRequest
-	19, // 12: Goods.BatchGetGoods:input_type -> BatchGoodsIdInfo
-	24, // 13: Goods.CreateGoods:input_type -> CreateGoodsInfo
-	20, // 14: Goods.DeleteGoods:input_type -> DeleteGoodsInfo
-	24, // 15: Goods.UpdateGoods:input_type -> CreateGoodsInfo
-	23, // 16: Goods.GetGoodsDetail:input_type -> GoodInfoRequest
-	30, // 17: Goods.GetAllCategorysList:input_type -> google.protobuf.Empty
-	0,  // 18: Goods.GetSubCategory:input_type -> CategoryListRequest
-	1,  // 19: Goods.CreateCategory:input_type -> CategoryInfoRequest
-	2,  // 20: Goods.DeleteCategory:input_type -> DeleteCategoryRequest
-	1,  // 21: Goods.UpdateCategory:input_type -> CategoryInfoRequest
-	13, // 22: Goods.BrandList:input_type -> BrandFilterRequest
-	14, // 23: Goods.CreateBrand:input_type -> BrandRequest
-	14, // 24: Goods.DeleteBrand:input_type -> BrandRequest
-	14, // 25: Goods.UpdateBrand:input_type -> BrandRequest
-	30, // 26: Goods.BannerList:input_type -> google.protobuf.Empty
-	11, // 27: Goods.CreateBanner:input_type -> BannerRequest
-	11, // 28: Goods.DeleteBanner:input_type -> BannerRequest
-	11, // 29: Goods.UpdateBanner:input_type -> BannerRequest
-	7,  // 30: Goods.CategoryBrandList:input_type -> CategoryBrandFilterRequest
-	1,  // 31: Goods.GetCategoryBrandList:input_type -> CategoryInfoRequest
-	9,  // 32: Goods.CreateCategoryBrand:input_type -> CategoryBrandRequest
-	9,  // 33: Goods.DeleteCategoryBrand:input_type -> CategoryBrandRequest
-	9,  // 34: Goods.UpdateCategoryBrand:input_type -> CategoryBrandRequest
-	29, // 35: Goods.GoodsList:output_type -> GoodsListResponse
-	29, // 36: Goods.BatchGetGoods:output_type -> GoodsListResponse
-	28, // 37: Goods.CreateGoods:output_type -> GoodsInfoResponse
-	30, // 38: Goods.DeleteGoods:output_type -> google.protobuf.Empty
-	30, // 39: Goods.UpdateGoods:output_type -> google.protobuf.Empty
-	28, // 40: Goods.GetGoodsDetail:output_type -> GoodsInfoResponse
-	5,  // 41: Goods.GetAllCategorysList:output_type -> CategoryListResponse
-	6,  // 42: Goods.GetSubCategory:output_type -> SubCategoryListResponse
-	4,  // 43: Goods.CreateCategory:output_type -> CategoryInfoResponse
-	30, // 44: Goods.DeleteCategory:output_type -> google.protobuf.Empty
-	30, // 45: Goods.UpdateCategory:output_type -> google.protobuf.Empty
-	16, // 46: Goods.BrandList:output_type -> BrandListResponse
-	15, // 47: Goods.CreateBrand:output_type -> BrandInfoResponse
-	30, // 48: Goods.DeleteBrand:output_type -> google.protobuf.Empty
-	30, // 49: Goods.UpdateBrand:output_type -> google.protobuf.Empty
-	17, // 50: Goods.BannerList:output_type -> BannerListResponse
-	12, // 51: Goods.CreateBanner:output_type -> BannerResponse
-	30, // 52: Goods.DeleteBanner:output_type -> google.protobuf.Empty
-	30, // 53: Goods.UpdateBanner:output_type -> google.protobuf.Empty
-	18, // 54: Goods.CategoryBrandList:output_type -> CategoryBrandListResponse
-	16, // 55: Goods.GetCategoryBrandList:output_type -> BrandListResponse
-	10, // 56: Goods.CreateCategoryBrand:output_type -> CategoryBrandResponse
-	30, // 57: Goods.DeleteCategoryBrand:output_type -> google.protobuf.Empty
-	30, // 58: Goods.UpdateCategoryBrand:output_type -> google.protobuf.Empty
-	35, // [35:59] is the sub-list for method output_type
-	11, // [11:35] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	31, // 11: ListGoodsOutboxEventsResponse.data:type_name -> GoodsOutboxEventRecord
+	27, // 12: Goods.GoodsList:input_type -> GoodsFilterRequest
+	19, // 13: Goods.BatchGetGoods:input_type -> BatchGoodsIdInfo
+	24, // 14: Goods.CreateGoods:input_type -> CreateGoodsInfo
+	20, // 15: Goods.DeleteGoods:input_type -> DeleteGoodsInfo
+	24, // 16: Goods.UpdateGoods:input_type -> CreateGoodsInfo
+	23, // 17: Goods.GetGoodsDetail:input_type -> GoodInfoRequest
+	30, // 18: Goods.ListGoodsOutboxEvents:input_type -> ListGoodsOutboxEventsRequest
+	33, // 19: Goods.ReplayGoodsOutbox:input_type -> ListGoodsOutboxReplayRequest
+	35, // 20: Goods.ReindexGoods:input_type -> GoodsReindexRequest
+	37, // 21: Goods.GetAllCategorysList:input_type -> google.protobuf.Empty
+	0,  // 22: Goods.GetSubCategory:input_type -> CategoryListRequest
+	1,  // 23: Goods.CreateCategory:input_type -> CategoryInfoRequest
+	2,  // 24: Goods.DeleteCategory:input_type -> DeleteCategoryRequest
+	1,  // 25: Goods.UpdateCategory:input_type -> CategoryInfoRequest
+	13, // 26: Goods.BrandList:input_type -> BrandFilterRequest
+	14, // 27: Goods.CreateBrand:input_type -> BrandRequest
+	14, // 28: Goods.DeleteBrand:input_type -> BrandRequest
+	14, // 29: Goods.UpdateBrand:input_type -> BrandRequest
+	37, // 30: Goods.BannerList:input_type -> google.protobuf.Empty
+	11, // 31: Goods.CreateBanner:input_type -> BannerRequest
+	11, // 32: Goods.DeleteBanner:input_type -> BannerRequest
+	11, // 33: Goods.UpdateBanner:input_type -> BannerRequest
+	7,  // 34: Goods.CategoryBrandList:input_type -> CategoryBrandFilterRequest
+	1,  // 35: Goods.GetCategoryBrandList:input_type -> CategoryInfoRequest
+	9,  // 36: Goods.CreateCategoryBrand:input_type -> CategoryBrandRequest
+	9,  // 37: Goods.DeleteCategoryBrand:input_type -> CategoryBrandRequest
+	9,  // 38: Goods.UpdateCategoryBrand:input_type -> CategoryBrandRequest
+	29, // 39: Goods.GoodsList:output_type -> GoodsListResponse
+	29, // 40: Goods.BatchGetGoods:output_type -> GoodsListResponse
+	28, // 41: Goods.CreateGoods:output_type -> GoodsInfoResponse
+	37, // 42: Goods.DeleteGoods:output_type -> google.protobuf.Empty
+	37, // 43: Goods.UpdateGoods:output_type -> google.protobuf.Empty
+	28, // 44: Goods.GetGoodsDetail:output_type -> GoodsInfoResponse
+	32, // 45: Goods.ListGoodsOutboxEvents:output_type -> ListGoodsOutboxEventsResponse
+	34, // 46: Goods.ReplayGoodsOutbox:output_type -> ListGoodsOutboxReplayResponse
+	36, // 47: Goods.ReindexGoods:output_type -> GoodsReindexResponse
+	5,  // 48: Goods.GetAllCategorysList:output_type -> CategoryListResponse
+	6,  // 49: Goods.GetSubCategory:output_type -> SubCategoryListResponse
+	4,  // 50: Goods.CreateCategory:output_type -> CategoryInfoResponse
+	37, // 51: Goods.DeleteCategory:output_type -> google.protobuf.Empty
+	37, // 52: Goods.UpdateCategory:output_type -> google.protobuf.Empty
+	16, // 53: Goods.BrandList:output_type -> BrandListResponse
+	15, // 54: Goods.CreateBrand:output_type -> BrandInfoResponse
+	37, // 55: Goods.DeleteBrand:output_type -> google.protobuf.Empty
+	37, // 56: Goods.UpdateBrand:output_type -> google.protobuf.Empty
+	17, // 57: Goods.BannerList:output_type -> BannerListResponse
+	12, // 58: Goods.CreateBanner:output_type -> BannerResponse
+	37, // 59: Goods.DeleteBanner:output_type -> google.protobuf.Empty
+	37, // 60: Goods.UpdateBanner:output_type -> google.protobuf.Empty
+	18, // 61: Goods.CategoryBrandList:output_type -> CategoryBrandListResponse
+	16, // 62: Goods.GetCategoryBrandList:output_type -> BrandListResponse
+	10, // 63: Goods.CreateCategoryBrand:output_type -> CategoryBrandResponse
+	37, // 64: Goods.DeleteCategoryBrand:output_type -> google.protobuf.Empty
+	37, // 65: Goods.UpdateCategoryBrand:output_type -> google.protobuf.Empty
+	39, // [39:66] is the sub-list for method output_type
+	12, // [12:39] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_goods_proto_init() }
@@ -2406,7 +2928,7 @@ func file_goods_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_goods_proto_rawDesc), len(file_goods_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   30,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

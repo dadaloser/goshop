@@ -460,6 +460,7 @@ type fakeOutboxStore struct {
 	createInTxn  func(context.Context, *gorm.DB, *do.OutboxEventDO) error
 	claim        func(context.Context, string, int, int64) ([]*do.OutboxEventDO, error)
 	listByStatus func(context.Context, string, string, int) ([]*do.OutboxEventDO, error)
+	listByIDs    func(context.Context, []int32) ([]*do.OutboxEventDO, error)
 	markDone     func(context.Context, int32) error
 	markRetry    func(context.Context, int32, int32, int64, string) error
 	markDead     func(context.Context, int32, int32, string) error
@@ -497,6 +498,13 @@ func (f fakeOutboxStore) ClaimPending(ctx context.Context, topic string, limit i
 func (f fakeOutboxStore) ListByStatus(ctx context.Context, topic, status string, limit int) ([]*do.OutboxEventDO, error) {
 	if f.listByStatus != nil {
 		return f.listByStatus(ctx, topic, status, limit)
+	}
+	return nil, nil
+}
+
+func (f fakeOutboxStore) ListByIDs(ctx context.Context, ids []int32) ([]*do.OutboxEventDO, error) {
+	if f.listByIDs != nil {
+		return f.listByIDs(ctx, ids)
 	}
 	return nil, nil
 }

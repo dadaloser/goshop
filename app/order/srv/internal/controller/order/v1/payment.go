@@ -6,6 +6,7 @@ import (
 
 	pb "goshop/api/order/v1"
 	"goshop/app/order/srv/internal/domain/do"
+	"goshop/app/order/srv/internal/domain/dto"
 	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
 
@@ -22,6 +23,7 @@ type paymentService interface {
 	ListPaymentReconciliationRuns(context.Context, string, *time.Time, *time.Time, int, int) ([]do.PaymentReconciliationRunDO, int64, error)
 	ListPaymentReconciliationItems(context.Context, string, *time.Time, *time.Time, string, uint64, int, int) ([]do.PaymentReconciliationItemDO, int64, error)
 	RetryDeadRefundJob(context.Context, uint64) (*do.RefundJob, error)
+	GetOrderTrace(context.Context, do.OrderTraceLookup) (*do.OrderTrace, error)
 }
 
 func (os *orderServer) ClaimRefundJobs(ctx context.Context, req *pb.ClaimRefundJobsRequest) (*pb.ClaimRefundJobsResponse, error) {
@@ -136,6 +138,85 @@ func (os *orderServer) RetryDeadRefundJob(ctx context.Context, req *pb.RetryDead
 	return &pb.RetryDeadRefundJobResponse{Id: int64(job.OutboxID), Status: "retry", Attempts: int32(job.Attempts), CorrelationId: job.CorrelationID}, nil
 }
 
+func (os *orderServer) GetOrderTrace(ctx context.Context, req *pb.OrderTraceRequest) (*pb.OrderTraceResponse, error) {
+	if req == nil {
+		return nil, errors.WithCode(code2.ErrValidation, "order trace request is required")
+	}
+	service, err := os.paymentService()
+	if err != nil {
+		return nil, err
+	}
+	trace, err := service.GetOrderTrace(ctx, do.OrderTraceLookup{
+		OrderSN:       req.GetOrderSn(),
+		TradeNo:       req.GetTradeNo(),
+		CorrelationID: req.GetCorrelationId(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp := &pb.OrderTraceResponse{
+		MatchedBy:    trace.MatchedBy,
+		MatchedValue: trace.MatchedValue,
+		Order:        orderToDetailResponse(trace.Order),
+		StatusLogs:   statusLogsToResponse(trace.StatusLogs),
+		PaymentEvents: &pb.PaymentEventListResponse{
+			Total:         int32(len(trace.PaymentEvents)),
+			Data:          make([]*pb.PaymentEventRecord, 0, len(trace.PaymentEvents)),
+			MismatchCount: int32(countTraceMismatches(trace.PaymentEvents)),
+		},
+		Refunds: make([]*pb.RefundTraceRecord, 0, len(trace.Refunds)),
+	}
+	for _, item := range trace.PaymentEvents {
+		var completed int64
+		if item.CompletedAt != nil {
+			completed = item.CompletedAt.Unix()
+		}
+		resp.PaymentEvents.Data = append(resp.PaymentEvents.Data, &pb.PaymentEventRecord{
+			Id:                int64(item.ID),
+			Provider:          item.Provider,
+			EventId:           item.EventID,
+			OrderSn:           item.OrderSN,
+			TradeNo:           item.TradeNo,
+			EventType:         item.EventType,
+			OrderAmountFen:    item.OrderAmountFen,
+			ProviderAmountFen: item.ProviderAmountFen,
+			RefundAmountFen:   item.RefundAmountFen,
+			Status:            item.Status,
+			ErrorDetail:       item.ErrorDetail,
+			ReceivedAt:        item.ReceivedAt.Unix(),
+			CompletedAt:       completed,
+		})
+	}
+	for _, item := range trace.Refunds {
+		record := &pb.RefundTraceRecord{
+			RefundRequestId:  int64(item.RefundRequest.ID),
+			OrderSn:          item.RefundRequest.OrderSN,
+			ActorUserId:      item.RefundRequest.ActorUserID,
+			AmountFen:        item.RefundRequest.AmountFen,
+			Reason:           item.RefundRequest.Reason,
+			Status:           item.RefundRequest.Status,
+			Provider:         item.RefundRequest.Provider,
+			ProviderRefundId: item.RefundRequest.ProviderRefundID,
+			FailureReason:    item.RefundRequest.FailureReason,
+			CorrelationId:    item.RefundRequest.CorrelationID,
+			CreatedAt:        item.RefundRequest.CreatedAt.Unix(),
+			UpdatedAt:        item.RefundRequest.UpdatedAt.Unix(),
+		}
+		if item.RefundOutbox != nil {
+			record.RefundJobId = int64(item.RefundOutbox.ID)
+			record.RefundJobStatus = item.RefundOutbox.Status
+			record.RefundJobAttempts = int32(item.RefundOutbox.Attempts)
+			record.RefundJobAvailableAt = item.RefundOutbox.AvailableAt.Unix()
+			if item.RefundOutbox.LockedAt != nil {
+				record.RefundJobLockedAt = item.RefundOutbox.LockedAt.Unix()
+			}
+			record.RefundJobLastError = item.RefundOutbox.LastError
+		}
+		resp.Refunds = append(resp.Refunds, record)
+	}
+	return resp, nil
+}
+
 func (os *orderServer) paymentService() (paymentService, error) {
 	service, ok := os.srv.Orders().(paymentService)
 	if !ok {
@@ -191,4 +272,50 @@ func optionalUnixTime(value int64) *time.Time {
 	}
 	parsed := time.Unix(value, 0).UTC()
 	return &parsed
+}
+
+func orderToDetailResponse(order *do.OrderInfoDO) *pb.OrderInfoDetailResponse {
+	if order == nil {
+		return nil
+	}
+	resp := &pb.OrderInfoDetailResponse{
+		OrderInfo: orderToResponse(&dto.OrderDTO{OrderInfoDO: *order}),
+		Goods:     orderGoodsToResponse(order.OrderGoods),
+	}
+	return resp
+}
+
+func statusLogsToResponse(entries []*do.OrderStatusLogDO) *pb.OrderStatusLogListResponse {
+	resp := &pb.OrderStatusLogListResponse{
+		Total: int32(len(entries)),
+		Data:  make([]*pb.OrderStatusLogResponse, 0, len(entries)),
+	}
+	for _, entry := range entries {
+		if entry == nil {
+			continue
+		}
+		resp.Data = append(resp.Data, &pb.OrderStatusLogResponse{
+			Id:         entry.ID,
+			OrderId:    entry.OrderID,
+			OrderSn:    entry.OrderSn,
+			FromStatus: entry.FromStatus,
+			ToStatus:   entry.ToStatus,
+			Reason:     entry.Reason,
+			Source:     entry.Source,
+			Operator:   entry.Operator,
+			AddTime:    entry.CreatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+	return resp
+}
+
+func countTraceMismatches(items []do.PaymentEventDO) int {
+	total := 0
+	for _, item := range items {
+		if (item.EventType != "refund_succeeded" && item.ProviderAmountFen != item.OrderAmountFen) ||
+			(item.EventType == "refund_succeeded" && (item.RefundAmountFen != item.ProviderAmountFen || item.RefundAmountFen > item.OrderAmountFen)) {
+			total++
+		}
+	}
+	return total
 }

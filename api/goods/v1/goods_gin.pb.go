@@ -123,6 +123,57 @@ func (s *GoodsHttpServer) GetGoodsDetail_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *GoodsHttpServer) ListGoodsOutboxEvents_0(c *gin.Context) {
+	var in ListGoodsOutboxEventsRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListGoodsOutboxEvents(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *GoodsHttpServer) ReplayGoodsOutbox_0(c *gin.Context) {
+	var in ListGoodsOutboxReplayRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ReplayGoodsOutbox(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *GoodsHttpServer) ReindexGoods_0(c *gin.Context) {
+	var in GoodsReindexRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ReindexGoods(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *GoodsHttpServer) GetAllCategorysList_0(c *gin.Context) {
 	var in emptypb.Empty
 
@@ -442,6 +493,12 @@ func (s *GoodsHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.UpdateGoods_0)
 
 	s.router.Handle("POST", "", s.GetGoodsDetail_0)
+
+	s.router.Handle("POST", "", s.ListGoodsOutboxEvents_0)
+
+	s.router.Handle("POST", "", s.ReplayGoodsOutbox_0)
+
+	s.router.Handle("POST", "", s.ReindexGoods_0)
 
 	s.router.Handle("POST", "", s.GetAllCategorysList_0)
 

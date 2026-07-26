@@ -29,6 +29,7 @@ service Order {
     rpc ListPaymentReconciliationRuns(ListPaymentReconciliationRunsRequest) returns (ListPaymentReconciliationRunsResponse);
     rpc ListPaymentReconciliationItems(ListPaymentReconciliationItemsRequest) returns (ListPaymentReconciliationItemsResponse);
     rpc RetryDeadRefundJob(RetryDeadRefundJobRequest) returns (RetryDeadRefundJobResponse);
+    rpc GetOrderTrace(OrderTraceRequest) returns (OrderTraceResponse);
 }
 
 message PaymentEventRequest { string provider = 1; string eventId = 2; string orderSn = 3; string tradeNo = 4; string eventType = 5; int64 providerAmountFen = 6; int64 refundAmountFen = 7; }
@@ -52,6 +53,35 @@ message PaymentReconciliationItemRecord { int64 id = 1; int64 runId = 2; string 
 message ListPaymentReconciliationItemsResponse { int32 total = 1; repeated PaymentReconciliationItemRecord data = 2; }
 message RetryDeadRefundJobRequest { int64 id = 1; }
 message RetryDeadRefundJobResponse { int64 id = 1; string status = 2; int32 attempts = 3; string correlationId = 4; }
+message OrderTraceRequest { string orderSn = 1; string tradeNo = 2; string correlationId = 3; }
+message RefundTraceRecord {
+    int64 refundRequestId = 1;
+    string orderSn = 2;
+    int32 actorUserId = 3;
+    int64 amountFen = 4;
+    string reason = 5;
+    string status = 6;
+    string provider = 7;
+    string providerRefundId = 8;
+    string failureReason = 9;
+    string correlationId = 10;
+    int64 createdAt = 11;
+    int64 updatedAt = 12;
+    int64 refundJobId = 13;
+    string refundJobStatus = 14;
+    int32 refundJobAttempts = 15;
+    int64 refundJobAvailableAt = 16;
+    int64 refundJobLockedAt = 17;
+    string refundJobLastError = 18;
+}
+message OrderTraceResponse {
+    string matchedBy = 1;
+    string matchedValue = 2;
+    OrderInfoDetailResponse order = 3;
+    OrderStatusLogListResponse statusLogs = 4;
+    PaymentEventListResponse paymentEvents = 5;
+    repeated RefundTraceRecord refunds = 6;
+}
 
 message UserInfo {
     int32 id = 1;

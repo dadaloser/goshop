@@ -377,6 +377,23 @@ func (s *OrderHttpServer) RetryDeadRefundJob_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *OrderHttpServer) GetOrderTrace_0(c *gin.Context) {
+	var in OrderTraceRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.GetOrderTrace(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *OrderHttpServer) RegisterService() {
 
 	s.router.Handle("POST", "", s.CartItemList_0)
@@ -420,5 +437,7 @@ func (s *OrderHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.ListPaymentReconciliationItems_0)
 
 	s.router.Handle("POST", "", s.RetryDeadRefundJob_0)
+
+	s.router.Handle("POST", "", s.GetOrderTrace_0)
 
 }

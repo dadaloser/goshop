@@ -1642,6 +1642,330 @@ func (x *RetryDeadRefundJobResponse) GetCorrelationId() string {
 	return ""
 }
 
+type OrderTraceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OrderSn       string                 `protobuf:"bytes,1,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
+	TradeNo       string                 `protobuf:"bytes,2,opt,name=tradeNo,proto3" json:"tradeNo,omitempty"`
+	CorrelationId string                 `protobuf:"bytes,3,opt,name=correlationId,proto3" json:"correlationId,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OrderTraceRequest) Reset() {
+	*x = OrderTraceRequest{}
+	mi := &file_order_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OrderTraceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrderTraceRequest) ProtoMessage() {}
+
+func (x *OrderTraceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_order_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrderTraceRequest.ProtoReflect.Descriptor instead.
+func (*OrderTraceRequest) Descriptor() ([]byte, []int) {
+	return file_order_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *OrderTraceRequest) GetOrderSn() string {
+	if x != nil {
+		return x.OrderSn
+	}
+	return ""
+}
+
+func (x *OrderTraceRequest) GetTradeNo() string {
+	if x != nil {
+		return x.TradeNo
+	}
+	return ""
+}
+
+func (x *OrderTraceRequest) GetCorrelationId() string {
+	if x != nil {
+		return x.CorrelationId
+	}
+	return ""
+}
+
+type RefundTraceRecord struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	RefundRequestId      int64                  `protobuf:"varint,1,opt,name=refundRequestId,proto3" json:"refundRequestId,omitempty"`
+	OrderSn              string                 `protobuf:"bytes,2,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
+	ActorUserId          int32                  `protobuf:"varint,3,opt,name=actorUserId,proto3" json:"actorUserId,omitempty"`
+	AmountFen            int64                  `protobuf:"varint,4,opt,name=amountFen,proto3" json:"amountFen,omitempty"`
+	Reason               string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
+	Status               string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	Provider             string                 `protobuf:"bytes,7,opt,name=provider,proto3" json:"provider,omitempty"`
+	ProviderRefundId     string                 `protobuf:"bytes,8,opt,name=providerRefundId,proto3" json:"providerRefundId,omitempty"`
+	FailureReason        string                 `protobuf:"bytes,9,opt,name=failureReason,proto3" json:"failureReason,omitempty"`
+	CorrelationId        string                 `protobuf:"bytes,10,opt,name=correlationId,proto3" json:"correlationId,omitempty"`
+	CreatedAt            int64                  `protobuf:"varint,11,opt,name=createdAt,proto3" json:"createdAt,omitempty"`
+	UpdatedAt            int64                  `protobuf:"varint,12,opt,name=updatedAt,proto3" json:"updatedAt,omitempty"`
+	RefundJobId          int64                  `protobuf:"varint,13,opt,name=refundJobId,proto3" json:"refundJobId,omitempty"`
+	RefundJobStatus      string                 `protobuf:"bytes,14,opt,name=refundJobStatus,proto3" json:"refundJobStatus,omitempty"`
+	RefundJobAttempts    int32                  `protobuf:"varint,15,opt,name=refundJobAttempts,proto3" json:"refundJobAttempts,omitempty"`
+	RefundJobAvailableAt int64                  `protobuf:"varint,16,opt,name=refundJobAvailableAt,proto3" json:"refundJobAvailableAt,omitempty"`
+	RefundJobLockedAt    int64                  `protobuf:"varint,17,opt,name=refundJobLockedAt,proto3" json:"refundJobLockedAt,omitempty"`
+	RefundJobLastError   string                 `protobuf:"bytes,18,opt,name=refundJobLastError,proto3" json:"refundJobLastError,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *RefundTraceRecord) Reset() {
+	*x = RefundTraceRecord{}
+	mi := &file_order_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefundTraceRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefundTraceRecord) ProtoMessage() {}
+
+func (x *RefundTraceRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_order_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefundTraceRecord.ProtoReflect.Descriptor instead.
+func (*RefundTraceRecord) Descriptor() ([]byte, []int) {
+	return file_order_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *RefundTraceRecord) GetRefundRequestId() int64 {
+	if x != nil {
+		return x.RefundRequestId
+	}
+	return 0
+}
+
+func (x *RefundTraceRecord) GetOrderSn() string {
+	if x != nil {
+		return x.OrderSn
+	}
+	return ""
+}
+
+func (x *RefundTraceRecord) GetActorUserId() int32 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *RefundTraceRecord) GetAmountFen() int64 {
+	if x != nil {
+		return x.AmountFen
+	}
+	return 0
+}
+
+func (x *RefundTraceRecord) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *RefundTraceRecord) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *RefundTraceRecord) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *RefundTraceRecord) GetProviderRefundId() string {
+	if x != nil {
+		return x.ProviderRefundId
+	}
+	return ""
+}
+
+func (x *RefundTraceRecord) GetFailureReason() string {
+	if x != nil {
+		return x.FailureReason
+	}
+	return ""
+}
+
+func (x *RefundTraceRecord) GetCorrelationId() string {
+	if x != nil {
+		return x.CorrelationId
+	}
+	return ""
+}
+
+func (x *RefundTraceRecord) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *RefundTraceRecord) GetUpdatedAt() int64 {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return 0
+}
+
+func (x *RefundTraceRecord) GetRefundJobId() int64 {
+	if x != nil {
+		return x.RefundJobId
+	}
+	return 0
+}
+
+func (x *RefundTraceRecord) GetRefundJobStatus() string {
+	if x != nil {
+		return x.RefundJobStatus
+	}
+	return ""
+}
+
+func (x *RefundTraceRecord) GetRefundJobAttempts() int32 {
+	if x != nil {
+		return x.RefundJobAttempts
+	}
+	return 0
+}
+
+func (x *RefundTraceRecord) GetRefundJobAvailableAt() int64 {
+	if x != nil {
+		return x.RefundJobAvailableAt
+	}
+	return 0
+}
+
+func (x *RefundTraceRecord) GetRefundJobLockedAt() int64 {
+	if x != nil {
+		return x.RefundJobLockedAt
+	}
+	return 0
+}
+
+func (x *RefundTraceRecord) GetRefundJobLastError() string {
+	if x != nil {
+		return x.RefundJobLastError
+	}
+	return ""
+}
+
+type OrderTraceResponse struct {
+	state         protoimpl.MessageState      `protogen:"open.v1"`
+	MatchedBy     string                      `protobuf:"bytes,1,opt,name=matchedBy,proto3" json:"matchedBy,omitempty"`
+	MatchedValue  string                      `protobuf:"bytes,2,opt,name=matchedValue,proto3" json:"matchedValue,omitempty"`
+	Order         *OrderInfoDetailResponse    `protobuf:"bytes,3,opt,name=order,proto3" json:"order,omitempty"`
+	StatusLogs    *OrderStatusLogListResponse `protobuf:"bytes,4,opt,name=statusLogs,proto3" json:"statusLogs,omitempty"`
+	PaymentEvents *PaymentEventListResponse   `protobuf:"bytes,5,opt,name=paymentEvents,proto3" json:"paymentEvents,omitempty"`
+	Refunds       []*RefundTraceRecord        `protobuf:"bytes,6,rep,name=refunds,proto3" json:"refunds,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OrderTraceResponse) Reset() {
+	*x = OrderTraceResponse{}
+	mi := &file_order_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OrderTraceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrderTraceResponse) ProtoMessage() {}
+
+func (x *OrderTraceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_order_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrderTraceResponse.ProtoReflect.Descriptor instead.
+func (*OrderTraceResponse) Descriptor() ([]byte, []int) {
+	return file_order_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *OrderTraceResponse) GetMatchedBy() string {
+	if x != nil {
+		return x.MatchedBy
+	}
+	return ""
+}
+
+func (x *OrderTraceResponse) GetMatchedValue() string {
+	if x != nil {
+		return x.MatchedValue
+	}
+	return ""
+}
+
+func (x *OrderTraceResponse) GetOrder() *OrderInfoDetailResponse {
+	if x != nil {
+		return x.Order
+	}
+	return nil
+}
+
+func (x *OrderTraceResponse) GetStatusLogs() *OrderStatusLogListResponse {
+	if x != nil {
+		return x.StatusLogs
+	}
+	return nil
+}
+
+func (x *OrderTraceResponse) GetPaymentEvents() *PaymentEventListResponse {
+	if x != nil {
+		return x.PaymentEvents
+	}
+	return nil
+}
+
+func (x *OrderTraceResponse) GetRefunds() []*RefundTraceRecord {
+	if x != nil {
+		return x.Refunds
+	}
+	return nil
+}
+
 type UserInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            int32                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1651,7 +1975,7 @@ type UserInfo struct {
 
 func (x *UserInfo) Reset() {
 	*x = UserInfo{}
-	mi := &file_order_proto_msgTypes[21]
+	mi := &file_order_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1663,7 +1987,7 @@ func (x *UserInfo) String() string {
 func (*UserInfo) ProtoMessage() {}
 
 func (x *UserInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[21]
+	mi := &file_order_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1676,7 +2000,7 @@ func (x *UserInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserInfo.ProtoReflect.Descriptor instead.
 func (*UserInfo) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{21}
+	return file_order_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *UserInfo) GetId() int32 {
@@ -1705,7 +2029,7 @@ type OrderStatus struct {
 
 func (x *OrderStatus) Reset() {
 	*x = OrderStatus{}
-	mi := &file_order_proto_msgTypes[22]
+	mi := &file_order_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1717,7 +2041,7 @@ func (x *OrderStatus) String() string {
 func (*OrderStatus) ProtoMessage() {}
 
 func (x *OrderStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[22]
+	mi := &file_order_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1730,7 +2054,7 @@ func (x *OrderStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderStatus.ProtoReflect.Descriptor instead.
 func (*OrderStatus) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{22}
+	return file_order_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *OrderStatus) GetId() int32 {
@@ -1826,7 +2150,7 @@ type CartItemRequest struct {
 
 func (x *CartItemRequest) Reset() {
 	*x = CartItemRequest{}
-	mi := &file_order_proto_msgTypes[23]
+	mi := &file_order_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1838,7 +2162,7 @@ func (x *CartItemRequest) String() string {
 func (*CartItemRequest) ProtoMessage() {}
 
 func (x *CartItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[23]
+	mi := &file_order_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1851,7 +2175,7 @@ func (x *CartItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CartItemRequest.ProtoReflect.Descriptor instead.
 func (*CartItemRequest) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{23}
+	return file_order_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CartItemRequest) GetId() int32 {
@@ -1926,7 +2250,7 @@ type OrderRequest struct {
 
 func (x *OrderRequest) Reset() {
 	*x = OrderRequest{}
-	mi := &file_order_proto_msgTypes[24]
+	mi := &file_order_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1938,7 +2262,7 @@ func (x *OrderRequest) String() string {
 func (*OrderRequest) ProtoMessage() {}
 
 func (x *OrderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[24]
+	mi := &file_order_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1951,7 +2275,7 @@ func (x *OrderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderRequest.ProtoReflect.Descriptor instead.
 func (*OrderRequest) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{24}
+	return file_order_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *OrderRequest) GetId() int32 {
@@ -2019,7 +2343,7 @@ type OrderLookupRequest struct {
 
 func (x *OrderLookupRequest) Reset() {
 	*x = OrderLookupRequest{}
-	mi := &file_order_proto_msgTypes[25]
+	mi := &file_order_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2031,7 +2355,7 @@ func (x *OrderLookupRequest) String() string {
 func (*OrderLookupRequest) ProtoMessage() {}
 
 func (x *OrderLookupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[25]
+	mi := &file_order_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2044,7 +2368,7 @@ func (x *OrderLookupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderLookupRequest.ProtoReflect.Descriptor instead.
 func (*OrderLookupRequest) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{25}
+	return file_order_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *OrderLookupRequest) GetOrderSn() string {
@@ -2075,7 +2399,7 @@ type OrderInfoResponse struct {
 
 func (x *OrderInfoResponse) Reset() {
 	*x = OrderInfoResponse{}
-	mi := &file_order_proto_msgTypes[26]
+	mi := &file_order_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2087,7 +2411,7 @@ func (x *OrderInfoResponse) String() string {
 func (*OrderInfoResponse) ProtoMessage() {}
 
 func (x *OrderInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[26]
+	mi := &file_order_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2100,7 +2424,7 @@ func (x *OrderInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderInfoResponse.ProtoReflect.Descriptor instead.
 func (*OrderInfoResponse) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{26}
+	return file_order_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *OrderInfoResponse) GetId() int32 {
@@ -2207,7 +2531,7 @@ type ShopCartInfoResponse struct {
 
 func (x *ShopCartInfoResponse) Reset() {
 	*x = ShopCartInfoResponse{}
-	mi := &file_order_proto_msgTypes[27]
+	mi := &file_order_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2219,7 +2543,7 @@ func (x *ShopCartInfoResponse) String() string {
 func (*ShopCartInfoResponse) ProtoMessage() {}
 
 func (x *ShopCartInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[27]
+	mi := &file_order_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2232,7 +2556,7 @@ func (x *ShopCartInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShopCartInfoResponse.ProtoReflect.Descriptor instead.
 func (*ShopCartInfoResponse) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{27}
+	return file_order_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ShopCartInfoResponse) GetId() int32 {
@@ -2285,7 +2609,7 @@ type OrderItemResponse struct {
 
 func (x *OrderItemResponse) Reset() {
 	*x = OrderItemResponse{}
-	mi := &file_order_proto_msgTypes[28]
+	mi := &file_order_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2297,7 +2621,7 @@ func (x *OrderItemResponse) String() string {
 func (*OrderItemResponse) ProtoMessage() {}
 
 func (x *OrderItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[28]
+	mi := &file_order_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2310,7 +2634,7 @@ func (x *OrderItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderItemResponse.ProtoReflect.Descriptor instead.
 func (*OrderItemResponse) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{28}
+	return file_order_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *OrderItemResponse) GetId() int32 {
@@ -2372,7 +2696,7 @@ type OrderInfoDetailResponse struct {
 
 func (x *OrderInfoDetailResponse) Reset() {
 	*x = OrderInfoDetailResponse{}
-	mi := &file_order_proto_msgTypes[29]
+	mi := &file_order_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2384,7 +2708,7 @@ func (x *OrderInfoDetailResponse) String() string {
 func (*OrderInfoDetailResponse) ProtoMessage() {}
 
 func (x *OrderInfoDetailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[29]
+	mi := &file_order_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2397,7 +2721,7 @@ func (x *OrderInfoDetailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderInfoDetailResponse.ProtoReflect.Descriptor instead.
 func (*OrderInfoDetailResponse) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{29}
+	return file_order_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *OrderInfoDetailResponse) GetOrderInfo() *OrderInfoResponse {
@@ -2431,7 +2755,7 @@ type OrderStatusLogResponse struct {
 
 func (x *OrderStatusLogResponse) Reset() {
 	*x = OrderStatusLogResponse{}
-	mi := &file_order_proto_msgTypes[30]
+	mi := &file_order_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2443,7 +2767,7 @@ func (x *OrderStatusLogResponse) String() string {
 func (*OrderStatusLogResponse) ProtoMessage() {}
 
 func (x *OrderStatusLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[30]
+	mi := &file_order_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2456,7 +2780,7 @@ func (x *OrderStatusLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderStatusLogResponse.ProtoReflect.Descriptor instead.
 func (*OrderStatusLogResponse) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{30}
+	return file_order_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *OrderStatusLogResponse) GetId() int32 {
@@ -2532,7 +2856,7 @@ type OrderStatusLogListResponse struct {
 
 func (x *OrderStatusLogListResponse) Reset() {
 	*x = OrderStatusLogListResponse{}
-	mi := &file_order_proto_msgTypes[31]
+	mi := &file_order_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2544,7 +2868,7 @@ func (x *OrderStatusLogListResponse) String() string {
 func (*OrderStatusLogListResponse) ProtoMessage() {}
 
 func (x *OrderStatusLogListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[31]
+	mi := &file_order_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2557,7 +2881,7 @@ func (x *OrderStatusLogListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderStatusLogListResponse.ProtoReflect.Descriptor instead.
 func (*OrderStatusLogListResponse) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{31}
+	return file_order_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *OrderStatusLogListResponse) GetTotal() int32 {
@@ -2585,7 +2909,7 @@ type OrderFilterRequest struct {
 
 func (x *OrderFilterRequest) Reset() {
 	*x = OrderFilterRequest{}
-	mi := &file_order_proto_msgTypes[32]
+	mi := &file_order_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2597,7 +2921,7 @@ func (x *OrderFilterRequest) String() string {
 func (*OrderFilterRequest) ProtoMessage() {}
 
 func (x *OrderFilterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[32]
+	mi := &file_order_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2610,7 +2934,7 @@ func (x *OrderFilterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderFilterRequest.ProtoReflect.Descriptor instead.
 func (*OrderFilterRequest) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{32}
+	return file_order_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *OrderFilterRequest) GetUserId() int32 {
@@ -2644,7 +2968,7 @@ type OrderListResponse struct {
 
 func (x *OrderListResponse) Reset() {
 	*x = OrderListResponse{}
-	mi := &file_order_proto_msgTypes[33]
+	mi := &file_order_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2656,7 +2980,7 @@ func (x *OrderListResponse) String() string {
 func (*OrderListResponse) ProtoMessage() {}
 
 func (x *OrderListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[33]
+	mi := &file_order_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2669,7 +2993,7 @@ func (x *OrderListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderListResponse.ProtoReflect.Descriptor instead.
 func (*OrderListResponse) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{33}
+	return file_order_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *OrderListResponse) GetTotal() int32 {
@@ -2696,7 +3020,7 @@ type CartItemListResponse struct {
 
 func (x *CartItemListResponse) Reset() {
 	*x = CartItemListResponse{}
-	mi := &file_order_proto_msgTypes[34]
+	mi := &file_order_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2708,7 +3032,7 @@ func (x *CartItemListResponse) String() string {
 func (*CartItemListResponse) ProtoMessage() {}
 
 func (x *CartItemListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_order_proto_msgTypes[34]
+	mi := &file_order_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2721,7 +3045,7 @@ func (x *CartItemListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CartItemListResponse.ProtoReflect.Descriptor instead.
 func (*CartItemListResponse) Descriptor() ([]byte, []int) {
-	return file_order_proto_rawDescGZIP(), []int{34}
+	return file_order_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CartItemListResponse) GetTotal() int32 {
@@ -2880,7 +3204,40 @@ const file_order_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1a\n" +
 	"\battempts\x18\x03 \x01(\x05R\battempts\x12$\n" +
-	"\rcorrelationId\x18\x04 \x01(\tR\rcorrelationId\"\x1a\n" +
+	"\rcorrelationId\x18\x04 \x01(\tR\rcorrelationId\"m\n" +
+	"\x11OrderTraceRequest\x12\x18\n" +
+	"\aorderSn\x18\x01 \x01(\tR\aorderSn\x12\x18\n" +
+	"\atradeNo\x18\x02 \x01(\tR\atradeNo\x12$\n" +
+	"\rcorrelationId\x18\x03 \x01(\tR\rcorrelationId\"\xa3\x05\n" +
+	"\x11RefundTraceRecord\x12(\n" +
+	"\x0frefundRequestId\x18\x01 \x01(\x03R\x0frefundRequestId\x12\x18\n" +
+	"\aorderSn\x18\x02 \x01(\tR\aorderSn\x12 \n" +
+	"\vactorUserId\x18\x03 \x01(\x05R\vactorUserId\x12\x1c\n" +
+	"\tamountFen\x18\x04 \x01(\x03R\tamountFen\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x1a\n" +
+	"\bprovider\x18\a \x01(\tR\bprovider\x12*\n" +
+	"\x10providerRefundId\x18\b \x01(\tR\x10providerRefundId\x12$\n" +
+	"\rfailureReason\x18\t \x01(\tR\rfailureReason\x12$\n" +
+	"\rcorrelationId\x18\n" +
+	" \x01(\tR\rcorrelationId\x12\x1c\n" +
+	"\tcreatedAt\x18\v \x01(\x03R\tcreatedAt\x12\x1c\n" +
+	"\tupdatedAt\x18\f \x01(\x03R\tupdatedAt\x12 \n" +
+	"\vrefundJobId\x18\r \x01(\x03R\vrefundJobId\x12(\n" +
+	"\x0frefundJobStatus\x18\x0e \x01(\tR\x0frefundJobStatus\x12,\n" +
+	"\x11refundJobAttempts\x18\x0f \x01(\x05R\x11refundJobAttempts\x122\n" +
+	"\x14refundJobAvailableAt\x18\x10 \x01(\x03R\x14refundJobAvailableAt\x12,\n" +
+	"\x11refundJobLockedAt\x18\x11 \x01(\x03R\x11refundJobLockedAt\x12.\n" +
+	"\x12refundJobLastError\x18\x12 \x01(\tR\x12refundJobLastError\"\xb2\x02\n" +
+	"\x12OrderTraceResponse\x12\x1c\n" +
+	"\tmatchedBy\x18\x01 \x01(\tR\tmatchedBy\x12\"\n" +
+	"\fmatchedValue\x18\x02 \x01(\tR\fmatchedValue\x12.\n" +
+	"\x05order\x18\x03 \x01(\v2\x18.OrderInfoDetailResponseR\x05order\x12;\n" +
+	"\n" +
+	"statusLogs\x18\x04 \x01(\v2\x1b.OrderStatusLogListResponseR\n" +
+	"statusLogs\x12?\n" +
+	"\rpaymentEvents\x18\x05 \x01(\v2\x19.PaymentEventListResponseR\rpaymentEvents\x12,\n" +
+	"\arefunds\x18\x06 \x03(\v2\x12.RefundTraceRecordR\arefunds\"\x1a\n" +
 	"\bUserInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\"\xc5\x02\n" +
 	"\vOrderStatus\x12\x0e\n" +
@@ -2980,7 +3337,7 @@ const file_order_proto_rawDesc = "" +
 	"\x04data\x18\x02 \x03(\v2\x12.OrderInfoResponseR\x04data\"W\n" +
 	"\x14CartItemListResponse\x12\x14\n" +
 	"\x05total\x18\x01 \x01(\x05R\x05total\x12)\n" +
-	"\x04data\x18\x02 \x03(\v2\x15.ShopCartInfoResponseR\x04data2\x9e\v\n" +
+	"\x04data\x18\x02 \x03(\v2\x15.ShopCartInfoResponseR\x04data2\xd8\v\n" +
 	"\x05Order\x120\n" +
 	"\fCartItemList\x12\t.UserInfo\x1a\x15.CartItemListResponse\x129\n" +
 	"\x0eCreateCartItem\x12\x10.CartItemRequest\x1a\x15.ShopCartInfoResponse\x12:\n" +
@@ -3002,7 +3359,8 @@ const file_order_proto_rawDesc = "" +
 	"\x11ReconcilePayments\x12\x19.ReconcilePaymentsRequest\x1a\x1a.ReconcilePaymentsResponse\x12n\n" +
 	"\x1dListPaymentReconciliationRuns\x12%.ListPaymentReconciliationRunsRequest\x1a&.ListPaymentReconciliationRunsResponse\x12q\n" +
 	"\x1eListPaymentReconciliationItems\x12&.ListPaymentReconciliationItemsRequest\x1a'.ListPaymentReconciliationItemsResponse\x12M\n" +
-	"\x12RetryDeadRefundJob\x12\x1a.RetryDeadRefundJobRequest\x1a\x1b.RetryDeadRefundJobResponseB\tZ\a.;protob\x06proto3"
+	"\x12RetryDeadRefundJob\x12\x1a.RetryDeadRefundJobRequest\x1a\x1b.RetryDeadRefundJobResponse\x128\n" +
+	"\rGetOrderTrace\x12\x12.OrderTraceRequest\x1a\x13.OrderTraceResponseB\tZ\a.;protob\x06proto3"
 
 var (
 	file_order_proto_rawDescOnce sync.Once
@@ -3016,7 +3374,7 @@ func file_order_proto_rawDescGZIP() []byte {
 	return file_order_proto_rawDescData
 }
 
-var file_order_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_order_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_order_proto_goTypes = []any{
 	(*PaymentEventRequest)(nil),                    // 0: PaymentEventRequest
 	(*PaymentEventResponse)(nil),                   // 1: PaymentEventResponse
@@ -3039,21 +3397,24 @@ var file_order_proto_goTypes = []any{
 	(*ListPaymentReconciliationItemsResponse)(nil), // 18: ListPaymentReconciliationItemsResponse
 	(*RetryDeadRefundJobRequest)(nil),              // 19: RetryDeadRefundJobRequest
 	(*RetryDeadRefundJobResponse)(nil),             // 20: RetryDeadRefundJobResponse
-	(*UserInfo)(nil),                               // 21: UserInfo
-	(*OrderStatus)(nil),                            // 22: OrderStatus
-	(*CartItemRequest)(nil),                        // 23: CartItemRequest
-	(*OrderRequest)(nil),                           // 24: OrderRequest
-	(*OrderLookupRequest)(nil),                     // 25: OrderLookupRequest
-	(*OrderInfoResponse)(nil),                      // 26: OrderInfoResponse
-	(*ShopCartInfoResponse)(nil),                   // 27: ShopCartInfoResponse
-	(*OrderItemResponse)(nil),                      // 28: OrderItemResponse
-	(*OrderInfoDetailResponse)(nil),                // 29: OrderInfoDetailResponse
-	(*OrderStatusLogResponse)(nil),                 // 30: OrderStatusLogResponse
-	(*OrderStatusLogListResponse)(nil),             // 31: OrderStatusLogListResponse
-	(*OrderFilterRequest)(nil),                     // 32: OrderFilterRequest
-	(*OrderListResponse)(nil),                      // 33: OrderListResponse
-	(*CartItemListResponse)(nil),                   // 34: CartItemListResponse
-	(*emptypb.Empty)(nil),                          // 35: google.protobuf.Empty
+	(*OrderTraceRequest)(nil),                      // 21: OrderTraceRequest
+	(*RefundTraceRecord)(nil),                      // 22: RefundTraceRecord
+	(*OrderTraceResponse)(nil),                     // 23: OrderTraceResponse
+	(*UserInfo)(nil),                               // 24: UserInfo
+	(*OrderStatus)(nil),                            // 25: OrderStatus
+	(*CartItemRequest)(nil),                        // 26: CartItemRequest
+	(*OrderRequest)(nil),                           // 27: OrderRequest
+	(*OrderLookupRequest)(nil),                     // 28: OrderLookupRequest
+	(*OrderInfoResponse)(nil),                      // 29: OrderInfoResponse
+	(*ShopCartInfoResponse)(nil),                   // 30: ShopCartInfoResponse
+	(*OrderItemResponse)(nil),                      // 31: OrderItemResponse
+	(*OrderInfoDetailResponse)(nil),                // 32: OrderInfoDetailResponse
+	(*OrderStatusLogResponse)(nil),                 // 33: OrderStatusLogResponse
+	(*OrderStatusLogListResponse)(nil),             // 34: OrderStatusLogListResponse
+	(*OrderFilterRequest)(nil),                     // 35: OrderFilterRequest
+	(*OrderListResponse)(nil),                      // 36: OrderListResponse
+	(*CartItemListResponse)(nil),                   // 37: CartItemListResponse
+	(*emptypb.Empty)(nil),                          // 38: google.protobuf.Empty
 }
 var file_order_proto_depIdxs = []int32{
 	4,  // 0: PaymentEventListResponse.data:type_name -> PaymentEventRecord
@@ -3061,59 +3422,65 @@ var file_order_proto_depIdxs = []int32{
 	10, // 2: ReconcilePaymentsRequest.transactions:type_name -> ProviderTransaction
 	14, // 3: ListPaymentReconciliationRunsResponse.data:type_name -> PaymentReconciliationRunRecord
 	17, // 4: ListPaymentReconciliationItemsResponse.data:type_name -> PaymentReconciliationItemRecord
-	28, // 5: OrderRequest.orderItems:type_name -> OrderItemResponse
-	26, // 6: OrderInfoDetailResponse.orderInfo:type_name -> OrderInfoResponse
-	28, // 7: OrderInfoDetailResponse.goods:type_name -> OrderItemResponse
-	30, // 8: OrderStatusLogListResponse.data:type_name -> OrderStatusLogResponse
-	26, // 9: OrderListResponse.data:type_name -> OrderInfoResponse
-	27, // 10: CartItemListResponse.data:type_name -> ShopCartInfoResponse
-	21, // 11: Order.CartItemList:input_type -> UserInfo
-	23, // 12: Order.CreateCartItem:input_type -> CartItemRequest
-	23, // 13: Order.UpdateCartItem:input_type -> CartItemRequest
-	23, // 14: Order.DeleteCartItem:input_type -> CartItemRequest
-	24, // 15: Order.CreateOrder:input_type -> OrderRequest
-	24, // 16: Order.CreateOrderCom:input_type -> OrderRequest
-	24, // 17: Order.SubmitOrder:input_type -> OrderRequest
-	32, // 18: Order.OrderList:input_type -> OrderFilterRequest
-	24, // 19: Order.OrderDetail:input_type -> OrderRequest
-	24, // 20: Order.OrderStatusLogs:input_type -> OrderRequest
-	25, // 21: Order.GetOrderBySn:input_type -> OrderLookupRequest
-	22, // 22: Order.UpdateOrderStatus:input_type -> OrderStatus
-	0,  // 23: Order.BeginPaymentEvent:input_type -> PaymentEventRequest
-	2,  // 24: Order.CompletePaymentEvent:input_type -> CompletePaymentEventRequest
-	3,  // 25: Order.ListPaymentEvents:input_type -> PaymentEventListRequest
-	6,  // 26: Order.ClaimRefundJobs:input_type -> ClaimRefundJobsRequest
-	9,  // 27: Order.CompleteRefundJob:input_type -> CompleteRefundJobRequest
-	11, // 28: Order.ReconcilePayments:input_type -> ReconcilePaymentsRequest
-	13, // 29: Order.ListPaymentReconciliationRuns:input_type -> ListPaymentReconciliationRunsRequest
-	16, // 30: Order.ListPaymentReconciliationItems:input_type -> ListPaymentReconciliationItemsRequest
-	19, // 31: Order.RetryDeadRefundJob:input_type -> RetryDeadRefundJobRequest
-	34, // 32: Order.CartItemList:output_type -> CartItemListResponse
-	27, // 33: Order.CreateCartItem:output_type -> ShopCartInfoResponse
-	35, // 34: Order.UpdateCartItem:output_type -> google.protobuf.Empty
-	35, // 35: Order.DeleteCartItem:output_type -> google.protobuf.Empty
-	35, // 36: Order.CreateOrder:output_type -> google.protobuf.Empty
-	35, // 37: Order.CreateOrderCom:output_type -> google.protobuf.Empty
-	35, // 38: Order.SubmitOrder:output_type -> google.protobuf.Empty
-	33, // 39: Order.OrderList:output_type -> OrderListResponse
-	29, // 40: Order.OrderDetail:output_type -> OrderInfoDetailResponse
-	31, // 41: Order.OrderStatusLogs:output_type -> OrderStatusLogListResponse
-	29, // 42: Order.GetOrderBySn:output_type -> OrderInfoDetailResponse
-	35, // 43: Order.UpdateOrderStatus:output_type -> google.protobuf.Empty
-	1,  // 44: Order.BeginPaymentEvent:output_type -> PaymentEventResponse
-	35, // 45: Order.CompletePaymentEvent:output_type -> google.protobuf.Empty
-	5,  // 46: Order.ListPaymentEvents:output_type -> PaymentEventListResponse
-	8,  // 47: Order.ClaimRefundJobs:output_type -> ClaimRefundJobsResponse
-	35, // 48: Order.CompleteRefundJob:output_type -> google.protobuf.Empty
-	12, // 49: Order.ReconcilePayments:output_type -> ReconcilePaymentsResponse
-	15, // 50: Order.ListPaymentReconciliationRuns:output_type -> ListPaymentReconciliationRunsResponse
-	18, // 51: Order.ListPaymentReconciliationItems:output_type -> ListPaymentReconciliationItemsResponse
-	20, // 52: Order.RetryDeadRefundJob:output_type -> RetryDeadRefundJobResponse
-	32, // [32:53] is the sub-list for method output_type
-	11, // [11:32] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	32, // 5: OrderTraceResponse.order:type_name -> OrderInfoDetailResponse
+	34, // 6: OrderTraceResponse.statusLogs:type_name -> OrderStatusLogListResponse
+	5,  // 7: OrderTraceResponse.paymentEvents:type_name -> PaymentEventListResponse
+	22, // 8: OrderTraceResponse.refunds:type_name -> RefundTraceRecord
+	31, // 9: OrderRequest.orderItems:type_name -> OrderItemResponse
+	29, // 10: OrderInfoDetailResponse.orderInfo:type_name -> OrderInfoResponse
+	31, // 11: OrderInfoDetailResponse.goods:type_name -> OrderItemResponse
+	33, // 12: OrderStatusLogListResponse.data:type_name -> OrderStatusLogResponse
+	29, // 13: OrderListResponse.data:type_name -> OrderInfoResponse
+	30, // 14: CartItemListResponse.data:type_name -> ShopCartInfoResponse
+	24, // 15: Order.CartItemList:input_type -> UserInfo
+	26, // 16: Order.CreateCartItem:input_type -> CartItemRequest
+	26, // 17: Order.UpdateCartItem:input_type -> CartItemRequest
+	26, // 18: Order.DeleteCartItem:input_type -> CartItemRequest
+	27, // 19: Order.CreateOrder:input_type -> OrderRequest
+	27, // 20: Order.CreateOrderCom:input_type -> OrderRequest
+	27, // 21: Order.SubmitOrder:input_type -> OrderRequest
+	35, // 22: Order.OrderList:input_type -> OrderFilterRequest
+	27, // 23: Order.OrderDetail:input_type -> OrderRequest
+	27, // 24: Order.OrderStatusLogs:input_type -> OrderRequest
+	28, // 25: Order.GetOrderBySn:input_type -> OrderLookupRequest
+	25, // 26: Order.UpdateOrderStatus:input_type -> OrderStatus
+	0,  // 27: Order.BeginPaymentEvent:input_type -> PaymentEventRequest
+	2,  // 28: Order.CompletePaymentEvent:input_type -> CompletePaymentEventRequest
+	3,  // 29: Order.ListPaymentEvents:input_type -> PaymentEventListRequest
+	6,  // 30: Order.ClaimRefundJobs:input_type -> ClaimRefundJobsRequest
+	9,  // 31: Order.CompleteRefundJob:input_type -> CompleteRefundJobRequest
+	11, // 32: Order.ReconcilePayments:input_type -> ReconcilePaymentsRequest
+	13, // 33: Order.ListPaymentReconciliationRuns:input_type -> ListPaymentReconciliationRunsRequest
+	16, // 34: Order.ListPaymentReconciliationItems:input_type -> ListPaymentReconciliationItemsRequest
+	19, // 35: Order.RetryDeadRefundJob:input_type -> RetryDeadRefundJobRequest
+	21, // 36: Order.GetOrderTrace:input_type -> OrderTraceRequest
+	37, // 37: Order.CartItemList:output_type -> CartItemListResponse
+	30, // 38: Order.CreateCartItem:output_type -> ShopCartInfoResponse
+	38, // 39: Order.UpdateCartItem:output_type -> google.protobuf.Empty
+	38, // 40: Order.DeleteCartItem:output_type -> google.protobuf.Empty
+	38, // 41: Order.CreateOrder:output_type -> google.protobuf.Empty
+	38, // 42: Order.CreateOrderCom:output_type -> google.protobuf.Empty
+	38, // 43: Order.SubmitOrder:output_type -> google.protobuf.Empty
+	36, // 44: Order.OrderList:output_type -> OrderListResponse
+	32, // 45: Order.OrderDetail:output_type -> OrderInfoDetailResponse
+	34, // 46: Order.OrderStatusLogs:output_type -> OrderStatusLogListResponse
+	32, // 47: Order.GetOrderBySn:output_type -> OrderInfoDetailResponse
+	38, // 48: Order.UpdateOrderStatus:output_type -> google.protobuf.Empty
+	1,  // 49: Order.BeginPaymentEvent:output_type -> PaymentEventResponse
+	38, // 50: Order.CompletePaymentEvent:output_type -> google.protobuf.Empty
+	5,  // 51: Order.ListPaymentEvents:output_type -> PaymentEventListResponse
+	8,  // 52: Order.ClaimRefundJobs:output_type -> ClaimRefundJobsResponse
+	38, // 53: Order.CompleteRefundJob:output_type -> google.protobuf.Empty
+	12, // 54: Order.ReconcilePayments:output_type -> ReconcilePaymentsResponse
+	15, // 55: Order.ListPaymentReconciliationRuns:output_type -> ListPaymentReconciliationRunsResponse
+	18, // 56: Order.ListPaymentReconciliationItems:output_type -> ListPaymentReconciliationItemsResponse
+	20, // 57: Order.RetryDeadRefundJob:output_type -> RetryDeadRefundJobResponse
+	23, // 58: Order.GetOrderTrace:output_type -> OrderTraceResponse
+	37, // [37:59] is the sub-list for method output_type
+	15, // [15:37] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_order_proto_init() }
@@ -3127,7 +3494,7 @@ func file_order_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_order_proto_rawDesc), len(file_order_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   35,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

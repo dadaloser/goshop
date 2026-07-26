@@ -20,30 +20,33 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Goods_GoodsList_FullMethodName            = "/Goods/GoodsList"
-	Goods_BatchGetGoods_FullMethodName        = "/Goods/BatchGetGoods"
-	Goods_CreateGoods_FullMethodName          = "/Goods/CreateGoods"
-	Goods_DeleteGoods_FullMethodName          = "/Goods/DeleteGoods"
-	Goods_UpdateGoods_FullMethodName          = "/Goods/UpdateGoods"
-	Goods_GetGoodsDetail_FullMethodName       = "/Goods/GetGoodsDetail"
-	Goods_GetAllCategorysList_FullMethodName  = "/Goods/GetAllCategorysList"
-	Goods_GetSubCategory_FullMethodName       = "/Goods/GetSubCategory"
-	Goods_CreateCategory_FullMethodName       = "/Goods/CreateCategory"
-	Goods_DeleteCategory_FullMethodName       = "/Goods/DeleteCategory"
-	Goods_UpdateCategory_FullMethodName       = "/Goods/UpdateCategory"
-	Goods_BrandList_FullMethodName            = "/Goods/BrandList"
-	Goods_CreateBrand_FullMethodName          = "/Goods/CreateBrand"
-	Goods_DeleteBrand_FullMethodName          = "/Goods/DeleteBrand"
-	Goods_UpdateBrand_FullMethodName          = "/Goods/UpdateBrand"
-	Goods_BannerList_FullMethodName           = "/Goods/BannerList"
-	Goods_CreateBanner_FullMethodName         = "/Goods/CreateBanner"
-	Goods_DeleteBanner_FullMethodName         = "/Goods/DeleteBanner"
-	Goods_UpdateBanner_FullMethodName         = "/Goods/UpdateBanner"
-	Goods_CategoryBrandList_FullMethodName    = "/Goods/CategoryBrandList"
-	Goods_GetCategoryBrandList_FullMethodName = "/Goods/GetCategoryBrandList"
-	Goods_CreateCategoryBrand_FullMethodName  = "/Goods/CreateCategoryBrand"
-	Goods_DeleteCategoryBrand_FullMethodName  = "/Goods/DeleteCategoryBrand"
-	Goods_UpdateCategoryBrand_FullMethodName  = "/Goods/UpdateCategoryBrand"
+	Goods_GoodsList_FullMethodName             = "/Goods/GoodsList"
+	Goods_BatchGetGoods_FullMethodName         = "/Goods/BatchGetGoods"
+	Goods_CreateGoods_FullMethodName           = "/Goods/CreateGoods"
+	Goods_DeleteGoods_FullMethodName           = "/Goods/DeleteGoods"
+	Goods_UpdateGoods_FullMethodName           = "/Goods/UpdateGoods"
+	Goods_GetGoodsDetail_FullMethodName        = "/Goods/GetGoodsDetail"
+	Goods_ListGoodsOutboxEvents_FullMethodName = "/Goods/ListGoodsOutboxEvents"
+	Goods_ReplayGoodsOutbox_FullMethodName     = "/Goods/ReplayGoodsOutbox"
+	Goods_ReindexGoods_FullMethodName          = "/Goods/ReindexGoods"
+	Goods_GetAllCategorysList_FullMethodName   = "/Goods/GetAllCategorysList"
+	Goods_GetSubCategory_FullMethodName        = "/Goods/GetSubCategory"
+	Goods_CreateCategory_FullMethodName        = "/Goods/CreateCategory"
+	Goods_DeleteCategory_FullMethodName        = "/Goods/DeleteCategory"
+	Goods_UpdateCategory_FullMethodName        = "/Goods/UpdateCategory"
+	Goods_BrandList_FullMethodName             = "/Goods/BrandList"
+	Goods_CreateBrand_FullMethodName           = "/Goods/CreateBrand"
+	Goods_DeleteBrand_FullMethodName           = "/Goods/DeleteBrand"
+	Goods_UpdateBrand_FullMethodName           = "/Goods/UpdateBrand"
+	Goods_BannerList_FullMethodName            = "/Goods/BannerList"
+	Goods_CreateBanner_FullMethodName          = "/Goods/CreateBanner"
+	Goods_DeleteBanner_FullMethodName          = "/Goods/DeleteBanner"
+	Goods_UpdateBanner_FullMethodName          = "/Goods/UpdateBanner"
+	Goods_CategoryBrandList_FullMethodName     = "/Goods/CategoryBrandList"
+	Goods_GetCategoryBrandList_FullMethodName  = "/Goods/GetCategoryBrandList"
+	Goods_CreateCategoryBrand_FullMethodName   = "/Goods/CreateCategoryBrand"
+	Goods_DeleteCategoryBrand_FullMethodName   = "/Goods/DeleteCategoryBrand"
+	Goods_UpdateCategoryBrand_FullMethodName   = "/Goods/UpdateCategoryBrand"
 )
 
 // GoodsClient is the client API for Goods service.
@@ -58,6 +61,9 @@ type GoodsClient interface {
 	DeleteGoods(ctx context.Context, in *DeleteGoodsInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	UpdateGoods(ctx context.Context, in *CreateGoodsInfo, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetGoodsDetail(ctx context.Context, in *GoodInfoRequest, opts ...grpc.CallOption) (*GoodsInfoResponse, error)
+	ListGoodsOutboxEvents(ctx context.Context, in *ListGoodsOutboxEventsRequest, opts ...grpc.CallOption) (*ListGoodsOutboxEventsResponse, error)
+	ReplayGoodsOutbox(ctx context.Context, in *ListGoodsOutboxReplayRequest, opts ...grpc.CallOption) (*ListGoodsOutboxReplayResponse, error)
+	ReindexGoods(ctx context.Context, in *GoodsReindexRequest, opts ...grpc.CallOption) (*GoodsReindexResponse, error)
 	// 商品分类
 	GetAllCategorysList(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CategoryListResponse, error)
 	// 获取子分类
@@ -146,6 +152,36 @@ func (c *goodsClient) GetGoodsDetail(ctx context.Context, in *GoodInfoRequest, o
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GoodsInfoResponse)
 	err := c.cc.Invoke(ctx, Goods_GetGoodsDetail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *goodsClient) ListGoodsOutboxEvents(ctx context.Context, in *ListGoodsOutboxEventsRequest, opts ...grpc.CallOption) (*ListGoodsOutboxEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGoodsOutboxEventsResponse)
+	err := c.cc.Invoke(ctx, Goods_ListGoodsOutboxEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *goodsClient) ReplayGoodsOutbox(ctx context.Context, in *ListGoodsOutboxReplayRequest, opts ...grpc.CallOption) (*ListGoodsOutboxReplayResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGoodsOutboxReplayResponse)
+	err := c.cc.Invoke(ctx, Goods_ReplayGoodsOutbox_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *goodsClient) ReindexGoods(ctx context.Context, in *GoodsReindexRequest, opts ...grpc.CallOption) (*GoodsReindexResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GoodsReindexResponse)
+	err := c.cc.Invoke(ctx, Goods_ReindexGoods_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -344,6 +380,9 @@ type GoodsServer interface {
 	DeleteGoods(context.Context, *DeleteGoodsInfo) (*emptypb.Empty, error)
 	UpdateGoods(context.Context, *CreateGoodsInfo) (*emptypb.Empty, error)
 	GetGoodsDetail(context.Context, *GoodInfoRequest) (*GoodsInfoResponse, error)
+	ListGoodsOutboxEvents(context.Context, *ListGoodsOutboxEventsRequest) (*ListGoodsOutboxEventsResponse, error)
+	ReplayGoodsOutbox(context.Context, *ListGoodsOutboxReplayRequest) (*ListGoodsOutboxReplayResponse, error)
+	ReindexGoods(context.Context, *GoodsReindexRequest) (*GoodsReindexResponse, error)
 	// 商品分类
 	GetAllCategorysList(context.Context, *emptypb.Empty) (*CategoryListResponse, error)
 	// 获取子分类
@@ -395,6 +434,15 @@ func (UnimplementedGoodsServer) UpdateGoods(context.Context, *CreateGoodsInfo) (
 }
 func (UnimplementedGoodsServer) GetGoodsDetail(context.Context, *GoodInfoRequest) (*GoodsInfoResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetGoodsDetail not implemented")
+}
+func (UnimplementedGoodsServer) ListGoodsOutboxEvents(context.Context, *ListGoodsOutboxEventsRequest) (*ListGoodsOutboxEventsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListGoodsOutboxEvents not implemented")
+}
+func (UnimplementedGoodsServer) ReplayGoodsOutbox(context.Context, *ListGoodsOutboxReplayRequest) (*ListGoodsOutboxReplayResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReplayGoodsOutbox not implemented")
+}
+func (UnimplementedGoodsServer) ReindexGoods(context.Context, *GoodsReindexRequest) (*GoodsReindexResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReindexGoods not implemented")
 }
 func (UnimplementedGoodsServer) GetAllCategorysList(context.Context, *emptypb.Empty) (*CategoryListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetAllCategorysList not implemented")
@@ -575,6 +623,60 @@ func _Goods_GetGoodsDetail_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(GoodsServer).GetGoodsDetail(ctx, req.(*GoodInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Goods_ListGoodsOutboxEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListGoodsOutboxEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GoodsServer).ListGoodsOutboxEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Goods_ListGoodsOutboxEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GoodsServer).ListGoodsOutboxEvents(ctx, req.(*ListGoodsOutboxEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Goods_ReplayGoodsOutbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListGoodsOutboxReplayRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GoodsServer).ReplayGoodsOutbox(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Goods_ReplayGoodsOutbox_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GoodsServer).ReplayGoodsOutbox(ctx, req.(*ListGoodsOutboxReplayRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Goods_ReindexGoods_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GoodsReindexRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GoodsServer).ReindexGoods(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Goods_ReindexGoods_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GoodsServer).ReindexGoods(ctx, req.(*GoodsReindexRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -933,6 +1035,18 @@ var Goods_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetGoodsDetail",
 			Handler:    _Goods_GetGoodsDetail_Handler,
+		},
+		{
+			MethodName: "ListGoodsOutboxEvents",
+			Handler:    _Goods_ListGoodsOutboxEvents_Handler,
+		},
+		{
+			MethodName: "ReplayGoodsOutbox",
+			Handler:    _Goods_ReplayGoodsOutbox_Handler,
+		},
+		{
+			MethodName: "ReindexGoods",
+			Handler:    _Goods_ReindexGoods_Handler,
 		},
 		{
 			MethodName: "GetAllCategorysList",
