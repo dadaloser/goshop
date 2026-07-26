@@ -33,22 +33,25 @@ type InventorySrv interface {
 	Adjust(ctx context.Context, inv *dto.InventoryDTO, audit *do.InventoryAdjustmentDO) error
 	ListAdjustments(ctx context.Context, goodsID uint64, page, pageSize int) ([]do.InventoryAdjustmentDO, int64, error)
 
-	//根据商品的id查询库存
+	// Get 根据商品的id查询库存
 	Get(ctx context.Context, goodsID uint64) (*dto.InventoryDTO, error)
 
-	//根据订单号查询库存预留记录
+	// GetOrderDetail 根据订单号查询库存预留记录
 	GetOrderDetail(ctx context.Context, orderSn string) (*do.StockSellDetailDO, error)
 
-	//扣减库存
+	// GetOrderFlow 根据订单号聚合库存预留、当前库存和调整流水
+	GetOrderFlow(ctx context.Context, orderSn string) (*do.OrderFlow, error)
+
+	// Sell 扣减库存
 	Sell(ctx context.Context, orderSn string, detail []do.GoodsDetail) error
 
-	//归还库存
+	// Reback 归还库存
 	Reback(ctx context.Context, orderSn string, detail []do.GoodsDetail) error
 
-	//支付成功确认库存
+	// Confirm 支付成功确认库存
 	Confirm(ctx context.Context, orderSn string, detail []do.GoodsDetail) error
 
-	//支付失败或关闭释放库存
+	// Release 支付失败或关闭释放库存
 	Release(ctx context.Context, orderSn string, detail []do.GoodsDetail) error
 }
 
@@ -113,6 +116,45 @@ func (is *inventoryService) GetOrderDetail(ctx context.Context, orderSn string) 
 		return nil, errors.WithCode(code2.ErrValidation, "order_sn不能为空")
 	}
 	return is.data.Inventories().GetSellDetail(ctx, nil, orderSn)
+}
+
+func (is *inventoryService) GetOrderFlow(ctx context.Context, orderSn string) (*do.OrderFlow, error) {
+	detail, err := is.GetOrderDetail(ctx, orderSn)
+	if err != nil {
+		return nil, err
+	}
+
+	goodsIDs := make([]uint64, 0, len(detail.Detail))
+	seen := make(map[int32]struct{}, len(detail.Detail))
+	for _, item := range detail.Detail {
+		if item.Goods <= 0 {
+			continue
+		}
+		if _, ok := seen[item.Goods]; ok {
+			continue
+		}
+		seen[item.Goods] = struct{}{}
+		goodsIDs = append(goodsIDs, uint64(item.Goods))
+	}
+
+	adjustments, err := is.data.Inventories().ListAdjustmentsByGoods(ctx, goodsIDs, 200)
+	if err != nil {
+		return nil, err
+	}
+	inventories := make([]do.InventoryDO, 0, len(goodsIDs))
+	for _, goodsID := range goodsIDs {
+		inv, err := is.data.Inventories().Get(ctx, goodsID)
+		if err != nil {
+			return nil, err
+		}
+		inventories = append(inventories, *inv)
+	}
+
+	return &do.OrderFlow{
+		SellDetail:  detail,
+		Adjustments: adjustments,
+		Inventories: inventories,
+	}, nil
 }
 
 func (is *inventoryService) Sell(ctx context.Context, ordersn string, details []do.GoodsDetail) error {
@@ -190,7 +232,7 @@ func (is *inventoryService) Reback(ctx context.Context, ordersn string, details 
 	defer unlockOrderMutex(mutex, ordersn)
 
 	return withTxnExecutor(is.beginTxn(), "release inventory", func(txn txExecutor) error {
-		sellDetail, err := is.data.Inventories().GetSellDetail(ctx, txn.DB(), ordersn)
+		sellDetail, err := is.data.Inventories().GetSellDetailForUpdate(ctx, txn.DB(), ordersn)
 		if err != nil {
 			if errors.IsCode(err, code.ErrInvSellDetailNotFound) {
 				detail := do.GoodsDetailList(details)
@@ -259,7 +301,7 @@ func (is *inventoryService) Confirm(ctx context.Context, ordersn string, details
 	defer unlockOrderMutex(mutex, ordersn)
 
 	return withTxnExecutor(is.beginTxn(), "confirm inventory", func(txn txExecutor) error {
-		sellDetail, err := is.data.Inventories().GetSellDetail(ctx, txn.DB(), ordersn)
+		sellDetail, err := is.data.Inventories().GetSellDetailForUpdate(ctx, txn.DB(), ordersn)
 		if err != nil {
 			log.Errorf("订单%s获取扣减库存记录失败", ordersn)
 			return err

@@ -157,6 +157,45 @@ func TestInventoryServiceGetOrderDetailDelegatesToStore(t *testing.T) {
 	}
 }
 
+func TestInventoryServiceGetOrderFlowAggregatesState(t *testing.T) {
+	srv := &inventoryService{
+		data: fakeInventoryDataFactory{
+			store: fakeInventoryStore{
+				getSellDetail: func(context.Context, *gorm.DB, string) (*do.StockSellDetailDO, error) {
+					return &do.StockSellDetailDO{
+						OrderSn: "order-1",
+						Status:  stockSellStatusReserved,
+						Detail:  do.GoodsDetailList{{Goods: 2, Num: 1}, {Goods: 1, Num: 2}},
+					}, nil
+				},
+				listAdjustmentsByGoods: func(context.Context, []uint64, int) ([]do.InventoryAdjustmentDO, error) {
+					return []do.InventoryAdjustmentDO{
+						{GoodsID: 1, CorrelationID: "corr-1"},
+						{GoodsID: 2, CorrelationID: "corr-2"},
+					}, nil
+				},
+				get: func(_ context.Context, goodsID uint64) (*do.InventoryDO, error) {
+					return &do.InventoryDO{Goods: int32(goodsID), Available: 3}, nil
+				},
+			},
+		},
+	}
+
+	flow, err := srv.GetOrderFlow(context.Background(), "order-1")
+	if err != nil {
+		t.Fatalf("GetOrderFlow() error = %v", err)
+	}
+	if flow == nil || flow.SellDetail == nil || flow.SellDetail.OrderSn != "order-1" {
+		t.Fatalf("GetOrderFlow() = %+v", flow)
+	}
+	if len(flow.Adjustments) != 2 {
+		t.Fatalf("GetOrderFlow() adjustments = %+v, want 2 items", flow.Adjustments)
+	}
+	if len(flow.Inventories) != 2 || flow.Inventories[0].Goods == 0 || flow.Inventories[1].Goods == 0 {
+		t.Fatalf("GetOrderFlow() inventories = %+v", flow.Inventories)
+	}
+}
+
 func TestConfirmMarksSellDetailConfirmed(t *testing.T) {
 	var gotStatus int32
 	var confirmed []do.GoodsDetail
@@ -539,6 +578,8 @@ type fakeInventoryStore struct {
 	create                 func(context.Context, *do.InventoryDO) error
 	get                    func(context.Context, uint64) (*do.InventoryDO, error)
 	getSellDetail          func(context.Context, *gorm.DB, string) (*do.StockSellDetailDO, error)
+	getSellDetailForUpdate func(context.Context, *gorm.DB, string) (*do.StockSellDetailDO, error)
+	listAdjustmentsByGoods func(context.Context, []uint64, int) ([]do.InventoryAdjustmentDO, error)
 	reduce                 func(context.Context, *gorm.DB, uint64, int) error
 	increase               func(context.Context, *gorm.DB, uint64, int) error
 	confirmSell            func(context.Context, *gorm.DB, uint64, int) error
@@ -560,6 +601,13 @@ func (f fakeInventoryStore) ListAdjustments(context.Context, uint64, int, int) (
 	return []do.InventoryAdjustmentDO{}, 0, nil
 }
 
+func (f fakeInventoryStore) ListAdjustmentsByGoods(ctx context.Context, goodsIDs []uint64, limit int) ([]do.InventoryAdjustmentDO, error) {
+	if f.listAdjustmentsByGoods != nil {
+		return f.listAdjustmentsByGoods(ctx, goodsIDs, limit)
+	}
+	return []do.InventoryAdjustmentDO{}, nil
+}
+
 func (f fakeInventoryStore) Get(ctx context.Context, goodsID uint64) (*do.InventoryDO, error) {
 	if f.get != nil {
 		return f.get(ctx, goodsID)
@@ -572,6 +620,13 @@ func (f fakeInventoryStore) GetSellDetail(ctx context.Context, txn *gorm.DB, ord
 		return f.getSellDetail(ctx, txn, ordersn)
 	}
 	return nil, errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+}
+
+func (f fakeInventoryStore) GetSellDetailForUpdate(ctx context.Context, txn *gorm.DB, ordersn string) (*do.StockSellDetailDO, error) {
+	if f.getSellDetailForUpdate != nil {
+		return f.getSellDetailForUpdate(ctx, txn, ordersn)
+	}
+	return f.GetSellDetail(ctx, txn, ordersn)
 }
 
 func (f fakeInventoryStore) Reduce(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {

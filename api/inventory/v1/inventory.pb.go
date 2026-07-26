@@ -455,13 +455,15 @@ func (x *OrderInfo) GetOrderSn() string {
 }
 
 type SellDetailInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	OrderSn       string                 `protobuf:"bytes,1,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
-	Status        int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
-	StatusName    string                 `protobuf:"bytes,3,opt,name=statusName,proto3" json:"statusName,omitempty"`
-	GoodsInfo     []*GoodsInvInfo        `protobuf:"bytes,4,rep,name=goodsInfo,proto3" json:"goodsInfo,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	OrderSn           string                 `protobuf:"bytes,1,opt,name=orderSn,proto3" json:"orderSn,omitempty"`
+	Status            int32                  `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	StatusName        string                 `protobuf:"bytes,3,opt,name=statusName,proto3" json:"statusName,omitempty"`
+	GoodsInfo         []*GoodsInvInfo        `protobuf:"bytes,4,rep,name=goodsInfo,proto3" json:"goodsInfo,omitempty"`
+	Adjustments       []*InventoryAdjustment `protobuf:"bytes,5,rep,name=adjustments,proto3" json:"adjustments,omitempty"`
+	InventorySnapshot []*GoodsInvInfo        `protobuf:"bytes,6,rep,name=inventorySnapshot,proto3" json:"inventorySnapshot,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *SellDetailInfo) Reset() {
@@ -522,6 +524,20 @@ func (x *SellDetailInfo) GetGoodsInfo() []*GoodsInvInfo {
 	return nil
 }
 
+func (x *SellDetailInfo) GetAdjustments() []*InventoryAdjustment {
+	if x != nil {
+		return x.Adjustments
+	}
+	return nil
+}
+
+func (x *SellDetailInfo) GetInventorySnapshot() []*GoodsInvInfo {
+	if x != nil {
+		return x.InventorySnapshot
+	}
+	return nil
+}
+
 var File_inventory_proto protoreflect.FileDescriptor
 
 const file_inventory_proto_rawDesc = "" +
@@ -560,14 +576,16 @@ const file_inventory_proto_rawDesc = "" +
 	"\tgoodsInfo\x18\x01 \x03(\v2\r.GoodsInvInfoR\tgoodsInfo\x12\x18\n" +
 	"\aorderSn\x18\x02 \x01(\tR\aorderSn\"%\n" +
 	"\tOrderInfo\x12\x18\n" +
-	"\aorderSn\x18\x01 \x01(\tR\aorderSn\"\x8f\x01\n" +
+	"\aorderSn\x18\x01 \x01(\tR\aorderSn\"\x84\x02\n" +
 	"\x0eSellDetailInfo\x12\x18\n" +
 	"\aorderSn\x18\x01 \x01(\tR\aorderSn\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\x05R\x06status\x12\x1e\n" +
 	"\n" +
 	"statusName\x18\x03 \x01(\tR\n" +
 	"statusName\x12+\n" +
-	"\tgoodsInfo\x18\x04 \x03(\v2\r.GoodsInvInfoR\tgoodsInfo2\xaa\x04\n" +
+	"\tgoodsInfo\x18\x04 \x03(\v2\r.GoodsInvInfoR\tgoodsInfo\x126\n" +
+	"\vadjustments\x18\x05 \x03(\v2\x14.InventoryAdjustmentR\vadjustments\x12;\n" +
+	"\x11inventorySnapshot\x18\x06 \x03(\v2\r.GoodsInvInfoR\x11inventorySnapshot2\xaa\x04\n" +
 	"\tInventory\x12/\n" +
 	"\x06SetInv\x12\r.GoodsInvInfo\x1a\x16.google.protobuf.Empty\x121\n" +
 	"\bSetStock\x12\r.GoodsInvInfo\x1a\x16.google.protobuf.Empty\x12)\n" +
@@ -609,33 +627,35 @@ var file_inventory_proto_depIdxs = []int32{
 	2,  // 0: InventoryAdjustmentListResponse.data:type_name -> InventoryAdjustment
 	0,  // 1: SellInfo.goodsInfo:type_name -> GoodsInvInfo
 	0,  // 2: SellDetailInfo.goodsInfo:type_name -> GoodsInvInfo
-	0,  // 3: Inventory.SetInv:input_type -> GoodsInvInfo
-	0,  // 4: Inventory.SetStock:input_type -> GoodsInvInfo
-	0,  // 5: Inventory.InvDetail:input_type -> GoodsInvInfo
-	0,  // 6: Inventory.GetStock:input_type -> GoodsInvInfo
-	5,  // 7: Inventory.GetSellDetail:input_type -> OrderInfo
-	4,  // 8: Inventory.Sell:input_type -> SellInfo
-	4,  // 9: Inventory.Reserve:input_type -> SellInfo
-	4,  // 10: Inventory.Reback:input_type -> SellInfo
-	4,  // 11: Inventory.Confirm:input_type -> SellInfo
-	4,  // 12: Inventory.Release:input_type -> SellInfo
-	1,  // 13: Inventory.ListAdjustments:input_type -> InventoryAdjustmentListRequest
-	7,  // 14: Inventory.SetInv:output_type -> google.protobuf.Empty
-	7,  // 15: Inventory.SetStock:output_type -> google.protobuf.Empty
-	0,  // 16: Inventory.InvDetail:output_type -> GoodsInvInfo
-	0,  // 17: Inventory.GetStock:output_type -> GoodsInvInfo
-	6,  // 18: Inventory.GetSellDetail:output_type -> SellDetailInfo
-	7,  // 19: Inventory.Sell:output_type -> google.protobuf.Empty
-	7,  // 20: Inventory.Reserve:output_type -> google.protobuf.Empty
-	7,  // 21: Inventory.Reback:output_type -> google.protobuf.Empty
-	7,  // 22: Inventory.Confirm:output_type -> google.protobuf.Empty
-	7,  // 23: Inventory.Release:output_type -> google.protobuf.Empty
-	3,  // 24: Inventory.ListAdjustments:output_type -> InventoryAdjustmentListResponse
-	14, // [14:25] is the sub-list for method output_type
-	3,  // [3:14] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	2,  // 3: SellDetailInfo.adjustments:type_name -> InventoryAdjustment
+	0,  // 4: SellDetailInfo.inventorySnapshot:type_name -> GoodsInvInfo
+	0,  // 5: Inventory.SetInv:input_type -> GoodsInvInfo
+	0,  // 6: Inventory.SetStock:input_type -> GoodsInvInfo
+	0,  // 7: Inventory.InvDetail:input_type -> GoodsInvInfo
+	0,  // 8: Inventory.GetStock:input_type -> GoodsInvInfo
+	5,  // 9: Inventory.GetSellDetail:input_type -> OrderInfo
+	4,  // 10: Inventory.Sell:input_type -> SellInfo
+	4,  // 11: Inventory.Reserve:input_type -> SellInfo
+	4,  // 12: Inventory.Reback:input_type -> SellInfo
+	4,  // 13: Inventory.Confirm:input_type -> SellInfo
+	4,  // 14: Inventory.Release:input_type -> SellInfo
+	1,  // 15: Inventory.ListAdjustments:input_type -> InventoryAdjustmentListRequest
+	7,  // 16: Inventory.SetInv:output_type -> google.protobuf.Empty
+	7,  // 17: Inventory.SetStock:output_type -> google.protobuf.Empty
+	0,  // 18: Inventory.InvDetail:output_type -> GoodsInvInfo
+	0,  // 19: Inventory.GetStock:output_type -> GoodsInvInfo
+	6,  // 20: Inventory.GetSellDetail:output_type -> SellDetailInfo
+	7,  // 21: Inventory.Sell:output_type -> google.protobuf.Empty
+	7,  // 22: Inventory.Reserve:output_type -> google.protobuf.Empty
+	7,  // 23: Inventory.Reback:output_type -> google.protobuf.Empty
+	7,  // 24: Inventory.Confirm:output_type -> google.protobuf.Empty
+	7,  // 25: Inventory.Release:output_type -> google.protobuf.Empty
+	3,  // 26: Inventory.ListAdjustments:output_type -> InventoryAdjustmentListResponse
+	16, // [16:27] is the sub-list for method output_type
+	5,  // [5:16] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_inventory_proto_init() }

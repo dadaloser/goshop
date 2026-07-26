@@ -12,12 +12,16 @@ type InventoryStore interface {
 	Create(ctx context.Context, inv *do.InventoryDO) error
 	Adjust(ctx context.Context, inv *do.InventoryDO, audit *do.InventoryAdjustmentDO) error
 	ListAdjustments(ctx context.Context, goodsID uint64, offset, limit int) ([]do.InventoryAdjustmentDO, int64, error)
+	ListAdjustmentsByGoods(ctx context.Context, goodsIDs []uint64, limit int) ([]do.InventoryAdjustmentDO, error)
 
 	//查询商品的库存信息
 	Get(ctx context.Context, goodsID uint64) (*do.InventoryDO, error)
 
 	//查询库存销售信息
 	GetSellDetail(ctx context.Context, txn *gorm.DB, ordersn string) (*do.StockSellDetailDO, error)
+
+	//查询库存销售信息并加锁，供终态迁移使用
+	GetSellDetailForUpdate(ctx context.Context, txn *gorm.DB, ordersn string) (*do.StockSellDetailDO, error)
 
 	//扣减库存
 	Reduce(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error

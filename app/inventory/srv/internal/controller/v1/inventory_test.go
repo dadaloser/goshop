@@ -105,13 +105,21 @@ func TestInventoryServerGetSellDetailReturnsStatusAndItems(t *testing.T) {
 	server := &inventoryServer{
 		srv: fakeServiceFactory{
 			inventory: fakeInventoryService{
-				getOrderDetail: func(context.Context, string) (*do.StockSellDetailDO, error) {
-					return &do.StockSellDetailDO{
-						OrderSn: "order-1",
-						Status:  3,
-						Detail: do.GoodsDetailList{
-							{Goods: 11, Num: 2},
-							{Goods: 12, Num: 1},
+				getOrderFlow: func(context.Context, string) (*do.OrderFlow, error) {
+					return &do.OrderFlow{
+						SellDetail: &do.StockSellDetailDO{
+							OrderSn: "order-1",
+							Status:  3,
+							Detail: do.GoodsDetailList{
+								{Goods: 11, Num: 2},
+								{Goods: 12, Num: 1},
+							},
+						},
+						Adjustments: []do.InventoryAdjustmentDO{
+							{GoodsID: 11, BeforeAvailable: 7, AfterAvailable: 5, CorrelationID: "corr-1"},
+						},
+						Inventories: []do.InventoryDO{
+							{Goods: 11, Stocks: 5, Total: 10, Available: 5, Locked: 3, Sold: 2},
 						},
 					}, nil
 				},
@@ -128,6 +136,12 @@ func TestInventoryServerGetSellDetailReturnsStatusAndItems(t *testing.T) {
 	}
 	if len(resp.GoodsInfo) != 2 || resp.GoodsInfo[0].GoodsId != 11 || resp.GoodsInfo[0].Num != 2 {
 		t.Fatalf("GetSellDetail() goods = %+v", resp.GoodsInfo)
+	}
+	if len(resp.Adjustments) != 1 || resp.Adjustments[0].CorrelationId != "corr-1" {
+		t.Fatalf("GetSellDetail() adjustments = %+v", resp.Adjustments)
+	}
+	if len(resp.InventorySnapshot) != 1 || resp.InventorySnapshot[0].GoodsId != 11 || resp.InventorySnapshot[0].Available != 5 {
+		t.Fatalf("GetSellDetail() inventory snapshot = %+v", resp.InventorySnapshot)
 	}
 }
 
@@ -203,6 +217,7 @@ type fakeInventoryService struct {
 	create         func(context.Context, *dto.InventoryDTO) error
 	get            func(context.Context, uint64) (*dto.InventoryDTO, error)
 	getOrderDetail func(context.Context, string) (*do.StockSellDetailDO, error)
+	getOrderFlow   func(context.Context, string) (*do.OrderFlow, error)
 	sell           func(context.Context, string, []do.GoodsDetail) error
 	reback         func(context.Context, string, []do.GoodsDetail) error
 	confirm        func(context.Context, string, []do.GoodsDetail) error
@@ -232,6 +247,20 @@ func (f fakeInventoryService) Get(ctx context.Context, goodsID uint64) (*dto.Inv
 func (f fakeInventoryService) GetOrderDetail(ctx context.Context, orderSn string) (*do.StockSellDetailDO, error) {
 	if f.getOrderDetail != nil {
 		return f.getOrderDetail(ctx, orderSn)
+	}
+	return nil, nil
+}
+
+func (f fakeInventoryService) GetOrderFlow(ctx context.Context, orderSn string) (*do.OrderFlow, error) {
+	if f.getOrderFlow != nil {
+		return f.getOrderFlow(ctx, orderSn)
+	}
+	if f.getOrderDetail != nil {
+		detail, err := f.getOrderDetail(ctx, orderSn)
+		if err != nil {
+			return nil, err
+		}
+		return &do.OrderFlow{SellDetail: detail}, nil
 	}
 	return nil, nil
 }

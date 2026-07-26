@@ -49,4 +49,6 @@ message SellDetailInfo {
     int32 status = 2;
     string statusName = 3;
     repeated GoodsInvInfo goodsInfo = 4;
+    repeated InventoryAdjustment adjustments = 5;
+    repeated GoodsInvInfo inventorySnapshot = 6;
 }

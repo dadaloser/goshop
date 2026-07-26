@@ -99,10 +99,11 @@ func (is *inventoryServer) GetSellDetail(ctx context.Context, info *invpb.OrderI
 		return nil, errors.WithCode(code2.ErrValidation, "inventory order request is required")
 	}
 
-	detail, err := is.srv.Inventory().GetOrderDetail(ctx, info.OrderSn)
+	flow, err := is.srv.Inventory().GetOrderFlow(ctx, info.OrderSn)
 	if err != nil {
 		return nil, err
 	}
+	detail := flow.SellDetail
 
 	resp := &invpb.SellDetailInfo{
 		OrderSn:    detail.OrderSn,
@@ -113,6 +114,29 @@ func (is *inventoryServer) GetSellDetail(ctx context.Context, info *invpb.OrderI
 		resp.GoodsInfo = append(resp.GoodsInfo, &invpb.GoodsInvInfo{
 			GoodsId: item.Goods,
 			Num:     item.Num,
+		})
+	}
+	for _, item := range flow.Adjustments {
+		resp.Adjustments = append(resp.Adjustments, &invpb.InventoryAdjustment{
+			Id:              int64(item.ID),
+			GoodsId:         item.GoodsID,
+			BeforeAvailable: item.BeforeAvailable,
+			AfterAvailable:  item.AfterAvailable,
+			ActorUserId:     item.ActorUserID,
+			CorrelationId:   item.CorrelationID,
+			RequestId:       item.RequestID,
+			Reason:          item.Reason,
+			CreatedAt:       item.CreatedAt.Unix(),
+		})
+	}
+	for _, item := range flow.Inventories {
+		resp.InventorySnapshot = append(resp.InventorySnapshot, &invpb.GoodsInvInfo{
+			GoodsId:   item.Goods,
+			Num:       item.Stocks,
+			Total:     item.Total,
+			Available: item.Available,
+			Locked:    item.Locked,
+			Sold:      item.Sold,
 		})
 	}
 	return resp, nil

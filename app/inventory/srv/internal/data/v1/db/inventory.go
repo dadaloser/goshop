@@ -69,6 +69,24 @@ func (i *inventorys) GetSellDetail(ctx context.Context, txn *gorm.DB, ordersn st
 	return &orderSellDetail, err
 }
 
+func (i *inventorys) GetSellDetailForUpdate(ctx context.Context, txn *gorm.DB, ordersn string) (*do.StockSellDetailDO, error) {
+	ordersn = strings.TrimSpace(ordersn)
+	if ordersn == "" {
+		return nil, errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+	}
+
+	db := inventoryDB(i.db, txn)
+	var orderSellDetail do.StockSellDetailDO
+	err := db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("order_sn = ?", ordersn).First(&orderSellDetail).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.WithCode(code.ErrInvSellDetailNotFound, err.Error())
+		}
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return &orderSellDetail, err
+}
+
 func (i *inventorys) Reduce(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {
 	if goodsID == 0 {
 		return errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
@@ -235,6 +253,24 @@ func (i *inventorys) ListAdjustments(ctx context.Context, goodsID uint64, offset
 		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
 	}
 	return items, total, nil
+}
+
+func (i *inventorys) ListAdjustmentsByGoods(ctx context.Context, goodsIDs []uint64, limit int) ([]do.InventoryAdjustmentDO, error) {
+	if len(goodsIDs) == 0 {
+		return []do.InventoryAdjustmentDO{}, nil
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	items := []do.InventoryAdjustmentDO{}
+	if err := i.db.WithContext(ctx).
+		Where("goods_id IN ?", goodsIDs).
+		Order("id DESC").
+		Limit(limit).
+		Find(&items).Error; err != nil {
+		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+	}
+	return items, nil
 }
 
 func (i *inventorys) Get(ctx context.Context, goodsID uint64) (*do.InventoryDO, error) {
