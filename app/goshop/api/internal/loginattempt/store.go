@@ -16,6 +16,7 @@ const (
 	defaultMaxFailures = 5
 	defaultWindow      = 15 * time.Minute
 	defaultLockTTL     = 15 * time.Minute
+	defaultIPFailures  = 20
 
 	failKeyPrefix = "login:fail:"
 	lockKeyPrefix = "login:lock:"
@@ -37,11 +38,28 @@ type RedisStore struct {
 }
 
 func NewRedisStore() *RedisStore {
+	return NewRedisStoreWithOptions(defaultMaxFailures, defaultWindow, defaultLockTTL)
+}
+
+func NewIPRedisStore() *RedisStore {
+	return NewRedisStoreWithOptions(defaultIPFailures, defaultWindow, defaultLockTTL)
+}
+
+func NewRedisStoreWithOptions(maxFailures int, window, lockTTL time.Duration) *RedisStore {
+	if maxFailures <= 0 {
+		maxFailures = defaultMaxFailures
+	}
+	if window <= 0 {
+		window = defaultWindow
+	}
+	if lockTTL <= 0 {
+		lockTTL = defaultLockTTL
+	}
 	return &RedisStore{
 		client:      &storage.RedisCluster{},
-		maxFailures: defaultMaxFailures,
-		window:      defaultWindow,
-		lockTTL:     defaultLockTTL,
+		maxFailures: maxFailures,
+		window:      window,
+		lockTTL:     lockTTL,
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	stderrors "errors"
+	"net"
 	"strings"
 	"time"
 
@@ -102,7 +103,8 @@ type userService struct {
 
 	codeStore smscode.Store
 
-	loginAttempts loginattempt.Store
+	loginAttempts   loginattempt.Store
+	loginIPAttempts loginattempt.Store
 
 	smsAttempts smsattempt.Store
 
@@ -111,7 +113,20 @@ type userService struct {
 }
 
 func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) UserSrv {
-	return &userService{data: data, jwtOpts: jwtOpts, codeStore: codeStore, loginAttempts: loginAttempts, smsAttempts: smsAttempts, tokenVersions: tokenVersions, emailCodes: emailcode.NewRedisStore()}
+	return NewUserServiceWithIPAttempts(data, jwtOpts, codeStore, loginAttempts, loginattempt.NewIPRedisStore(), smsAttempts, tokenVersions)
+}
+
+func NewUserServiceWithIPAttempts(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts, loginIPAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) UserSrv {
+	return &userService{
+		data:            data,
+		jwtOpts:         jwtOpts,
+		codeStore:       codeStore,
+		loginAttempts:   loginAttempts,
+		loginIPAttempts: loginIPAttempts,
+		smsAttempts:     smsAttempts,
+		tokenVersions:   tokenVersions,
+		emailCodes:      emailcode.NewRedisStore(),
+	}
 }
 
 func (us *userService) EmailLogin(ctx context.Context, email, verificationCode string) (*UserDTO, error) {
@@ -165,18 +180,19 @@ func (us *userService) EmailRegister(ctx context.Context, mobile, email, usernam
 
 func (us *userService) PasswordLogin(ctx context.Context, username, password string) (*UserDTO, error) {
 	username = normalizeLoginIdentifier(username)
+	clientIP := loginClientIP(ctx)
 	users, err := us.usersData()
 	if err != nil {
 		return nil, err
 	}
-	if err := us.ensurePasswordLoginAllowed(ctx, username); err != nil {
+	if err := us.ensurePasswordLoginAllowed(ctx, username, clientIP); err != nil {
 		return nil, err
 	}
 
 	user, err := users.GetAuthByUsername(ctx, username)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserNotFound) {
-			if lockedErr := us.recordPasswordLoginFailure(ctx, username); lockedErr != nil {
+			if lockedErr := us.recordPasswordLoginFailure(ctx, username, clientIP); lockedErr != nil {
 				return nil, lockedErr
 			}
 			return nil, errors.WithCode(code.ErrUserPasswordIncorrect, "手机号或密码错误")
@@ -188,7 +204,7 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 	err = users.CheckPassWord(ctx, password, user.PasswordHash)
 	if err != nil {
 		if errors.IsCode(err, code.ErrUserPasswordIncorrect) {
-			if lockedErr := us.recordPasswordLoginFailure(ctx, username); lockedErr != nil {
+			if lockedErr := us.recordPasswordLoginFailure(ctx, username, clientIP); lockedErr != nil {
 				return nil, lockedErr
 			}
 			return nil, errors.WithCode(code.ErrUserPasswordIncorrect, "手机号或密码错误")
@@ -196,7 +212,7 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 		return nil, err
 	}
 
-	us.resetPasswordLoginFailures(ctx, username)
+	us.resetPasswordLoginFailures(ctx, username, clientIP)
 
 	token, expiresAt, refreshToken, refreshExpiresAt, sessionID, err := us.createToken(ctx, user)
 	if err != nil {
@@ -610,9 +626,9 @@ func isContextError(err error) bool {
 	return stderrors.Is(err, context.Canceled) || stderrors.Is(err, context.DeadlineExceeded)
 }
 
-func (us *userService) ensurePasswordLoginAllowed(ctx context.Context, username string) error {
+func (us *userService) ensurePasswordLoginAllowed(ctx context.Context, username, clientIP string) error {
 	if us == nil || us.loginAttempts == nil {
-		return nil
+		return us.ensurePasswordLoginIPAllowed(ctx, clientIP)
 	}
 
 	locked, err := us.loginAttempts.IsLocked(ctx, username)
@@ -623,17 +639,17 @@ func (us *userService) ensurePasswordLoginAllowed(ctx context.Context, username 
 	if locked {
 		return errors.WithCode(code.ErrUserLoginLocked, "登录失败次数过多，请稍后重试")
 	}
-	return nil
+	return us.ensurePasswordLoginIPAllowed(ctx, clientIP)
 }
 
-func (us *userService) recordPasswordLoginFailure(ctx context.Context, username string) error {
-	if us == nil || us.loginAttempts == nil {
+func (us *userService) ensurePasswordLoginIPAllowed(ctx context.Context, clientIP string) error {
+	if strings.TrimSpace(clientIP) == "" || us == nil || us.loginIPAttempts == nil {
 		return nil
 	}
 
-	locked, err := us.loginAttempts.RecordFailure(ctx, username)
+	locked, err := us.loginIPAttempts.IsLocked(ctx, clientIP)
 	if err != nil {
-		log.Errorf("record password login failure failed: %v", err)
+		log.Errorf("check password login attempts by ip failed: %v", err)
 		return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
 	}
 	if locked {
@@ -642,13 +658,48 @@ func (us *userService) recordPasswordLoginFailure(ctx context.Context, username 
 	return nil
 }
 
-func (us *userService) resetPasswordLoginFailures(ctx context.Context, username string) {
-	if us == nil || us.loginAttempts == nil {
+func (us *userService) recordPasswordLoginFailure(ctx context.Context, username, clientIP string) error {
+	if us == nil {
+		return nil
+	}
+
+	locked := false
+	if us.loginAttempts != nil {
+		accountLocked, err := us.loginAttempts.RecordFailure(ctx, username)
+		if err != nil {
+			log.Errorf("record password login failure failed: %v", err)
+			return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
+		}
+		locked = locked || accountLocked
+	}
+	if strings.TrimSpace(clientIP) != "" && us.loginIPAttempts != nil {
+		ipLocked, err := us.loginIPAttempts.RecordFailure(ctx, clientIP)
+		if err != nil {
+			log.Errorf("record password login failure by ip failed: %v", err)
+			return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
+		}
+		locked = locked || ipLocked
+	}
+	if locked {
+		return errors.WithCode(code.ErrUserLoginLocked, "登录失败次数过多，请稍后重试")
+	}
+	return nil
+}
+
+func (us *userService) resetPasswordLoginFailures(ctx context.Context, username, clientIP string) {
+	if us == nil {
 		return
 	}
 
-	if err := us.loginAttempts.Reset(ctx, username); err != nil {
-		log.Warnf("reset password login failures failed: %v", err)
+	if us.loginAttempts != nil {
+		if err := us.loginAttempts.Reset(ctx, username); err != nil {
+			log.Warnf("reset password login failures failed: %v", err)
+		}
+	}
+	if strings.TrimSpace(clientIP) != "" && us.loginIPAttempts != nil {
+		if err := us.loginIPAttempts.Reset(ctx, clientIP); err != nil {
+			log.Warnf("reset password login failures by ip failed: %v", err)
+		}
 	}
 }
 
@@ -696,6 +747,39 @@ func (us *userService) resetSmsCodeFailures(ctx context.Context, mobile string, 
 
 func normalizeLoginIdentifier(username string) string {
 	return strings.ToLower(strings.TrimSpace(username))
+}
+
+func loginClientIP(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if provider, ok := ctx.(interface{ ClientIP() string }); ok {
+		return normalizeClientIP(provider.ClientIP())
+	}
+	if provider, ok := ctx.(interface{ GetHeader(string) string }); ok {
+		if forwarded := strings.TrimSpace(provider.GetHeader("X-Forwarded-For")); forwarded != "" {
+			parts := strings.Split(forwarded, ",")
+			if len(parts) > 0 {
+				return normalizeClientIP(parts[0])
+			}
+		}
+		return normalizeClientIP(provider.GetHeader("X-Real-IP"))
+	}
+	return ""
+}
+
+func normalizeClientIP(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if host, _, err := net.SplitHostPort(raw); err == nil {
+		raw = host
+	}
+	if ip := net.ParseIP(raw); ip != nil {
+		return ip.String()
+	}
+	return ""
 }
 
 var _ UserSrv = &userService{}

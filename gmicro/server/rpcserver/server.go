@@ -93,7 +93,8 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 		applyServerTLSConfig(srv, tlsConfig)
 	}
 
-	//TODO 我们现在希望用户不设置拦截器的情况下，我们会自动默认加上一些必须的拦截器， crash，tracing
+	// Always install crash/error interceptors first so callers inherit a safe
+	// baseline even when they do not configure custom interceptors.
 	unaryInts := []grpc.UnaryServerInterceptor{
 		srvintc.UnaryCrashInterceptor,
 		srvintc.UnaryErrorInterceptor,

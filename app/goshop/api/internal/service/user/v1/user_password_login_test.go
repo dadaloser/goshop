@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/errors"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestPasswordLoginRejectsLockedIdentifierBeforeLookup(t *testing.T) {
@@ -27,6 +30,28 @@ func TestPasswordLoginRejectsLockedIdentifierBeforeLookup(t *testing.T) {
 	if users.getByUsernameCalled {
 		t.Fatal("PasswordLogin() queried user store for locked identifier")
 	}
+	if attempts.lockedIdentifier != "user@example.com" {
+		t.Fatalf("IsLocked() identifier = %q, want %q", attempts.lockedIdentifier, "user@example.com")
+	}
+}
+
+func TestPasswordLoginRejectsLockedIPBeforeLookup(t *testing.T) {
+	users := &fakeUserData{}
+	accountAttempts := &fakeLoginAttempts{}
+	ipAttempts := &fakeLoginAttempts{locked: true}
+	svc := newPasswordLoginTestServiceWithIPStore(users, accountAttempts, ipAttempts)
+
+	_, err := svc.PasswordLogin(newClientIPContext("203.0.113.10"), "user@example.com", "secret")
+
+	if !errors.IsCode(err, code.ErrUserLoginLocked) {
+		t.Fatalf("PasswordLogin() error = %v, want ErrUserLoginLocked", err)
+	}
+	if users.getByUsernameCalled {
+		t.Fatal("PasswordLogin() queried user store for ip-locked request")
+	}
+	if ipAttempts.lockedIdentifier != "203.0.113.10" {
+		t.Fatalf("IsLocked() ip = %q, want %q", ipAttempts.lockedIdentifier, "203.0.113.10")
+	}
 }
 
 func TestPasswordLoginRecordsFailureForMissingUser(t *testing.T) {
@@ -34,15 +59,19 @@ func TestPasswordLoginRecordsFailureForMissingUser(t *testing.T) {
 		getByUsernameErr: errors.WithCode(code.ErrUserNotFound, "not found"),
 	}
 	attempts := &fakeLoginAttempts{}
-	svc := newPasswordLoginTestService(users, attempts)
+	ipAttempts := &fakeLoginAttempts{}
+	svc := newPasswordLoginTestServiceWithIPStore(users, attempts, ipAttempts)
 
-	_, err := svc.PasswordLogin(context.Background(), " USER@example.COM ", "secret")
+	_, err := svc.PasswordLogin(newClientIPContext("198.51.100.7"), " USER@example.COM ", "secret")
 
 	if !errors.IsCode(err, code.ErrUserPasswordIncorrect) {
 		t.Fatalf("PasswordLogin() error = %v, want ErrUserPasswordIncorrect", err)
 	}
 	if attempts.recordIdentifier != "user@example.com" {
 		t.Fatalf("recorded identifier = %q, want user@example.com", attempts.recordIdentifier)
+	}
+	if ipAttempts.recordIdentifier != "198.51.100.7" {
+		t.Fatalf("recorded ip = %q, want %q", ipAttempts.recordIdentifier, "198.51.100.7")
 	}
 }
 
@@ -81,9 +110,10 @@ func TestPasswordLoginResetsFailuresOnSuccess(t *testing.T) {
 		},
 	}
 	attempts := &fakeLoginAttempts{}
-	svc := newPasswordLoginTestService(users, attempts)
+	ipAttempts := &fakeLoginAttempts{}
+	svc := newPasswordLoginTestServiceWithIPStore(users, attempts, ipAttempts)
 
-	got, err := svc.PasswordLogin(context.Background(), " USER_001 ", "secret")
+	got, err := svc.PasswordLogin(newClientIPContext("192.0.2.44"), " USER_001 ", "secret")
 
 	if err != nil {
 		t.Fatalf("PasswordLogin() error = %v", err)
@@ -109,6 +139,9 @@ func TestPasswordLoginResetsFailuresOnSuccess(t *testing.T) {
 	}
 	if attempts.resetIdentifier != "user_001" {
 		t.Fatalf("reset identifier = %q, want user_001", attempts.resetIdentifier)
+	}
+	if ipAttempts.resetIdentifier != "192.0.2.44" {
+		t.Fatalf("reset ip = %q, want %q", ipAttempts.resetIdentifier, "192.0.2.44")
 	}
 }
 
@@ -159,7 +192,11 @@ func containsScope(scopes []string, permission authz.Permission) bool {
 }
 
 func newPasswordLoginTestService(users *fakeUserData, attempts *fakeLoginAttempts) UserSrv {
-	return NewUserService(
+	return newPasswordLoginTestServiceWithIPStore(users, attempts, &fakeLoginAttempts{})
+}
+
+func newPasswordLoginTestServiceWithIPStore(users *fakeUserData, attempts, ipAttempts *fakeLoginAttempts) UserSrv {
+	return NewUserServiceWithIPAttempts(
 		&fakeDataFactory{users: users},
 		&options.JwtOptions{
 			Realm:      "test",
@@ -169,9 +206,20 @@ func newPasswordLoginTestService(users *fakeUserData, attempts *fakeLoginAttempt
 		},
 		nil,
 		attempts,
+		ipAttempts,
 		nil,
 		nil,
 	)
+}
+
+func newClientIPContext(ip string) *gin.Context {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	req := httptest.NewRequest("POST", "/login", nil)
+	req.RemoteAddr = ip + ":12345"
+	ctx.Request = req
+	return ctx
 }
 
 type fakeDataFactory struct {
@@ -273,11 +321,13 @@ func (f *fakeUserData) CheckPassWord(context.Context, string, string) error {
 type fakeLoginAttempts struct {
 	locked           bool
 	recordLocked     bool
+	lockedIdentifier string
 	recordIdentifier string
 	resetIdentifier  string
 }
 
-func (f *fakeLoginAttempts) IsLocked(context.Context, string) (bool, error) {
+func (f *fakeLoginAttempts) IsLocked(_ context.Context, identifier string) (bool, error) {
+	f.lockedIdentifier = identifier
 	return f.locked, nil
 }
 

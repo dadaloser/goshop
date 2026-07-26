@@ -1,6 +1,8 @@
 package middlewares
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,9 +15,22 @@ const (
 // 为每个请求添加上下文, django
 func Context() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		//TODO 大家自己去扩展
-		//c.Set(UsernameKey, c.Request.Context().Value(UsernameKey))
-		//c.Set(KeyUserID, c.Request.Context().Value(KeyUserID))
+		if c == nil {
+			return
+		}
+		if userIP := strings.TrimSpace(c.ClientIP()); userIP != "" {
+			c.Set(UserIP, userIP)
+		}
+		if value := c.Request.Context().Value(UsernameKey); value != nil {
+			if _, exists := c.Get(UsernameKey); !exists {
+				c.Set(UsernameKey, value)
+			}
+		}
+		if value := c.Request.Context().Value(KeyUserID); value != nil {
+			if _, exists := c.Get(KeyUserID); !exists {
+				c.Set(KeyUserID, value)
+			}
+		}
 
 		c.Next()
 	}

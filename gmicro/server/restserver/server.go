@@ -238,7 +238,8 @@ func (s *Server) Start(ctx context.Context) error {
 		log.Infof("%-6s %-s --> %s(%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
-	//TODO 初始化翻译器
+	// Initialize the configured translator before validators and routes start
+	// using it so startup fails fast on invalid i18n configuration.
 	err := s.initTrans(s.transName)
 	if err != nil {
 		log.Errorf("initTrans error %s", err.Error())

@@ -56,7 +56,8 @@ func startAgent(o Options) error {
 		trace.WithResource(resource.NewSchemaless(semconv.ServiceNameKey.String(o.Name))),
 	}
 
-	//todo:注意检查zipkin和jaeger的endpoint格式，是否需要协议头，是否需要指定URL路径等
+	// validateEndpoint and exporterOptions normalize host-only and URL-style
+	// OTLP endpoints so startup fails fast on malformed collector addresses.
 	if len(o.Endpoint) > 0 {
 		if err := validateEndpoint(o.Endpoint); err != nil {
 			return err

@@ -33,7 +33,8 @@ type service struct {
 
 	codeStore smscode.Store
 
-	loginAttempts loginattempt.Store
+	loginAttempts   loginattempt.Store
+	loginIPAttempts loginattempt.Store
 
 	smsAttempts smsattempt.Store
 
@@ -73,17 +74,18 @@ func (s *service) Users() vUser.UserSrv {
 	if s == nil {
 		return vUser.NewUserService(nil, nil, nil, nil, nil, nil)
 	}
-	return vUser.NewUserService(s.data, s.jwtOpts, s.codeStore, s.loginAttempts, s.smsAttempts, s.tokenVersions)
+	return vUser.NewUserServiceWithIPAttempts(s.data, s.jwtOpts, s.codeStore, s.loginAttempts, s.loginIPAttempts, s.smsAttempts, s.tokenVersions)
 }
 
 func NewService(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) *service {
 	return &service{data: store,
-		smsOpts:       smsOpts,
-		jwtOpts:       jwtOpts,
-		codeStore:     codeStore,
-		loginAttempts: loginAttempts,
-		smsAttempts:   smsAttempts,
-		tokenVersions: tokenVersions,
+		smsOpts:         smsOpts,
+		jwtOpts:         jwtOpts,
+		codeStore:       codeStore,
+		loginAttempts:   loginAttempts,
+		loginIPAttempts: loginattempt.NewIPRedisStore(),
+		smsAttempts:     smsAttempts,
+		tokenVersions:   tokenVersions,
 	}
 }
 

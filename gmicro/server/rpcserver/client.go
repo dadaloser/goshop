@@ -233,7 +233,8 @@ func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.Clien
 		grpcOpts = append(grpcOpts, grpc.WithStatsHandler(otelgrpc.NewClientHandler())) // OpenTelemetry 的 StatsHandler 在这里，作为独立的 DialOption
 	}
 
-	//TODO 服务发现的选项
+	// Register the discovery resolver only when a registry-backed client is
+	// requested. Direct endpoint dialing keeps the default resolver stack.
 	if options.discovery != nil {
 		grpcOpts = append(grpcOpts, grpc.WithResolvers(
 			discovery.NewBuilder(
