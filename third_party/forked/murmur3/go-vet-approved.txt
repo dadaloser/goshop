@@ -1,0 +1,5 @@
+# Approved go vet exceptions for the reviewed murmur3 fork.
+# The package intentionally uses unsafe.Pointer in its hot path and is isolated
+# from first-party vet gating by scripts/go-vet-check.sh.
+third_party/forked/murmur3/murmur32.go:130:20: possible misuse of unsafe.Pointer
+third_party/forked/murmur3/murmur32_legacy.go:117:20: possible misuse of unsafe.Pointer

@@ -4,6 +4,9 @@
 .DS_Store
 /docs/*
 !/docs/dependency-resilience.md
+!/docs/database-initialization.md
+!/docs/records/
+!/docs/records/2026-07-27-schema-integration.md
 /docs/rules/
 /docs/rules/*.md
 /cache/
