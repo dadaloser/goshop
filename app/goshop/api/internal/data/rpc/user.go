@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"crypto/sha256"
+	"goshop/app/pkg/authz"
 	"goshop/app/pkg/code"
 	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"

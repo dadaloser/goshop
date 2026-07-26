@@ -373,10 +373,14 @@ func TestUserService_ReplaceResourceScopesValidatesDomainDimensions(t *testing.T
 		t.Fatalf("ReplaceResourceScopes() catalog team-only error = %v, want ErrValidation", err)
 	}
 
-	if _, err := svc.ReplaceResourceScopes(context.Background(), 7, []ResourceScopeDTO{
+	opsStoreScopes, err := svc.ReplaceResourceScopes(context.Background(), 7, []ResourceScopeDTO{
 		{Domain: string(authz.BusinessDomainOps), StoreID: "store-a"},
-	}); !errors.IsCode(err, code2.ErrValidation) {
-		t.Fatalf("ReplaceResourceScopes() ops store-only error = %v, want ErrValidation", err)
+	})
+	if err != nil {
+		t.Fatalf("ReplaceResourceScopes() ops store-only error = %v, want nil", err)
+	}
+	if len(opsStoreScopes) != 1 {
+		t.Fatalf("len(ReplaceResourceScopes() ops store-only) = %d, want 1", len(opsStoreScopes))
 	}
 
 	if _, err := svc.ReplaceResourceScopes(context.Background(), 7, []ResourceScopeDTO{

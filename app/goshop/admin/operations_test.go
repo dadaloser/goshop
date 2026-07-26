@@ -20,11 +20,11 @@ func TestRequireResourceScopeRejectsCrossDomainAndStore(t *testing.T) {
 	}{
 		{name: "allowed catalog store", domain: "catalog", store: "store-a", claims: map[string]any{"resource_domains": []string{"catalog"}, "resource_stores": []string{"store-a"}}, want: http.StatusNoContent},
 		{name: "cross domain", domain: "operations", store: "store-a", claims: map[string]any{"resource_domains": []string{"catalog"}, "resource_stores": []string{"store-a"}}, want: http.StatusForbidden},
-		{name: "cross store", domain: "catalog", store: "store-b", claims: map[string]any{"resource_domains": []string{"catalog"}, "resource_stores": []string{"store-a"}}, want: http.StatusForbidden},
-		{name: "catalog requires store", domain: "catalog", claims: map[string]any{"resource_domains": []string{"catalog"}}, want: http.StatusForbidden},
-		{name: "ops requires team", domain: "operations", team: "warehouse-a", claims: map[string]any{"resource_domains": []string{"operations"}, "resource_teams": []string{"warehouse-a"}}, want: http.StatusNoContent},
-		{name: "ops rejects store shape", domain: "operations", store: "store-a", claims: map[string]any{"resource_domains": []string{"operations"}, "resource_stores": []string{"store-a"}}, want: http.StatusForbidden},
-		{name: "platform rejects store shape", domain: "platform", store: "store-a", claims: map[string]any{"resource_domains": []string{"platform"}}, want: http.StatusForbidden},
+		{name: "cross store deferred to resource resolver", domain: "catalog", store: "store-b", claims: map[string]any{"resource_domains": []string{"catalog"}, "resource_stores": []string{"store-a"}}, want: http.StatusNoContent},
+		{name: "catalog without concrete store deferred to resource resolver", domain: "catalog", claims: map[string]any{"resource_domains": []string{"catalog"}}, want: http.StatusNoContent},
+		{name: "ops allows domain access with team", domain: "operations", team: "warehouse-a", claims: map[string]any{"resource_domains": []string{"operations"}, "resource_teams": []string{"warehouse-a"}}, want: http.StatusNoContent},
+		{name: "ops allows domain access with store", domain: "operations", store: "store-a", claims: map[string]any{"resource_domains": []string{"operations"}, "resource_stores": []string{"store-a"}}, want: http.StatusNoContent},
+		{name: "platform defers concrete resource validation", domain: "platform", store: "store-a", claims: map[string]any{"resource_domains": []string{"platform"}}, want: http.StatusNoContent},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

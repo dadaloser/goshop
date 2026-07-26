@@ -54,6 +54,23 @@ func (s *ReviewHttpServer) AppendReview_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *ReviewHttpServer) GetReview_0(c *gin.Context) {
+	var in GetReviewRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.GetReview(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *ReviewHttpServer) ListReviews_0(c *gin.Context) {
 	var in ListReviewsRequest
 
@@ -144,6 +161,8 @@ func (s *ReviewHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.CreateReview_0)
 
 	s.router.Handle("POST", "", s.AppendReview_0)
+
+	s.router.Handle("POST", "", s.GetReview_0)
 
 	s.router.Handle("POST", "", s.ListReviews_0)
 

@@ -14,6 +14,7 @@ type GoodsInfo struct {
 	Name            string
 	ShopPriceFen    int64
 	GoodsFrontImage string
+	StoreID         string
 }
 
 type GoodsGateway interface {
@@ -60,6 +61,7 @@ func (g *goodsRPCGateway) BatchGetGoods(ctx context.Context, ids []int32) (map[i
 			Name:            item.Name,
 			ShopPriceFen:    item.ShopPriceFen,
 			GoodsFrontImage: item.GoodsFrontImage,
+			StoreID:         item.StoreId,
 		}
 	}
 	return goods, nil

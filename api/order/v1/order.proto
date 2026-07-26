@@ -146,6 +146,7 @@ message OrderInfoResponse {
     string tradeNo = 12;
     int64 payTime = 13;
     int64 totalFen = 14;
+    string storeId = 15;
 }
 
 message ShopCartInfoResponse {

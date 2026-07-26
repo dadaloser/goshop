@@ -305,6 +305,7 @@ func validGoodsDTO() *dto.GoodsDTO {
 			BrandsID:        1,
 			Name:            "goods",
 			GoodsSn:         "goods-sn",
+			StoreID:         "store-a",
 			MarketPriceFen:  1000,
 			ShopPriceFen:    800,
 			GoodsBrief:      "brief",

@@ -300,6 +300,7 @@ func orderToResponse(order *dto.OrderDTO) *pb.OrderInfoResponse {
 		AddTime:  order.CreatedAt.Format("2006-01-02 15:04:05"),
 		TradeNo:  order.TradeNo,
 		PayTime:  payTime,
+		StoreId:  order.StoreID,
 	}
 }
 

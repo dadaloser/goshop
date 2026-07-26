@@ -32,6 +32,7 @@ type OrderInfoDO struct {
 	Status        string     `gorm:"type:varchar(20)  comment 'PAYING(待支付), TRADE_SUCCESS(成功)， TRADE_CLOSED(超时关闭), WAIT_BUYER_PAY(交易创建), TRADE_FINISHED(交易结束)'"`
 	TradeNo       string     `gorm:"type:varchar(100) comment '交易号'"` //交易号就是支付宝的订单号 查账
 	OrderMountFen int64      `gorm:"type:bigint;not null;default:0"`
+	StoreID       string     `gorm:"column:store_id;type:varchar(64);not null;default:'';index"`
 	PayTime       *time.Time `gorm:"type:datetime"`
 
 	Address      string `gorm:"type:varchar(100)"`

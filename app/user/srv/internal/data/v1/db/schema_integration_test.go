@@ -138,6 +138,7 @@ func prepareUserSchemaMigrations(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
 	dropStatements := []string{
+		"DROP TABLE IF EXISTS `break_glass_approvals`",
 		"DROP TABLE IF EXISTS `user_resource_scopes`",
 		"DROP TABLE IF EXISTS `verification_codes`",
 		"DROP TABLE IF EXISTS `user_sessions`",
@@ -170,6 +171,7 @@ func prepareUserSchemaMigrations(t *testing.T, db *gorm.DB) {
 				strings.Contains(statement, "ALTER TABLE `admin_audit_logs`")
 		},
 	)
+	applyMigrationFile(t, db, filepath.Join(migrationRoot(t), "migrations/202607250001_auth_resource_scope_staff_sessions_break_glass.up.sql"))
 }
 
 func userMigrationFiles(t *testing.T) []string {

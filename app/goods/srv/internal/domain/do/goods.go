@@ -53,6 +53,7 @@ type GoodsDO struct {
 	GoodsSn         string   `gorm:"type:varchar(50);not null"`
 	SPUCode         string   `gorm:"column:spu_code;type:varchar(64);not null;index"`
 	SKUCode         string   `gorm:"column:sku_code;type:varchar(64);not null;uniqueIndex"`
+	StoreID         string   `gorm:"column:store_id;type:varchar(64);not null;default:'';index"`
 	ClickNum        int32    `gorm:"type:int;default:0;not null"`
 	SoldNum         int32    `gorm:"type:int;default:0;not null"`
 	FavNum          int32    `gorm:"type:int;default:0;not null"`

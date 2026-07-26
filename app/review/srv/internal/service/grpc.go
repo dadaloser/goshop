@@ -26,6 +26,10 @@ func (s *GRPCServer) AppendReview(ctx context.Context, r *rpb.AppendReviewReques
 	v, e := s.svc.Append(ctx, r.GetUserId(), uint64(r.GetReviewId()), r.GetContent())
 	return reviewResponse(v), grpcError(e)
 }
+func (s *GRPCServer) GetReview(ctx context.Context, r *rpb.GetReviewRequest) (*rpb.ReviewResponse, error) {
+	v, e := s.svc.repo.Get(ctx, uint64(r.GetReviewId()))
+	return reviewResponse(v), grpcError(e)
+}
 func (s *GRPCServer) ModerateReview(ctx context.Context, r *rpb.ModerateReviewRequest) (*rpb.ReviewResponse, error) {
 	v, e := s.svc.Moderate(ctx, uint64(r.GetReviewId()), r.GetDecision(), r.GetActorUserId(), r.GetRequestId(), r.GetReason())
 	return reviewResponse(v), grpcError(e)

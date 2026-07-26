@@ -222,8 +222,18 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 
 	//生成订单总金额
 	var orderAmountFen money.Fen
+	var storeID string
 	for _, value := range order.OrderGoods {
 		goodsInfo := goodsMap[value.Goods]
+		currentStoreID := strings.TrimSpace(goodsInfo.StoreID)
+		if currentStoreID == "" {
+			return errors.WithCode(code.ErrGoodsNotFound, "商品缺少归属门店")
+		}
+		if storeID == "" {
+			storeID = currentStoreID
+		} else if storeID != currentStoreID {
+			return errors.WithCode(code.ErrSubmitOrder, "订单商品必须属于同一门店")
+		}
 		goodsPriceFen := money.NewFen(goodsInfo.ShopPriceFen)
 		lineAmountFen, err := goodsPriceFen.Multiply(int64(value.Nums))
 		if err != nil {
@@ -238,6 +248,7 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 		value.GoodsImage = goodsInfo.GoodsFrontImage
 	}
 	order.OrderMountFen = orderAmountFen.Int64()
+	order.StoreID = storeID
 
 	txn := os.data.Begin() //开启事务
 	if txn == nil {
@@ -323,6 +334,11 @@ func sameCreateOrder(existing *do.OrderInfoDO, incoming *dto.OrderDTO) bool {
 		return false
 	}
 	if strings.TrimSpace(existing.Post) != strings.TrimSpace(incoming.Post) {
+		return false
+	}
+	if strings.TrimSpace(existing.StoreID) != "" &&
+		strings.TrimSpace(incoming.StoreID) != "" &&
+		strings.TrimSpace(existing.StoreID) != strings.TrimSpace(incoming.StoreID) {
 		return false
 	}
 	return sameOrderGoods(existing.OrderGoods, incoming.OrderGoods)

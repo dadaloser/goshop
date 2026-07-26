@@ -81,8 +81,6 @@ func ResourceScopeDimensionForDomain(domain BusinessDomain) ResourceScopeDimensi
 	switch domain {
 	case BusinessDomainPlatform:
 		return ResourceScopeDimensionNone
-	case BusinessDomainOps:
-		return ResourceScopeDimensionTeam
 	default:
 		return ResourceScopeDimensionStore
 	}
@@ -100,6 +98,9 @@ func ResourceScopeMatchesDomain(
 	case ResourceScopeDimensionNone:
 		return storeID == "" && teamID == ""
 	case ResourceScopeDimensionStore:
+		if domain == BusinessDomainOps {
+			return (storeID != "" && teamID == "") || (storeID == "" && teamID != "")
+		}
 		return storeID != "" && teamID == ""
 	case ResourceScopeDimensionTeam:
 		return storeID == "" && teamID != ""

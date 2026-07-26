@@ -179,7 +179,8 @@ func TestResourceScopeMatchesDomain(t *testing.T) {
 		{name: "catalog requires store", domain: BusinessDomainCatalog, store: "store-a", want: true},
 		{name: "catalog rejects missing store", domain: BusinessDomainCatalog, want: false},
 		{name: "catalog rejects team", domain: BusinessDomainCatalog, store: "store-a", team: "team-a", want: false},
-		{name: "ops requires team", domain: BusinessDomainOps, team: "warehouse-a", want: true},
+		{name: "ops allows team", domain: BusinessDomainOps, team: "warehouse-a", want: true},
+		{name: "ops allows store", domain: BusinessDomainOps, store: "store-a", want: true},
 		{name: "ops rejects store", domain: BusinessDomainOps, store: "store-a", team: "warehouse-a", want: false},
 	}
 

@@ -307,6 +307,7 @@ func validateGoodsForWrite(goods *dto.GoodsDTO, requireID bool) error {
 	goods.GoodsSn = strings.TrimSpace(goods.GoodsSn)
 	goods.SPUCode = strings.TrimSpace(goods.SPUCode)
 	goods.SKUCode = strings.TrimSpace(goods.SKUCode)
+	goods.StoreID = strings.TrimSpace(goods.StoreID)
 	if goods.SPUCode == "" {
 		goods.SPUCode = goods.GoodsSn
 	}
@@ -321,6 +322,9 @@ func validateGoodsForWrite(goods *dto.GoodsDTO, requireID bool) error {
 	}
 	if goods.Name == "" || goods.GoodsSn == "" {
 		return errors.WithCode(code.ErrGoodsInvalid, "name and goods_sn are required")
+	}
+	if goods.StoreID == "" {
+		return errors.WithCode(code.ErrGoodsInvalid, "store_id is required")
 	}
 	if goods.MarketPriceFen < 0 || goods.ShopPriceFen < 0 {
 		return errors.WithCode(code.ErrGoodsInvalid, "goods price must not be negative")

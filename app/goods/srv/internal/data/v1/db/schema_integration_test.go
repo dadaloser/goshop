@@ -181,6 +181,7 @@ func goodsMigrationFiles(t *testing.T) []string {
 		filepath.Join(root, "migrations/202607220003_goods_add_money_fen_columns.up.sql"),
 		filepath.Join(root, "migrations/202607220005_goods_drop_float_money_columns.up.sql"),
 		filepath.Join(root, "migrations/202607230004_goods_outbox_claim_and_sku.up.sql"),
+		filepath.Join(root, "migrations/202607260001_auth_resource_ownership_store_ids.up.sql"),
 	}
 }
 

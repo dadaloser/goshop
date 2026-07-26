@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	goodspb "goshop/api/goods/v1"
 	rpb "goshop/api/review/v1"
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/admin/config"
@@ -131,7 +132,7 @@ func newAdminRBACRouteTestServer(t *testing.T) *restserver.Server {
 	if err := initRouterWithSessionStores(server, cfg, userClient, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
 		t.Fatalf("initRouterWithSessionStores() error = %v", err)
 	}
-	if err := registerAdminReviewRoutesWithStores(server, cfg, userClient, &fakeAdminReviewClient{}, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+	if err := registerAdminReviewRoutesWithStores(server, cfg, userClient, &fakeAdminGoodsClient{}, &fakeAdminReviewClient{}, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
 		t.Fatalf("registerAdminReviewRoutesWithStores() error = %v", err)
 	}
 	return server
@@ -212,12 +213,24 @@ type fakeAdminReviewClient struct {
 	rpb.ReviewClient
 }
 
+type fakeAdminGoodsClient struct {
+	goodspb.GoodsClient
+}
+
+func (f *fakeAdminGoodsClient) GetGoodsDetail(context.Context, *goodspb.GoodInfoRequest, ...grpc.CallOption) (*goodspb.GoodsInfoResponse, error) {
+	return &goodspb.GoodsInfoResponse{Id: 1, StoreId: "store-a"}, nil
+}
+
 func (f *fakeAdminReviewClient) CreateReview(context.Context, *rpb.CreateReviewRequest, ...grpc.CallOption) (*rpb.ReviewResponse, error) {
 	return &rpb.ReviewResponse{}, nil
 }
 
 func (f *fakeAdminReviewClient) AppendReview(context.Context, *rpb.AppendReviewRequest, ...grpc.CallOption) (*rpb.ReviewResponse, error) {
 	return &rpb.ReviewResponse{}, nil
+}
+
+func (f *fakeAdminReviewClient) GetReview(context.Context, *rpb.GetReviewRequest, ...grpc.CallOption) (*rpb.ReviewResponse, error) {
+	return &rpb.ReviewResponse{Id: 1, GoodsId: 1}, nil
 }
 
 func (f *fakeAdminReviewClient) ListReviews(context.Context, *rpb.ListReviewsRequest, ...grpc.CallOption) (*rpb.ReviewListResponse, error) {

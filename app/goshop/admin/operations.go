@@ -42,13 +42,13 @@ func registerOperationsRoutes(v1 *gin.RouterGroup, staffAuth middlewares.AuthStr
 	goods.POST("", authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.createGoods)
 	goods.POST("search/outbox/replay", authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.replayGoodsOutbox)
 	goods.POST("search/reindex", authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.reindexGoods)
-	goods.PUT(":id", requireTargetResourceScope(authz.BusinessDomainCatalog, "goods", "id"), authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.updateGoods)
-	goods.DELETE(":id", requireTargetResourceScope(authz.BusinessDomainCatalog, "goods", "id"), authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.deleteGoods)
+	goods.PUT(":id", authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.updateGoods)
+	goods.DELETE(":id", authz.RequirePermission(authz.PermissionGoodsWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.deleteGoods)
 
 	inventory := v1.Group("/inventory", staff...)
 	inventory.Use(requireRole(authz.StaffRoleOps, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainOps))
 	inventory.GET(":goods_id", authz.RequirePermission(authz.PermissionInventoryReadAny), h.getInventory)
-	inventory.PUT(":goods_id", requireTargetResourceScope(authz.BusinessDomainOps, "goods", "goods_id"), authz.RequirePermission(authz.PermissionInventoryWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.adjustInventory)
+	inventory.PUT(":goods_id", authz.RequirePermission(authz.PermissionInventoryWriteAny), requireAdminConfirmation(cfg.AdminAuth), h.adjustInventory)
 	inventory.GET("flows/:order_sn", authz.RequirePermission(authz.PermissionInventoryAuditReadAny), h.inventoryFlow)
 	inventory.GET(":goods_id/adjustments", authz.RequirePermission(authz.PermissionInventoryAuditReadAny), h.inventoryAdjustments)
 
@@ -56,8 +56,8 @@ func registerOperationsRoutes(v1 *gin.RouterGroup, staffAuth middlewares.AuthStr
 	orders.GET("", requireResourceScopeForRoles(), authz.RequirePermission(authz.PermissionOrderReadAny), h.listOrders)
 	orders.GET("trace", requireResourceScopeForRoles(), authz.RequirePermission(authz.PermissionOrderReadAny), h.getOrderTrace)
 	orders.GET(":order_sn", requireResourceScopeForRoles(), authz.RequirePermission(authz.PermissionOrderReadAny), h.getOrder)
-	orders.POST(":order_sn/close", requireRole(authz.StaffRoleOps, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireTargetResourceScope(authz.BusinessDomainOps, "order", "order_sn"), authz.RequirePermission(authz.PermissionOrderCloseAny), requireAdminConfirmation(cfg.AdminAuth), h.closeOrder)
-	orders.POST(":order_sn/refund", requireRole(authz.StaffRoleFinance, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireTargetResourceScope(authz.BusinessDomainFinance, "order", "order_sn"), authz.RequirePermission(authz.PermissionOrderRefundAny), requireAdminConfirmation(cfg.AdminAuth), h.refundOrder)
+	orders.POST(":order_sn/close", requireRole(authz.StaffRoleOps, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), authz.RequirePermission(authz.PermissionOrderCloseAny), requireAdminConfirmation(cfg.AdminAuth), h.closeOrder)
+	orders.POST(":order_sn/refund", requireRole(authz.StaffRoleFinance, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), authz.RequirePermission(authz.PermissionOrderRefundAny), requireAdminConfirmation(cfg.AdminAuth), h.refundOrder)
 	payments := v1.Group("/payments", staff...)
 	payments.Use(requireRole(authz.StaffRoleFinance, authz.StaffRoleAdmin, authz.StaffRoleSuperAdmin), requireResourceScope(authz.BusinessDomainFinance))
 	payments.GET("events", authz.RequirePermission(authz.PermissionOrderRefundAny), h.listPaymentEvents)
@@ -81,17 +81,7 @@ func requireRole(allowed ...authz.StaffRole) gin.HandlerFunc {
 
 func requireResourceScope(domain authz.BusinessDomain) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if strings.TrimSpace(c.GetHeader("X-Resource-Domain")) != string(domain) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource domain denied"})
-			return
-		}
-		storeID := strings.TrimSpace(c.GetHeader("X-Store-ID"))
-		teamID := strings.TrimSpace(c.GetHeader("X-Team-ID"))
-		if !authz.ResourceScopeMatchesDomain(domain, storeID, teamID) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope shape denied"})
-			return
-		}
-		if !claimsAllowScope(gauth.ExtractClaims(c), authz.ResourceScope{Domain: string(domain), StoreID: storeID, TeamID: teamID}) {
+		if !claimsAllowDomain(gauth.ExtractClaims(c), domain) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope denied"})
 			return
 		}
@@ -101,29 +91,13 @@ func requireResourceScope(domain authz.BusinessDomain) gin.HandlerFunc {
 
 func requireTargetResourceScope(domain authz.BusinessDomain, resourceType, param string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if strings.TrimSpace(c.GetHeader("X-Resource-Domain")) != string(domain) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource domain denied"})
-			return
-		}
-		storeID := strings.TrimSpace(c.GetHeader("X-Store-ID"))
-		teamID := strings.TrimSpace(c.GetHeader("X-Team-ID"))
-		if !authz.ResourceScopeMatchesDomain(domain, storeID, teamID) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope shape denied"})
-			return
-		}
 		resourceID := strings.TrimSpace(c.Param(param))
 		if resourceID == "" {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "resource id is required"})
 			return
 		}
-		if !claimsAllowScope(gauth.ExtractClaims(c), authz.ResourceScope{
-			Domain:       string(domain),
-			StoreID:      storeID,
-			TeamID:       teamID,
-			ResourceType: resourceType,
-			ResourceID:   resourceID,
-		}) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope denied"})
+		requireResourceScope(domain)(c)
+		if c.IsAborted() {
 			return
 		}
 		c.Next()
@@ -170,6 +144,16 @@ func claimsAllowScope(claims map[string]any, requested authz.ResourceScope) bool
 	return true
 }
 
+func claimsAllowDomain(claims map[string]any, domain authz.BusinessDomain) bool {
+	resourceScopes := authz.ParseResourceScopes(claims["resource_scopes"])
+	for _, scope := range resourceScopes {
+		if strings.EqualFold(scope.Domain, string(domain)) {
+			return true
+		}
+	}
+	return scopeAllows(claims["resource_domains"], string(domain))
+}
+
 func stringSet(raw any) map[string]bool {
 	result := map[string]bool{}
 	switch values := raw.(type) {
@@ -193,22 +177,36 @@ func (h *operationsHandler) listGoods(c *gin.Context) {
 	}
 	page, size := page(c)
 	resp, err := h.goods.GoodsList(c, &goodspb.GoodsFilterRequest{Pages: page, PagePerNums: size, KeyWords: c.Query("keywords"), SpuCode: strings.TrimSpace(c.Query("spu_code")), SkuCode: strings.TrimSpace(c.Query("sku_code")), IncludeOffSale: true})
+	if err == nil && resp != nil {
+		filtered := make([]*goodspb.GoodsInfoResponse, 0, len(resp.GetData()))
+		for _, item := range resp.GetData() {
+			if claimsAllowScope(gauth.ExtractClaims(c), goodsScope(item, authz.BusinessDomainCatalog)) {
+				filtered = append(filtered, item)
+			}
+		}
+		resp.Data = filtered
+		resp.Total = int32(len(filtered))
+	}
 	writeRPC(c, resp, err)
 }
 func (h *operationsHandler) getGoods(c *gin.Context) {
-	if !h.ready(c, h.goods != nil) {
-		return
-	}
 	id, ok := pathID(c, "id")
 	if !ok {
 		return
 	}
-	resp, err := h.goods.GetGoodsDetail(c, &goodspb.GoodInfoRequest{Id: id})
-	writeRPC(c, resp, err)
+	resp, ok := h.authorizeGoods(c, id, authz.BusinessDomainCatalog)
+	if !ok {
+		return
+	}
+	writeRPC(c, resp, nil)
 }
 func (h *operationsHandler) createGoods(c *gin.Context) {
 	var req goodspb.CreateGoodsInfo
 	if !h.bind(c, h.goods != nil, &req) {
+		return
+	}
+	if !claimsAllowScope(gauth.ExtractClaims(c), authz.ResourceScope{Domain: string(authz.BusinessDomainCatalog), StoreID: strings.TrimSpace(req.GetStoreId())}) {
+		denyScope(c)
 		return
 	}
 	resp, err := h.goods.CreateGoods(c, &req)
@@ -226,6 +224,9 @@ func (h *operationsHandler) updateGoods(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if _, ok = h.authorizeGoods(c, id, authz.BusinessDomainCatalog); !ok {
+		return
+	}
 	req.Id = id
 	resp, err := h.goods.UpdateGoods(c, &req)
 	if err == nil {
@@ -234,11 +235,11 @@ func (h *operationsHandler) updateGoods(c *gin.Context) {
 	writeRPC(c, resp, err)
 }
 func (h *operationsHandler) deleteGoods(c *gin.Context) {
-	if !h.ready(c, h.goods != nil) {
-		return
-	}
 	id, ok := pathID(c, "id")
 	if !ok {
+		return
+	}
+	if _, ok = h.authorizeGoods(c, id, authz.BusinessDomainCatalog); !ok {
 		return
 	}
 	resp, err := h.goods.DeleteGoods(c, &goodspb.DeleteGoodsInfo{Id: id})
@@ -298,9 +299,12 @@ func (h *operationsHandler) reindexGoods(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid request"})
 		return
 	}
-	if len(body.GoodsIDs) > 0 && !claimsAllowAllGoods(c, body.GoodsIDs) {
-		c.JSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope denied"})
-		return
+	if len(body.GoodsIDs) > 0 {
+		for _, id := range body.GoodsIDs {
+			if _, ok := h.authorizeGoods(c, id, authz.BusinessDomainCatalog); !ok {
+				return
+			}
+		}
 	}
 	resp, err := h.goods.ReindexGoods(c, &goodspb.GoodsReindexRequest{GoodsIds: body.GoodsIDs, All: body.All})
 	if err == nil {
@@ -314,11 +318,11 @@ func (h *operationsHandler) reindexGoods(c *gin.Context) {
 }
 
 func (h *operationsHandler) getInventory(c *gin.Context) {
-	if !h.ready(c, h.inventory != nil) {
-		return
-	}
 	id, ok := pathID(c, "goods_id")
 	if !ok {
+		return
+	}
+	if _, ok = h.authorizeGoods(c, id, authz.BusinessDomainOps); !ok {
 		return
 	}
 	resp, err := h.inventory.GetStock(c, &inventorypb.GoodsInvInfo{GoodsId: id})
@@ -331,6 +335,9 @@ func (h *operationsHandler) adjustInventory(c *gin.Context) {
 	}
 	id, ok := pathID(c, "goods_id")
 	if !ok {
+		return
+	}
+	if _, ok = h.authorizeGoods(c, id, authz.BusinessDomainOps); !ok {
 		return
 	}
 	req.GoodsId = id
@@ -354,11 +361,11 @@ func (h *operationsHandler) adjustInventory(c *gin.Context) {
 	writeRPC(c, resp, err)
 }
 func (h *operationsHandler) inventoryAdjustments(c *gin.Context) {
-	if !h.ready(c, h.inventory != nil) {
-		return
-	}
 	id, ok := pathID(c, "goods_id")
 	if !ok {
+		return
+	}
+	if _, ok = h.authorizeGoods(c, id, authz.BusinessDomainOps); !ok {
 		return
 	}
 	p, s := page(c)
@@ -367,6 +374,9 @@ func (h *operationsHandler) inventoryAdjustments(c *gin.Context) {
 }
 func (h *operationsHandler) inventoryFlow(c *gin.Context) {
 	if !h.ready(c, h.inventory != nil) {
+		return
+	}
+	if _, ok := h.authorizeOrder(c, strings.TrimSpace(c.Param("order_sn")), authz.BusinessDomainOps); !ok {
 		return
 	}
 	resp, err := h.inventory.GetSellDetail(c, &inventorypb.OrderInfo{OrderSn: strings.TrimSpace(c.Param("order_sn"))})
@@ -380,14 +390,25 @@ func (h *operationsHandler) listOrders(c *gin.Context) {
 	page, size := page(c)
 	userID, _ := strconv.ParseInt(c.Query("user_id"), 10, 32)
 	resp, err := h.orders.OrderList(c, &orderpb.OrderFilterRequest{UserId: int32(userID), Pages: page, PagePerNums: size})
+	if err == nil && resp != nil {
+		domain := requestedOrderDomain(c)
+		filtered := make([]*orderpb.OrderInfoResponse, 0, len(resp.GetData()))
+		for _, item := range resp.GetData() {
+			if claimsAllowScope(gauth.ExtractClaims(c), authz.ResourceScope{Domain: string(domain), StoreID: strings.TrimSpace(item.GetStoreId()), ResourceType: "order", ResourceID: strings.TrimSpace(item.GetOrderSn())}) {
+				filtered = append(filtered, item)
+			}
+		}
+		resp.Data = filtered
+		resp.Total = int32(len(filtered))
+	}
 	writeRPC(c, resp, err)
 }
 func (h *operationsHandler) getOrder(c *gin.Context) {
-	if !h.ready(c, h.orders != nil) {
+	resp, ok := h.authorizeOrder(c, strings.TrimSpace(c.Param("order_sn")), requestedOrderDomain(c))
+	if !ok {
 		return
 	}
-	resp, err := h.orders.GetOrderBySn(c, &orderpb.OrderLookupRequest{OrderSn: strings.TrimSpace(c.Param("order_sn"))})
-	writeRPC(c, resp, err)
+	writeRPC(c, resp, nil)
 }
 func (h *operationsHandler) getOrderTrace(c *gin.Context) {
 	if !h.ready(c, h.orders != nil) {
@@ -402,7 +423,8 @@ func (h *operationsHandler) getOrderTrace(c *gin.Context) {
 		writeRPC(c, nil, err)
 		return
 	}
-	if !h.allowTraceOrderScope(c, resp) {
+	if !claimsAllowScope(gauth.ExtractClaims(c), orderScope(resp.GetOrder(), requestedOrderDomain(c))) {
+		denyScope(c)
 		return
 	}
 	writeRPC(c, resp, nil)
@@ -429,6 +451,9 @@ func (h *operationsHandler) refundOrder(c *gin.Context) {
 	}
 	correlation, _ := c.Get(operationCorrelationKey)
 	orderSN := strings.TrimSpace(c.Param("order_sn"))
+	if _, ok := h.authorizeOrder(c, orderSN, authz.BusinessDomainFinance); !ok {
+		return
+	}
 	resp, err := h.orders.UpdateOrderStatus(c, &orderpb.OrderStatus{OrderSn: orderSN, Status: "REFUND_PENDING", ActorUserId: int32(actor), RefundAmountFen: body.AmountFen, Reason: strings.TrimSpace(body.Reason), CorrelationId: fmt.Sprint(correlation), RequestId: requestID(c)})
 	if err == nil {
 		err = h.audit(c, "order_refund_requested", "order", orderSN)
@@ -440,6 +465,9 @@ func (h *operationsHandler) changeOrderStatus(c *gin.Context, status, action str
 		return
 	}
 	orderSN := strings.TrimSpace(c.Param("order_sn"))
+	if _, ok := h.authorizeOrder(c, orderSN, authz.BusinessDomainOps); !ok {
+		return
+	}
 	resp, err := h.orders.UpdateOrderStatus(c, &orderpb.OrderStatus{OrderSn: orderSN, Status: status})
 	if err == nil {
 		err = h.audit(c, action, "order", orderSN)
@@ -454,18 +482,6 @@ func (h *operationsHandler) listPaymentEvents(c *gin.Context) {
 	p, s := page(c)
 	resp, err := h.orders.ListPaymentEvents(c, &orderpb.PaymentEventListRequest{OrderSn: strings.TrimSpace(c.Query("order_sn")), Page: p, PageSize: s})
 	writeRPC(c, resp, err)
-}
-func (h *operationsHandler) reconcilePayments(c *gin.Context) {
-	if !h.ready(c, h.orders != nil) {
-		return
-	}
-	p, s := page(c)
-	resp, err := h.orders.ListPaymentEvents(c, &orderpb.PaymentEventListRequest{OrderSn: strings.TrimSpace(c.Query("order_sn")), Page: p, PageSize: s, MismatchesOnly: true})
-	if err != nil {
-		writeRPC(c, nil, err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"checked": resp.GetTotal(), "mismatch_count": resp.GetMismatchCount(), "items": resp.GetData()})
 }
 
 func (h *operationsHandler) listPaymentReconciliationRuns(c *gin.Context) {
@@ -555,41 +571,6 @@ func requestID(c *gin.Context) string {
 		id = uuid.NewString()
 	}
 	return id
-}
-
-func (h *operationsHandler) allowTraceOrderScope(c *gin.Context, resp *orderpb.OrderTraceResponse) bool {
-	if resp == nil || resp.GetOrder() == nil || resp.GetOrder().GetOrderInfo() == nil {
-		return true
-	}
-	if claimsAllowScope(gauth.ExtractClaims(c), authz.ResourceScope{
-		Domain:       c.GetHeader("X-Resource-Domain"),
-		StoreID:      c.GetHeader("X-Store-ID"),
-		TeamID:       c.GetHeader("X-Team-ID"),
-		ResourceType: "order",
-		ResourceID:   resp.GetOrder().GetOrderInfo().GetOrderSn(),
-	}) {
-		return true
-	}
-	c.JSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope denied"})
-	return false
-}
-
-func claimsAllowAllGoods(c *gin.Context, goodsIDs []int32) bool {
-	for _, id := range goodsIDs {
-		if id <= 0 {
-			continue
-		}
-		if !claimsAllowScope(gauth.ExtractClaims(c), authz.ResourceScope{
-			Domain:       c.GetHeader("X-Resource-Domain"),
-			StoreID:      c.GetHeader("X-Store-ID"),
-			TeamID:       c.GetHeader("X-Team-ID"),
-			ResourceType: "goods",
-			ResourceID:   strconv.Itoa(int(id)),
-		}) {
-			return false
-		}
-	}
-	return true
 }
 
 func pathID(c *gin.Context, name string) (int32, bool) {

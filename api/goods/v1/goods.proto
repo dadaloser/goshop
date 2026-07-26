@@ -200,6 +200,7 @@ message CreateGoodsInfo {
   int64 shopPriceFen = 22;
   string spuCode = 23;
   string skuCode = 24;
+  string storeId = 25;
 }
 
 message GoodsReduceRequest {
@@ -258,6 +259,7 @@ message GoodsInfoResponse {
   int64 shopPriceFen = 24;
   string spuCode = 25;
   string skuCode = 26;
+  string storeId = 27;
 }
 
 message GoodsListResponse {

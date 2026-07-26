@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Review_CreateReview_FullMethodName   = "/Review/CreateReview"
 	Review_AppendReview_FullMethodName   = "/Review/AppendReview"
+	Review_GetReview_FullMethodName      = "/Review/GetReview"
 	Review_ListReviews_FullMethodName    = "/Review/ListReviews"
 	Review_ModerateReview_FullMethodName = "/Review/ModerateReview"
 	Review_ReplyReview_FullMethodName    = "/Review/ReplyReview"
@@ -34,6 +35,7 @@ const (
 type ReviewClient interface {
 	CreateReview(ctx context.Context, in *CreateReviewRequest, opts ...grpc.CallOption) (*ReviewResponse, error)
 	AppendReview(ctx context.Context, in *AppendReviewRequest, opts ...grpc.CallOption) (*ReviewResponse, error)
+	GetReview(ctx context.Context, in *GetReviewRequest, opts ...grpc.CallOption) (*ReviewResponse, error)
 	ListReviews(ctx context.Context, in *ListReviewsRequest, opts ...grpc.CallOption) (*ReviewListResponse, error)
 	ModerateReview(ctx context.Context, in *ModerateReviewRequest, opts ...grpc.CallOption) (*ReviewResponse, error)
 	ReplyReview(ctx context.Context, in *ReplyReviewRequest, opts ...grpc.CallOption) (*ReviewResponse, error)
@@ -63,6 +65,16 @@ func (c *reviewClient) AppendReview(ctx context.Context, in *AppendReviewRequest
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ReviewResponse)
 	err := c.cc.Invoke(ctx, Review_AppendReview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *reviewClient) GetReview(ctx context.Context, in *GetReviewRequest, opts ...grpc.CallOption) (*ReviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReviewResponse)
+	err := c.cc.Invoke(ctx, Review_GetReview_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -125,6 +137,7 @@ func (c *reviewClient) RebuildRating(ctx context.Context, in *RebuildRatingReque
 type ReviewServer interface {
 	CreateReview(context.Context, *CreateReviewRequest) (*ReviewResponse, error)
 	AppendReview(context.Context, *AppendReviewRequest) (*ReviewResponse, error)
+	GetReview(context.Context, *GetReviewRequest) (*ReviewResponse, error)
 	ListReviews(context.Context, *ListReviewsRequest) (*ReviewListResponse, error)
 	ModerateReview(context.Context, *ModerateReviewRequest) (*ReviewResponse, error)
 	ReplyReview(context.Context, *ReplyReviewRequest) (*ReviewResponse, error)
@@ -145,6 +158,9 @@ func (UnimplementedReviewServer) CreateReview(context.Context, *CreateReviewRequ
 }
 func (UnimplementedReviewServer) AppendReview(context.Context, *AppendReviewRequest) (*ReviewResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AppendReview not implemented")
+}
+func (UnimplementedReviewServer) GetReview(context.Context, *GetReviewRequest) (*ReviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetReview not implemented")
 }
 func (UnimplementedReviewServer) ListReviews(context.Context, *ListReviewsRequest) (*ReviewListResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListReviews not implemented")
@@ -214,6 +230,24 @@ func _Review_AppendReview_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ReviewServer).AppendReview(ctx, req.(*AppendReviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Review_GetReview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetReviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReviewServer).GetReview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Review_GetReview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReviewServer).GetReview(ctx, req.(*GetReviewRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -322,6 +356,10 @@ var Review_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AppendReview",
 			Handler:    _Review_AppendReview_Handler,
+		},
+		{
+			MethodName: "GetReview",
+			Handler:    _Review_GetReview_Handler,
 		},
 		{
 			MethodName: "ListReviews",

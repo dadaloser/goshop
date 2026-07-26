@@ -2,12 +2,8 @@ package v1
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	stderrors "errors"
-	"net"
 	"strings"
-	"time"
 
 	"goshop/app/goshop/api/internal/emailcode"
 	"goshop/app/goshop/api/internal/loginattempt"
@@ -20,13 +16,9 @@ import (
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/pkg/authsession/tokenversion"
-	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	code2 "goshop/gmicro/code"
-	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/storage"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type UserDTO struct {
@@ -37,15 +29,6 @@ type UserDTO struct {
 	RefreshToken     string `json:"refresh_token,omitempty"`
 	RefreshExpiresAt int64  `json:"refresh_expires_at,omitempty"`
 	SessionID        string `json:"session_id,omitempty"`
-}
-
-type sessionData interface {
-	RecordLogin(ctx context.Context, userID uint64, at time.Time) error
-	CreateSession(ctx context.Context, userID uint64, deviceID, deviceName, refreshToken string, expiresAt time.Time) (data.Session, error)
-	RefreshSession(ctx context.Context, sessionID, currentToken, nextToken string, expiresAt time.Time) (data.Session, error)
-	RevokeSession(ctx context.Context, userID uint64, sessionID string) error
-	RevokeAllSessions(ctx context.Context, userID uint64) error
-	ValidateSession(ctx context.Context, userID uint64, sessionID string) (bool, error)
 }
 
 type UserSrv interface {
@@ -59,40 +42,6 @@ type UserSrv interface {
 	Logout(ctx context.Context, userID uint64, sessionID string) error
 	Refresh(ctx context.Context, sessionID, refreshToken string) (*UserDTO, error)
 	DeleteAccount(ctx context.Context, userID uint64, password string) error
-}
-
-func (us *userService) Logout(ctx context.Context, userID uint64, sessionID string) error {
-	if sessions, ok := us.sessionData(); ok && sessionID != "" {
-		return sessions.RevokeSession(ctx, userID, sessionID)
-	}
-	return nil
-}
-
-func (us *userService) Refresh(ctx context.Context, sessionID, refreshToken string) (*UserDTO, error) {
-	sessions, ok := us.sessionData()
-	if !ok || strings.TrimSpace(sessionID) == "" || strings.TrimSpace(refreshToken) == "" {
-		return nil, errors.WithCode(code2.ErrTokenInvalid, "refresh token invalid")
-	}
-	nextToken := secureToken()
-	now := time.Now()
-	refreshExpiresAt := now.Add(us.jwtOpts.MaxRefresh)
-	session, err := sessions.RefreshSession(ctx, sessionID, refreshToken, nextToken, refreshExpiresAt)
-	if err != nil {
-		return nil, errors.WithCode(code2.ErrTokenInvalid, "refresh token invalid")
-	}
-	users, err := us.usersData()
-	if err != nil {
-		return nil, err
-	}
-	user, err := users.GetAuth(ctx, session.UserID)
-	if err != nil {
-		return nil, err
-	}
-	token, expiresAt, err := us.issueAccessToken(ctx, user, session.ID, now)
-	if err != nil {
-		return nil, err
-	}
-	return &UserDTO{User: user.User, Token: token, ExpiresAt: expiresAt, RefreshToken: nextToken, RefreshExpiresAt: refreshExpiresAt.Unix(), SessionID: session.ID}, nil
 }
 
 type userService struct {
@@ -350,128 +299,6 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 	}, nil
 }
 
-func (us *userService) createToken(ctx context.Context, user data.UserAuth) (string, int64, string, int64, string, error) {
-	if us == nil || us.jwtOpts == nil || strings.TrimSpace(us.jwtOpts.Key) == "" || us.jwtOpts.Timeout <= 0 {
-		return "", 0, "", 0, "", errors.WithCode(code.ErrConnectGRPC, "jwt options are not initialized")
-	}
-	status := authz.NormalizeAccountStatus(user.Status)
-	if status != authz.AccountStatusActive {
-		return "", 0, "", 0, "", errors.WithCode(code.ErrUserAccountInactive, "用户账户不可用")
-	}
-
-	now := time.Now()
-	var refreshToken, sessionID string
-	var refreshExpiresAt time.Time
-	if sessions, ok := us.sessionData(); ok {
-		refreshToken = secureToken()
-		if refreshToken == "" {
-			return "", 0, "", 0, "", errors.WithCode(code2.ErrUnknown, "create refresh token failed")
-		}
-		refreshExpiresAt = now.Add(us.jwtOpts.MaxRefresh)
-		deviceID, deviceName := loginDevice(ctx)
-		session, err := sessions.CreateSession(ctx, user.ID, deviceID, deviceName, refreshToken, refreshExpiresAt)
-		if err != nil {
-			return "", 0, "", 0, "", err
-		}
-		sessionID = session.ID
-		if err = sessions.RecordLogin(ctx, user.ID, now); err != nil {
-			return "", 0, "", 0, "", err
-		}
-	}
-	token, expiresAt, err := us.issueAccessToken(ctx, user, sessionID, now)
-	if err != nil {
-		return "", 0, "", 0, "", err
-	}
-	var refreshUnix int64
-	if !refreshExpiresAt.IsZero() {
-		refreshUnix = refreshExpiresAt.Unix()
-	}
-	return token, expiresAt, refreshToken, refreshUnix, sessionID, nil
-}
-
-func loginDevice(ctx context.Context) (string, string) {
-	headers, ok := ctx.(interface{ GetHeader(string) string })
-	if !ok {
-		return "unknown", "unknown"
-	}
-	deviceID := strings.TrimSpace(headers.GetHeader("X-Device-ID"))
-	deviceName := strings.TrimSpace(headers.GetHeader("X-Device-Name"))
-	if deviceID == "" {
-		deviceID = "unknown"
-	}
-	if deviceName == "" {
-		deviceName = strings.TrimSpace(headers.GetHeader("User-Agent"))
-	}
-	if len(deviceID) > 128 {
-		deviceID = deviceID[:128]
-	}
-	if len(deviceName) > 128 {
-		deviceName = deviceName[:128]
-	}
-	return deviceID, deviceName
-}
-
-func (us *userService) issueAccessToken(ctx context.Context, user data.UserAuth, sessionID string, now time.Time) (string, int64, error) {
-	status := authz.NormalizeAccountStatus(user.Status)
-	if status != authz.AccountStatusActive {
-		return "", 0, errors.WithCode(code.ErrUserAccountInactive, "用户账户不可用")
-	}
-	j := middlewares.NewJWT(us.jwtOpts.Key)
-	claims := middlewares.CustomClaims{
-		ID:            uint(user.ID),
-		NickName:      user.NickName,
-		AuthorityId:   uint(user.LegacyRole),
-		PrincipalType: string(authz.PrincipalCustomer),
-		AccountStatus: string(status),
-		Scope:         authz.CustomerScopes(),
-		TokenVersion:  us.currentTokenVersion(ctx, user.ID),
-		SessionID:     sessionID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			NotBefore: jwt.NewNumericDate(now), //签名的生效时间
-			ExpiresAt: jwt.NewNumericDate(now.Add(us.jwtOpts.Timeout)),
-			Issuer:    us.jwtOpts.Realm,
-		},
-	}
-	token, err := j.CreateToken(claims)
-	if err != nil {
-		return "", 0, err
-	}
-	return token, now.Local().Add(us.jwtOpts.Timeout).Unix(), nil
-}
-
-func (us *userService) sessionData() (sessionData, bool) {
-	users, err := us.usersData()
-	if err != nil {
-		return nil, false
-	}
-	sessions, ok := users.(sessionData)
-	return sessions, ok
-}
-
-func secureToken() string {
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
-		return ""
-	}
-	return base64.RawURLEncoding.EncodeToString(buf)
-}
-
-func (us *userService) LogoutAll(ctx context.Context, userID uint64) error {
-	if userID == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "用户不存在")
-	}
-
-	if err := us.bumpTokenVersion(ctx, userID); err != nil {
-		return errors.WithCode(code.ErrConnectGRPC, "退出登录失败")
-	}
-	if sessions, ok := us.sessionData(); ok {
-		if err := sessions.RevokeAllSessions(ctx, userID); err != nil {
-			return errors.WithCode(code.ErrConnectGRPC, "退出登录失败")
-		}
-	}
-	return nil
-}
-
 func (us *userService) DeleteAccount(ctx context.Context, userID uint64, password string) error {
 	if userID == 0 {
 		return errors.WithCode(code.ErrUserNotFound, "用户不存在")
@@ -597,189 +424,8 @@ func (us *userService) tokenVersionStore() (tokenversion.Store, error) {
 	return us.tokenVersions, nil
 }
 
-func (us *userService) currentTokenVersion(ctx context.Context, userID uint64) uint64 {
-	if us == nil || us.tokenVersions == nil || userID == 0 {
-		return 0
-	}
-
-	version, err := us.tokenVersions.CurrentVersion(ctx, userID)
-	if err != nil {
-		log.Errorf("load token version failed: userID=%d error=%v", userID, err)
-		return 0
-	}
-	return version
-}
-
-func (us *userService) bumpTokenVersion(ctx context.Context, userID uint64) error {
-	store, err := us.tokenVersionStore()
-	if err != nil {
-		return err
-	}
-	if _, err = store.Bump(ctx, userID); err != nil {
-		log.Errorf("bump token version failed: userID=%d error=%v", userID, err)
-		return err
-	}
-	return nil
-}
-
 func isContextError(err error) bool {
 	return stderrors.Is(err, context.Canceled) || stderrors.Is(err, context.DeadlineExceeded)
-}
-
-func (us *userService) ensurePasswordLoginAllowed(ctx context.Context, username, clientIP string) error {
-	if us == nil || us.loginAttempts == nil {
-		return us.ensurePasswordLoginIPAllowed(ctx, clientIP)
-	}
-
-	locked, err := us.loginAttempts.IsLocked(ctx, username)
-	if err != nil {
-		log.Errorf("check password login attempts failed: %v", err)
-		return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
-	}
-	if locked {
-		return errors.WithCode(code.ErrUserLoginLocked, "登录失败次数过多，请稍后重试")
-	}
-	return us.ensurePasswordLoginIPAllowed(ctx, clientIP)
-}
-
-func (us *userService) ensurePasswordLoginIPAllowed(ctx context.Context, clientIP string) error {
-	if strings.TrimSpace(clientIP) == "" || us == nil || us.loginIPAttempts == nil {
-		return nil
-	}
-
-	locked, err := us.loginIPAttempts.IsLocked(ctx, clientIP)
-	if err != nil {
-		log.Errorf("check password login attempts by ip failed: %v", err)
-		return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
-	}
-	if locked {
-		return errors.WithCode(code.ErrUserLoginLocked, "登录失败次数过多，请稍后重试")
-	}
-	return nil
-}
-
-func (us *userService) recordPasswordLoginFailure(ctx context.Context, username, clientIP string) error {
-	if us == nil {
-		return nil
-	}
-
-	locked := false
-	if us.loginAttempts != nil {
-		accountLocked, err := us.loginAttempts.RecordFailure(ctx, username)
-		if err != nil {
-			log.Errorf("record password login failure failed: %v", err)
-			return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
-		}
-		locked = locked || accountLocked
-	}
-	if strings.TrimSpace(clientIP) != "" && us.loginIPAttempts != nil {
-		ipLocked, err := us.loginIPAttempts.RecordFailure(ctx, clientIP)
-		if err != nil {
-			log.Errorf("record password login failure by ip failed: %v", err)
-			return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
-		}
-		locked = locked || ipLocked
-	}
-	if locked {
-		return errors.WithCode(code.ErrUserLoginLocked, "登录失败次数过多，请稍后重试")
-	}
-	return nil
-}
-
-func (us *userService) resetPasswordLoginFailures(ctx context.Context, username, clientIP string) {
-	if us == nil {
-		return
-	}
-
-	if us.loginAttempts != nil {
-		if err := us.loginAttempts.Reset(ctx, username); err != nil {
-			log.Warnf("reset password login failures failed: %v", err)
-		}
-	}
-	if strings.TrimSpace(clientIP) != "" && us.loginIPAttempts != nil {
-		if err := us.loginIPAttempts.Reset(ctx, clientIP); err != nil {
-			log.Warnf("reset password login failures by ip failed: %v", err)
-		}
-	}
-}
-
-func (us *userService) ensureSmsCodeAllowed(ctx context.Context, mobile string, codeType uint) error {
-	if us == nil || us.smsAttempts == nil {
-		return nil
-	}
-
-	locked, err := us.smsAttempts.IsLocked(ctx, mobile, codeType)
-	if err != nil {
-		log.Errorf("check sms verification attempts failed: %v", err)
-		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码验证暂时不可用，请稍后重试")
-	}
-	if locked {
-		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码错误次数过多，请稍后重试")
-	}
-	return nil
-}
-
-func (us *userService) recordSmsCodeFailure(ctx context.Context, mobile string, codeType uint) error {
-	if us == nil || us.smsAttempts == nil {
-		return nil
-	}
-
-	locked, err := us.smsAttempts.RecordFailure(ctx, mobile, codeType)
-	if err != nil {
-		log.Errorf("record sms verification failure failed: %v", err)
-		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码验证暂时不可用，请稍后重试")
-	}
-	if locked {
-		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码错误次数过多，请稍后重试")
-	}
-	return nil
-}
-
-func (us *userService) resetSmsCodeFailures(ctx context.Context, mobile string, codeType uint) {
-	if us == nil || us.smsAttempts == nil {
-		return
-	}
-
-	if err := us.smsAttempts.Reset(ctx, mobile, codeType); err != nil {
-		log.Warnf("reset sms verification failures failed: %v", err)
-	}
-}
-
-func normalizeLoginIdentifier(username string) string {
-	return strings.ToLower(strings.TrimSpace(username))
-}
-
-func loginClientIP(ctx context.Context) string {
-	if ctx == nil {
-		return ""
-	}
-	if provider, ok := ctx.(interface{ ClientIP() string }); ok {
-		return normalizeClientIP(provider.ClientIP())
-	}
-	if provider, ok := ctx.(interface{ GetHeader(string) string }); ok {
-		if forwarded := strings.TrimSpace(provider.GetHeader("X-Forwarded-For")); forwarded != "" {
-			parts := strings.Split(forwarded, ",")
-			if len(parts) > 0 {
-				return normalizeClientIP(parts[0])
-			}
-		}
-		return normalizeClientIP(provider.GetHeader("X-Real-IP"))
-	}
-	return ""
-}
-
-func normalizeClientIP(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	if host, _, err := net.SplitHostPort(raw); err == nil {
-		raw = host
-	}
-	if ip := net.ParseIP(raw); ip != nil {
-		return ip.String()
-	}
-	return ""
 }
 
 var _ UserSrv = &userService{}

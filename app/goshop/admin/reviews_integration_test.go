@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestAdminReviewWorkflowEndToEnd(t *testing.T) {
@@ -41,7 +42,7 @@ func TestAdminReviewWorkflowEndToEnd(t *testing.T) {
 	reviewClient := rpb.NewReviewClient(reviewConn)
 
 	server := restserver.NewServer()
-	if err := registerAdminReviewRoutesWithStores(server, cfg, userClient, reviewClient, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
+	if err := registerAdminReviewRoutesWithStores(server, cfg, userClient, &fakeAdminGoodsClient{}, reviewClient, &fakeAdminRevocationStore{}, &fakeAdminTokenVersionStore{}); err != nil {
 		t.Fatalf("registerAdminReviewRoutesWithStores() error = %v", err)
 	}
 
@@ -248,12 +249,25 @@ func (s *reviewWorkflowGRPCServer) ListReviews(_ context.Context, req *rpb.ListR
 	return resp, nil
 }
 
+func (s *reviewWorkflowGRPCServer) GetReview(_ context.Context, req *rpb.GetReviewRequest) (*rpb.ReviewResponse, error) {
+	s.state.mu.Lock()
+	defer s.state.mu.Unlock()
+	review, ok := s.state.reviews[req.GetReviewId()]
+	if !ok {
+		return nil, status.Error(codes.NotFound, "review not found")
+	}
+	return cloneReviewResponse(review), nil
+}
+
 func cloneReviewResponse(in *rpb.ReviewResponse) *rpb.ReviewResponse {
 	if in == nil {
 		return nil
 	}
-	out := *in
-	return &out
+	cloned, ok := proto.Clone(in).(*rpb.ReviewResponse)
+	if !ok {
+		return nil
+	}
+	return cloned
 }
 
 func grpcInternalError(msg string) error {

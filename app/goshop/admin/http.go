@@ -61,7 +61,7 @@ func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 	if err := initRouterWithBusinessClients(restServer, cfg, userClient, goodsClient, inventoryClient, orderClient); err != nil {
 		return nil, err
 	}
-	if err := registerAdminReviewRoutes(restServer, cfg, userClient, reviewClient); err != nil {
+	if err := registerAdminReviewRoutes(restServer, cfg, userClient, goodsClient, reviewClient); err != nil {
 		return nil, err
 	}
 

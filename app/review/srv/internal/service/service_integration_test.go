@@ -229,6 +229,7 @@ func reviewServiceMigrationFiles(t *testing.T) []string {
 		filepath.Join(root, "migrations/202607220006_order_drop_float_money_columns.up.sql"),
 		filepath.Join(root, "migrations/202607230003_order_add_payment_events.up.sql"),
 		filepath.Join(root, "migrations/202607240001_payment_refund_outbox_reconciliation.up.sql"),
+		filepath.Join(root, "migrations/202607260002_order_add_store_id.up.sql"),
 		filepath.Join(root, "migrations/202607230005_review_domain.up.sql"),
 	}
 }

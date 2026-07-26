@@ -2393,6 +2393,7 @@ type OrderInfoResponse struct {
 	TradeNo       string                 `protobuf:"bytes,12,opt,name=tradeNo,proto3" json:"tradeNo,omitempty"`
 	PayTime       int64                  `protobuf:"varint,13,opt,name=payTime,proto3" json:"payTime,omitempty"`
 	TotalFen      int64                  `protobuf:"varint,14,opt,name=totalFen,proto3" json:"totalFen,omitempty"`
+	StoreId       string                 `protobuf:"bytes,15,opt,name=storeId,proto3" json:"storeId,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2516,6 +2517,13 @@ func (x *OrderInfoResponse) GetTotalFen() int64 {
 		return x.TotalFen
 	}
 	return 0
+}
+
+func (x *OrderInfoResponse) GetStoreId() string {
+	if x != nil {
+		return x.StoreId
+	}
+	return ""
 }
 
 type ShopCartInfoResponse struct {
@@ -3277,7 +3285,7 @@ const file_order_proto_rawDesc = "" +
 	"orderItems\x18\b \x03(\v2\x12.OrderItemResponseR\n" +
 	"orderItems\".\n" +
 	"\x12OrderLookupRequest\x12\x18\n" +
-	"\aorderSn\x18\x01 \x01(\tR\aorderSn\"\xd8\x02\n" +
+	"\aorderSn\x18\x01 \x01(\tR\aorderSn\"\xf2\x02\n" +
 	"\x11OrderInfoResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x16\n" +
 	"\x06userId\x18\x02 \x01(\x05R\x06userId\x12\x18\n" +
@@ -3292,7 +3300,8 @@ const file_order_proto_rawDesc = "" +
 	"\aaddTime\x18\v \x01(\tR\aaddTime\x12\x18\n" +
 	"\atradeNo\x18\f \x01(\tR\atradeNo\x12\x18\n" +
 	"\apayTime\x18\r \x01(\x03R\apayTime\x12\x1a\n" +
-	"\btotalFen\x18\x0e \x01(\x03R\btotalFenJ\x04\b\a\x10\bR\x05total\"\x86\x01\n" +
+	"\btotalFen\x18\x0e \x01(\x03R\btotalFen\x12\x18\n" +
+	"\astoreId\x18\x0f \x01(\tR\astoreIdJ\x04\b\a\x10\bR\x05total\"\x86\x01\n" +
 	"\x14ShopCartInfoResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x05R\x02id\x12\x16\n" +
 	"\x06userId\x18\x02 \x01(\x05R\x06userId\x12\x18\n" +
