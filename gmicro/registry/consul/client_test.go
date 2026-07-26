@@ -17,6 +17,7 @@ import (
 )
 
 func TestRegisterUsesHTTPHealthCheckForHTTPEndpoints(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	var got struct {
 		ID     string `json:"ID"`
 		Name   string `json:"Name"`
@@ -100,6 +101,7 @@ func TestNewClientDisablesTTLHeartbeatByDefault(t *testing.T) {
 }
 
 func TestRegisterUsesTLSGRPCHealthCheckForSecureGRPCEndpoints(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	var got struct {
 		Checks []struct {
 			GRPC       string `json:"GRPC"`
@@ -145,6 +147,7 @@ func TestRegisterUsesTLSGRPCHealthCheckForSecureGRPCEndpoints(t *testing.T) {
 }
 
 func TestRegisterSecureGRPCEndpointWithHeartbeatUsesTTLInsteadOfActiveGRPCCheck(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	var got struct {
 		Checks []struct {
 			GRPC string `json:"GRPC"`
@@ -202,6 +205,7 @@ func TestRegisterSecureGRPCEndpointWithHeartbeatUsesTTLInsteadOfActiveGRPCCheck(
 }
 
 func TestRegisterUsesContext(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-release
@@ -232,6 +236,7 @@ func TestRegisterUsesContext(t *testing.T) {
 }
 
 func TestDeregisterUsesContext(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		<-release
@@ -279,6 +284,7 @@ func TestRegisterRejectsEndpointWithoutPort(t *testing.T) {
 }
 
 func TestRegisterAllowsCustomHTTPHealthCheckPath(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	var got struct {
 		Checks []struct {
 			HTTP string `json:"HTTP"`

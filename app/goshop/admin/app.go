@@ -43,7 +43,10 @@ func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error)
 	return r, nil
 }
 
-func NewUserApp(cfg *config.Config) (*gapp.App, error) {
+func NewUserApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	//服务注册
 	register, err := NewRegistrar(cfg.Registry)
 	if err != nil {
@@ -67,10 +70,14 @@ func NewUserApp(cfg *config.Config) (*gapp.App, error) {
 		EnableTracing:         cfg.Redis.EnableTracing,
 		Resilience:            cfg.Redis.Resilience,
 	}
-	go storage.ConnectToRedis(context.Background(), redisConfig)
+	// Redis connectivity is a process-scoped background dependency probe. It is
+	// intentionally tied to the application lifetime instead of an individual
+	// request, so we reuse the app run context rather than a detached
+	// context.Background().
+	go storage.ConnectToRedis(ctx, redisConfig)
 
 	//生成rpc服务
-	rpcServer, err := NewUserHTTPServer(cfg)
+	rpcServer, err := NewUserHTTPServer(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +101,7 @@ func run(cfg *config.Config) app.RunFunc {
 		log.Init(cfg.Log)
 		defer log.Flush()
 
-		userApp, err := NewUserApp(cfg)
+		userApp, err := NewUserApp(ctx, cfg)
 		if err != nil {
 			return err
 		}

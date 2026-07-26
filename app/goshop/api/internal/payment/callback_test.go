@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,10 +24,14 @@ type fakeCallbackService struct {
 type fakeNonceStore struct {
 	reserved bool
 	calls    int
+	err      error
 }
 
 func (f *fakeNonceStore) Reserve(context.Context, string, time.Duration) (bool, error) {
 	f.calls++
+	if f.err != nil {
+		return false, f.err
+	}
 	if f.calls > 1 {
 		return false, nil
 	}
@@ -113,5 +118,76 @@ func TestCallbackHandlerRejectsNonceReplay(t *testing.T) {
 	}
 	if service.calls != 1 {
 		t.Fatalf("service calls=%d want=1", service.calls)
+	}
+}
+
+func TestCallbackHandlerReturnsDuplicateFlagFromService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	now := time.Unix(1700000000, 0)
+	body := `{"event_id":"evt-1","event_type":"payment_succeeded","order_sn":"order-1","amount_fen":100}`
+	timestamp, nonce := "1700000000", "nonce-1"
+	mac := hmac.New(sha256.New, []byte("secret"))
+	_, _ = mac.Write([]byte(timestamp + "\nmock\n" + nonce + "\n"))
+	_, _ = mac.Write([]byte(body))
+	signature := hex.EncodeToString(mac.Sum(nil))
+
+	service := &fakeCallbackService{duplicate: true}
+	handler := NewCallbackHandlerWithNonceStore(&options.PaymentOptions{Enabled: true, CallbackSecret: "secret", CallbackMaxSkew: time.Minute}, service, &fakeNonceStore{reserved: true})
+	handler.now = func() time.Time { return now }
+	router := gin.New()
+	router.POST("/callback/:provider", handler.Handle)
+	req := httptest.NewRequest(http.MethodPost, "/callback/mock", strings.NewReader(body))
+	req.Header.Set("X-Payment-Timestamp", timestamp)
+	req.Header.Set("X-Payment-Nonce", nonce)
+	req.Header.Set("X-Payment-Signature", signature)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /callback/mock status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), `"duplicate":true`) {
+		t.Fatalf("POST /callback/mock body = %s, want duplicate=true", rec.Body.String())
+	}
+}
+
+func TestCallbackHandlerHandlesNonceStoreFailures(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	now := time.Unix(1700000000, 0)
+	body := `{"event_id":"evt-1","event_type":"payment_succeeded","order_sn":"order-1","amount_fen":100}`
+	timestamp, nonce := "1700000000", "nonce-1"
+	mac := hmac.New(sha256.New, []byte("secret"))
+	_, _ = mac.Write([]byte(timestamp + "\nmock\n" + nonce + "\n"))
+	_, _ = mac.Write([]byte(body))
+	signature := hex.EncodeToString(mac.Sum(nil))
+
+	tests := []struct {
+		name   string
+		store  NonceStore
+		status int
+	}{
+		{name: "nil store", store: nil, status: http.StatusServiceUnavailable},
+		{name: "store error", store: &fakeNonceStore{err: errors.New("redis down")}, status: http.StatusServiceUnavailable},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := &fakeCallbackService{}
+			handler := NewCallbackHandlerWithNonceStore(&options.PaymentOptions{Enabled: true, CallbackSecret: "secret", CallbackMaxSkew: time.Minute}, service, tt.store)
+			handler.now = func() time.Time { return now }
+			router := gin.New()
+			router.POST("/callback/:provider", handler.Handle)
+			req := httptest.NewRequest(http.MethodPost, "/callback/mock", strings.NewReader(body))
+			req.Header.Set("X-Payment-Timestamp", timestamp)
+			req.Header.Set("X-Payment-Nonce", nonce)
+			req.Header.Set("X-Payment-Signature", signature)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if rec.Code != tt.status {
+				t.Fatalf("POST /callback/mock status = %d, want %d, body=%s", rec.Code, tt.status, rec.Body.String())
+			}
+			if service.calls != 0 {
+				t.Fatalf("ProcessPayCallback() calls = %d, want %d", service.calls, 0)
+			}
+		})
 	}
 }

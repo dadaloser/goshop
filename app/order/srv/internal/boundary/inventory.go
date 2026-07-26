@@ -31,8 +31,10 @@ func NewInventoryRPCGatewayContext(
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	dialCtx, cancel := context.WithTimeout(ctx, upstreamDialTimeout)
+	defer cancel()
 	inventoryClient, _, err := client.NewInventoryClient(
-		ctx,
+		dialCtx,
 		registry,
 		rpcSecurity,
 		rpcserver.WithClientResilience(rpcResilience),

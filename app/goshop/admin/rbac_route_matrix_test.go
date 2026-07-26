@@ -165,30 +165,73 @@ func mustCreateScopedAdminToken(
 	resourceTeamID string,
 ) string {
 	t.Helper()
-
-	resourceDomains := []string{}
-	if resourceDomain != "" {
-		resourceDomains = append(resourceDomains, resourceDomain)
-	}
-	resourceStores := []string{}
-	if resourceStoreID != "" {
-		resourceStores = append(resourceStores, resourceStoreID)
-	}
-	resourceTeams := []string{}
-	if resourceTeamID != "" {
-		resourceTeams = append(resourceTeams, resourceTeamID)
-	}
-
-	token, err := middlewares.NewJWT(jwtOpts.Key).CreateToken(middlewares.CustomClaims{
+	return mustCreateAdminTokenWithClaims(t, jwtOpts, middlewares.CustomClaims{
 		ID:              userID,
 		AuthorityId:     uint(authz.LegacyUserRoleAdmin),
 		Roles:           append([]string(nil), roles...),
 		PrincipalType:   string(authz.PrincipalStaff),
 		AccountStatus:   string(authz.AccountStatusActive),
 		Scope:           append([]string(nil), scope...),
-		ResourceDomains: resourceDomains,
-		ResourceStores:  resourceStores,
-		ResourceTeams:   resourceTeams,
+		ResourceDomains: collectNonEmpty(resourceDomain),
+		ResourceStores:  collectNonEmpty(resourceStoreID),
+		ResourceTeams:   collectNonEmpty(resourceTeamID),
+	})
+}
+
+func mustCreateScopedAdminTokenWithResourceScopes(
+	t *testing.T,
+	jwtOpts *options.JwtOptions,
+	userID uint,
+	roles []string,
+	scope []string,
+	resourceScopes []authz.ResourceScope,
+	resourceDomain string,
+	resourceStoreID string,
+	resourceTeamID string,
+) string {
+	t.Helper()
+	encodedScopes := make([]string, 0, len(resourceScopes))
+	for _, resourceScope := range resourceScopes {
+		encodedScopes = append(encodedScopes, authz.EncodeResourceScope(resourceScope))
+	}
+	return mustCreateAdminTokenWithClaims(t, jwtOpts, middlewares.CustomClaims{
+		ID:              userID,
+		AuthorityId:     uint(authz.LegacyUserRoleAdmin),
+		Roles:           append([]string(nil), roles...),
+		PrincipalType:   string(authz.PrincipalStaff),
+		AccountStatus:   string(authz.AccountStatusActive),
+		Scope:           append([]string(nil), scope...),
+		ResourceDomains: collectNonEmpty(resourceDomain),
+		ResourceStores:  collectNonEmpty(resourceStoreID),
+		ResourceTeams:   collectNonEmpty(resourceTeamID),
+		ResourceScopes:  encodedScopes,
+	})
+}
+
+func mustCreateAdminTokenWithClaims(
+	t *testing.T,
+	jwtOpts *options.JwtOptions,
+	claims middlewares.CustomClaims,
+) string {
+	t.Helper()
+	if claims.PrincipalType == "" {
+		claims.PrincipalType = string(authz.PrincipalStaff)
+	}
+	if claims.AccountStatus == "" {
+		claims.AccountStatus = string(authz.AccountStatusActive)
+	}
+	token, err := middlewares.NewJWT(jwtOpts.Key).CreateToken(middlewares.CustomClaims{
+		ID:              claims.ID,
+		NickName:        claims.NickName,
+		AuthorityId:     claims.AuthorityId,
+		Roles:           append([]string(nil), claims.Roles...),
+		PrincipalType:   claims.PrincipalType,
+		AccountStatus:   claims.AccountStatus,
+		Scope:           append([]string(nil), claims.Scope...),
+		ResourceDomains: append([]string(nil), claims.ResourceDomains...),
+		ResourceStores:  append([]string(nil), claims.ResourceStores...),
+		ResourceTeams:   append([]string(nil), claims.ResourceTeams...),
+		ResourceScopes:  append([]string(nil), claims.ResourceScopes...),
 		RegisteredClaims: jwt.RegisteredClaims{
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
@@ -199,6 +242,13 @@ func mustCreateScopedAdminToken(
 		t.Fatalf("CreateToken() error = %v", err)
 	}
 	return token
+}
+
+func collectNonEmpty(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return []string{value}
 }
 
 func mapsKeys(values map[string]struct{}) []string {

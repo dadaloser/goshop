@@ -7,7 +7,10 @@ import (
 	"goshop/app/pkg/options"
 	"goshop/gmicro/resilience"
 	"goshop/gmicro/server/rpcserver"
+	"time"
 )
+
+const upstreamDialTimeout = 5 * time.Second
 
 type GoodsInfo struct {
 	ID              int32
@@ -36,8 +39,10 @@ func NewGoodsRPCGatewayContext(
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	dialCtx, cancel := context.WithTimeout(ctx, upstreamDialTimeout)
+	defer cancel()
 	goodsClient, _, err := client.NewGoodsClient(
-		ctx,
+		dialCtx,
 		registry,
 		rpcSecurity,
 		rpcserver.WithClientResilience(rpcResilience),

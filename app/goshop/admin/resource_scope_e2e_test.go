@@ -15,10 +15,157 @@ import (
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver"
+	"goshop/gmicro/server/restserver/middlewares"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+func TestAUTH201GoodsScopeNegativeMatrix(t *testing.T) {
+	server, _ := newAdminScopedBusinessServer(t)
+	cfg := newAdminRBACRouteTestConfig()
+
+	tests := []struct {
+		name       string
+		token      string
+		wantStatus int
+		wantTotal  *int
+	}{
+		{
+			name:       "missing scope",
+			token:      mustCreateScopedAdminToken(t, cfg.Jwt, 99, []string{string(authz.StaffRoleCatalog)}, []string{string(authz.PermissionGoodsReadAny)}, "", "", ""),
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "wrong store resource scope filters list",
+			token: mustCreateScopedAdminTokenWithResourceScopes(
+				t,
+				cfg.Jwt,
+				99,
+				[]string{string(authz.StaffRoleCatalog)},
+				[]string{string(authz.PermissionGoodsReadAny)},
+				[]authz.ResourceScope{{Domain: string(authz.BusinessDomainCatalog), StoreID: "store-c"}},
+				string(authz.BusinessDomainCatalog),
+				"",
+				"",
+			),
+			wantStatus: http.StatusOK,
+			wantTotal:  intPtr(0),
+		},
+		{
+			name: "wrong resource id filters list",
+			token: mustCreateScopedAdminTokenWithResourceScopes(
+				t,
+				cfg.Jwt,
+				99,
+				[]string{string(authz.StaffRoleCatalog)},
+				[]string{string(authz.PermissionGoodsReadAny)},
+				[]authz.ResourceScope{{Domain: string(authz.BusinessDomainCatalog), StoreID: "store-b", ResourceType: "goods", ResourceID: "999"}},
+				string(authz.BusinessDomainCatalog),
+				"",
+				"",
+			),
+			wantStatus: http.StatusOK,
+			wantTotal:  intPtr(0),
+		},
+		{
+			name:       "platform admin cannot bypass catalog domain",
+			token:      mustCreateScopedAdminToken(t, cfg.Jwt, 99, []string{string(authz.StaffRoleSuperAdmin)}, []string{string(authz.PermissionGoodsReadAny)}, string(authz.BusinessDomainPlatform), "", ""),
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "break glass token cannot access staff route group",
+			token: mustCreateAdminTokenWithClaims(t, cfg.Jwt, middlewares.CustomClaims{
+				PrincipalType: string(authz.PrincipalAdminBootstrap),
+				AccountStatus: string(authz.AccountStatusActive),
+			}),
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/v1/goods", nil)
+			req.Header.Set("Authorization", "Bearer "+tt.token)
+			req.Header.Set("X-Resource-Domain", string(authz.BusinessDomainCatalog))
+			req.Header.Set("X-Store-ID", "store-a")
+			rec := httptest.NewRecorder()
+			server.ServeHTTP(rec, req)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("GET /v1/goods status = %d, want %d, body=%s", rec.Code, tt.wantStatus, rec.Body.String())
+			}
+			if tt.wantTotal == nil {
+				return
+			}
+			var body struct {
+				Total int                          `json:"total"`
+				Data  []*goodspb.GoodsInfoResponse `json:"data"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("json.Unmarshal(GET /v1/goods) error = %v", err)
+			}
+			if body.Total != *tt.wantTotal {
+				t.Fatalf("GET /v1/goods total = %d, want %d", body.Total, *tt.wantTotal)
+			}
+			if len(body.Data) != *tt.wantTotal {
+				t.Fatalf("GET /v1/goods items = %d, want %d", len(body.Data), *tt.wantTotal)
+			}
+		})
+	}
+}
+
+func TestAUTH201InventoryWrongTeamScopeRejectsRead(t *testing.T) {
+	server, goodsClient := newAdminScopedBusinessServer(t)
+	cfg := newAdminRBACRouteTestConfig()
+	token := mustCreateScopedAdminTokenWithResourceScopes(
+		t,
+		cfg.Jwt,
+		99,
+		[]string{string(authz.StaffRoleOps)},
+		[]string{string(authz.PermissionInventoryReadAny)},
+		[]authz.ResourceScope{{Domain: string(authz.BusinessDomainOps), TeamID: "warehouse-z"}},
+		string(authz.BusinessDomainOps),
+		"",
+		"",
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/inventory/1", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Resource-Domain", string(authz.BusinessDomainOps))
+	req.Header.Set("X-Team-ID", "warehouse-a")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("GET /v1/inventory/1 status = %d, want %d, body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+	if goodsClient.getDetailCalls == 0 {
+		t.Fatalf("GET /v1/inventory/1 goods detail lookups = %d, want > 0", goodsClient.getDetailCalls)
+	}
+}
+
+func TestAUTH201PlatformAdminScopeRoutesRemainAccessible(t *testing.T) {
+	server, _ := newAdminScopedBusinessServer(t)
+	cfg := newAdminRBACRouteTestConfig()
+	token := mustCreateScopedAdminToken(
+		t,
+		cfg.Jwt,
+		99,
+		[]string{string(authz.StaffRoleAdmin)},
+		[]string{string(authz.PermissionStaffSessionReadAny)},
+		string(authz.BusinessDomainPlatform),
+		"",
+		"",
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/staff/sessions", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Resource-Domain", string(authz.BusinessDomainPlatform))
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /v1/staff/sessions status = %d, want %d, body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+}
 
 func TestAUTH101GoodsCrossStoreFiltersAndRejectsWrites(t *testing.T) {
 	server, goodsClient := newAdminScopedBusinessServer(t)
@@ -214,6 +361,8 @@ func newAdminScopedBusinessServer(t *testing.T) (*restserver.Server, *scopeGoods
 	server, goodsClient, _, _ := newAdminScopedBusinessReviewServer(t)
 	return server, goodsClient
 }
+
+func intPtr(value int) *int { return &value }
 
 func newAdminScopedBusinessReviewServer(t *testing.T) (*restserver.Server, *scopeGoodsClient, *scopeOrderClient, *scopeReviewClient) {
 	t.Helper()

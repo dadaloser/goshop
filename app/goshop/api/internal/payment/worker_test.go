@@ -36,6 +36,7 @@ type fakeOrderClient struct {
 	jobs         []*opb.RefundJob
 	completed    []*opb.CompleteRefundJobRequest
 	reconciled   *opb.ReconcilePaymentsRequest
+	reconcileRes *opb.ReconcilePaymentsResponse
 	claimErr     error
 	completeErr  error
 	reconcileErr error
@@ -59,6 +60,9 @@ func (f *fakeOrderClient) ReconcilePayments(_ context.Context, request *opb.Reco
 		return nil, f.reconcileErr
 	}
 	f.reconciled = request
+	if f.reconcileRes != nil {
+		return f.reconcileRes, nil
+	}
 	return &opb.ReconcilePaymentsResponse{}, nil
 }
 
@@ -93,6 +97,21 @@ func TestWorkerPersistsProviderReconciliation(t *testing.T) {
 	}
 	if orders.reconciled == nil || len(orders.reconciled.GetTransactions()) != 1 || orders.reconciled.GetTransactions()[0].GetEventId() != "event-1" {
 		t.Fatalf("reconciliation=%+v", orders.reconciled)
+	}
+}
+
+func TestWorkerPersistsReconciliationMismatchWindow(t *testing.T) {
+	orders := &fakeOrderClient{reconcileRes: &opb.ReconcilePaymentsResponse{MismatchCount: 2}}
+	provider := &fakePaymentProvider{transactions: []Transaction{}}
+	worker := NewWorker(orders, provider, &options.PaymentOptions{Enabled: true, Provider: "mock", RequestTimeout: time.Second})
+	if err := worker.reconcileWindow(context.Background(), time.Unix(0, 0), time.Unix(200, 0)); err != nil {
+		t.Fatalf("reconcileWindow() error = %v", err)
+	}
+	if orders.reconciled == nil {
+		t.Fatal("reconcileWindow() request = nil, want persisted reconciliation request")
+	}
+	if got := len(orders.reconciled.GetTransactions()); got != 0 {
+		t.Fatalf("reconcileWindow() transactions = %d, want %d when provider statement is missing", got, 0)
 	}
 }
 

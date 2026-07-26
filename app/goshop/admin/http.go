@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"time"
 
 	"goshop/app/goshop/admin/config"
 	appclient "goshop/app/pkg/client"
@@ -9,7 +10,12 @@ import (
 	"goshop/gmicro/server/restserver/middlewares"
 )
 
-func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
+const adminStartupClientDialTimeout = 5 * time.Second
+
+func NewUserHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Server, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	enableBuiltInRoutes := cfg.Server.ManagementPort == 0
 	opts := []restserver.ServerOption{
 		restserver.WithPort(cfg.Server.HttpPort),
@@ -36,24 +42,34 @@ func NewUserHTTPServer(cfg *config.Config) (*restserver.Server, error) {
 	}
 	restServer := restserver.NewServer(opts...)
 
-	userClient, _, err := appclient.NewUserClient(context.Background(), cfg.Registry, cfg.RPC)
+	dialCtx, cancel := context.WithTimeout(ctx, adminStartupClientDialTimeout)
+	userClient, _, err := appclient.NewUserClient(dialCtx, cfg.Registry, cfg.RPC)
+	cancel()
 	if err != nil {
 		return nil, err
 	}
 
-	goodsClient, _, err := appclient.NewGoodsClient(context.Background(), cfg.Registry, cfg.RPC)
+	dialCtx, cancel = context.WithTimeout(ctx, adminStartupClientDialTimeout)
+	goodsClient, _, err := appclient.NewGoodsClient(dialCtx, cfg.Registry, cfg.RPC)
+	cancel()
 	if err != nil {
 		return nil, err
 	}
-	inventoryClient, _, err := appclient.NewInventoryClient(context.Background(), cfg.Registry, cfg.RPC)
+	dialCtx, cancel = context.WithTimeout(ctx, adminStartupClientDialTimeout)
+	inventoryClient, _, err := appclient.NewInventoryClient(dialCtx, cfg.Registry, cfg.RPC)
+	cancel()
 	if err != nil {
 		return nil, err
 	}
-	orderClient, _, err := appclient.NewOrderClient(context.Background(), cfg.Registry, cfg.RPC)
+	dialCtx, cancel = context.WithTimeout(ctx, adminStartupClientDialTimeout)
+	orderClient, _, err := appclient.NewOrderClient(dialCtx, cfg.Registry, cfg.RPC)
+	cancel()
 	if err != nil {
 		return nil, err
 	}
-	reviewClient, _, err := appclient.NewReviewClient(context.Background(), cfg.Registry, cfg.RPC)
+	dialCtx, cancel = context.WithTimeout(ctx, adminStartupClientDialTimeout)
+	reviewClient, _, err := appclient.NewReviewClient(dialCtx, cfg.Registry, cfg.RPC)
+	cancel()
 	if err != nil {
 		return nil, err
 	}

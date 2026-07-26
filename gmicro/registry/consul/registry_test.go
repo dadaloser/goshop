@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -15,6 +16,15 @@ import (
 	"github.com/hashicorp/consul/api"
 	"goshop/gmicro/registry"
 )
+
+const consulIntegrationEnv = "GOSHOP_RUN_CONSUL_INTEGRATION"
+
+func skipUnlessConsulIntegration(t *testing.T) {
+	t.Helper()
+	if os.Getenv(consulIntegrationEnv) != "1" {
+		t.Skipf("set %s=1 to run consul integration tests that bind local ports and require consul", consulIntegrationEnv)
+	}
+}
 
 func skipIfConsulUnavailable(t *testing.T) {
 	t.Helper()
@@ -38,6 +48,7 @@ func tcpServer(t *testing.T, lis net.Listener) {
 }
 
 func TestRegistry_Register(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	skipIfConsulUnavailable(t)
 
 	opts := []Option{
@@ -156,6 +167,7 @@ func TestRegistry_Register(t *testing.T) {
 }
 
 func TestRegistry_GetService(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	skipIfConsulUnavailable(t)
 
 	addr := fmt.Sprintf("%s:9091", getIntranetIP())
@@ -284,6 +296,7 @@ func TestRegistry_GetService(t *testing.T) {
 }
 
 func TestRegistry_Watch(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	skipIfConsulUnavailable(t)
 
 	addr := fmt.Sprintf("%s:9091", getIntranetIP())
@@ -439,6 +452,7 @@ func TestServiceSetBroadcastsEmptyServiceList(t *testing.T) {
 }
 
 func TestRegistryWatchContinuesAfterInitialResolve(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	var calls int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/health/service/server-1" {
@@ -504,6 +518,7 @@ func TestRegistryWatchContinuesAfterInitialResolve(t *testing.T) {
 }
 
 func TestRegistryWatchRetriesAfterInitialResolveError(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	var calls int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		call := atomic.AddInt64(&calls, 1)
@@ -560,6 +575,7 @@ func TestRegistryWatchRetriesAfterInitialResolveError(t *testing.T) {
 }
 
 func TestRegistryWatchRestartsResolverAfterFirstWatcherStops(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	var calls int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		call := atomic.AddInt64(&calls, 1)
@@ -628,6 +644,7 @@ func TestRegistryWatchRestartsResolverAfterFirstWatcherStops(t *testing.T) {
 }
 
 func TestWatcherStopCancelsResolverAfterLastWatcher(t *testing.T) {
+	skipUnlessConsulIntegration(t)
 	enteredLongPoll := make(chan struct{})
 	requestDone := make(chan struct{})
 	var longPollStarted atomic.Bool
