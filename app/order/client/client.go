@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"goshop/pkg/common/util/contextutil"
 
 	"google.golang.org/grpc"
 
@@ -13,8 +14,6 @@ import (
 	"goshop/gmicro/server/rpcserver/selector/random"
 	"math/rand"
 	"time"
-
-	"goshop/pkg/common/contextutil"
 )
 
 func generateOrderSn(userId int32) string {

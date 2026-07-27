@@ -3,12 +3,12 @@ package consul
 import (
 	"context"
 	"fmt"
+	"goshop/pkg/common/util/contextutil"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"goshop/gmicro/registry"
-	"goshop/pkg/common/contextutil"
 
 	"github.com/hashicorp/consul/api"
 )

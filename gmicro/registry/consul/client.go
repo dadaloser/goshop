@@ -3,6 +3,7 @@ package consul
 import (
 	"context"
 	"fmt"
+	"goshop/pkg/common/util/contextutil"
 	"net"
 	"net/url"
 	"strconv"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"goshop/gmicro/registry"
-	"goshop/pkg/common/contextutil"
 	"goshop/pkg/log"
 
 	"github.com/hashicorp/consul/api"

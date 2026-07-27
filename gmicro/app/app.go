@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"goshop/pkg/common/util/contextutil"
 	"net/url"
 	"syscall"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/registry"
 	gs "goshop/gmicro/server"
-	"goshop/pkg/common/contextutil"
 	"goshop/pkg/log"
 	"os"
 	"os/signal"

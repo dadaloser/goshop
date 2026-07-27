@@ -2,11 +2,11 @@ package consul
 
 import (
 	"context"
+	"goshop/pkg/common/util/contextutil"
 	"sync"
 	"sync/atomic"
 
 	"goshop/gmicro/registry"
-	"goshop/pkg/common/contextutil"
 )
 
 type serviceSet struct {

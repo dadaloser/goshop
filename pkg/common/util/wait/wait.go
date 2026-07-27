@@ -19,12 +19,11 @@ package wait
 import (
 	"context"
 	"errors"
+	"goshop/pkg/common/util/contextutil"
 	"math"
 	"math/rand"
 	"sync"
 	"time"
-
-	"goshop/pkg/common/contextutil"
 
 	"goshop/pkg/common/util/clock"
 	"goshop/pkg/common/util/runtime"

@@ -3,9 +3,8 @@ package rpcserver
 import (
 	"context"
 	"fmt"
+	"goshop/pkg/common/util/contextutil"
 	"time"
-
-	"goshop/pkg/common/contextutil"
 
 	"goshop/gmicro/registry"
 	"goshop/gmicro/resilience"

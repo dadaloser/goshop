@@ -8,10 +8,10 @@ import (
 	rpc "goshop/gmicro/server/rpcserver"
 	"goshop/gmicro/server/rpcserver/selector"
 	"goshop/gmicro/server/rpcserver/selector/random"
+	"goshop/pkg/common/util/contextutil"
 	"time"
 
 	"google.golang.org/grpc"
-	"goshop/pkg/common/contextutil"
 )
 
 func main() {

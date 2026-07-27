@@ -3,6 +3,7 @@ package trace
 import (
 	"context"
 	"fmt"
+	"goshop/pkg/common/util/contextutil"
 	"net"
 	"net/url"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 
-	"goshop/pkg/common/contextutil"
 	"goshop/pkg/log"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"

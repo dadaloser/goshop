@@ -13,7 +13,7 @@ import (
 	"goshop/app/pkg/options"
 	"goshop/gmicro/resilience"
 	"goshop/gmicro/server/rpcserver"
-	"goshop/pkg/common/contextutil"
+	"goshop/pkg/common/util/contextutil"
 	errors2 "goshop/pkg/errors"
 	"sync"
 	"time"

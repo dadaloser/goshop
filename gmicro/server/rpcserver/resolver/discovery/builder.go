@@ -2,11 +2,11 @@ package discovery
 
 import (
 	"errors"
+	"goshop/pkg/common/util/contextutil"
 	"strings"
 	"time"
 
 	"goshop/gmicro/registry"
-	"goshop/pkg/common/contextutil"
 
 	"google.golang.org/grpc/resolver"
 )

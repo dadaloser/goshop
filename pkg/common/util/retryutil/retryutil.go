@@ -3,9 +3,8 @@ package retryutil
 import (
 	"context"
 	"errors"
+	"goshop/pkg/common/util/contextutil"
 	"time"
-
-	"goshop/pkg/common/contextutil"
 )
 
 var ErrRetryable = errors.New("retry")

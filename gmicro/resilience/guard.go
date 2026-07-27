@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"goshop/pkg/common/util/contextutil"
 	"strings"
 	"sync"
 	"time"
-
-	"goshop/pkg/common/contextutil"
 
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
