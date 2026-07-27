@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"goshop/gmicro/registry"
+	"goshop/pkg/common/contextutil"
 )
 
 type serviceSet struct {
@@ -45,11 +46,15 @@ func (s *serviceSet) startResolver(parent context.Context, resolve func(context.
 		s.lock.Unlock()
 		return nil
 	}
-	base := context.Background()
+	base, releaseBase := contextutil.OrProcess(parent)
 	if parent != nil {
 		base = context.WithoutCancel(parent)
 	}
-	ctx, cancel := context.WithCancel(base)
+	ctx, cancelChild := context.WithCancel(base)
+	cancel := func() {
+		cancelChild()
+		releaseBase()
+	}
 	s.resolverCtx = ctx
 	s.resolverCancel = cancel
 	s.resolverRunning = true

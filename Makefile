@@ -1,4 +1,4 @@
-.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test schema-integration-test test-race-cover coverage-threshold-check format-check vet-check lint-check rpcserver-flake-check release-check ops-check architecture-check
+.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test data-layer-integration-test schema-integration-test test-race-cover coverage-threshold-check format-check vet-check lint-check rpcserver-flake-check release-check ops-check architecture-check context-check
 
 GOLANGCI_LINT_VERSION ?= v2.12.2
 
@@ -37,8 +37,10 @@ help:
 	@echo "  make rpcserver-flake-check  Run rpcserver tests with -count=50"
 	@echo "  make release-check  Run the trusted release baseline gate"
 	@echo "  make inventory-integration-test  Run inventory real-DB integration tests"
+	@echo "  make data-layer-integration-test  Run goods/inventory real-DB data tests and coverage gates"
 	@echo "  make ops-check  Validate monitoring, runbooks, Jenkins gates, canary and chaos assets"
 	@echo "  make architecture-check  Enforce formal RBAC and thin API/Admin dependency boundaries"
+	@echo "  make context-check  Reject direct context.Background calls outside documented context boundaries"
 
 proto:
 	go generate ./api
@@ -79,6 +81,9 @@ release-check:
 inventory-integration-test:
 	bash ./scripts/run-inventory-integration-tests.sh
 
+data-layer-integration-test:
+	bash ./scripts/run-data-layer-integration-tests.sh
+
 schema-integration-test:
 	bash ./scripts/run-schema-integration-tests.sh
 
@@ -93,3 +98,6 @@ ops-check:
 
 architecture-check:
 	bash ./scripts/architecture-boundary-check.sh
+
+context-check:
+	bash ./scripts/context-boundary-check.sh

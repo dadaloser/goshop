@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 
 	"goshop/app/goshop/admin/config"
 	"goshop/app/pkg/options"
@@ -45,7 +46,7 @@ func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error)
 
 func NewUserApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	if ctx == nil {
-		ctx = context.Background()
+		return nil, errors.New("admin app requires a run context")
 	}
 	//服务注册
 	register, err := NewRegistrar(cfg.Registry)
@@ -73,7 +74,7 @@ func NewUserApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	// Redis connectivity is a process-scoped background dependency probe. It is
 	// intentionally tied to the application lifetime instead of an individual
 	// request, so we reuse the app run context rather than a detached
-	// context.Background().
+	// detached root context.
 	go storage.ConnectToRedis(ctx, redisConfig)
 
 	//生成rpc服务

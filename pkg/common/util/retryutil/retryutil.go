@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"goshop/pkg/common/contextutil"
 )
 
 var ErrRetryable = errors.New("retry")
@@ -27,27 +29,27 @@ func RetryUntilTimeout(ctx *context.Context, interval time.Duration, timeout tim
 		interval = time.Millisecond
 	}
 
-	runCtx := context.Background()
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+	runCtx := contextutil.Root()
+	cancel := func() {}
 	if ctx != nil && *ctx != nil {
 		runCtx = *ctx
 	}
+	runCtx, cancel = context.WithTimeout(runCtx, timeout)
+	defer cancel()
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	var timeoutCh <-chan time.Time
-	if timeout > 0 {
-		timer := time.NewTimer(timeout)
-		defer timer.Stop()
-		timeoutCh = timer.C
-	}
-
 	for {
 		select {
 		case <-runCtx.Done():
+			if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
+				return ErrTimeout
+			}
 			return runCtx.Err()
-		case <-timeoutCh:
-			return ErrTimeout
 		case <-ticker.C:
 			err := do()
 			if err == nil {

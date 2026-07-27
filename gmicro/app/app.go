@@ -13,6 +13,7 @@ import (
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/registry"
 	gs "goshop/gmicro/server"
+	"goshop/pkg/common/contextutil"
 	"goshop/pkg/log"
 	"os"
 	"os/signal"
@@ -66,9 +67,8 @@ func New(opts ...Option) *App {
 // RunContext starts the app and propagates ctx through startup and server
 // lifecycles.
 func (a *App) RunContext(ctx context.Context) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx, releaseRoot := contextutil.OrProcess(ctx)
+	defer releaseRoot()
 	servers := a.servers()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -173,14 +173,16 @@ jwt
 */
 // 停止服务
 func (a *App) Stop() error {
-	return a.StopContext(context.Background())
+	ctx, cancel := contextutil.NewOperation(a.opts.stopTimeout)
+	defer cancel()
+	return a.StopContext(ctx)
 }
 
 // StopContext deregisters the app and shuts down tracing with bounded cleanup
 // contexts derived from ctx.
 func (a *App) StopContext(ctx context.Context) error {
 	if ctx == nil {
-		ctx = context.Background()
+		ctx = contextutil.Root()
 	}
 	ctx = context.WithoutCancel(ctx)
 

@@ -1,12 +1,12 @@
 package discovery
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"time"
 
 	"goshop/gmicro/registry"
+	"goshop/pkg/common/contextutil"
 
 	"google.golang.org/grpc/resolver"
 )
@@ -56,7 +56,7 @@ func (b *builder) Build(target resolver.Target, cc resolver.ClientConn, opts res
 	}
 
 	result := make(chan watchResult, 1)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := contextutil.NewProcess()
 	go func() {
 		w, err := b.discoverer.Watch(ctx, strings.TrimPrefix(target.URL.Path, "/"))
 		result <- watchResult{w: w, err: err}

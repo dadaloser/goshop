@@ -2,6 +2,7 @@ package boundary
 
 import (
 	"context"
+	"errors"
 	ipb "goshop/api/inventory/v1"
 	"goshop/app/pkg/client"
 	"goshop/app/pkg/options"
@@ -29,7 +30,7 @@ func NewInventoryRPCGatewayContext(
 	rpcResilience *resilience.Options,
 ) (InventoryGateway, error) {
 	if ctx == nil {
-		ctx = context.Background()
+		return nil, errors.New("inventory RPC gateway requires a startup context")
 	}
 	dialCtx, cancel := context.WithTimeout(ctx, upstreamDialTimeout)
 	defer cancel()

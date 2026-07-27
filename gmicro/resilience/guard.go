@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"goshop/pkg/common/contextutil"
+
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
 	"github.com/alibaba/sentinel-golang/core/circuitbreaker"
@@ -99,7 +101,7 @@ func (g *Guard) Start(ctx context.Context, resource string) (*Call, error) {
 		return nil, errors.New("resilience resource must be non-empty and must not contain ':'")
 	}
 	if ctx == nil {
-		ctx = context.Background()
+		ctx = contextutil.Root()
 	}
 	if err := g.configure(resource); err != nil {
 		return nil, err
@@ -144,7 +146,11 @@ func (g *Guard) Start(ctx context.Context, resource string) (*Call, error) {
 // Context returns the timeout-bounded context for the dependency operation.
 func (c *Call) Context() context.Context {
 	if c == nil {
-		return context.Background()
+		// A nil Call is a caller bug; return an already-cancelled context rather
+		// than an unbounded root that could allow accidental dependency I/O.
+		ctx, cancel := contextutil.NewOperation(time.Nanosecond)
+		cancel()
+		return ctx
 	}
 	return c.ctx
 }

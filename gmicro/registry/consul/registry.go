@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"goshop/gmicro/registry"
+	"goshop/pkg/common/contextutil"
 
 	"github.com/hashicorp/consul/api"
 )
@@ -175,6 +176,7 @@ func (r *Registry) ListServices() (allServices map[string][]*registry.ServiceIns
 
 // Watch resolve service by name
 func (r *Registry) Watch(ctx context.Context, name string) (registry.Watcher, error) {
+	base, releaseBase := contextutil.OrProcess(ctx)
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	set, ok := r.registry[name]
@@ -191,8 +193,14 @@ func (r *Registry) Watch(ctx context.Context, name string) (registry.Watcher, er
 	w := &watcher{
 		event: make(chan struct{}, 1),
 	}
-	//防止裸 context.Background() 挂死,降低 goroutine 泄漏风险。
-	w.ctx, w.cancel = context.WithCancel(ctx)
+	// The watcher owns this component context and releases any fallback root on
+	// Stop, so a legacy nil caller cannot leak a detached goroutine.
+	w.ctx, w.cancel = context.WithCancel(base)
+	cancelWatcher := w.cancel
+	w.cancel = func() {
+		cancelWatcher()
+		releaseBase()
+	}
 	w.set = set
 	set.addWatcher(w)
 	ss, _ := set.services.Load().([]*registry.ServiceInstance) //原子操作
@@ -202,7 +210,7 @@ func (r *Registry) Watch(ctx context.Context, name string) (registry.Watcher, er
 		w.event <- struct{}{}
 	}
 
-	if err := set.startResolver(ctx, r.resolve); err != nil {
+	if err := set.startResolver(base, r.resolve); err != nil {
 		_ = w.Stop()
 		return nil, err
 	}

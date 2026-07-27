@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"goshop/pkg/common/contextutil"
+
 	"goshop/gmicro/registry"
 	"goshop/gmicro/resilience"
 	"goshop/gmicro/server/rpcserver/clientinterceptors"
@@ -298,7 +300,7 @@ func productionClientDialOptions(connectTimeout time.Duration) []grpc.DialOption
 
 func waitForReady(ctx context.Context, conn *grpc.ClientConn, timeout time.Duration) error {
 	if ctx == nil {
-		ctx = context.Background()
+		ctx = contextutil.Root()
 	}
 	probeCtx := ctx
 	cancel := func() {}

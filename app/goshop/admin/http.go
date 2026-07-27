@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"goshop/app/goshop/admin/config"
@@ -14,7 +15,7 @@ const adminStartupClientDialTimeout = 5 * time.Second
 
 func NewUserHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Server, error) {
 	if ctx == nil {
-		ctx = context.Background()
+		return nil, errors.New("admin HTTP server requires a startup context")
 	}
 	enableBuiltInRoutes := cfg.Server.ManagementPort == 0
 	opts := []restserver.ServerOption{

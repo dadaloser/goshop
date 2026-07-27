@@ -13,8 +13,10 @@ import (
 	"goshop/app/pkg/options"
 	"goshop/gmicro/resilience"
 	"goshop/gmicro/server/rpcserver"
+	"goshop/pkg/common/contextutil"
 	errors2 "goshop/pkg/errors"
 	"sync"
+	"time"
 )
 
 type grpcData struct {
@@ -53,7 +55,9 @@ func GetDataFactoryOr(
 	rpcResilience *resilience.Options,
 ) (data.DataFactory, error) {
 	if ctx == nil {
-		ctx = context.Background()
+		var cancel context.CancelFunc
+		ctx, cancel = contextutil.NewOperation(10 * time.Second)
+		defer cancel()
 	}
 	if dbFactory != nil {
 		return dbFactory, nil

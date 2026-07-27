@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"goshop/api/user/v1"
 	appclient "goshop/app/pkg/client"
@@ -12,9 +11,12 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"goshop/pkg/common/contextutil"
 )
 
 func main() {
+	ctx, cancel := contextutil.NewOperation(10 * time.Second)
+	defer cancel()
 	//设置全局的负载均衡策略
 	selector.SetGlobalSelector(random.NewBuilder())
 	registry := &options.RegistryOptions{
@@ -29,7 +31,7 @@ func main() {
 	}
 
 	conn, err := appclient.DialService(
-		context.Background(),
+		ctx,
 		registry,
 		rpcSecurity,
 		appclient.ServiceUser,
@@ -49,7 +51,9 @@ func main() {
 	uc := v1.NewUserClient(conn)
 
 	for {
-		res, err := uc.GetUserList(context.Background(), &v1.PageInfo{})
+		requestCtx, requestCancel := contextutil.NewOperation(10 * time.Second)
+		res, err := uc.GetUserList(requestCtx, &v1.PageInfo{})
+		requestCancel()
 		if err != nil {
 			panic(err)
 		}

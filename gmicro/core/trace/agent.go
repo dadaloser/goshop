@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
@@ -14,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 
+	"goshop/pkg/common/contextutil"
 	"goshop/pkg/log"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -66,7 +68,9 @@ func startAgent(o Options) error {
 		// 3. 替换 Jaeger 导出器为 OTLP HTTP 导出器
 		// 注意：OTLP 默认端口通常是 4318 (HTTP)
 		//注意context的传递是否需要tracing信息，是否需要携带traceparent等header
-		sexp, err = otlptracehttp.New(context.Background(), exporterOptions(o.Endpoint)...)
+		exporterCtx, cancel := contextutil.NewOperation(10 * time.Second)
+		sexp, err = otlptracehttp.New(exporterCtx, exporterOptions(o.Endpoint)...)
+		cancel()
 		// 如果是 HTTP，通常需要指定 URL 路径，或者确保 Endpoint 包含协议头
 		// otlptracehttp.WithURLPath("/v1/traces"),
 		// otlptracehttp.WithInsecure(), // 如果不使用 TLS

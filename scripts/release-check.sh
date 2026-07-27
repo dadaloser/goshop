@@ -10,6 +10,9 @@ cd "${ROOT_DIR}"
 echo "[release-check] format"
 test -z "$(gofmt -l .)"
 
+echo "[release-check] context boundaries"
+make context-check
+
 echo "[release-check] vet"
 bash ./scripts/go-vet-check.sh
 

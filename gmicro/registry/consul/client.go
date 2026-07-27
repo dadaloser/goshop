@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"goshop/gmicro/registry"
+	"goshop/pkg/common/contextutil"
 	"goshop/pkg/log"
 
 	"github.com/hashicorp/consul/api"
@@ -17,6 +18,7 @@ import (
 
 // 检查心跳失败次数
 const heartbeatFailureThreshold = 3
+const consulOperationTimeout = 10 * time.Second
 
 // Client is consul client config
 type Client struct {
@@ -51,7 +53,7 @@ func NewClient(cli *api.Client) *Client {
 		deregisterCriticalServiceAfter: 600,
 		httpHealthCheckPath:            "/readyz",
 	}
-	c.ctx, c.cancel = context.WithCancel(context.Background())
+	c.ctx, c.cancel = contextutil.NewProcess()
 	return c
 }
 
@@ -92,6 +94,11 @@ type ServiceResolver func(ctx context.Context, entries []*api.ServiceEntry) []*r
 
 // Service get services from consul
 func (c *Client) Service(ctx context.Context, service string, index uint64, passingOnly bool) ([]*registry.ServiceInstance, uint64, error) {
+	if ctx == nil {
+		var cancel context.CancelFunc
+		ctx, cancel = contextutil.NewOperation(time.Minute)
+		defer cancel()
+	}
 	opts := &api.QueryOptions{
 		WaitIndex: index,
 		WaitTime:  time.Second * 55,
@@ -107,7 +114,9 @@ func (c *Client) Service(ctx context.Context, service string, index uint64, pass
 // Register register service instance to consul
 func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, enableHealthCheck bool) error {
 	if ctx == nil {
-		ctx = context.Background()
+		var cancel context.CancelFunc
+		ctx, cancel = contextutil.NewOperation(consulOperationTimeout)
+		defer cancel()
 	}
 	addresses := make(map[string]api.ServiceAddress, len(svc.Endpoints))
 	checkAddresses := make([]string, 0, len(svc.Endpoints))
@@ -307,7 +316,9 @@ func normalizeHTTPHealthCheckPath(path string) string {
 // Deregister deregister service by service ID
 func (c *Client) Deregister(ctx context.Context, serviceID string) error {
 	if ctx == nil {
-		ctx = context.Background()
+		var cancel context.CancelFunc
+		ctx, cancel = contextutil.NewOperation(consulOperationTimeout)
+		defer cancel()
 	}
 	c.cancel()
 	return c.cli.Agent().ServiceDeregisterOpts(serviceID, new(api.QueryOptions).WithContext(ctx))

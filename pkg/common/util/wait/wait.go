@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"goshop/pkg/common/contextutil"
+
 	"goshop/pkg/common/util/clock"
 	"goshop/pkg/common/util/runtime"
 )
@@ -282,7 +284,7 @@ func (b *Backoff) Step() time.Duration {
 //
 // Note the caller must *always* call the CancelFunc, otherwise resources may be leaked.
 func contextForChannel(parentCh <-chan struct{}) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := contextutil.NewProcess()
 
 	go func() {
 		select {

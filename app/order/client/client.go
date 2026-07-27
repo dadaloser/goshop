@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"google.golang.org/grpc"
@@ -14,6 +13,8 @@ import (
 	"goshop/gmicro/server/rpcserver/selector/random"
 	"math/rand"
 	"time"
+
+	"goshop/pkg/common/contextutil"
 )
 
 func generateOrderSn(userId int32) string {
@@ -32,6 +33,8 @@ func generateOrderSn(userId int32) string {
 }
 
 func main() {
+	ctx, cancel := contextutil.NewOperation(10 * time.Second)
+	defer cancel()
 	//设置全局的负载均衡策略
 	selector.SetGlobalSelector(random.NewBuilder())
 	registry := &options.RegistryOptions{
@@ -46,7 +49,7 @@ func main() {
 	}
 
 	conn, err := appclient.DialService(
-		context.Background(),
+		ctx,
 		registry,
 		rpcSecurity,
 		appclient.ServiceOrder,
@@ -65,7 +68,7 @@ func main() {
 
 	uc := v1.NewOrderClient(conn)
 
-	_, err = uc.SubmitOrder(context.Background(), &v1.OrderRequest{
+	_, err = uc.SubmitOrder(ctx, &v1.OrderRequest{
 		UserId:  1,
 		Address: "慕课网",
 		OrderSn: generateOrderSn(1),

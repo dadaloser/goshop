@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	v1 "goshop/api/goods/v1"
 	appclient "goshop/app/pkg/client"
@@ -10,9 +9,13 @@ import (
 	"goshop/gmicro/server/rpcserver/selector"
 	"goshop/gmicro/server/rpcserver/selector/random"
 	"time"
+
+	"goshop/pkg/common/contextutil"
 )
 
 func main() {
+	ctx, cancel := contextutil.NewOperation(10 * time.Second)
+	defer cancel()
 	//设置全局的负载均衡策略
 	selector.SetGlobalSelector(random.NewBuilder())
 	registry := &options.RegistryOptions{
@@ -27,7 +30,7 @@ func main() {
 	}
 
 	conn, err := appclient.DialService(
-		context.Background(),
+		ctx,
 		registry,
 		rpcSecurity,
 		appclient.ServiceGoods,
@@ -43,7 +46,7 @@ func main() {
 
 	uc := v1.NewGoodsClient(conn)
 
-	re, err := uc.GoodsList(context.Background(), &v1.GoodsFilterRequest{
+	re, err := uc.GoodsList(ctx, &v1.GoodsFilterRequest{
 		KeyWords: "猕猴桃",
 	})
 	if err != nil {
