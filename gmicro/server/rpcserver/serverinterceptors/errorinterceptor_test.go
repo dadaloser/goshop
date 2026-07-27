@@ -2,9 +2,10 @@ package serverinterceptors
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
-	"goshop/pkg/errors"
+	apperrors "goshop/pkg/errors"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -17,7 +18,7 @@ func TestUnaryErrorInterceptorConvertsProjectError(t *testing.T) {
 		nil,
 		&grpc.UnaryServerInfo{FullMethod: "/test.Service/Error"},
 		func(context.Context, interface{}) (interface{}, error) {
-			return nil, errors.WithCode(1, "database exploded")
+			return nil, apperrors.WithCode(1, "database exploded")
 		},
 	)
 
@@ -43,3 +44,80 @@ func TestUnaryErrorInterceptorPreservesStatusError(t *testing.T) {
 		t.Fatalf("UnaryErrorInterceptor() code = %v, want %v", got, codes.NotFound)
 	}
 }
+
+func TestToGRPCErrorMapsSpecKinds(t *testing.T) {
+	tests := []struct {
+		name string
+		kind apperrors.Kind
+		want codes.Code
+	}{
+		{name: "not found", kind: apperrors.KindNotFound, want: codes.NotFound},
+		{name: "conflict", kind: apperrors.KindConflict, want: codes.Aborted},
+		{name: "unavailable", kind: apperrors.KindUnavailable, want: codes.Unavailable},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := apperrors.NewSpec(apperrors.Spec{
+				Code:    990101,
+				Kind:    tt.kind,
+				Message: "safe message",
+			}, "database query failed")
+
+			got := toGRPCError(err)
+			if status.Code(got) != tt.want {
+				t.Fatalf("toGRPCError() code = %v, want %v", status.Code(got), tt.want)
+			}
+			if status.Convert(got).Message() != "safe message" {
+				t.Fatalf("toGRPCError() message = %q, want safe message", status.Convert(got).Message())
+			}
+		})
+	}
+}
+
+func TestToGRPCErrorKeepsLegacyCodeMapping(t *testing.T) {
+	const userNotFoundCode = 990404
+	apperrors.Register(testCoder{
+		code:    userNotFoundCode,
+		http:    http.StatusNotFound,
+		message: "User not found",
+	})
+
+	err := toGRPCError(apperrors.WithCode(userNotFoundCode, "select user: record not found"))
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("toGRPCError() code = %v, want %v", status.Code(err), codes.NotFound)
+	}
+	if status.Convert(err).Message() != "User not found" {
+		t.Fatalf("toGRPCError() message = %q, want User not found", status.Convert(err).Message())
+	}
+}
+
+func TestToGRPCErrorMapsContextErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want codes.Code
+	}{
+		{name: "canceled", err: context.Canceled, want: codes.Canceled},
+		{name: "deadline exceeded", err: context.DeadlineExceeded, want: codes.DeadlineExceeded},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := status.Code(toGRPCError(tt.err)); got != tt.want {
+				t.Fatalf("toGRPCError() code = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+type testCoder struct {
+	code    int
+	http    int
+	message string
+}
+
+func (c testCoder) Code() int         { return c.code }
+func (c testCoder) HTTPStatus() int   { return c.http }
+func (c testCoder) String() string    { return c.message }
+func (c testCoder) Reference() string { return "" }

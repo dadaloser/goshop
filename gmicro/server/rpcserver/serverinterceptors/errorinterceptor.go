@@ -3,7 +3,6 @@ package serverinterceptors
 import (
 	"context"
 
-	"goshop/pkg/errors"
 	"goshop/pkg/log"
 
 	"google.golang.org/grpc"
@@ -40,5 +39,5 @@ func toGRPCStatusError(method string, err error) error {
 	}
 
 	log.Errorf("[grpc] method=%s error=%+v", method, err)
-	return errors.ToGrpcError(err)
+	return toGRPCError(err)
 }

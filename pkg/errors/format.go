@@ -169,7 +169,7 @@ func buildFormatInfo(e error) *formatInfo {
 			stack:   err.stack,
 		}
 	case *withCode:
-		coder, ok := codes[err.code]
+		coder, ok := lookupCoder(err.code)
 		if !ok {
 			coder = unknownCoder
 		}

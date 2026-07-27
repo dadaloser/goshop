@@ -93,14 +93,9 @@
 package errors
 
 import (
-	"context"
 	stderrors "errors"
 	"fmt"
 	"io"
-	"net/http"
-
-	gCode "google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // New returns an error with the supplied message.
@@ -143,67 +138,6 @@ func (f *fundamental) Format(s fmt.State, verb rune) {
 		_, _ = io.WriteString(s, f.msg)
 	case 'q':
 		_, _ = fmt.Fprintf(s, "%q", f.msg)
-	}
-}
-
-func FromGrpcError(e error) error {
-	if e == nil {
-		return e
-	}
-
-	st, ok := status.FromError(e)
-	if !ok {
-		return WithCode(100002, "unknown error")
-	}
-
-	return &withCode{
-		err:  st.Err(),
-		code: int(st.Code()),
-	}
-}
-
-func ToGrpcError(e error) error {
-	if e == nil {
-		return e
-	}
-	if stderrors.Is(e, context.Canceled) {
-		return status.Error(gCode.Canceled, context.Canceled.Error())
-	}
-	if stderrors.Is(e, context.DeadlineExceeded) {
-		return status.Error(gCode.DeadlineExceeded, context.DeadlineExceeded.Error())
-	}
-
-	var perr *withCode
-	if As(e, &perr) {
-		coder := ParseCoder(perr)
-		return status.Error(httpStatusToGRPCCode(coder.HTTPStatus()), coder.String())
-	}
-	return status.Error(gCode.Unknown, e.Error())
-}
-
-func httpStatusToGRPCCode(statusCode int) gCode.Code {
-	switch statusCode {
-	case http.StatusBadRequest:
-		return gCode.InvalidArgument
-	case http.StatusUnauthorized:
-		return gCode.Unauthenticated
-	case http.StatusForbidden:
-		return gCode.PermissionDenied
-	case http.StatusNotFound:
-		return gCode.NotFound
-	case http.StatusConflict:
-		return gCode.AlreadyExists
-	case http.StatusTooManyRequests:
-		return gCode.ResourceExhausted
-	case http.StatusServiceUnavailable, http.StatusBadGateway, http.StatusGatewayTimeout:
-		return gCode.Unavailable
-	case http.StatusRequestTimeout:
-		return gCode.DeadlineExceeded
-	default:
-		if statusCode >= http.StatusInternalServerError {
-			return gCode.Internal
-		}
-		return gCode.Unknown
 	}
 }
 

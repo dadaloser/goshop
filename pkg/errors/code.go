@@ -1,6 +1,7 @@
 package errors
 
 import (
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -68,7 +69,7 @@ func (coder defaultCoder) Reference() string {
 
 // codes contains a map of error codes to metadata.
 var codes = map[int]Coder{}
-var codeMux = &sync.Mutex{}
+var codeMux sync.RWMutex
 
 // Register register a user define error code.
 // It will overrid the exist code.
@@ -103,16 +104,16 @@ func MustRegister(coder Coder) {
 	codes[coder.Code()] = coder
 }
 
-// ParseCoder parse any error into *withCode.
-// nil error will return nil direct.
-// None withStack error will be parsed as ErrUnknown.
+// ParseCoder returns the registered coder associated with any error in err's chain.
+// A nil error returns nil. Errors without a registered code return the unknown coder.
 func ParseCoder(err error) Coder {
 	if err == nil {
 		return nil
 	}
 
-	if v, ok := err.(*withCode); ok {
-		if coder, ok := codes[v.code]; ok {
+	var coded *withCode
+	if stderrors.As(err, &coded) {
+		if coder, ok := lookupCoder(coded.code); ok {
 			return coder
 		}
 	}
@@ -122,16 +123,16 @@ func ParseCoder(err error) Coder {
 
 // IsCode reports whether any error in err's chain contains the given error code.
 func IsCode(err error, code int) bool {
-	if v, ok := err.(*withCode); ok {
-		if v.code == code {
+	for err != nil {
+		if coded, ok := err.(*withCode); ok && coded.code == code {
 			return true
 		}
 
-		if v.cause != nil {
-			return IsCode(v.cause, code)
+		unwrapper, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return false
 		}
-
-		return false
+		err = unwrapper.Unwrap()
 	}
 
 	return false
@@ -150,4 +151,12 @@ func sameCoder(left, right Coder) bool {
 		left.HTTPStatus() == right.HTTPStatus() &&
 		left.String() == right.String() &&
 		left.Reference() == right.Reference()
+}
+
+func lookupCoder(code int) (Coder, bool) {
+	codeMux.RLock()
+	defer codeMux.RUnlock()
+
+	coder, ok := codes[code]
+	return coder, ok
 }
