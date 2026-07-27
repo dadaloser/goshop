@@ -170,6 +170,11 @@ jobs:
       INVENTORY_MYSQL_HOST: 127.0.0.1
       INVENTORY_MYSQL_PORT: "3306"
       INVENTORY_MYSQL_DATABASE: goshop_inventory_ci
+      GOODS_MYSQL_USERNAME: root
+      GOODS_MYSQL_PASSWORD: integration
+      GOODS_MYSQL_HOST: 127.0.0.1
+      GOODS_MYSQL_PORT: "3306"
+      GOODS_MYSQL_DATABASE: goshop_inventory_ci
 
     services:
       mysql:
@@ -197,6 +202,9 @@ jobs:
 
       - name: Run inventory real DB integration tests
         run: make inventory-integration-test
+
+      - name: Enforce goods and inventory data-layer coverage
+        run: make data-layer-integration-test
 
   review-integration:
     name: Review Integration
