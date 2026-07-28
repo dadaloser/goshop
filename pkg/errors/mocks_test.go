@@ -27,15 +27,15 @@ func init() {
 
 func loadConfig() error {
 	err := decodeConfig()
-	return WrapC(err, ConfigurationNotValid, "service configuration could not be loaded")
+	return WrapCode(err, ConfigurationNotValid, "service configuration could not be loaded")
 }
 
 func decodeConfig() error {
 	err := readConfig()
-	return WrapC(err, ErrInvalidJSON, "could not decode configuration data")
+	return WrapCode(err, ErrInvalidJSON, "could not decode configuration data")
 }
 
 func readConfig() error {
 	err := fmt.Errorf("read: end of input")
-	return WrapC(err, ErrEOF, "could not read configuration file")
+	return WrapCode(err, ErrEOF, "could not read configuration file")
 }

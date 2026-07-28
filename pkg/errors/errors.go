@@ -93,7 +93,6 @@
 package errors
 
 import (
-	stderrors "errors"
 	"fmt"
 	"io"
 )
@@ -148,15 +147,6 @@ func WithStack(err error) error {
 		return nil
 	}
 
-	if e, ok := err.(*withCode); ok {
-		return &withCode{
-			err:   e.err,
-			code:  e.code,
-			cause: err,
-			stack: callers(),
-		}
-	}
-
 	return &withStack{
 		err,
 		callers(),
@@ -196,15 +186,6 @@ func Wrap(err error, message string) error {
 	if err == nil {
 		return nil
 	}
-	if e, ok := err.(*withCode); ok {
-		return &withCode{
-			err:   stderrors.New(message),
-			code:  e.code,
-			cause: err,
-			stack: callers(),
-		}
-	}
-
 	err = &withMessage{
 		cause: err,
 		msg:   message,
@@ -221,15 +202,6 @@ func Wrap(err error, message string) error {
 func Wrapf(err error, format string, args ...interface{}) error {
 	if err == nil {
 		return nil
-	}
-
-	if e, ok := err.(*withCode); ok {
-		return &withCode{
-			err:   fmt.Errorf(format, args...),
-			code:  e.code,
-			cause: err,
-			stack: callers(),
-		}
 	}
 
 	err = &withMessage{
@@ -290,39 +262,6 @@ func (w *withMessage) Format(s fmt.State, verb rune) {
 		_, _ = io.WriteString(s, w.Error())
 	}
 }
-
-type withCode struct {
-	err   error
-	code  int
-	cause error
-	*stack
-}
-
-func WrapC(err error, code int, format string, args ...interface{}) error {
-	if err == nil {
-		return nil
-	}
-
-	message := format
-	if len(args) > 0 {
-		message = fmt.Sprintf(format, args...)
-	}
-	return &withCode{
-		err:   stderrors.New(message),
-		code:  code,
-		cause: err,
-		stack: callers(),
-	}
-}
-
-// Error return the externally-safe error message.
-func (w *withCode) Error() string { return fmt.Sprintf("%v", w) }
-
-// Cause return the cause of the withCode error.
-func (w *withCode) Cause() error { return w.cause }
-
-// Unwrap provides compatibility for Go 1.13 error chains.
-func (w *withCode) Unwrap() error { return w.cause }
 
 // Cause returns the underlying cause of the error, if possible.
 // An error value has a cause if it implements the following

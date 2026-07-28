@@ -2,7 +2,6 @@ package errors
 
 import (
 	stderrors "errors"
-	"fmt"
 )
 
 // Kind classifies an error independently of a transport protocol.
@@ -43,6 +42,12 @@ func NewCode(code int, internal string) error {
 	return NewSpec(SpecForCode(code), internal)
 }
 
+// WrapCode attaches the public specification registered for code to err while
+// preserving err in the standard Go error chain. It returns nil when err is nil.
+func WrapCode(err error, code int, internal string) error {
+	return wrapSpec(err, SpecForCode(code), internal, callersSkip(0))
+}
+
 // SpecForCode returns the public specification registered for code. Unknown
 // codes resolve to the internal-error specification and never expose the
 // caller-supplied numeric code to clients.
@@ -75,6 +80,10 @@ func NewSpec(spec Spec, internal string) error {
 // WrapSpec attaches a public business-error contract to err and preserves err
 // in the standard Go error chain. It returns nil when err is nil.
 func WrapSpec(err error, spec Spec, internal string) error {
+	return wrapSpec(err, spec, internal, callers())
+}
+
+func wrapSpec(err error, spec Spec, internal string, stack *stack) error {
 	if err == nil {
 		return nil
 	}
@@ -83,7 +92,7 @@ func WrapSpec(err error, spec Spec, internal string) error {
 		spec:  spec,
 		err:   stderrors.New(internal),
 		cause: err,
-		stack: callers(),
+		stack: stack,
 	}
 }
 
@@ -109,29 +118,3 @@ func (w *withSpec) Error() string { return w.err.Error() }
 func (w *withSpec) Unwrap() error { return w.cause }
 
 func (w *withSpec) Spec() Spec { return w.spec }
-
-func (w *withSpec) Format(state fmt.State, verb rune) {
-	if verb != 'v' || (!state.Flag('+') && !state.Flag('#') && !state.Flag('-')) {
-		_, _ = fmt.Fprint(state, w.spec.Message)
-		return
-	}
-
-	_, _ = fmt.Fprint(state, w.Error())
-	if w.cause != nil {
-		_, _ = fmt.Fprintf(state, ": %+v", w.cause)
-	}
-	if state.Flag('+') && w.stack != nil {
-		w.stack.Format(state, verb)
-	}
-}
-
-func (w *withCode) Spec() Spec {
-	coder := ParseCoder(w)
-	spec := Spec{
-		Code:      coder.Code(),
-		Kind:      coder.Kind(),
-		Message:   coder.String(),
-		Reference: coder.Reference(),
-	}
-	return spec
-}

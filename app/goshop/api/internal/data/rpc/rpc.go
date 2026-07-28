@@ -73,19 +73,19 @@ func GetDataFactoryOr(
 
 	userClient, _, err := appclient.NewUserClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
-		return nil, errors2.WrapC(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
+		return nil, errors2.WrapCode(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
 	}
 	goodsClient, _, err := appclient.NewGoodsClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
-		return nil, errors2.WrapC(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
+		return nil, errors2.WrapCode(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
 	}
 	inventoryClient, _, err := appclient.NewInventoryClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
-		return nil, errors2.WrapC(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
+		return nil, errors2.WrapCode(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
 	}
 	orderClient, _, err := appclient.NewOrderClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
-		return nil, errors2.WrapC(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
+		return nil, errors2.WrapCode(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
 	}
 
 	factory := &grpcData{

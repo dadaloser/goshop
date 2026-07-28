@@ -161,9 +161,13 @@ func (s *stack) StackTrace() StackTrace {
 }
 
 func callers() *stack {
+	return callersSkip(1)
+}
+
+func callersSkip(skip int) *stack {
 	const depth = 32
 	var pcs [depth]uintptr
-	n := runtime.Callers(3, pcs[:])
+	n := runtime.Callers(3+skip, pcs[:])
 	var st stack = pcs[0:n]
 	return &st
 }

@@ -79,7 +79,7 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 	})
 
 	if dbFactory == nil || err != nil {
-		return nil, errors2.WrapC(err, bizcode.ErrConnectDB, "failed to get mysql store factory")
+		return nil, errors2.WrapCode(err, bizcode.ErrConnectDB, "failed to get mysql store factory")
 	}
 	return dbFactory, nil
 }

@@ -106,13 +106,6 @@ func ParseCoder(err error) Coder {
 		return nil
 	}
 
-	var coded *withCode
-	if stderrors.As(err, &coded) {
-		if coder, ok := lookupCoder(coded.code); ok {
-			return coder
-		}
-	}
-
 	var specified Coded
 	if stderrors.As(err, &specified) {
 		if coder, ok := lookupCoder(specified.Spec().Code); ok {
@@ -126,9 +119,6 @@ func ParseCoder(err error) Coder {
 // IsCode reports whether any error in err's chain contains the given error code.
 func IsCode(err error, code int) bool {
 	for err != nil {
-		if coded, ok := err.(*withCode); ok && coded.code == code {
-			return true
-		}
 		if coded, ok := err.(Coded); ok && coded.Spec().Code == code {
 			return true
 		}

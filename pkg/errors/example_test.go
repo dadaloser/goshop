@@ -118,8 +118,9 @@ func ExampleNewCode() {
 	err = Wrap(err, "this is a wrap error message with error code not change")
 	fmt.Println(err)
 
-	err = WrapC(err, ErrInvalidJSON, "this is a wrap error message with new error code")
-	fmt.Println(codes[err.(*withCode).code].String())
+	err = WrapCode(err, ErrInvalidJSON, "this is a wrap error message with new error code")
+	spec, _ := SpecOf(err)
+	fmt.Println(spec.Message)
 	fmt.Println(err)
 	//fmt.Printf("%+v\n", err)
 	//fmt.Printf("%#+v\n", err)
@@ -131,30 +132,32 @@ func ExampleNewCode() {
 	// Data is not valid JSON
 }
 
-func ExamplewithCode_code() {
+func ExampleSpecOf_code() {
 	err := loadConfig()
 	if nil != err {
-		err = WrapC(err, ErrLoadConfigFailed, "failed to load configuration")
+		err = WrapCode(err, ErrLoadConfigFailed, "failed to load configuration")
 	}
 
-	fmt.Println(err.(*withCode).code)
+	spec, _ := SpecOf(err)
+	fmt.Println(spec.Code)
 	// Output: 1003
 }
 
 func ExampledefaultCoder_Kind() {
 	err := loadConfig()
 	if nil != err {
-		err = WrapC(err, ErrLoadConfigFailed, "failed to load configuration")
+		err = WrapCode(err, ErrLoadConfigFailed, "failed to load configuration")
 	}
 
-	fmt.Println(codes[err.(*withCode).code].Kind())
+	spec, _ := SpecOf(err)
+	fmt.Println(spec.Kind)
 	// Output: internal
 }
 
 func ExampleCoder_Kind() {
 	err := loadConfig()
 	if nil != err {
-		err = WrapC(err, ErrLoadConfigFailed, "failed to load configuration")
+		err = WrapCode(err, ErrLoadConfigFailed, "failed to load configuration")
 	}
 
 	coder := ParseCoder(err)
@@ -165,9 +168,10 @@ func ExampleCoder_Kind() {
 func ExampleString() {
 	err := loadConfig()
 	if nil != err {
-		err = WrapC(err, ErrLoadConfigFailed, "failed to load configuration")
+		err = WrapCode(err, ErrLoadConfigFailed, "failed to load configuration")
 	}
 
-	fmt.Println(codes[err.(*withCode).code].String())
+	spec, _ := SpecOf(err)
+	fmt.Println(spec.Message)
 	// Output: Load configuration file failed
 }

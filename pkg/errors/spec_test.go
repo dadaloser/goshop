@@ -2,6 +2,7 @@ package errors
 
 import (
 	stderrors "errors"
+	"fmt"
 	"testing"
 )
 
@@ -35,5 +36,30 @@ func TestParseCoderAndIsCodeFindWrappedCode(t *testing.T) {
 	}
 	if !IsCode(err, code) {
 		t.Fatalf("IsCode(%v, %d) = false, want true", err, code)
+	}
+}
+
+func TestWrapCodeUsesRegisteredSpecAndPreservesCause(t *testing.T) {
+	const code = 990103
+	Register(defaultCoder{
+		C:   code,
+		K:   KindUnavailable,
+		Ext: "dependency unavailable",
+	})
+
+	cause := stderrors.New("dial tcp: connection refused")
+	err := WrapCode(cause, code, "connect inventory service")
+
+	if !stderrors.Is(err, cause) {
+		t.Fatal("WrapCode() does not preserve the cause")
+	}
+	if err.Error() != "connect inventory service" {
+		t.Fatalf("WrapCode() diagnostic = %q, want %q", err.Error(), "connect inventory service")
+	}
+	if got := fmt.Sprintf("%v", err); got != "dependency unavailable" {
+		t.Fatalf("WrapCode() public message = %q, want %q", got, "dependency unavailable")
+	}
+	if spec, ok := SpecOf(err); !ok || spec != SpecForCode(code) {
+		t.Fatalf("SpecOf(WrapCode()) = (%#v, %t), want (%#v, true)", spec, ok, SpecForCode(code))
 	}
 }

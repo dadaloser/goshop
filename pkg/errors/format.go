@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// formatInfo contains all the error information.
 type formatInfo struct {
 	code    int
 	message string
@@ -15,183 +14,88 @@ type formatInfo struct {
 	stack   *stack
 }
 
-// Format implements fmt.Formatter. https://golang.org/pkg/fmt/#hdr-Printing
-//
-// Verbs:
-//
-//	%s  - Returns the user-safe error string mapped to the error code or
-//	  ┊   the error message if none is specified.
-//	%v      Alias for %s
-//
-// Flags:
-//
-//	#      JSON formatted output, useful for logging
-//	-      Output caller details, useful for troubleshooting
-//	+      Output full error stack details, useful for debugging
-func (w *withCode) Format(state fmt.State, verb rune) {
+// Format renders an error specification safely by default and includes
+// diagnostics only when an explicit formatting flag is requested.
+func (w *withSpec) Format(state fmt.State, verb rune) {
 	switch verb {
 	case 'v':
-		str := bytes.NewBuffer([]byte{})
+		str := bytes.NewBuffer(nil)
 		jsonData := []map[string]interface{}{}
-
-		var (
-			flagDetail bool
-			flagTrace  bool
-			modeJSON   bool
-		)
-
-		if state.Flag('#') {
-			modeJSON = true
-		}
-
-		if state.Flag('-') {
-			flagDetail = true
-		}
-		if state.Flag('+') {
-			flagTrace = true
-		}
+		flagDetail := state.Flag('-')
+		flagTrace := state.Flag('+')
+		modeJSON := state.Flag('#')
 
 		sep := ""
 		errs := list(w)
-		length := len(errs)
-		for k, e := range errs {
-			finfo := buildFormatInfo(e)
-			jsonData, str = format(length-k-1, jsonData, str, finfo, sep, flagDetail, flagTrace, modeJSON)
+		for k, err := range errs {
+			finfo := buildFormatInfo(err)
+			jsonData, str = format(len(errs)-k-1, jsonData, str, finfo, sep, flagDetail, flagTrace, modeJSON)
 			sep = "; "
-
 			if !flagTrace {
-				break
-			}
-
-			if !flagDetail && !flagTrace && !modeJSON {
 				break
 			}
 		}
 		if modeJSON {
-			var byts []byte
-			byts, _ = json.Marshal(jsonData)
-
+			byts, _ := json.Marshal(jsonData)
 			str.Write(byts)
 		}
-
-		_, _ = fmt.Fprintf(state, "%s", strings.Trim(str.String(), "\r\n\t"))
+		_, _ = fmt.Fprint(state, strings.Trim(str.String(), "\r\n\t"))
 	default:
-		finfo := buildFormatInfo(w)
-		// Externally-safe error message
-		_, _ = fmt.Fprint(state, finfo.message)
+		_, _ = fmt.Fprint(state, w.spec.Message)
 	}
 }
 
-func format(k int, jsonData []map[string]interface{}, str *bytes.Buffer, finfo *formatInfo,
-	sep string, flagDetail, flagTrace, modeJSON bool) ([]map[string]interface{}, *bytes.Buffer) {
+func format(k int, jsonData []map[string]interface{}, str *bytes.Buffer, finfo *formatInfo, sep string, detail, trace, modeJSON bool) ([]map[string]interface{}, *bytes.Buffer) {
 	if modeJSON {
-		data := map[string]interface{}{}
-		if flagDetail || flagTrace {
-			data = map[string]interface{}{
-				"message": finfo.message,
-				"code":    finfo.code,
-				"error":   finfo.err,
-			}
-
+		data := map[string]interface{}{"error": finfo.message}
+		if detail || trace {
+			data = map[string]interface{}{"message": finfo.message, "code": finfo.code, "error": finfo.err}
 			caller := fmt.Sprintf("#%d", k)
 			if finfo.stack != nil {
 				f := Frame((*finfo.stack)[0])
-				caller = fmt.Sprintf("%s %s:%d (%s)",
-					caller,
-					f.file(),
-					f.line(),
-					f.name(),
-				)
+				caller = fmt.Sprintf("%s %s:%d (%s)", caller, f.file(), f.line(), f.name())
 			}
 			data["caller"] = caller
-		} else {
-			data["error"] = finfo.message
 		}
-		jsonData = append(jsonData, data)
-	} else {
-		if flagDetail || flagTrace {
-			if finfo.stack != nil {
-				f := Frame((*finfo.stack)[0])
-				fmt.Fprintf(str, "%s%s - #%d [%s:%d (%s)] (%d) %s",
-					sep,
-					finfo.err,
-					k,
-					f.file(),
-					f.line(),
-					f.name(),
-					finfo.code,
-					finfo.message,
-				)
-			} else {
-				fmt.Fprintf(str, "%s%s - #%d %s", sep, finfo.err, k, finfo.message)
-			}
-
-		} else {
-			fmt.Fprint(str, finfo.message)
-		}
+		return append(jsonData, data), str
 	}
 
+	if detail || trace {
+		if finfo.stack != nil {
+			f := Frame((*finfo.stack)[0])
+			fmt.Fprintf(str, "%s%s - #%d [%s:%d (%s)] (%d) %s", sep, finfo.err, k, f.file(), f.line(), f.name(), finfo.code, finfo.message)
+		} else {
+			fmt.Fprintf(str, "%s%s - #%d %s", sep, finfo.err, k, finfo.message)
+		}
+	} else {
+		fmt.Fprint(str, finfo.message)
+	}
 	return jsonData, str
 }
 
-// list will convert the error stack into a simple array.
-func list(e error) []error {
-	ret := []error{}
-
-	if e != nil {
-		if w, ok := e.(interface{ Unwrap() error }); ok {
-			ret = append(ret, e)
-			ret = append(ret, list(w.Unwrap())...)
-		} else {
-			ret = append(ret, e)
-		}
+func list(err error) []error {
+	if err == nil {
+		return nil
 	}
-
-	return ret
+	if unwrapper, ok := err.(interface{ Unwrap() error }); ok {
+		return append([]error{err}, list(unwrapper.Unwrap())...)
+	}
+	return []error{err}
 }
 
-func buildFormatInfo(e error) *formatInfo {
-	var finfo *formatInfo
-
-	switch err := e.(type) {
+func buildFormatInfo(err error) *formatInfo {
+	switch value := err.(type) {
 	case *fundamental:
-		finfo = &formatInfo{
-			code:    unknownCoder.Code(),
-			message: err.msg,
-			err:     err.msg,
-			stack:   err.stack,
-		}
+		return &formatInfo{code: unknownCoder.Code(), message: value.msg, err: value.msg, stack: value.stack}
 	case *withStack:
-		finfo = &formatInfo{
-			code:    unknownCoder.Code(),
-			message: err.Error(),
-			err:     err.Error(),
-			stack:   err.stack,
+		return &formatInfo{code: unknownCoder.Code(), message: value.Error(), err: value.Error(), stack: value.stack}
+	case *withSpec:
+		message := value.spec.Message
+		if message == "" {
+			message = value.Error()
 		}
-	case *withCode:
-		coder, ok := lookupCoder(err.code)
-		if !ok {
-			coder = unknownCoder
-		}
-
-		extMsg := coder.String()
-		if extMsg == "" {
-			extMsg = err.err.Error()
-		}
-
-		finfo = &formatInfo{
-			code:    coder.Code(),
-			message: extMsg,
-			err:     err.err.Error(),
-			stack:   err.stack,
-		}
+		return &formatInfo{code: value.spec.Code, message: message, err: value.Error(), stack: value.stack}
 	default:
-		finfo = &formatInfo{
-			code:    unknownCoder.Code(),
-			message: err.Error(),
-			err:     err.Error(),
-		}
+		return &formatInfo{code: unknownCoder.Code(), message: err.Error(), err: err.Error()}
 	}
-
-	return finfo
 }
