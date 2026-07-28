@@ -74,13 +74,12 @@ func format(k int, jsonData []map[string]interface{}, str *bytes.Buffer, finfo *
 }
 
 func list(err error) []error {
-	if err == nil {
-		return nil
-	}
-	if unwrapper, ok := err.(interface{ Unwrap() error }); ok {
-		return append([]error{err}, list(unwrapper.Unwrap())...)
-	}
-	return []error{err}
+	var errors []error
+	walkErrors(err, func(err error) bool {
+		errors = append(errors, err)
+		return false
+	})
+	return errors
 }
 
 func buildFormatInfo(err error) *formatInfo {

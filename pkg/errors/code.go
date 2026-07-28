@@ -139,19 +139,12 @@ func ParseCoder(err error) Coder {
 
 // IsCode reports whether any error in err's chain contains the given error code.
 func IsCode(err error, code int) bool {
-	for err != nil {
+	return walkErrors(err, func(err error) bool {
 		if coded, ok := err.(Coded); ok && coded.Spec().Code == code {
 			return true
 		}
-
-		unwrapper, ok := err.(interface{ Unwrap() error })
-		if !ok {
-			return false
-		}
-		err = unwrapper.Unwrap()
-	}
-
-	return false
+		return false
+	})
 }
 
 func sameCoder(left, right Coder) bool {

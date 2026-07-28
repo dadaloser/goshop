@@ -64,3 +64,16 @@ func TestWrapCodeUsesRegisteredSpecAndPreservesCause(t *testing.T) {
 		t.Fatalf("SpecOf(WrapCode()) = (%#v, %t), want (%#v, true)", spec, ok, SpecForCode(code))
 	}
 }
+
+func TestDetailedFormatIncludesJoinedBranches(t *testing.T) {
+	left := NewSpec(Spec{Code: 990104, Kind: KindUnavailable, Message: "left unavailable"}, "left diagnostic")
+	right := NewSpec(Spec{Code: 990105, Kind: KindUnavailable, Message: "right unavailable"}, "right diagnostic")
+	err := WrapSpec(stderrors.Join(left, right), Spec{Code: 990106, Kind: KindUnavailable, Message: "combined unavailable"}, "combined diagnostic")
+
+	detail := fmt.Sprintf("%+v", err)
+	for _, want := range []string{"combined diagnostic", "left diagnostic", "right diagnostic"} {
+		if !strings.Contains(detail, want) {
+			t.Fatalf("detailed format = %q, missing %q", detail, want)
+		}
+	}
+}

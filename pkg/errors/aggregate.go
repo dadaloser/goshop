@@ -84,21 +84,8 @@ func (agg aggregate) Is(target error) bool {
 
 func (agg aggregate) visit(f func(err error) bool) bool {
 	for _, err := range agg {
-		switch err := err.(type) {
-		case aggregate:
-			if match := err.visit(f); match {
-				return match
-			}
-		case Aggregate:
-			for _, nestedErr := range err.Errors() {
-				if match := f(nestedErr); match {
-					return match
-				}
-			}
-		default:
-			if match := f(err); match {
-				return match
-			}
+		if walkErrors(err, f) {
+			return true
 		}
 	}
 

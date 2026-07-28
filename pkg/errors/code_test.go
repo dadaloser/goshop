@@ -1,6 +1,9 @@
 package errors
 
-import "testing"
+import (
+	stderrors "errors"
+	"testing"
+)
 
 func TestMustRegisterAllowsIdenticalDuplicate(t *testing.T) {
 	restoreCodes(t)
@@ -40,6 +43,18 @@ func TestCatalogRegisterAllIsIdempotent(t *testing.T) {
 	want := catalog[0]
 	if got != want {
 		t.Fatalf("SpecForCode(%d) = %#v, want %#v", code, got, want)
+	}
+}
+
+func TestIsCodeFindsCodesInJoinedAndAggregatedErrors(t *testing.T) {
+	const code = 991002
+	err := NewSpec(Spec{Code: code, Kind: KindUnavailable, Message: "dependency unavailable"}, "dial tcp: refused")
+
+	if !IsCode(stderrors.Join(stderrors.New("other failure"), err), code) {
+		t.Fatal("IsCode() did not find code in errors.Join branch")
+	}
+	if !IsCode(NewAggregate([]error{stderrors.New("other failure"), err}), code) {
+		t.Fatal("IsCode() did not find code in Aggregate branch")
 	}
 }
 
