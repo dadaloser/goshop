@@ -3,7 +3,6 @@ package serverinterceptors
 import (
 	"context"
 	stderrors "errors"
-	"net/http"
 
 	apperrors "goshop/pkg/errors"
 
@@ -22,14 +21,12 @@ func toGRPCError(err error) error {
 		return status.Error(codes.DeadlineExceeded, context.DeadlineExceeded.Error())
 	}
 
-	if spec, ok := apperrors.SpecOf(err); ok && spec.Kind != "" {
-		return status.Error(grpcCodeForKind(spec.Kind), spec.Message)
+	spec, ok := apperrors.SpecOf(err)
+	if !ok || spec.Kind == "" {
+		spec = apperrors.SpecForCode(apperrors.ParseCoder(err).Code())
 	}
 
-	// Legacy WithCode errors retain their existing HTTP-status mapping until
-	// callers migrate to Spec-based errors.
-	coder := apperrors.ParseCoder(err)
-	return status.Error(grpcCodeForHTTPStatus(coder.HTTPStatus()), coder.String())
+	return status.Error(grpcCodeForKind(spec.Kind), spec.Message)
 }
 
 func grpcCodeForKind(kind apperrors.Kind) codes.Code {
@@ -49,29 +46,6 @@ func grpcCodeForKind(kind apperrors.Kind) codes.Code {
 	case apperrors.KindUnavailable:
 		return codes.Unavailable
 	case apperrors.KindTimeout:
-		return codes.DeadlineExceeded
-	default:
-		return codes.Internal
-	}
-}
-
-func grpcCodeForHTTPStatus(statusCode int) codes.Code {
-	switch statusCode {
-	case http.StatusBadRequest:
-		return codes.InvalidArgument
-	case http.StatusUnauthorized:
-		return codes.Unauthenticated
-	case http.StatusForbidden:
-		return codes.PermissionDenied
-	case http.StatusNotFound:
-		return codes.NotFound
-	case http.StatusConflict:
-		return codes.AlreadyExists
-	case http.StatusTooManyRequests:
-		return codes.ResourceExhausted
-	case http.StatusServiceUnavailable, http.StatusBadGateway, http.StatusGatewayTimeout:
-		return codes.Unavailable
-	case http.StatusRequestTimeout:
 		return codes.DeadlineExceeded
 	default:
 		return codes.Internal

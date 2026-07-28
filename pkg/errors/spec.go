@@ -54,14 +54,10 @@ func SpecForCode(code int) Spec {
 
 	spec := Spec{
 		Code:      coder.Code(),
-		Kind:      KindInternal,
+		Kind:      coder.Kind(),
 		Message:   coder.String(),
 		Reference: coder.Reference(),
 	}
-	if kinded, ok := coder.(interface{ Kind() Kind }); ok {
-		spec.Kind = kinded.Kind()
-	}
-
 	return spec
 }
 
@@ -133,12 +129,9 @@ func (w *withCode) Spec() Spec {
 	coder := ParseCoder(w)
 	spec := Spec{
 		Code:      coder.Code(),
+		Kind:      coder.Kind(),
 		Message:   coder.String(),
 		Reference: coder.Reference(),
 	}
-	if coder, ok := coder.(interface{ Kind() Kind }); ok {
-		spec.Kind = coder.Kind()
-	}
-
 	return spec
 }

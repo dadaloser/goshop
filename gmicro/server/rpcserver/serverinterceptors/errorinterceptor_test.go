@@ -2,7 +2,6 @@ package serverinterceptors
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	apperrors "goshop/pkg/errors"
@@ -79,7 +78,6 @@ func TestToGRPCErrorKeepsLegacyCodeMapping(t *testing.T) {
 	const userNotFoundCode = 990404
 	apperrors.Register(testCoder{
 		code:    userNotFoundCode,
-		http:    http.StatusNotFound,
 		kind:    apperrors.KindNotFound,
 		message: "User not found",
 	})
@@ -114,13 +112,11 @@ func TestToGRPCErrorMapsContextErrors(t *testing.T) {
 
 type testCoder struct {
 	code    int
-	http    int
 	kind    apperrors.Kind
 	message string
 }
 
 func (c testCoder) Code() int            { return c.code }
-func (c testCoder) HTTPStatus() int      { return c.http }
 func (c testCoder) String() string       { return c.message }
 func (c testCoder) Reference() string    { return "" }
 func (c testCoder) Kind() apperrors.Kind { return c.kind }

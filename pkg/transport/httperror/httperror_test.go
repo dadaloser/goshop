@@ -46,7 +46,6 @@ func TestResponseForLegacyCode(t *testing.T) {
 	const code = 990202
 	apperrors.Register(testCoder{
 		code:    code,
-		status:  http.StatusNotFound,
 		kind:    apperrors.KindNotFound,
 		message: "legacy not found",
 	})
@@ -62,13 +61,11 @@ func TestResponseForLegacyCode(t *testing.T) {
 
 type testCoder struct {
 	code    int
-	status  int
 	kind    apperrors.Kind
 	message string
 }
 
 func (c testCoder) Code() int            { return c.code }
-func (c testCoder) HTTPStatus() int      { return c.status }
 func (c testCoder) String() string       { return c.message }
 func (c testCoder) Reference() string    { return "" }
 func (c testCoder) Kind() apperrors.Kind { return c.kind }

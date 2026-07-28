@@ -19,10 +19,10 @@ const (
 )
 
 func init() {
-	Register(defaultCoder{ConfigurationNotValid, 500, "ConfigurationNotValid error", ""})
-	Register(defaultCoder{ErrInvalidJSON, 500, "Data is not valid JSON", ""})
-	Register(defaultCoder{ErrEOF, 500, "End of input", ""})
-	Register(defaultCoder{ErrLoadConfigFailed, 500, "Load configuration file failed", ""})
+	Register(defaultCoder{ConfigurationNotValid, KindInternal, "ConfigurationNotValid error", ""})
+	Register(defaultCoder{ErrInvalidJSON, KindInternal, "Data is not valid JSON", ""})
+	Register(defaultCoder{ErrEOF, KindInternal, "End of input", ""})
+	Register(defaultCoder{ErrLoadConfigFailed, KindInternal, "Load configuration file failed", ""})
 }
 
 func loadConfig() error {

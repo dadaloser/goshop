@@ -288,19 +288,19 @@ func TestErrorEquality(t *testing.T) {
 func TestParseCoder(t *testing.T) {
 	tests := []struct {
 		err           error
-		wantHTTPCode  int
+		wantKind      Kind
 		wantString    string
 		wantCode      int
 		wantReference string
 	}{
-		{fmt.Errorf("yes error"), 500, "An internal server error occurred", 1, "http://goshop/pkg/errors/README.md"},
-		{NewCode(unknownCoder.Code(), "internal error message"), 500, "An internal server error occurred", 1, "http://goshop/pkg/errors/README.md"},
+		{fmt.Errorf("yes error"), KindInternal, "An internal server error occurred", 1, "http://goshop/pkg/errors/README.md"},
+		{NewCode(unknownCoder.Code(), "internal error message"), KindInternal, "An internal server error occurred", 1, "http://goshop/pkg/errors/README.md"},
 	}
 
 	for i, tt := range tests {
 		coder := ParseCoder(tt.err)
-		if coder.HTTPStatus() != tt.wantHTTPCode {
-			t.Errorf("TestCodeParse(%d): got %d, want: %d", i, coder.HTTPStatus(), tt.wantHTTPCode)
+		if coder.Kind() != tt.wantKind {
+			t.Errorf("TestCodeParse(%d): got %q, want: %q", i, coder.Kind(), tt.wantKind)
 		}
 
 		if coder.String() != tt.wantString {

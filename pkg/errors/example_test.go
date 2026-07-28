@@ -141,25 +141,25 @@ func ExamplewithCode_code() {
 	// Output: 1003
 }
 
-func ExampledefaultCoder_HTTPStatus() {
+func ExampledefaultCoder_Kind() {
 	err := loadConfig()
 	if nil != err {
 		err = WrapC(err, ErrLoadConfigFailed, "failed to load configuration")
 	}
 
-	fmt.Println(codes[err.(*withCode).code].HTTPStatus())
-	// Output: 500
+	fmt.Println(codes[err.(*withCode).code].Kind())
+	// Output: internal
 }
 
-func ExampleCoder_HTTPStatus() {
+func ExampleCoder_Kind() {
 	err := loadConfig()
 	if nil != err {
 		err = WrapC(err, ErrLoadConfigFailed, "failed to load configuration")
 	}
 
 	coder := ParseCoder(err)
-	fmt.Println(coder.HTTPStatus())
-	// Output: 500
+	fmt.Println(coder.Kind())
+	// Output: internal
 }
 
 func ExampleString() {

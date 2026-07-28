@@ -3,19 +3,15 @@ package errors
 import (
 	stderrors "errors"
 	"fmt"
-	"net/http"
 	"sync"
 )
 
 var (
-	unknownCoder defaultCoder = defaultCoder{1, http.StatusInternalServerError, "An internal server error occurred", "http://goshop/pkg/errors/README.md"}
+	unknownCoder defaultCoder = defaultCoder{1, KindInternal, "An internal server error occurred", "http://goshop/pkg/errors/README.md"}
 )
 
 // Coder defines an interface for an error code detail information.
 type Coder interface {
-	// HTTP status that should be used for the associated error code.
-	HTTPStatus() int
-
 	// External (user) facing error text.
 	String() string
 
@@ -24,14 +20,17 @@ type Coder interface {
 
 	// Code returns the code of the coder
 	Code() int
+
+	// Kind returns the protocol-independent public classification.
+	Kind() Kind
 }
 
 type defaultCoder struct {
 	// C refers to the integer code of the ErrCode.
 	C int
 
-	// HTTP status that should be used for the associated error code.
-	HTTP int
+	// K is the protocol-independent public classification.
+	K Kind
 
 	// External (user) facing error text.
 	Ext string
@@ -52,16 +51,6 @@ func (coder defaultCoder) String() string {
 	return coder.Ext
 }
 
-// HTTPStatus returns the associated HTTP status code, if any. Otherwise,
-// returns 200.
-func (coder defaultCoder) HTTPStatus() int {
-	if coder.HTTP == 0 {
-		return 500
-	}
-
-	return coder.HTTP
-}
-
 // Reference returns the reference document.
 func (coder defaultCoder) Reference() string {
 	return coder.Ref
@@ -70,7 +59,7 @@ func (coder defaultCoder) Reference() string {
 // Kind classifies unknown or unregistered codes as internal errors. It keeps
 // legacy WithCode callers safe when a code has not yet been registered.
 func (coder defaultCoder) Kind() Kind {
-	return KindInternal
+	return coder.K
 }
 
 // codes contains a map of error codes to metadata.
@@ -164,7 +153,7 @@ func sameCoder(left, right Coder) bool {
 	}
 
 	return left.Code() == right.Code() &&
-		left.HTTPStatus() == right.HTTPStatus() &&
+		left.Kind() == right.Kind() &&
 		left.String() == right.String() &&
 		left.Reference() == right.Reference()
 }

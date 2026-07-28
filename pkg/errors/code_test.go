@@ -1,18 +1,15 @@
 package errors
 
-import (
-	"net/http"
-	"testing"
-)
+import "testing"
 
 func TestMustRegisterAllowsIdenticalDuplicate(t *testing.T) {
 	restoreCodes(t)
 
 	coder := defaultCoder{
-		C:    990001,
-		HTTP: http.StatusBadRequest,
-		Ext:  "duplicate coder",
-		Ref:  "https://example.test/duplicate",
+		C:   990001,
+		K:   KindInvalidArgument,
+		Ext: "duplicate coder",
+		Ref: "https://example.test/duplicate",
 	}
 
 	MustRegister(coder)
@@ -31,10 +28,10 @@ func TestMustRegisterPanicsOnConflictingDuplicate(t *testing.T) {
 	restoreCodes(t)
 
 	MustRegister(defaultCoder{
-		C:    990002,
-		HTTP: http.StatusBadRequest,
-		Ext:  "first coder",
-		Ref:  "https://example.test/first",
+		C:   990002,
+		K:   KindInvalidArgument,
+		Ext: "first coder",
+		Ref: "https://example.test/first",
 	})
 
 	defer func() {
@@ -44,31 +41,31 @@ func TestMustRegisterPanicsOnConflictingDuplicate(t *testing.T) {
 	}()
 
 	MustRegister(defaultCoder{
-		C:    990002,
-		HTTP: http.StatusInternalServerError,
-		Ext:  "second coder",
-		Ref:  "https://example.test/second",
+		C:   990002,
+		K:   KindInternal,
+		Ext: "second coder",
+		Ref: "https://example.test/second",
 	})
 }
 
 func TestSameCoder(t *testing.T) {
 	left := defaultCoder{
-		C:    990003,
-		HTTP: http.StatusForbidden,
-		Ext:  "same coder",
-		Ref:  "https://example.test/same",
+		C:   990003,
+		K:   KindPermissionDenied,
+		Ext: "same coder",
+		Ref: "https://example.test/same",
 	}
 	right := defaultCoder{
-		C:    990003,
-		HTTP: http.StatusForbidden,
-		Ext:  "same coder",
-		Ref:  "https://example.test/same",
+		C:   990003,
+		K:   KindPermissionDenied,
+		Ext: "same coder",
+		Ref: "https://example.test/same",
 	}
 	other := defaultCoder{
-		C:    990003,
-		HTTP: http.StatusForbidden,
-		Ext:  "different coder",
-		Ref:  "https://example.test/same",
+		C:   990003,
+		K:   KindPermissionDenied,
+		Ext: "different coder",
+		Ref: "https://example.test/same",
 	}
 
 	if !sameCoder(left, right) {

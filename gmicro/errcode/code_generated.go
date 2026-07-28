@@ -4,28 +4,24 @@
 
 package errcode
 
-import (
-	"net/http"
-
-	"goshop/pkg/errors"
-)
+import "goshop/pkg/errors"
 
 // init register error codes defines in this source code to `imooc/goshop/pkg/errors`
 func init() {
-	register(ErrDatabase, http.StatusServiceUnavailable, errors.KindUnavailable, "Database error")
-	register(ErrEncrypt, http.StatusInternalServerError, errors.KindInternal, "Error occurred while encrypting the user password")
-	register(ErrSignatureInvalid, http.StatusUnauthorized, errors.KindUnauthenticated, "Signature is invalid")
-	register(ErrExpired, http.StatusUnauthorized, errors.KindUnauthenticated, "Token expired")
-	register(ErrInvalidAuthHeader, http.StatusUnauthorized, errors.KindUnauthenticated, "Invalid authorization header")
-	register(ErrMissingHeader, http.StatusUnauthorized, errors.KindUnauthenticated, "The `Authorization` header was empty")
-	register(ErrPasswordIncorrect, http.StatusUnauthorized, errors.KindUnauthenticated, "Password was incorrect")
-	register(ErrPermissionDenied, http.StatusForbidden, errors.KindPermissionDenied, "Permission denied")
-	register(ErrEncodingFailed, http.StatusInternalServerError, errors.KindInternal, "Encoding failed due to an error with the data")
-	register(ErrDecodingFailed, http.StatusInternalServerError, errors.KindInternal, "Decoding failed due to an error with the data")
-	register(ErrInvalidJSON, http.StatusBadRequest, errors.KindInvalidArgument, "Data is not valid JSON")
-	register(ErrEncodingJSON, http.StatusInternalServerError, errors.KindInternal, "JSON data could not be encoded")
-	register(ErrDecodingJSON, http.StatusBadRequest, errors.KindInvalidArgument, "JSON data could not be decoded")
-	register(ErrInvalidYaml, http.StatusBadRequest, errors.KindInvalidArgument, "Data is not valid Yaml")
-	register(ErrEncodingYaml, http.StatusInternalServerError, errors.KindInternal, "Yaml data could not be encoded")
-	register(ErrDecodingYaml, http.StatusBadRequest, errors.KindInvalidArgument, "Yaml data could not be decoded")
+	register(ErrDatabase, errors.KindUnavailable, "Database error")
+	register(ErrEncrypt, errors.KindInternal, "Error occurred while encrypting the user password")
+	register(ErrSignatureInvalid, errors.KindUnauthenticated, "Signature is invalid")
+	register(ErrExpired, errors.KindUnauthenticated, "Token expired")
+	register(ErrInvalidAuthHeader, errors.KindUnauthenticated, "Invalid authorization header")
+	register(ErrMissingHeader, errors.KindUnauthenticated, "The `Authorization` header was empty")
+	register(ErrPasswordIncorrect, errors.KindUnauthenticated, "Password was incorrect")
+	register(ErrPermissionDenied, errors.KindPermissionDenied, "Permission denied")
+	register(ErrEncodingFailed, errors.KindInternal, "Encoding failed due to an error with the data")
+	register(ErrDecodingFailed, errors.KindInternal, "Decoding failed due to an error with the data")
+	register(ErrInvalidJSON, errors.KindInvalidArgument, "Data is not valid JSON")
+	register(ErrEncodingJSON, errors.KindInternal, "JSON data could not be encoded")
+	register(ErrDecodingJSON, errors.KindInvalidArgument, "JSON data could not be decoded")
+	register(ErrInvalidYaml, errors.KindInvalidArgument, "Data is not valid Yaml")
+	register(ErrEncodingYaml, errors.KindInternal, "Yaml data could not be encoded")
+	register(ErrDecodingYaml, errors.KindInvalidArgument, "Yaml data could not be decoded")
 }

@@ -16,24 +16,17 @@ type Response struct {
 }
 
 // ResponseFor returns public HTTP response metadata for err.
-// Spec-based errors use their protocol-independent Kind. Legacy WithCode
-// errors retain their registered HTTP status mapping during migration.
 func ResponseFor(err error) Response {
-	if spec, ok := apperrors.SpecOf(err); ok && spec.Kind != "" {
-		return Response{
-			Status:    statusForKind(spec.Kind),
-			Code:      spec.Code,
-			Message:   spec.Message,
-			Reference: spec.Reference,
-		}
+	spec, ok := apperrors.SpecOf(err)
+	if !ok || spec.Kind == "" {
+		spec = apperrors.SpecForCode(apperrors.ParseCoder(err).Code())
 	}
 
-	coder := apperrors.ParseCoder(err)
 	return Response{
-		Status:    coder.HTTPStatus(),
-		Code:      coder.Code(),
-		Message:   coder.String(),
-		Reference: coder.Reference(),
+		Status:    statusForKind(spec.Kind),
+		Code:      spec.Code,
+		Message:   spec.Message,
+		Reference: spec.Reference,
 	}
 }
 
