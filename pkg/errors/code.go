@@ -25,6 +25,27 @@ type Coder interface {
 	Kind() Kind
 }
 
+// Catalog is a declarative collection of public error specifications. Error
+// domains own their Catalog values; this package owns the only registration
+// implementation and the process-wide registry.
+type Catalog []Spec
+
+// RegisterAll registers every specification in the catalog. Re-registering an
+// identical specification is safe, which lets multiple application components
+// explicitly request their required catalogs without depending on init order.
+func (catalog Catalog) RegisterAll() {
+	for _, spec := range catalog {
+		MustRegister(specCoder{spec: spec})
+	}
+}
+
+type specCoder struct{ spec Spec }
+
+func (coder specCoder) String() string    { return coder.spec.Message }
+func (coder specCoder) Reference() string { return coder.spec.Reference }
+func (coder specCoder) Code() int         { return coder.spec.Code }
+func (coder specCoder) Kind() Kind        { return coder.spec.Kind }
+
 type defaultCoder struct {
 	// C refers to the integer code of the ErrCode.
 	C int
@@ -63,7 +84,7 @@ func (coder defaultCoder) Kind() Kind {
 }
 
 // codes contains a map of error codes to metadata.
-var codes = map[int]Coder{}
+var codes = map[int]Coder{unknownCoder.Code(): unknownCoder}
 var codeMux sync.RWMutex
 
 // Register register a user define error code.
@@ -131,10 +152,6 @@ func IsCode(err error, code int) bool {
 	}
 
 	return false
-}
-
-func init() {
-	codes[unknownCoder.Code()] = unknownCoder
 }
 
 func sameCoder(left, right Coder) bool {

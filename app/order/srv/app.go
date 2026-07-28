@@ -5,6 +5,7 @@ import (
 
 	"goshop/app/order/srv/config"
 	v1 "goshop/app/order/srv/internal/service/v1"
+	"goshop/app/pkg/errorcatalog"
 	"goshop/app/pkg/options"
 	gapp "goshop/gmicro/app"
 	"goshop/gmicro/registry"
@@ -72,6 +73,7 @@ func newOrderAppWithServiceFactory(cfg *config.Config, orderSrvFactory v1.Servic
 
 func run(cfg *config.Config) app.RunFunc {
 	return func(ctx context.Context, baseName string) error {
+		errorcatalog.RegisterAll()
 		log.Init(cfg.Log)
 		defer log.Flush()
 

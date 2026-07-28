@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"goshop/app/inventory/srv/config"
+	"goshop/app/pkg/errorcatalog"
 	"goshop/app/pkg/options"
 	gapp "goshop/gmicro/app"
 	"goshop/pkg/app"
@@ -81,6 +82,7 @@ func NewInventoryApp(ctx context.Context, cfg *config.Config) (*gapp.App, error)
 
 func run(cfg *config.Config) app.RunFunc {
 	return func(ctx context.Context, baseName string) error {
+		errorcatalog.RegisterAll()
 		log.Init(cfg.Log)
 		defer log.Flush()
 

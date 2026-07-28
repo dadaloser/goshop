@@ -7,6 +7,8 @@ import (
 )
 
 func TestCommonCodesAreRegisteredWithSemanticKinds(t *testing.T) {
+	RegisterAll()
+
 	tests := []struct {
 		code int
 		kind apperrors.Kind
@@ -44,6 +46,8 @@ func TestValidationSpecMatchesLegacyCode(t *testing.T) {
 }
 
 func TestNewCodeUsesRegisteredSpecification(t *testing.T) {
+	RegisterAll()
+
 	err := apperrors.NewCode(ErrValidation, "request payload is required")
 
 	spec, ok := apperrors.SpecOf(err)

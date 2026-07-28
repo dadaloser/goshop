@@ -7,6 +7,7 @@ import (
 	db2 "goshop/app/goods/srv/internal/data/v1/db"
 	"goshop/app/goods/srv/internal/data_search/v1/es"
 	v1 "goshop/app/goods/srv/internal/service/v1"
+	"goshop/app/pkg/errorcatalog"
 	"goshop/app/pkg/options"
 	gapp "goshop/gmicro/app"
 	"goshop/pkg/app"
@@ -14,9 +15,10 @@ import (
 
 	"github.com/hashicorp/consul/api"
 
-	"golang.org/x/sync/errgroup"
 	"goshop/gmicro/registry"
 	"goshop/gmicro/registry/consul"
+
+	"golang.org/x/sync/errgroup"
 )
 
 func NewApp(basename string) *app.App {
@@ -77,6 +79,7 @@ func newGoodsServiceFactory(cfg *config.Config) (v1.ServiceFactory, error) {
 
 func run(cfg *config.Config) app.RunFunc {
 	return func(ctx context.Context, baseName string) error {
+		errorcatalog.RegisterAll()
 		log.Init(cfg.Log)
 		defer log.Flush()
 

@@ -24,6 +24,25 @@ func TestMustRegisterAllowsIdenticalDuplicate(t *testing.T) {
 	}
 }
 
+func TestCatalogRegisterAllIsIdempotent(t *testing.T) {
+	const code = 991001
+	catalog := Catalog{{
+		Code:      code,
+		Kind:      KindUnavailable,
+		Message:   "catalog dependency unavailable",
+		Reference: "https://example.test/errors/dependency-unavailable",
+	}}
+
+	catalog.RegisterAll()
+	catalog.RegisterAll()
+
+	got := SpecForCode(code)
+	want := catalog[0]
+	if got != want {
+		t.Fatalf("SpecForCode(%d) = %#v, want %#v", code, got, want)
+	}
+}
+
 func TestMustRegisterPanicsOnConflictingDuplicate(t *testing.T) {
 	restoreCodes(t)
 

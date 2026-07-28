@@ -3,6 +3,7 @@ package srv
 import (
 	"context"
 
+	"goshop/app/pkg/errorcatalog"
 	"goshop/app/pkg/options"
 	"goshop/app/user/srv/config"
 	gapp "goshop/gmicro/app"
@@ -55,6 +56,7 @@ func NewUserApp(register registry.Registrar,
 
 func run(cfg *config.Config) app.RunFunc {
 	return func(ctx context.Context, baseName string) error {
+		errorcatalog.RegisterAll()
 		log.Init(cfg.Log)
 		defer log.Flush()
 
