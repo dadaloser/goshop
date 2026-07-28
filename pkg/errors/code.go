@@ -37,7 +37,7 @@ func (catalog Catalog) RegisterAll() {
 		if err := spec.Validate(); err != nil {
 			panic(fmt.Sprintf("invalid error specification: %v", err))
 		}
-		Register(specCoder{spec: spec})
+		MustRegister(spec)
 	}
 }
 
@@ -89,12 +89,16 @@ func (coder defaultCoder) Kind() Kind {
 var codes = map[int]Coder{unknownCoder.Code(): unknownCoder}
 var codeMux sync.RWMutex
 
-// Register a user define error code.
-// It will panic when the same Code already exist.
-func Register(coder Coder) {
-	if coder.Code() == 0 {
-		panic("code '0' is reserved by 'goshop/pkg/errors' as ErrUnknown error code")
+// MustRegister registers a validated public error specification.
+// It will panic for an invalid specification or a conflicting duplicate code.
+//
+// Error domains should normally declare a Catalog and register it at application
+// startup. MustRegister exists for narrowly scoped bootstrap and test setup.
+func MustRegister(spec Spec) {
+	if err := spec.Validate(); err != nil {
+		panic(fmt.Sprintf("invalid error specification: %v", err))
 	}
+	coder := specCoder{spec: spec}
 
 	codeMux.Lock()
 	defer codeMux.Unlock()

@@ -8,21 +8,22 @@ import (
 func TestRegisterAllowsIdenticalDuplicate(t *testing.T) {
 	restoreCodes(t)
 
-	coder := defaultCoder{
-		C:   990001,
-		K:   KindInvalidArgument,
-		Ext: "duplicate coder",
-		Ref: "https://example.test/duplicate",
+	coder := Spec{
+		Code:      990001,
+		Kind:      KindInvalidArgument,
+		Message:   "duplicate coder",
+		Reference: "https://example.test/duplicate",
 	}
 
-	Register(coder)
+	MustRegister(coder)
 
-	got, ok := codes[coder.Code()]
+	got, ok := codes[coder.Code]
 	if !ok {
-		t.Fatalf("codes[%d] missing after duplicate registration", coder.Code())
+		t.Fatalf("codes[%d] missing after duplicate registration", coder.Code)
 	}
-	if !sameCoder(got, coder) {
-		t.Fatalf("codes[%d] = %#v, want %#v", coder.Code(), got, coder)
+	gotSpec := Spec{Code: got.Code(), Kind: got.Kind(), Message: got.String(), Reference: got.Reference()}
+	if gotSpec != coder {
+		t.Fatalf("codes[%d] = %#v, want %#v", coder.Code, gotSpec, coder)
 	}
 }
 
@@ -52,6 +53,15 @@ func TestCatalogRegisterAllPanicsForInvalidSpec(t *testing.T) {
 		}
 	}()
 	Catalog{{Code: 0, Kind: KindInternal, Message: "invalid"}}.RegisterAll()
+}
+
+func TestMustRegisterPanicsForInvalidSpec(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("MustRegister() did not panic for invalid specification")
+		}
+	}()
+	MustRegister(Spec{Code: 991004, Message: "missing kind"})
 }
 
 type cyclicError struct{}
@@ -91,24 +101,24 @@ func TestIsCodeFindsCodesInJoinedAndAggregatedErrors(t *testing.T) {
 func TestRegisterPanicsOnConflictingDuplicate(t *testing.T) {
 	restoreCodes(t)
 
-	Register(defaultCoder{
-		C:   990002,
-		K:   KindInvalidArgument,
-		Ext: "first coder",
-		Ref: "https://example.test/first",
+	MustRegister(Spec{
+		Code:      990002,
+		Kind:      KindInvalidArgument,
+		Message:   "first coder",
+		Reference: "https://example.test/first",
 	})
 
 	defer func() {
 		if recover() == nil {
-			t.Fatal("Register() did not panic for conflicting duplicate coder")
+			t.Fatal("MustRegister() did not panic for conflicting duplicate coder")
 		}
 	}()
 
-	Register(defaultCoder{
-		C:   990002,
-		K:   KindInternal,
-		Ext: "second coder",
-		Ref: "https://example.test/second",
+	MustRegister(Spec{
+		Code:      990002,
+		Kind:      KindInternal,
+		Message:   "second coder",
+		Reference: "https://example.test/second",
 	})
 }
 

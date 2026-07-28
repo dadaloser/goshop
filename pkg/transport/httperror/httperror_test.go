@@ -44,10 +44,10 @@ func TestResponseForSpec(t *testing.T) {
 
 func TestResponseForLegacyCode(t *testing.T) {
 	const code = 990202
-	apperrors.Register(testCoder{
-		code:    code,
-		kind:    apperrors.KindNotFound,
-		message: "legacy not found",
+	apperrors.MustRegister(apperrors.Spec{
+		Code:    code,
+		Kind:    apperrors.KindNotFound,
+		Message: "legacy not found",
 	})
 
 	response := ResponseFor(apperrors.NewCode(code, "database query failed"))
@@ -70,14 +70,3 @@ func TestResponseForAggregateSpec(t *testing.T) {
 		t.Fatalf("ResponseFor(Aggregate) = %#v, want not-found public response", response)
 	}
 }
-
-type testCoder struct {
-	code    int
-	kind    apperrors.Kind
-	message string
-}
-
-func (c testCoder) Code() int            { return c.code }
-func (c testCoder) String() string       { return c.message }
-func (c testCoder) Reference() string    { return "" }
-func (c testCoder) Kind() apperrors.Kind { return c.kind }

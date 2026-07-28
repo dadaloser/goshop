@@ -65,7 +65,7 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 			if err := worker.Run(ctx); err != nil {
 				// Run exits with an error only for an unrecoverable lifecycle failure.
 				// Individual provider and persistence failures remain retryable.
-				log.Errorf("payment worker stopped: %v", err)
+				log.Error("payment worker stopped", log.ErrorDetail(err))
 			}
 		}()
 	}

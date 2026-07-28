@@ -76,10 +76,10 @@ func TestToGRPCErrorMapsSpecKinds(t *testing.T) {
 
 func TestToGRPCErrorKeepsLegacyCodeMapping(t *testing.T) {
 	const userNotFoundCode = 990404
-	apperrors.Register(testCoder{
-		code:    userNotFoundCode,
-		kind:    apperrors.KindNotFound,
-		message: "User not found",
+	apperrors.MustRegister(apperrors.Spec{
+		Code:    userNotFoundCode,
+		Kind:    apperrors.KindNotFound,
+		Message: "User not found",
 	})
 
 	err := toGRPCError(apperrors.NewCode(userNotFoundCode, "select user: record not found"))
@@ -121,14 +121,3 @@ func TestToGRPCErrorMapsContextErrors(t *testing.T) {
 		})
 	}
 }
-
-type testCoder struct {
-	code    int
-	kind    apperrors.Kind
-	message string
-}
-
-func (c testCoder) Code() int            { return c.code }
-func (c testCoder) String() string       { return c.message }
-func (c testCoder) Reference() string    { return "" }
-func (c testCoder) Kind() apperrors.Kind { return c.kind }

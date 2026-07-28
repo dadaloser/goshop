@@ -64,9 +64,17 @@ func TestSpecValidate(t *testing.T) {
 	}
 }
 
+func TestNewSpecFallsBackForInvalidContract(t *testing.T) {
+	err := NewSpec(Spec{Code: 0, Kind: "invalid"}, "invalid caller specification")
+	spec, ok := SpecOf(err)
+	if !ok || spec != SpecForCode(unknownCoder.Code()) {
+		t.Fatalf("NewSpec(invalid) specification = (%#v, %t), want internal specification", spec, ok)
+	}
+}
+
 func TestParseCoderAndIsCodeFindWrappedCode(t *testing.T) {
 	const code = 990102
-	Register(defaultCoder{C: code, Ext: "wrapped error"})
+	MustRegister(Spec{Code: code, Kind: KindInternal, Message: "wrapped error"})
 
 	err := WithMessage(NewCode(code, "database query failed"), "load user")
 	if got := ParseCoder(err).Code(); got != code {
@@ -79,10 +87,10 @@ func TestParseCoderAndIsCodeFindWrappedCode(t *testing.T) {
 
 func TestWrapCodeUsesRegisteredSpecAndPreservesCause(t *testing.T) {
 	const code = 990103
-	Register(defaultCoder{
-		C:   code,
-		K:   KindUnavailable,
-		Ext: "dependency unavailable",
+	MustRegister(Spec{
+		Code:    code,
+		Kind:    KindUnavailable,
+		Message: "dependency unavailable",
 	})
 
 	cause := stderrors.New("dial tcp: connection refused")

@@ -38,7 +38,7 @@ func (w *Worker) runRefunds(ctx context.Context) error {
 	defer ticker.Stop()
 	for {
 		if err := w.processRefundBatch(ctx); err != nil && ctx.Err() == nil {
-			log.Errorf("process payment refund batch: %v", err)
+			log.Error("process payment refund batch", log.ErrorDetail(err))
 		}
 		select {
 		case <-ctx.Done():
@@ -82,7 +82,7 @@ func (w *Worker) runReconciliation(ctx context.Context) error {
 	defer ticker.Stop()
 	for {
 		if err := w.reconcileWindow(ctx, w.now().Add(-interval), w.now()); err != nil && ctx.Err() == nil {
-			log.Errorf("reconcile payment window: %v", err)
+			log.Error("reconcile payment window", log.ErrorDetail(err))
 		}
 		select {
 		case <-ctx.Done():

@@ -96,7 +96,7 @@ func SpecForCode(code int) Spec {
 // available only through explicit detailed formatting for controlled logs.
 func NewSpec(spec Spec, internal string) error {
 	return &withSpec{
-		spec:  spec,
+		spec:  safeSpec(spec),
 		err:   stderrors.New(internal),
 		stack: callers(),
 	}
@@ -114,11 +114,18 @@ func wrapSpec(err error, spec Spec, internal string, stack *stack) error {
 	}
 
 	return &withSpec{
-		spec:  spec,
+		spec:  safeSpec(spec),
 		err:   stderrors.New(internal),
 		cause: err,
 		stack: stack,
 	}
+}
+
+func safeSpec(spec Spec) Spec {
+	if spec.Validate() == nil {
+		return spec
+	}
+	return SpecForCode(unknownCoder.Code())
 }
 
 // SpecOf returns the first business-error specification in err's tree.

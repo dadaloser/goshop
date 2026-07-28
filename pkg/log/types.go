@@ -28,9 +28,11 @@ const (
 )
 
 // ErrorDetail returns a log-only field containing internal diagnostics and
-// stack details. Never include this field in a client response.
+// stack details. Its content is best-effort redacted; callers must not include
+// complete external response bodies, credentials, or raw SQL parameters.
+// Never include this field in a client response.
 func ErrorDetail(err error) Field {
-	return zap.String(KeyErrorDetail, fmt.Sprintf("%+v", err))
+	return zap.String(KeyErrorDetail, sanitizeDiagnostic(fmt.Sprintf("%+v", err)))
 }
 
 // Field is an alias for the field structure in the underlying log frame.
