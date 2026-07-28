@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 )
 
@@ -35,8 +35,8 @@ func TestUserServerRejectsNilRequests(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.run()
-			if !errors.IsCode(err, code2.ErrValidation) {
-				t.Fatalf("error = %v, want code %d", err, code2.ErrValidation)
+			if !errors.IsCode(err, errcode.ErrValidation) {
+				t.Fatalf("error = %v, want code %d", err, errcode.ErrValidation)
 			}
 		})
 	}

@@ -36,6 +36,35 @@ type Coded interface {
 	Spec() Spec
 }
 
+// NewCode returns an error using the public specification registered for code.
+// New business code should prefer a named Spec and NewSpec; this helper keeps
+// existing numeric-code APIs on the same transport-independent contract.
+func NewCode(code int, internal string) error {
+	return NewSpec(SpecForCode(code), internal)
+}
+
+// SpecForCode returns the public specification registered for code. Unknown
+// codes resolve to the internal-error specification and never expose the
+// caller-supplied numeric code to clients.
+func SpecForCode(code int) Spec {
+	coder, ok := lookupCoder(code)
+	if !ok {
+		coder = unknownCoder
+	}
+
+	spec := Spec{
+		Code:      coder.Code(),
+		Kind:      KindInternal,
+		Message:   coder.String(),
+		Reference: coder.Reference(),
+	}
+	if kinded, ok := coder.(interface{ Kind() Kind }); ok {
+		spec.Kind = kinded.Kind()
+	}
+
+	return spec
+}
+
 // NewSpec returns an error with a public business-error contract and internal
 // diagnostic text. The diagnostic text is retained for logs and must not be
 // returned directly to clients.
@@ -102,9 +131,14 @@ func (w *withSpec) Format(state fmt.State, verb rune) {
 
 func (w *withCode) Spec() Spec {
 	coder := ParseCoder(w)
-	return Spec{
+	spec := Spec{
 		Code:      coder.Code(),
 		Message:   coder.String(),
 		Reference: coder.Reference(),
 	}
+	if coder, ok := coder.(interface{ Kind() Kind }); ok {
+		spec.Kind = coder.Kind()
+	}
+
+	return spec
 }

@@ -25,11 +25,11 @@ func TestSpecOfFindsSpecInWrappedChain(t *testing.T) {
 	}
 }
 
-func TestParseCoderAndIsCodeFindWrappedLegacyCode(t *testing.T) {
+func TestParseCoderAndIsCodeFindWrappedCode(t *testing.T) {
 	const code = 990102
 	Register(defaultCoder{C: code, Ext: "wrapped error"})
 
-	err := WithMessage(WithCode(code, "database query failed"), "load user")
+	err := WithMessage(NewCode(code, "database query failed"), "load user")
 	if got := ParseCoder(err).Code(); got != code {
 		t.Fatalf("ParseCoder() code = %d, want %d", got, code)
 	}

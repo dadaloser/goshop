@@ -4,7 +4,7 @@ import (
 	"goshop/app/goshop/api/internal/service"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
 	"goshop/app/pkg/authsession/tokenrevocation"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	"goshop/pkg/errors"
 
 	ut "github.com/go-playground/universal-translator"
@@ -23,11 +23,11 @@ func NewUserController(trans ut.Translator, sf service.ServiceFactory, revokedTo
 
 func (us *userServer) usersService() (userv1.UserSrv, error) {
 	if us == nil || us.sf == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "user service is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "user service is not initialized")
 	}
 	userSrv := us.sf.Users()
 	if userSrv == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "user service is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "user service is not initialized")
 	}
 	return userSrv, nil
 }

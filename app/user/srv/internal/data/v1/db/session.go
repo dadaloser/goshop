@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	stderrors "errors"
+	"goshop/app/pkg/bizcode"
+	"goshop/gmicro/errcode"
 	"strings"
 	"time"
 
 	"goshop/app/pkg/authz"
-	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
-	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
 
 	"gorm.io/gorm"
@@ -19,29 +19,29 @@ import (
 
 func (u *users) RecordLogin(ctx context.Context, id uint64, at time.Time) error {
 	if id == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "user not found")
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 	result := u.db.WithContext(ctx).Model(&dv1.UserDO{}).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Update("last_login_at", at.UTC())
 	if result.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, result.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, result.Error.Error())
 	}
 	if result.RowsAffected == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "user not found")
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 	return nil
 }
 
 func (u *users) CreateSession(ctx context.Context, session *dv1.UserSessionDO) error {
 	if session == nil || session.UserID == 0 || session.ID == "" || len(session.RefreshTokenHash) != 32 {
-		return errors.WithCode(code2.ErrValidation, "invalid session")
+		return errors.NewCode(errcode.ErrValidation, "invalid session")
 	}
 	if strings.TrimSpace(session.PrincipalType) == "" {
 		session.PrincipalType = string(authz.PrincipalCustomer)
 	}
 	if err := u.db.WithContext(ctx).Create(session).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -67,9 +67,9 @@ func (u *users) RotateSession(ctx context.Context, sessionID string, currentHash
 	})
 	if err != nil {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code.ErrUserAccountInactive, "session is not active")
+			return nil, errors.NewCode(bizcode.ErrUserAccountInactive, "session is not active")
 		}
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	session.RefreshTokenHash = append([]byte(nil), nextHash...)
 	session.LastUsedAt = usedAt.UTC()
@@ -82,7 +82,7 @@ func (u *users) RevokeSession(ctx context.Context, userID uint64, sessionID stri
 		Where("id = ? AND user_id = ? AND revoked_at IS NULL", sessionID, userID).
 		Update("revoked_at", at.UTC())
 	if result.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, result.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, result.Error.Error())
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ func (u *users) RevokeAllSessions(ctx context.Context, userID uint64, at time.Ti
 	if err := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).
 		Where("user_id = ? AND revoked_at IS NULL", userID).
 		Update("revoked_at", at.UTC()).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -102,7 +102,7 @@ func (u *users) SessionActive(ctx context.Context, userID uint64, sessionID stri
 		Where("id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?", sessionID, userID, at.UTC()).
 		Count(&count).Error
 	if err != nil {
-		return false, errors.WithCode(code2.ErrDatabase, err.Error())
+		return false, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return count == 1, nil
 }
@@ -140,7 +140,7 @@ func (u *users) ListStaffSessions(ctx context.Context, filters dv1.StaffSessionF
 	}
 	var total int64
 	if err := base.Count(&total).Error; err != nil {
-		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	rows := make([]dv1.StaffSessionRecordDO, 0, filters.Limit)
 	if err := base.Select("id, user_id, principal_type, device_id, device_name, created_at, last_used_at, expires_at, revoked_at").
@@ -148,7 +148,7 @@ func (u *users) ListStaffSessions(ctx context.Context, filters dv1.StaffSessionF
 		Offset(filters.Offset).
 		Limit(filters.Limit).
 		Find(&rows).Error; err != nil {
-		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if len(rows) == 0 {
 		return rows, total, nil
@@ -173,7 +173,7 @@ func (u *users) ListStaffSessions(ctx context.Context, filters dv1.StaffSessionF
 		Where("ur.user_id IN ?", userIDs).
 		Order("r.name ASC").
 		Scan(&roleRows).Error; err != nil {
-		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	for _, role := range roleRows {
 		for _, idx := range indexByUser[role.UserID] {
@@ -185,24 +185,24 @@ func (u *users) ListStaffSessions(ctx context.Context, filters dv1.StaffSessionF
 
 func (u *users) RevokeStaffSession(ctx context.Context, sessionID string, at time.Time) error {
 	if sessionID == "" {
-		return errors.WithCode(code2.ErrValidation, "session id is required")
+		return errors.NewCode(errcode.ErrValidation, "session id is required")
 	}
 	if err := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).
 		Where("id = ? AND principal_type = ? AND revoked_at IS NULL", sessionID, string(authz.PrincipalStaff)).
 		Update("revoked_at", at.UTC()).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
 
 func (u *users) RevokeStaffUserSessions(ctx context.Context, userID uint64, at time.Time) error {
 	if userID == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "user not found")
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 	if err := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).
 		Where("user_id = ? AND principal_type = ? AND revoked_at IS NULL", userID, string(authz.PrincipalStaff)).
 		Update("revoked_at", at.UTC()).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }

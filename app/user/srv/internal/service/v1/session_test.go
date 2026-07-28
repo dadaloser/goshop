@@ -2,12 +2,12 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"testing"
 	"time"
 
-	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 )
 
@@ -141,28 +141,28 @@ func TestUserServiceSessionLifecycle(t *testing.T) {
 
 func TestUserServiceSessionMethodsRequireSessionStore(t *testing.T) {
 	svc := &userService{}
-	if _, err := svc.CreateSession(context.Background(), SessionDTO{}); !errors.IsCode(err, code2.ErrDatabase) {
-		t.Fatalf("CreateSession() error = %v, want code %d", err, code2.ErrDatabase)
+	if _, err := svc.CreateSession(context.Background(), SessionDTO{}); !errors.IsCode(err, errcode.ErrDatabase) {
+		t.Fatalf("CreateSession() error = %v, want code %d", err, errcode.ErrDatabase)
 	}
-	if _, err := svc.RefreshSession(context.Background(), "session-1", nil, nil, time.Now()); !errors.IsCode(err, code2.ErrDatabase) {
-		t.Fatalf("RefreshSession() error = %v, want code %d", err, code2.ErrDatabase)
+	if _, err := svc.RefreshSession(context.Background(), "session-1", nil, nil, time.Now()); !errors.IsCode(err, errcode.ErrDatabase) {
+		t.Fatalf("RefreshSession() error = %v, want code %d", err, errcode.ErrDatabase)
 	}
-	if err := svc.RevokeSession(context.Background(), 1, "session-1"); !errors.IsCode(err, code2.ErrDatabase) {
-		t.Fatalf("RevokeSession() error = %v, want code %d", err, code2.ErrDatabase)
+	if err := svc.RevokeSession(context.Background(), 1, "session-1"); !errors.IsCode(err, errcode.ErrDatabase) {
+		t.Fatalf("RevokeSession() error = %v, want code %d", err, errcode.ErrDatabase)
 	}
-	if err := svc.RevokeAllSessions(context.Background(), 1); !errors.IsCode(err, code2.ErrDatabase) {
-		t.Fatalf("RevokeAllSessions() error = %v, want code %d", err, code2.ErrDatabase)
+	if err := svc.RevokeAllSessions(context.Background(), 1); !errors.IsCode(err, errcode.ErrDatabase) {
+		t.Fatalf("RevokeAllSessions() error = %v, want code %d", err, errcode.ErrDatabase)
 	}
-	if _, err := svc.ValidateSession(context.Background(), 1, "session-1"); !errors.IsCode(err, code2.ErrDatabase) {
-		t.Fatalf("ValidateSession() error = %v, want code %d", err, code2.ErrDatabase)
+	if _, err := svc.ValidateSession(context.Background(), 1, "session-1"); !errors.IsCode(err, errcode.ErrDatabase) {
+		t.Fatalf("ValidateSession() error = %v, want code %d", err, errcode.ErrDatabase)
 	}
-	if err := svc.RecordLogin(context.Background(), 1, time.Now()); !errors.IsCode(err, code2.ErrDatabase) {
-		t.Fatalf("RecordLogin() error = %v, want code %d", err, code2.ErrDatabase)
+	if err := svc.RecordLogin(context.Background(), 1, time.Now()); !errors.IsCode(err, errcode.ErrDatabase) {
+		t.Fatalf("RecordLogin() error = %v, want code %d", err, errcode.ErrDatabase)
 	}
 }
 
 func TestRequireSessionID(t *testing.T) {
-	if err := requireSessionID(""); !errors.IsCode(err, code.ErrUserAccountInactive) {
+	if err := requireSessionID(""); !errors.IsCode(err, bizcode.ErrUserAccountInactive) {
 		t.Fatalf("requireSessionID(\"\") error = %v", err)
 	}
 	if err := requireSessionID("session-1"); err != nil {

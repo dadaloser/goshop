@@ -7,7 +7,7 @@ import (
 
 	"goshop/app/goods/srv/internal/domain/do"
 	"goshop/app/goods/srv/internal/domain/dto"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	metav1 "goshop/pkg/common/meta/v1"
@@ -15,7 +15,7 @@ import (
 
 func (gs *goodsService) ListOutboxEvents(ctx context.Context, topic, status string, page, pageSize int) ([]*do.OutboxEventDO, int64, error) {
 	if gs == nil || gs.data == nil || gs.data.Outbox() == nil {
-		return nil, 0, errors.WithCode(code2.ErrDatabase, "goods outbox store is not configured")
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, "goods outbox store is not configured")
 	}
 	topic = normalizeGoodsOutboxTopic(topic)
 	status = strings.ToUpper(strings.TrimSpace(status))
@@ -48,7 +48,7 @@ func (gs *goodsService) ListOutboxEvents(ctx context.Context, topic, status stri
 
 func (gs *goodsService) ReplayOutbox(ctx context.Context, ids []int32, status string, limit int) ([]int32, error) {
 	if gs == nil || gs.data == nil || gs.data.Outbox() == nil {
-		return nil, errors.WithCode(code2.ErrDatabase, "goods outbox store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "goods outbox store is not configured")
 	}
 	status = strings.ToUpper(strings.TrimSpace(status))
 	if status == "" {
@@ -101,7 +101,7 @@ func (gs *goodsService) ReplayOutbox(ctx context.Context, ids []int32, status st
 
 func (gs *goodsService) Reindex(ctx context.Context, ids []uint64, all bool) ([]uint64, error) {
 	if gs == nil || gs.data == nil || gs.searchData == nil || gs.searchData.Goods() == nil {
-		return nil, errors.WithCode(code2.ErrDatabase, "goods search store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "goods search store is not configured")
 	}
 	if all {
 		return gs.reindexAll(ctx)
@@ -119,7 +119,7 @@ func (gs *goodsService) Reindex(ctx context.Context, ids []uint64, all bool) ([]
 		uniq = append(uniq, id)
 	}
 	if len(uniq) == 0 {
-		return nil, errors.WithCode(code2.ErrValidation, "goods_ids or all=true is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "goods_ids or all=true is required")
 	}
 	reindexed := make([]uint64, 0, len(uniq))
 	for _, id := range uniq {

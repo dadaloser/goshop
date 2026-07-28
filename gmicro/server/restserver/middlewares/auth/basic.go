@@ -5,7 +5,7 @@ import (
 	"goshop/pkg/common/core"
 	"strings"
 
-	"goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/gmicro/server/restserver/middlewares"
 
 	"goshop/pkg/errors"
@@ -35,7 +35,7 @@ func (b BasicStrategy) AuthFunc() gin.HandlerFunc {
 		if len(auth) != 2 || auth[0] != "Basic" {
 			core.WriteResponse(
 				c,
-				errors.WithCode(code.ErrSignatureInvalid, "Authorization header format is wrong."),
+				errors.NewCode(errcode.ErrSignatureInvalid, "Authorization header format is wrong."),
 				nil,
 			)
 			c.Abort()
@@ -49,7 +49,7 @@ func (b BasicStrategy) AuthFunc() gin.HandlerFunc {
 		if len(pair) != 2 || !b.compare(pair[0], pair[1]) {
 			core.WriteResponse(
 				c,
-				errors.WithCode(code.ErrSignatureInvalid, "Authorization header format is wrong."),
+				errors.NewCode(errcode.ErrSignatureInvalid, "Authorization header format is wrong."),
 				nil,
 			)
 			c.Abort()

@@ -5,13 +5,13 @@ import (
 	"strings"
 
 	proto "goshop/api/goods/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 )
 
 func (gs *goodsServer) ListGoodsOutboxEvents(ctx context.Context, req *proto.ListGoodsOutboxEventsRequest) (*proto.ListGoodsOutboxEventsResponse, error) {
 	if req == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "goods outbox request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "goods outbox request is required")
 	}
 	items, total, err := gs.srv.Goods().ListOutboxEvents(ctx, req.GetTopic(), req.GetStatus(), int(req.GetPage()), int(req.GetPageSize()))
 	if err != nil {
@@ -42,7 +42,7 @@ func (gs *goodsServer) ListGoodsOutboxEvents(ctx context.Context, req *proto.Lis
 
 func (gs *goodsServer) ReplayGoodsOutbox(ctx context.Context, req *proto.ListGoodsOutboxReplayRequest) (*proto.ListGoodsOutboxReplayResponse, error) {
 	if req == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "goods outbox replay request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "goods outbox replay request is required")
 	}
 	replayed, err := gs.srv.Goods().ReplayOutbox(ctx, req.GetIds(), strings.TrimSpace(req.GetStatus()), int(req.GetLimit()))
 	if err != nil {
@@ -53,7 +53,7 @@ func (gs *goodsServer) ReplayGoodsOutbox(ctx context.Context, req *proto.ListGoo
 
 func (gs *goodsServer) ReindexGoods(ctx context.Context, req *proto.GoodsReindexRequest) (*proto.GoodsReindexResponse, error) {
 	if req == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "goods reindex request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "goods reindex request is required")
 	}
 	ids := make([]uint64, 0, len(req.GetGoodsIds()))
 	for _, id := range req.GetGoodsIds() {

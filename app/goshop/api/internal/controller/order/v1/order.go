@@ -6,9 +6,9 @@ import (
 	"goshop/app/goshop/api/internal/domain/request"
 	"goshop/app/goshop/api/internal/service"
 	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	gin2 "goshop/app/pkg/translator/gin"
-	gcode "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
@@ -66,7 +66,7 @@ func (oc *orderController) InitiatePayment(ctx *gin.Context) {
 	}
 	service, ok := orderSrv.(paymentInitiator)
 	if !ok {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "payment service unavailable"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "payment service unavailable"), nil)
 		return
 	}
 	result, err := service.InitiatePayment(ctx, userID, strings.TrimSpace(ctx.Param("order_sn")))
@@ -84,7 +84,7 @@ func (oc *orderController) CancelOrder(ctx *gin.Context) {
 	}
 	service, ok := orderSrv.(orderCanceller)
 	if !ok {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "order cancellation unavailable"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "order cancellation unavailable"), nil)
 		return
 	}
 	if err = service.CancelOrder(ctx, userID, strings.TrimSpace(ctx.Param("order_sn"))); err != nil {
@@ -365,7 +365,7 @@ func (oc *orderController) SimulatePayCallback(ctx *gin.Context) {
 
 func (oc *orderController) authenticatedOrderService(ctx *gin.Context) (uint64, orderv1.OrderSrv, error) {
 	if oc == nil || oc.sf == nil {
-		return 0, nil, errors.WithCode(code.ErrConnectGRPC, "order service is not initialized")
+		return 0, nil, errors.NewCode(bizcode.ErrConnectGRPC, "order service is not initialized")
 	}
 
 	userID, err := userIDFromContext(ctx)
@@ -375,7 +375,7 @@ func (oc *orderController) authenticatedOrderService(ctx *gin.Context) (uint64, 
 
 	orderSrv := oc.sf.Orders()
 	if orderSrv == nil {
-		return 0, nil, errors.WithCode(code.ErrConnectGRPC, "order service is not initialized")
+		return 0, nil, errors.NewCode(bizcode.ErrConnectGRPC, "order service is not initialized")
 	}
 	return userID, orderSrv, nil
 }
@@ -383,11 +383,11 @@ func (oc *orderController) authenticatedOrderService(ctx *gin.Context) (uint64, 
 func userIDFromContext(ctx *gin.Context) (uint64, error) {
 	userID, ok := ctx.Get(middlewares.KeyUserID)
 	if !ok {
-		return 0, errors.WithCode(gcode.ErrInvalidAuthHeader, "user id is missing")
+		return 0, errors.NewCode(errcode.ErrInvalidAuthHeader, "user id is missing")
 	}
 	userIDFloat, ok := userID.(float64)
 	if !ok {
-		return 0, errors.WithCode(gcode.ErrInvalidAuthHeader, "user id has invalid type")
+		return 0, errors.NewCode(errcode.ErrInvalidAuthHeader, "user id has invalid type")
 	}
 	return uint64(userIDFloat), nil
 }

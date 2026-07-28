@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"goshop/app/order/srv/internal/domain/do"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	"goshop/pkg/errors"
 )
 
@@ -23,42 +23,42 @@ func TestOrdersRejectInvalidInputBeforeDatabase(t *testing.T) {
 				_, err := store.Get(context.Background(), " ")
 				return err
 			},
-			code: code.ErrOrderNotFound,
+			code: bizcode.ErrOrderNotFound,
 		},
 		{
 			name: "create nil order",
 			run: func() error {
 				return store.Create(context.Background(), nil, nil)
 			},
-			code: code.ErrSubmitOrder,
+			code: bizcode.ErrSubmitOrder,
 		},
 		{
 			name: "create invalid identity",
 			run: func() error {
 				return store.Create(context.Background(), nil, &do.OrderInfoDO{OrderSn: "order-1"})
 			},
-			code: code.ErrSubmitOrder,
+			code: bizcode.ErrSubmitOrder,
 		},
 		{
 			name: "update nil order",
 			run: func() error {
 				return store.Update(context.Background(), nil, nil)
 			},
-			code: code.ErrOrderNotFound,
+			code: bizcode.ErrOrderNotFound,
 		},
 		{
 			name: "update missing identity",
 			run: func() error {
 				return store.Update(context.Background(), nil, &do.OrderInfoDO{Status: "PAYING"})
 			},
-			code: code.ErrOrderNotFound,
+			code: bizcode.ErrOrderNotFound,
 		},
 		{
 			name: "update missing status",
 			run: func() error {
 				return store.Update(context.Background(), nil, &do.OrderInfoDO{OrderSn: "order-1"})
 			},
-			code: code.ErrOrderStatusInvalid,
+			code: bizcode.ErrOrderStatusInvalid,
 		},
 	}
 
@@ -85,14 +85,14 @@ func TestShopCartsRejectInvalidInputBeforeDatabase(t *testing.T) {
 			run: func() error {
 				return store.Create(context.Background(), nil)
 			},
-			code: code.ErrShopCartItemNotFound,
+			code: bizcode.ErrShopCartItemNotFound,
 		},
 		{
 			name: "create invalid cart",
 			run: func() error {
 				return store.Create(context.Background(), &do.ShoppingCartDO{User: 1, Goods: 1})
 			},
-			code: code.ErrShopCartItemNotFound,
+			code: bizcode.ErrShopCartItemNotFound,
 		},
 		{
 			name: "get missing user",
@@ -100,7 +100,7 @@ func TestShopCartsRejectInvalidInputBeforeDatabase(t *testing.T) {
 				_, err := store.Get(context.Background(), 0, 1)
 				return err
 			},
-			code: code.ErrShopCartItemNotFound,
+			code: bizcode.ErrShopCartItemNotFound,
 		},
 		{
 			name: "get missing goods",
@@ -108,7 +108,7 @@ func TestShopCartsRejectInvalidInputBeforeDatabase(t *testing.T) {
 				_, err := store.Get(context.Background(), 1, 0)
 				return err
 			},
-			code: code.ErrShopCartItemNotFound,
+			code: bizcode.ErrShopCartItemNotFound,
 		},
 	}
 

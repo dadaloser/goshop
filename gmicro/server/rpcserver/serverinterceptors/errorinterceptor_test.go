@@ -18,7 +18,7 @@ func TestUnaryErrorInterceptorConvertsProjectError(t *testing.T) {
 		nil,
 		&grpc.UnaryServerInfo{FullMethod: "/test.Service/Error"},
 		func(context.Context, interface{}) (interface{}, error) {
-			return nil, apperrors.WithCode(1, "database exploded")
+			return nil, apperrors.NewCode(1, "database exploded")
 		},
 	)
 
@@ -80,10 +80,11 @@ func TestToGRPCErrorKeepsLegacyCodeMapping(t *testing.T) {
 	apperrors.Register(testCoder{
 		code:    userNotFoundCode,
 		http:    http.StatusNotFound,
+		kind:    apperrors.KindNotFound,
 		message: "User not found",
 	})
 
-	err := toGRPCError(apperrors.WithCode(userNotFoundCode, "select user: record not found"))
+	err := toGRPCError(apperrors.NewCode(userNotFoundCode, "select user: record not found"))
 	if status.Code(err) != codes.NotFound {
 		t.Fatalf("toGRPCError() code = %v, want %v", status.Code(err), codes.NotFound)
 	}
@@ -114,10 +115,12 @@ func TestToGRPCErrorMapsContextErrors(t *testing.T) {
 type testCoder struct {
 	code    int
 	http    int
+	kind    apperrors.Kind
 	message string
 }
 
-func (c testCoder) Code() int         { return c.code }
-func (c testCoder) HTTPStatus() int   { return c.http }
-func (c testCoder) String() string    { return c.message }
-func (c testCoder) Reference() string { return "" }
+func (c testCoder) Code() int            { return c.code }
+func (c testCoder) HTTPStatus() int      { return c.http }
+func (c testCoder) String() string       { return c.message }
+func (c testCoder) Reference() string    { return "" }
+func (c testCoder) Kind() apperrors.Kind { return c.kind }

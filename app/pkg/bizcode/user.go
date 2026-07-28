@@ -1,4 +1,4 @@
-package code
+package bizcode
 
 const (
 	// ErrUserNotFound - 404: User not found.
@@ -33,4 +33,7 @@ const (
 
 	// ErrAccountDeletionBlocked - 409: Account has unfinished business.
 	ErrAccountDeletionBlocked
+
+	// ErrEmailVerificationUnavailable - 503: Email verification dependency is unavailable.
+	ErrEmailVerificationUnavailable
 )

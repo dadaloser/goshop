@@ -2,13 +2,13 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"testing"
 
 	gpb "goshop/api/goods/v1"
 	ipb "goshop/api/inventory/v1"
 	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
-	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 
 	"google.golang.org/grpc"
@@ -21,36 +21,42 @@ func TestGoodsServiceListRejectsInvalidBoundary(t *testing.T) {
 		svc  GoodsSrv
 		req  *gpb.GoodsFilterRequest
 		code int
+		kind errors.Kind
 	}{
 		{
 			name: "nil service",
 			svc:  (*goodsService)(nil),
 			req:  &gpb.GoodsFilterRequest{},
-			code: code.ErrConnectGRPC,
+			code: bizcode.ErrConnectGRPC,
+			kind: errors.KindUnavailable,
 		},
 		{
 			name: "nil data factory",
 			svc:  NewGoods(nil),
 			req:  &gpb.GoodsFilterRequest{},
-			code: code.ErrConnectGRPC,
+			code: bizcode.ErrConnectGRPC,
+			kind: errors.KindUnavailable,
 		},
 		{
 			name: "nil request",
 			svc:  NewGoods(&fakeGoodsDataFactory{goods: &fakeGoodsClient{listResp: &gpb.GoodsListResponse{}}}),
 			req:  nil,
-			code: code.ErrGoodsInvalid,
+			code: bizcode.ErrGoodsInvalid,
+			kind: errors.KindInvalidArgument,
 		},
 		{
 			name: "nil goods client",
 			svc:  NewGoods(&fakeGoodsDataFactory{}),
 			req:  &gpb.GoodsFilterRequest{},
-			code: code.ErrConnectGRPC,
+			code: bizcode.ErrConnectGRPC,
+			kind: errors.KindUnavailable,
 		},
 		{
 			name: "nil downstream response",
 			svc:  NewGoods(&fakeGoodsDataFactory{goods: &fakeGoodsClient{}}),
 			req:  &gpb.GoodsFilterRequest{},
-			code: code.ErrConnectGRPC,
+			code: bizcode.ErrConnectGRPC,
+			kind: errors.KindUnavailable,
 		},
 	}
 
@@ -59,6 +65,13 @@ func TestGoodsServiceListRejectsInvalidBoundary(t *testing.T) {
 			_, err := tt.svc.List(context.Background(), tt.req)
 			if !errors.IsCode(err, tt.code) {
 				t.Fatalf("List() error = %v, want code %d", err, tt.code)
+			}
+			spec, ok := errors.SpecOf(err)
+			if !ok {
+				t.Fatal("List() error has no specification")
+			}
+			if spec.Kind != tt.kind {
+				t.Fatalf("List() error kind = %q, want %q", spec.Kind, tt.kind)
 			}
 		})
 	}

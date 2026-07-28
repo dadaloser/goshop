@@ -2,12 +2,12 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"time"
 
 	"goshop/app/pkg/authz"
-	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"github.com/google/uuid"
@@ -165,14 +165,14 @@ func (u *userService) RevokeStaffUserSessions(ctx context.Context, userID uint64
 func (u *userService) sessions() (sessionStore, error) {
 	store, ok := u.userStore.(sessionStore)
 	if !ok {
-		return nil, errors.WithCode(code2.ErrDatabase, "session store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "session store is not configured")
 	}
 	return store, nil
 }
 
 func requireSessionID(sessionID string) error {
 	if sessionID == "" {
-		return errors.WithCode(code.ErrUserAccountInactive, "session is not active")
+		return errors.NewCode(bizcode.ErrUserAccountInactive, "session is not active")
 	}
 	return nil
 }

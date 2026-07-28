@@ -177,3 +177,12 @@ func TestUnwrap(t *testing.T) {
 		})
 	}
 }
+
+func TestWithStackUnwrapPreservesDirectWrapper(t *testing.T) {
+	cause := New("test")
+	wrapped := WithMessage(cause, "context")
+
+	if got := Unwrap(WithStack(wrapped)); got != wrapped {
+		t.Fatalf("Unwrap(WithStack(wrapped)) = %v, want direct wrapper %v", got, wrapped)
+	}
+}

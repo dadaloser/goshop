@@ -2,15 +2,15 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
+	"goshop/gmicro/errcode"
 	"testing"
 	"time"
 
 	ipb "goshop/api/inventory/v1"
 	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
-	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
-	code2 "goshop/gmicro/code"
 	"goshop/pkg/errors"
 )
 
@@ -28,14 +28,14 @@ func TestUserServiceRejectsInvalidUpdateAndGet(t *testing.T) {
 			run: func() error {
 				return svc.Update(context.Background(), nil)
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "update zero id",
 			run: func() error {
 				return svc.Update(context.Background(), &UserDTO{})
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "get zero id",
@@ -43,7 +43,7 @@ func TestUserServiceRejectsInvalidUpdateAndGet(t *testing.T) {
 				_, err := svc.Get(context.Background(), 0)
 				return err
 			},
-			code: code.ErrUserNotFound,
+			code: bizcode.ErrUserNotFound,
 		},
 		{
 			name: "get empty username",
@@ -51,7 +51,7 @@ func TestUserServiceRejectsInvalidUpdateAndGet(t *testing.T) {
 				_, err := svc.GetByUsername(context.Background(), " ")
 				return err
 			},
-			code: code.ErrUserNotFound,
+			code: bizcode.ErrUserNotFound,
 		},
 	}
 
@@ -113,8 +113,8 @@ func TestUserServiceRejectsMissingDataDependency(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.run(tt.svc)
-			if !errors.IsCode(err, code.ErrConnectGRPC) {
-				t.Fatalf("error = %v, want code %d", err, code.ErrConnectGRPC)
+			if !errors.IsCode(err, bizcode.ErrConnectGRPC) {
+				t.Fatalf("error = %v, want code %d", err, bizcode.ErrConnectGRPC)
 			}
 		})
 	}
@@ -146,8 +146,8 @@ func TestUserServiceRejectsMissingCodeStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.run()
-			if !errors.IsCode(err, code.ErrConnectGRPC) {
-				t.Fatalf("error = %v, want code %d", err, code.ErrConnectGRPC)
+			if !errors.IsCode(err, bizcode.ErrConnectGRPC) {
+				t.Fatalf("error = %v, want code %d", err, bizcode.ErrConnectGRPC)
 			}
 		})
 	}
@@ -166,8 +166,8 @@ func TestUserServiceRejectsMissingJWTOptions(t *testing.T) {
 	svc := NewUserService(&fakeDataFactory{users: users}, nil, nil, nil, nil, nil)
 
 	_, err := svc.PasswordLogin(context.Background(), "user_001", "secret")
-	if !errors.IsCode(err, code.ErrConnectGRPC) {
-		t.Fatalf("PasswordLogin() error = %v, want code %d", err, code.ErrConnectGRPC)
+	if !errors.IsCode(err, bizcode.ErrConnectGRPC) {
+		t.Fatalf("PasswordLogin() error = %v, want code %d", err, bizcode.ErrConnectGRPC)
 	}
 }
 

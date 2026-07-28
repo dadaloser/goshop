@@ -171,13 +171,7 @@ type withStack struct {
 func (w *withStack) Cause() error { return w.error }
 
 // Unwrap provides compatibility for Go 1.13 error chains.
-func (w *withStack) Unwrap() error {
-	if e, ok := w.error.(interface{ Unwrap() error }); ok {
-		return e.Unwrap()
-	}
-
-	return w.error
-}
+func (w *withStack) Unwrap() error { return w.error }
 
 func (w *withStack) Format(s fmt.State, verb rune) {
 	switch verb {
@@ -302,22 +296,6 @@ type withCode struct {
 	code  int
 	cause error
 	*stack
-}
-
-func WithCode(code int, message string) error {
-	return &withCode{
-		err:   stderrors.New(message),
-		code:  code,
-		stack: callers(),
-	}
-}
-
-func WithCodeF(code int, format string, args ...interface{}) error {
-	return &withCode{
-		err:   fmt.Errorf(format, args...),
-		code:  code,
-		stack: callers(),
-	}
 }
 
 func WrapC(err error, code int, format string, args ...interface{}) error {

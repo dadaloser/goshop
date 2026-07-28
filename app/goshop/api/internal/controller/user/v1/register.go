@@ -1,7 +1,7 @@
 package user
 
 import (
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
@@ -36,7 +36,7 @@ func (us *userServer) Register(ctx *gin.Context) {
 		return
 	}
 	if userDTO == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "user service response is empty"), nil)
+		core.WriteResponse(ctx, errors.NewSpec(bizcode.ConnectGRPCSpec, "user service response is empty"), nil)
 		return
 	}
 

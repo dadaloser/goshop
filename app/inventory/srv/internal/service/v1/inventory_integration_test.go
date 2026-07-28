@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"goshop/app/pkg/bizcode"
 	"net"
 	"os"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	invdb "goshop/app/inventory/srv/internal/data/v1/db"
 	"goshop/app/inventory/srv/internal/domain/do"
 	"goshop/app/inventory/srv/internal/domain/dto"
-	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
@@ -59,7 +59,7 @@ func TestInventorySellConcurrentRealDB(t *testing.T) {
 			switch {
 			case err == nil:
 				successCount.Add(1)
-			case errors.IsCode(err, code.ErrInvNotEnough):
+			case errors.IsCode(err, bizcode.ErrInvNotEnough):
 				notEnoughCount.Add(1)
 			default:
 				errCh <- fmt.Errorf("Inventory.Sell(orderSn=%q, goodsID=%d) error = %v, want nil or ErrInvNotEnough", orderSn, goodsID, err)

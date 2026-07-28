@@ -1,4 +1,4 @@
-package code
+package bizcode
 
 const (
 	// ErrShopCartItemNotFound - 404: ShopCart item not found.

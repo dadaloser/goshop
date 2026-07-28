@@ -6,7 +6,7 @@ import (
 
 	upbv1 "goshop/api/user/v1"
 	v1 "goshop/app/user/srv/internal/service/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 
@@ -15,7 +15,7 @@ import (
 
 func (u *userServer) CreateAdminAuditLog(ctx context.Context, request *upbv1.CreateAdminAuditLogRequest) (*emptypb.Empty, error) {
 	if request == nil || request.Log == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "create admin audit log request is required")
+		return nil, errors.NewSpec(errcode.ValidationSpec, "create admin audit log request is required")
 	}
 	if err := u.srv.CreateAdminAuditLog(ctx, v1.AdminAuditLogDTO{
 		TargetUserID:       request.Log.TargetUserId,
@@ -32,7 +32,7 @@ func (u *userServer) CreateAdminAuditLog(ctx context.Context, request *upbv1.Cre
 
 func (u *userServer) ListAdminAuditLogs(ctx context.Context, request *upbv1.AdminAuditLogPageRequest) (*upbv1.AdminAuditLogListResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "admin audit log request is required")
+		return nil, errors.NewSpec(errcode.ValidationSpec, "admin audit log request is required")
 	}
 
 	filters := v1.AdminAuditLogFilterDTO{

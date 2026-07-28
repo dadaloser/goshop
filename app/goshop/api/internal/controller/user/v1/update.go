@@ -2,11 +2,11 @@ package user
 
 import (
 	"fmt"
+	"goshop/app/pkg/bizcode"
 	"time"
 
-	"goshop/app/pkg/code"
 	gin2 "goshop/app/pkg/translator/gin"
-	gcode "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/common/core"
 	jtime "goshop/pkg/common/time"
@@ -45,7 +45,7 @@ func (us *userServer) UpdateUser(ctx *gin.Context) {
 		return
 	}
 	if userDTO == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "user service response is empty"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "user service response is empty"), nil)
 		return
 	}
 	userDTO.NickName = updateForm.Name
@@ -76,11 +76,11 @@ func (us *userServer) UpdateUser(ctx *gin.Context) {
 func userIDFromContext(ctx *gin.Context) (uint64, error) {
 	userID, ok := ctx.Get(middlewares.KeyUserID)
 	if !ok {
-		return 0, errors.WithCode(gcode.ErrInvalidAuthHeader, "user id is missing")
+		return 0, errors.NewCode(errcode.ErrInvalidAuthHeader, "user id is missing")
 	}
 	userIDFloat, ok := userID.(float64)
 	if !ok {
-		return 0, errors.WithCode(gcode.ErrInvalidAuthHeader, "user id has invalid type")
+		return 0, errors.NewCode(errcode.ErrInvalidAuthHeader, "user id has invalid type")
 	}
 	return uint64(userIDFloat), nil
 }

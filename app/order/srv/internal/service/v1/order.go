@@ -8,8 +8,8 @@ import (
 	v12 "goshop/app/order/srv/internal/data/v1"
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
+	"goshop/app/pkg/bizcode"
 	"goshop/app/pkg/client"
-	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	v1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
@@ -88,7 +88,7 @@ func (os *orderService) CartItemList(ctx context.Context, userID uint64, meta v1
 
 func (os *orderService) CreateCartItem(ctx context.Context, cartItem *dto.ShopCartDTO) (*dto.ShopCartDTO, error) {
 	if cartItem == nil || cartItem.User <= 0 || cartItem.Goods <= 0 || cartItem.Nums <= 0 {
-		return nil, errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+		return nil, errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
 	}
 
 	existing, err := os.data.ShopCarts().Get(ctx, uint64(cartItem.User), uint64(cartItem.Goods))
@@ -100,7 +100,7 @@ func (os *orderService) CreateCartItem(ctx context.Context, cartItem *dto.ShopCa
 		}
 		return &dto.ShopCartDTO{ShoppingCartDO: *existing}, nil
 	}
-	if !errors.IsCode(err, code.ErrShopCartItemNotFound) {
+	if !errors.IsCode(err, bizcode.ErrShopCartItemNotFound) {
 		return nil, err
 	}
 
@@ -112,14 +112,14 @@ func (os *orderService) CreateCartItem(ctx context.Context, cartItem *dto.ShopCa
 
 func (os *orderService) UpdateCartItem(ctx context.Context, cartItem *dto.ShopCartDTO) error {
 	if cartItem == nil || cartItem.User <= 0 || cartItem.Goods <= 0 || cartItem.Nums <= 0 {
-		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+		return errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
 	}
 	return os.data.ShopCarts().UpdateNum(ctx, &cartItem.ShoppingCartDO)
 }
 
 func (os *orderService) DeleteCartItem(ctx context.Context, userID, id uint64) error {
 	if userID == 0 || id == 0 {
-		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+		return errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
 	}
 	return os.data.ShopCarts().Delete(ctx, userID, id)
 }
@@ -131,7 +131,7 @@ func (os *orderService) CreateCom(ctx context.Context, order *dto.OrderDTO) erro
 
 	existing, err := os.data.Orders().Get(ctx, order.OrderSn)
 	if err != nil {
-		if errors.IsCode(err, code.ErrOrderNotFound) {
+		if errors.IsCode(err, bizcode.ErrOrderNotFound) {
 			return nil
 		}
 		return err
@@ -182,14 +182,14 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 		3. 根据order找到对应的购物车条目，删除购物车条目
 	*/
 	if order == nil {
-		return errors.WithCode(code.ErrSubmitOrder, "order is required")
+		return errors.NewCode(bizcode.ErrSubmitOrder, "order is required")
 	}
 	order.OrderSn = strings.TrimSpace(order.OrderSn)
 	if order.OrderSn == "" {
-		return errors.WithCode(code.ErrSubmitOrder, "order_sn is required")
+		return errors.NewCode(bizcode.ErrSubmitOrder, "order_sn is required")
 	}
 	if !hasOrderGoods(order.OrderGoods) {
-		return errors.WithCode(code.ErrNoGoodsSelect, "没有选择商品")
+		return errors.NewCode(bizcode.ErrNoGoodsSelect, "没有选择商品")
 	}
 	order.Status = normalizeInitialOrderStatus(order.Status)
 
@@ -198,9 +198,9 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 		if sameCreateOrder(existing, order) {
 			return nil
 		}
-		return errors.WithCode(code.ErrOrderConflict, "order_sn already exists with different order data")
+		return errors.NewCode(bizcode.ErrOrderConflict, "order_sn already exists with different order data")
 	}
-	if !errors.IsCode(err, code.ErrOrderNotFound) {
+	if !errors.IsCode(err, bizcode.ErrOrderNotFound) {
 		return err
 	}
 
@@ -217,7 +217,7 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 	}
 	if len(goodsMap) != len(goodsIds) {
 		log.Errorf("批量获取商品信息失败，goodids: %v, 返回值：%v, err:%v", goodsIds, goodsMap, err)
-		return errors.WithCode(code.ErrGoodsNotFound, "商品不存在或者部分不存在")
+		return errors.NewCode(bizcode.ErrGoodsNotFound, "商品不存在或者部分不存在")
 	}
 
 	//生成订单总金额
@@ -227,12 +227,12 @@ func (os *orderService) Create(ctx context.Context, order *dto.OrderDTO) (err er
 		goodsInfo := goodsMap[value.Goods]
 		currentStoreID := strings.TrimSpace(goodsInfo.StoreID)
 		if currentStoreID == "" {
-			return errors.WithCode(code.ErrGoodsNotFound, "商品缺少归属门店")
+			return errors.NewCode(bizcode.ErrGoodsNotFound, "商品缺少归属门店")
 		}
 		if storeID == "" {
 			storeID = currentStoreID
 		} else if storeID != currentStoreID {
-			return errors.WithCode(code.ErrSubmitOrder, "订单商品必须属于同一门店")
+			return errors.NewCode(bizcode.ErrSubmitOrder, "订单商品必须属于同一门店")
 		}
 		goodsPriceFen := money.NewFen(goodsInfo.ShopPriceFen)
 		lineAmountFen, err := goodsPriceFen.Multiply(int64(value.Nums))
@@ -385,7 +385,7 @@ func aggregateOrderGoods(items []*do.OrderGoods) (map[int32]int64, bool) {
 
 func (os *orderService) Get(ctx context.Context, userID uint64, orderSn string) (*dto.OrderDTO, error) {
 	if userID == 0 || strings.TrimSpace(orderSn) == "" {
-		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+		return nil, errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 	}
 
 	order, err := os.data.Orders().Get(ctx, orderSn)
@@ -393,7 +393,7 @@ func (os *orderService) Get(ctx context.Context, userID uint64, orderSn string) 
 		return nil, err
 	}
 	if uint64(order.User) != userID {
-		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+		return nil, errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 	}
 	return &dto.OrderDTO{OrderInfoDO: *order}, nil
 }
@@ -440,14 +440,14 @@ func (os *orderService) List(ctx context.Context, userID uint64, meta v1.ListMet
 
 func (os *orderService) Submit(ctx context.Context, order *dto.OrderDTO) error {
 	if order == nil {
-		return errors.WithCode(code.ErrSubmitOrder, "order is required")
+		return errors.NewCode(bizcode.ErrSubmitOrder, "order is required")
 	}
 	order.OrderSn = strings.TrimSpace(order.OrderSn)
 	if order.User <= 0 || order.OrderSn == "" {
-		return errors.WithCode(code.ErrSubmitOrder, "user and order_sn are required")
+		return errors.NewCode(bizcode.ErrSubmitOrder, "user and order_sn are required")
 	}
 	if os.dtmOpts == nil || strings.TrimSpace(os.dtmOpts.GrpcServer) == "" {
-		return errors.WithCode(code.ErrSubmitOrder, "dtm grpc server is required")
+		return errors.NewCode(bizcode.ErrSubmitOrder, "dtm grpc server is required")
 	}
 
 	//先从购物车中获取商品信息
@@ -459,7 +459,7 @@ func (os *orderService) Submit(ctx context.Context, order *dto.OrderDTO) error {
 
 	if len(list.Items) == 0 {
 		log.Errorf("购物车中没有商品，无法下单")
-		return errors.WithCode(code.ErrNoGoodsSelect, "没有选择商品")
+		return errors.NewCode(bizcode.ErrNoGoodsSelect, "没有选择商品")
 	}
 
 	var orderGoods []*do.OrderGoods
@@ -510,15 +510,15 @@ func (os *orderService) Submit(ctx context.Context, order *dto.OrderDTO) error {
 
 func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 	if order == nil {
-		return errors.WithCode(code.ErrOrderStatusInvalid, "order is required")
+		return errors.NewCode(bizcode.ErrOrderStatusInvalid, "order is required")
 	}
 	order.OrderSn = strings.TrimSpace(order.OrderSn)
 	order.Status = strings.TrimSpace(order.Status)
 	if order.OrderSn == "" || order.Status == "" {
-		return errors.WithCode(code.ErrOrderStatusInvalid, "order_sn and status are required")
+		return errors.NewCode(bizcode.ErrOrderStatusInvalid, "order_sn and status are required")
 	}
 	if !isValidOrderStatus(order.Status) {
-		return errors.WithCode(code.ErrOrderStatusInvalid, "invalid order status")
+		return errors.NewCode(bizcode.ErrOrderStatusInvalid, "invalid order status")
 	}
 
 	existing, err := os.data.Orders().Get(ctx, order.OrderSn)
@@ -534,12 +534,12 @@ func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 	}()
 	if !canTransitionOrderStatus(existing.Status, order.Status) {
 		result = "invalid"
-		return errors.WithCode(code.ErrOrderStatusInvalid, "invalid order status transition")
+		return errors.NewCode(bizcode.ErrOrderStatusInvalid, "invalid order status transition")
 	}
 	if order.Status == OrderStatusTradeSuccess {
 		if strings.TrimSpace(order.TradeNo) == "" {
 			result = "invalid"
-			return errors.WithCode(code.ErrOrderStatusInvalid, "trade_no is required when order is paid")
+			return errors.NewCode(bizcode.ErrOrderStatusInvalid, "trade_no is required when order is paid")
 		}
 		if order.PayTime == nil {
 			now := time.Now()
@@ -549,11 +549,11 @@ func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 	if order.Status == OrderStatusRefundPending {
 		if order.ActorUserID <= 0 || order.RefundAmountFen <= 0 || strings.TrimSpace(order.StatusReason) == "" || strings.TrimSpace(order.CorrelationID) == "" {
 			result = "invalid"
-			return errors.WithCode(code.ErrOrderStatusInvalid, "refund actor, amount, reason, and correlation_id are required")
+			return errors.NewCode(bizcode.ErrOrderStatusInvalid, "refund actor, amount, reason, and correlation_id are required")
 		}
 		if order.RefundAmountFen > existing.OrderMountFen {
 			result = "invalid"
-			return errors.WithCode(code.ErrOrderStatusInvalid, "refund amount exceeds order total")
+			return errors.NewCode(bizcode.ErrOrderStatusInvalid, "refund amount exceeds order total")
 		}
 	}
 
@@ -598,7 +598,7 @@ func (os *orderService) Update(ctx context.Context, order *dto.OrderDTO) error {
 		})
 		if !ok {
 			_ = txn.Rollback()
-			return errors.WithCode(code.ErrOrderStatusInvalid, "refund store is not configured")
+			return errors.NewCode(bizcode.ErrOrderStatusInvalid, "refund store is not configured")
 		}
 		now := time.Now().UTC()
 		if err := store.CreateRefundRequest(ctx, txn, &do.RefundRequestDO{OrderSN: order.OrderSn, ActorUserID: order.ActorUserID, AmountFen: order.RefundAmountFen, Reason: order.StatusReason, Status: OrderStatusRefundPending, CorrelationID: order.CorrelationID, CreatedAt: now, UpdatedAt: now}); err != nil {

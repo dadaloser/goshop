@@ -2,9 +2,9 @@ package db
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 
-	"goshop/app/pkg/code"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	v1 "goshop/app/goods/srv/internal/data/v1"
@@ -30,7 +30,7 @@ func (cb *categoryBrands) List(ctx context.Context, opts metav1.ListMeta, orderB
 
 	countQuery := cb.db.WithContext(ctx).Model(&do.GoodsCategoryBrandDO{})
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	query := cb.db.WithContext(ctx).Preload("Category").Preload("Brands")
@@ -43,7 +43,7 @@ func (cb *categoryBrands) List(ctx context.Context, opts metav1.ListMeta, orderB
 	}
 	tx := query.Limit(opts.PageSize).Find(&ret.Items)
 	if tx.Error != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	return ret, nil
 }
@@ -56,7 +56,7 @@ func (cb *categoryBrands) ListByCategory(ctx context.Context, categoryID uint64,
 
 	countQuery := cb.db.WithContext(ctx).Model(&do.GoodsCategoryBrandDO{}).Where("category_id = ?", categoryID)
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	query := cb.db.WithContext(ctx).
@@ -66,7 +66,7 @@ func (cb *categoryBrands) ListByCategory(ctx context.Context, categoryID uint64,
 	query = applyOrderBy(query, orderBy, categoryBrandOrderColumns)
 	tx := query.Find(&ret.Items)
 	if tx.Error != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	return ret, nil
 }
@@ -81,14 +81,14 @@ func (cb *categoryBrands) CountByBrand(ctx context.Context, brandID uint64) (int
 		Where("brands_id = ?", brandID).
 		Count(&count).Error
 	if err != nil {
-		return 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return count, nil
 }
 
 func (cb *categoryBrands) Create(ctx context.Context, txn *gorm.DB, gcb *do.GoodsCategoryBrandDO) error {
 	if gcb == nil {
-		return errors.WithCode(code.ErrGoodsInvalid, "category brand relation is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "category brand relation is required")
 	}
 
 	db := cb.db
@@ -96,14 +96,14 @@ func (cb *categoryBrands) Create(ctx context.Context, txn *gorm.DB, gcb *do.Good
 		db = txn
 	}
 	if err := db.WithContext(ctx).Create(gcb).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
 
 func (cb *categoryBrands) Update(ctx context.Context, txn *gorm.DB, gcb *do.GoodsCategoryBrandDO) error {
 	if gcb == nil || gcb.ID <= 0 {
-		return errors.WithCode(code.ErrCategoryBrandNotFound, "category brand relation not found")
+		return errors.NewCode(bizcode.ErrCategoryBrandNotFound, "category brand relation not found")
 	}
 
 	db := cb.db
@@ -117,7 +117,7 @@ func (cb *categoryBrands) Update(ctx context.Context, txn *gorm.DB, gcb *do.Good
 			"brands_id":   gcb.BrandsID,
 		})
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
 		exists, err := cb.exists(ctx, uint64(gcb.ID))
@@ -125,7 +125,7 @@ func (cb *categoryBrands) Update(ctx context.Context, txn *gorm.DB, gcb *do.Good
 			return err
 		}
 		if !exists {
-			return errors.WithCode(code.ErrCategoryBrandNotFound, "category brand relation not found")
+			return errors.NewCode(bizcode.ErrCategoryBrandNotFound, "category brand relation not found")
 		}
 	}
 	return nil
@@ -133,15 +133,15 @@ func (cb *categoryBrands) Update(ctx context.Context, txn *gorm.DB, gcb *do.Good
 
 func (cb *categoryBrands) Delete(ctx context.Context, ID uint64) error {
 	if ID == 0 {
-		return errors.WithCode(code.ErrCategoryBrandNotFound, "category brand relation not found")
+		return errors.NewCode(bizcode.ErrCategoryBrandNotFound, "category brand relation not found")
 	}
 
 	tx := cb.db.WithContext(ctx).Where("id = ?", ID).Delete(&do.GoodsCategoryBrandDO{})
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
-		return errors.WithCode(code.ErrCategoryBrandNotFound, "category brand relation not found")
+		return errors.NewCode(bizcode.ErrCategoryBrandNotFound, "category brand relation not found")
 	}
 	return nil
 }
@@ -155,7 +155,7 @@ func (cb *categoryBrands) exists(ctx context.Context, id uint64) (bool, error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
-		return false, errors.WithCode(code2.ErrDatabase, err.Error())
+		return false, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return true, nil
 }

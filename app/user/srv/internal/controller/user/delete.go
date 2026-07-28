@@ -4,7 +4,7 @@ import (
 	"context"
 
 	upbv1 "goshop/api/user/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 
@@ -13,7 +13,7 @@ import (
 
 func (u *userServer) DeleteUser(ctx context.Context, request *upbv1.IdRequest) (*emptypb.Empty, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "delete user request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "delete user request is required")
 	}
 
 	log.Infof("delete user function called.")

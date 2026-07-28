@@ -2,11 +2,11 @@ package mysql
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"strings"
 
 	"goshop/app/inventory/srv/internal/domain/do"
-	"goshop/app/pkg/code"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"goshop/app/inventory/srv/internal/data/v1"
@@ -31,10 +31,10 @@ func inventoryDB(db *gorm.DB, txn *gorm.DB) *gorm.DB {
 func (i *inventorys) UpdateStockSellDetailStatus(ctx context.Context, txn *gorm.DB, ordersn string, status int32) error {
 	ordersn = strings.TrimSpace(ordersn)
 	if ordersn == "" {
-		return errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+		return errors.NewCode(bizcode.ErrInvSellDetailNotFound, "inventory sell detail not found")
 	}
 	if status <= 0 {
-		return errors.WithCode(code2.ErrValidation, "inventory sell detail status is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory sell detail status is invalid")
 	}
 
 	db := inventoryDB(i.db, txn)
@@ -43,10 +43,10 @@ func (i *inventorys) UpdateStockSellDetailStatus(ctx context.Context, txn *gorm.
 	//所以我们可以根据影响的行数来判断是否更新成功
 	result := db.WithContext(ctx).Model(do.StockSellDetailDO{}).Where("order_sn = ?", ordersn).Update("status", status)
 	if result.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, result.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, result.Error.Error())
 	}
 	if result.RowsAffected == 0 {
-		return errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+		return errors.NewCode(bizcode.ErrInvSellDetailNotFound, "inventory sell detail not found")
 	}
 	return nil
 }
@@ -54,7 +54,7 @@ func (i *inventorys) UpdateStockSellDetailStatus(ctx context.Context, txn *gorm.
 func (i *inventorys) GetSellDetail(ctx context.Context, txn *gorm.DB, ordersn string) (*do.StockSellDetailDO, error) {
 	ordersn = strings.TrimSpace(ordersn)
 	if ordersn == "" {
-		return nil, errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+		return nil, errors.NewCode(bizcode.ErrInvSellDetailNotFound, "inventory sell detail not found")
 	}
 
 	db := inventoryDB(i.db, txn)
@@ -62,9 +62,9 @@ func (i *inventorys) GetSellDetail(ctx context.Context, txn *gorm.DB, ordersn st
 	err := db.WithContext(ctx).Where("order_sn = ?", ordersn).First(&orderSellDetail).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code.ErrInvSellDetailNotFound, err.Error())
+			return nil, errors.NewCode(bizcode.ErrInvSellDetailNotFound, err.Error())
 		}
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return &orderSellDetail, err
 }
@@ -72,7 +72,7 @@ func (i *inventorys) GetSellDetail(ctx context.Context, txn *gorm.DB, ordersn st
 func (i *inventorys) GetSellDetailForUpdate(ctx context.Context, txn *gorm.DB, ordersn string) (*do.StockSellDetailDO, error) {
 	ordersn = strings.TrimSpace(ordersn)
 	if ordersn == "" {
-		return nil, errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+		return nil, errors.NewCode(bizcode.ErrInvSellDetailNotFound, "inventory sell detail not found")
 	}
 
 	db := inventoryDB(i.db, txn)
@@ -80,19 +80,19 @@ func (i *inventorys) GetSellDetailForUpdate(ctx context.Context, txn *gorm.DB, o
 	err := db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("order_sn = ?", ordersn).First(&orderSellDetail).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code.ErrInvSellDetailNotFound, err.Error())
+			return nil, errors.NewCode(bizcode.ErrInvSellDetailNotFound, err.Error())
 		}
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return &orderSellDetail, err
 }
 
 func (i *inventorys) Reduce(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {
 	if goodsID == 0 {
-		return errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+		return errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
 	}
 	if num <= 0 {
-		return errors.WithCode(code2.ErrValidation, "inventory quantity is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory quantity is invalid")
 	}
 
 	db := inventoryDB(i.db, txn)
@@ -106,20 +106,20 @@ func (i *inventorys) Reduce(ctx context.Context, txn *gorm.DB, goodsID uint64, n
 			"stocks":    gorm.Expr("stocks - ?", num),
 		})
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
-		return errors.WithCode(code.ErrInvNotEnough, "库存不足")
+		return errors.NewCode(bizcode.ErrInvNotEnough, "库存不足")
 	}
 	return nil
 }
 
 func (i *inventorys) Increase(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {
 	if goodsID == 0 {
-		return errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+		return errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
 	}
 	if num <= 0 {
-		return errors.WithCode(code2.ErrValidation, "inventory quantity is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory quantity is invalid")
 	}
 
 	db := inventoryDB(i.db, txn)
@@ -133,20 +133,20 @@ func (i *inventorys) Increase(ctx context.Context, txn *gorm.DB, goodsID uint64,
 			"stocks":    gorm.Expr("stocks + ?", num),
 		})
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
-		return errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+		return errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
 	}
 	return nil
 }
 
 func (i *inventorys) ConfirmSell(ctx context.Context, txn *gorm.DB, goodsID uint64, num int) error {
 	if goodsID == 0 {
-		return errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+		return errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
 	}
 	if num <= 0 {
-		return errors.WithCode(code2.ErrValidation, "inventory quantity is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory quantity is invalid")
 	}
 
 	db := inventoryDB(i.db, txn)
@@ -159,10 +159,10 @@ func (i *inventorys) ConfirmSell(ctx context.Context, txn *gorm.DB, goodsID uint
 			"sold":   gorm.Expr("sold + ?", num),
 		})
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
-		return errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+		return errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
 	}
 	return nil
 }
@@ -176,7 +176,7 @@ func (i *inventorys) CreateStockSellDetail(ctx context.Context, txn *gorm.DB, de
 
 	tx := db.WithContext(ctx).Create(detail)
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	return nil
 }
@@ -195,7 +195,7 @@ func (i *inventorys) CreateStockSellDetailIfAbsent(ctx context.Context, txn *gor
 		}).
 		Create(detail)
 	if tx.Error != nil {
-		return false, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return false, errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	return tx.RowsAffected > 0, nil
 }
@@ -208,7 +208,7 @@ func (i *inventorys) Create(ctx context.Context, inv *do.InventoryDO) error {
 	//设置库存， 如果我要更新库存
 	tx := i.db.WithContext(ctx).Create(inv)
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	return nil
 }
@@ -218,7 +218,7 @@ func (i *inventorys) Adjust(ctx context.Context, inv *do.InventoryDO, audit *do.
 		return err
 	}
 	if audit == nil || audit.ActorUserID <= 0 || strings.TrimSpace(audit.CorrelationID) == "" || strings.TrimSpace(audit.Reason) == "" {
-		return errors.WithCode(code2.ErrValidation, "inventory adjustment audit is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory adjustment audit is invalid")
 	}
 	return i.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var current do.InventoryDO
@@ -246,11 +246,11 @@ func (i *inventorys) ListAdjustments(ctx context.Context, goodsID uint64, offset
 	query := i.db.WithContext(ctx).Model(&do.InventoryAdjustmentDO{}).Where("goods_id = ?", goodsID)
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	items := []do.InventoryAdjustmentDO{}
 	if err := query.Order("id DESC").Offset(offset).Limit(limit).Find(&items).Error; err != nil {
-		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return items, total, nil
 }
@@ -268,14 +268,14 @@ func (i *inventorys) ListAdjustmentsByGoods(ctx context.Context, goodsIDs []uint
 		Order("id DESC").
 		Limit(limit).
 		Find(&items).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return items, nil
 }
 
 func (i *inventorys) Get(ctx context.Context, goodsID uint64) (*do.InventoryDO, error) {
 	if goodsID == 0 {
-		return nil, errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+		return nil, errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
 	}
 
 	inv := do.InventoryDO{}
@@ -283,10 +283,10 @@ func (i *inventorys) Get(ctx context.Context, goodsID uint64) (*do.InventoryDO, 
 	if err != nil {
 		log.Errorf("get inv err: %v", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code.ErrInventoryNotFound, err.Error())
+			return nil, errors.NewCode(bizcode.ErrInventoryNotFound, err.Error())
 		}
 
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	inv.Stocks = inv.Available
@@ -296,10 +296,10 @@ func (i *inventorys) Get(ctx context.Context, goodsID uint64) (*do.InventoryDO, 
 
 func normalizeInventory(inv *do.InventoryDO) error {
 	if inv == nil || inv.Goods <= 0 {
-		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory is invalid")
 	}
 	if inv.Stocks < 0 || inv.Total < 0 || inv.Available < 0 || inv.Locked < 0 || inv.Sold < 0 {
-		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory is invalid")
 	}
 
 	lifecycleProvided := inv.Total > 0 || inv.Available > 0 || inv.Locked > 0 || inv.Sold > 0
@@ -313,7 +313,7 @@ func normalizeInventory(inv *do.InventoryDO) error {
 	}
 
 	if inv.Total < inv.Available+inv.Locked+inv.Sold {
-		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory is invalid")
 	}
 
 	inv.Stocks = inv.Available
@@ -322,14 +322,14 @@ func normalizeInventory(inv *do.InventoryDO) error {
 
 func validateStockSellDetail(detail *do.StockSellDetailDO) error {
 	if detail == nil || strings.TrimSpace(detail.OrderSn) == "" {
-		return errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+		return errors.NewCode(bizcode.ErrInvSellDetailNotFound, "inventory sell detail not found")
 	}
 	if detail.Status <= 0 {
-		return errors.WithCode(code2.ErrValidation, "inventory sell detail status is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory sell detail status is invalid")
 	}
 	for _, item := range detail.Detail {
 		if item.Goods <= 0 || item.Num <= 0 {
-			return errors.WithCode(code2.ErrValidation, "inventory sell detail is invalid")
+			return errors.NewCode(errcode.ErrValidation, "inventory sell detail is invalid")
 		}
 	}
 	return nil

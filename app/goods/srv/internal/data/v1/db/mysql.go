@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"goshop/app/goods/srv/internal/data/v1"
 	dv1 "goshop/app/goods/srv/internal/domain/do"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	appgorm "goshop/app/pkg/gorm"
 	"goshop/app/pkg/options"
 	errors2 "goshop/pkg/errors"
@@ -119,7 +119,7 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 	})
 
 	if dbFactory == nil || initErr != nil {
-		return nil, errors2.WrapC(initErr, code.ErrConnectDB, "failed to get mysql store factory")
+		return nil, errors2.WrapC(initErr, bizcode.ErrConnectDB, "failed to get mysql store factory")
 	}
 	return dbFactory, nil
 }

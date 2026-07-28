@@ -8,8 +8,8 @@ import (
 	opb "goshop/api/order/v1"
 	upb "goshop/api/user/v1"
 	"goshop/app/goshop/api/internal/data"
+	"goshop/app/pkg/bizcode"
 	appclient "goshop/app/pkg/client"
-	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/resilience"
 	"goshop/gmicro/server/rpcserver"
@@ -73,19 +73,19 @@ func GetDataFactoryOr(
 
 	userClient, _, err := appclient.NewUserClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
-		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
+		return nil, errors2.WrapC(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
 	}
 	goodsClient, _, err := appclient.NewGoodsClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
-		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
+		return nil, errors2.WrapC(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
 	}
 	inventoryClient, _, err := appclient.NewInventoryClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
-		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
+		return nil, errors2.WrapC(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
 	}
 	orderClient, _, err := appclient.NewOrderClient(ctx, options, rpcSecurity, dialOpts...)
 	if err != nil {
-		return nil, errors2.WrapC(err, code.ErrConnectGRPC, "failed to get grpc store factory")
+		return nil, errors2.WrapC(err, bizcode.ErrConnectGRPC, "failed to get grpc store factory")
 	}
 
 	factory := &grpcData{

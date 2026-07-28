@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"goshop/gmicro/errcode"
 	"strings"
 	"time"
 
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/pkg/authz"
-	"goshop/app/pkg/code"
-	code2 "goshop/gmicro/code"
+	"goshop/app/pkg/bizcode"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
@@ -37,14 +37,14 @@ func (us *userService) Logout(ctx context.Context, userID uint64, sessionID stri
 func (us *userService) Refresh(ctx context.Context, sessionID, refreshToken string) (*UserDTO, error) {
 	sessions, ok := us.sessionData()
 	if !ok || strings.TrimSpace(sessionID) == "" || strings.TrimSpace(refreshToken) == "" {
-		return nil, errors.WithCode(code2.ErrTokenInvalid, "refresh token invalid")
+		return nil, errors.NewSpec(errcode.TokenInvalidSpec, "refresh token invalid")
 	}
 	nextToken := secureToken()
 	now := time.Now()
 	refreshExpiresAt := now.Add(us.jwtOpts.MaxRefresh)
 	session, err := sessions.RefreshSession(ctx, sessionID, refreshToken, nextToken, refreshExpiresAt)
 	if err != nil {
-		return nil, errors.WithCode(code2.ErrTokenInvalid, "refresh token invalid")
+		return nil, errors.NewSpec(errcode.TokenInvalidSpec, "refresh token invalid")
 	}
 	users, err := us.usersData()
 	if err != nil {
@@ -63,11 +63,11 @@ func (us *userService) Refresh(ctx context.Context, sessionID, refreshToken stri
 
 func (us *userService) createToken(ctx context.Context, user data.UserAuth) (string, int64, string, int64, string, error) {
 	if us == nil || us.jwtOpts == nil || strings.TrimSpace(us.jwtOpts.Key) == "" || us.jwtOpts.Timeout <= 0 {
-		return "", 0, "", 0, "", errors.WithCode(code.ErrConnectGRPC, "jwt options are not initialized")
+		return "", 0, "", 0, "", errors.NewSpec(bizcode.ConnectGRPCSpec, "jwt options are not initialized")
 	}
 	status := authz.NormalizeAccountStatus(user.Status)
 	if status != authz.AccountStatusActive {
-		return "", 0, "", 0, "", errors.WithCode(code.ErrUserAccountInactive, "用户账户不可用")
+		return "", 0, "", 0, "", errors.NewSpec(bizcode.UserAccountInactiveSpec, "user account is inactive")
 	}
 
 	now := time.Now()
@@ -76,7 +76,7 @@ func (us *userService) createToken(ctx context.Context, user data.UserAuth) (str
 	if sessions, ok := us.sessionData(); ok {
 		refreshToken = secureToken()
 		if refreshToken == "" {
-			return "", 0, "", 0, "", errors.WithCode(code2.ErrUnknown, "create refresh token failed")
+			return "", 0, "", 0, "", errors.NewCode(errcode.ErrUnknown, "create refresh token failed")
 		}
 		refreshExpiresAt = now.Add(us.jwtOpts.MaxRefresh)
 		deviceID, deviceName := loginDevice(ctx)
@@ -125,7 +125,7 @@ func loginDevice(ctx context.Context) (string, string) {
 func (us *userService) issueAccessToken(ctx context.Context, user data.UserAuth, sessionID string, now time.Time) (string, int64, error) {
 	status := authz.NormalizeAccountStatus(user.Status)
 	if status != authz.AccountStatusActive {
-		return "", 0, errors.WithCode(code.ErrUserAccountInactive, "用户账户不可用")
+		return "", 0, errors.NewSpec(bizcode.UserAccountInactiveSpec, "user account is inactive")
 	}
 	j := middlewares.NewJWT(us.jwtOpts.Key)
 	claims := middlewares.CustomClaims{
@@ -169,15 +169,15 @@ func secureToken() string {
 
 func (us *userService) LogoutAll(ctx context.Context, userID uint64) error {
 	if userID == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "用户不存在")
+		return errors.NewSpec(bizcode.UserNotFoundSpec, "user id is required")
 	}
 
 	if err := us.bumpTokenVersion(ctx, userID); err != nil {
-		return errors.WithCode(code.ErrConnectGRPC, "退出登录失败")
+		return errors.NewSpec(bizcode.ConnectGRPCSpec, "bump token version")
 	}
 	if sessions, ok := us.sessionData(); ok {
 		if err := sessions.RevokeAllSessions(ctx, userID); err != nil {
-			return errors.WithCode(code.ErrConnectGRPC, "退出登录失败")
+			return errors.NewSpec(bizcode.ConnectGRPCSpec, "revoke all sessions")
 		}
 	}
 	return nil

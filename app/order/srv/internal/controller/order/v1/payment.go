@@ -7,7 +7,7 @@ import (
 	pb "goshop/api/order/v1"
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -140,7 +140,7 @@ func (os *orderServer) RetryDeadRefundJob(ctx context.Context, req *pb.RetryDead
 
 func (os *orderServer) GetOrderTrace(ctx context.Context, req *pb.OrderTraceRequest) (*pb.OrderTraceResponse, error) {
 	if req == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "order trace request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "order trace request is required")
 	}
 	service, err := os.paymentService()
 	if err != nil {
@@ -220,7 +220,7 @@ func (os *orderServer) GetOrderTrace(ctx context.Context, req *pb.OrderTraceRequ
 func (os *orderServer) paymentService() (paymentService, error) {
 	service, ok := os.srv.Orders().(paymentService)
 	if !ok {
-		return nil, errors.WithCode(code2.ErrDatabase, "payment service is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "payment service is not configured")
 	}
 	return service, nil
 }

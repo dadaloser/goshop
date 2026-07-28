@@ -2,7 +2,7 @@ package user
 
 import (
 	gin2 "goshop/app/pkg/translator/gin"
-	"goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
 
@@ -27,7 +27,7 @@ func (us *userServer) Refresh(ctx *gin.Context) {
 	}
 	user, err := userSrv.Refresh(ctx, form.SessionID, form.RefreshToken)
 	if err != nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrTokenInvalid, "refresh token invalid"), nil)
+		core.WriteResponse(ctx, errors.NewSpec(errcode.TokenInvalidSpec, "refresh token invalid"), nil)
 		return
 	}
 	writeLoginResponse(ctx, user)

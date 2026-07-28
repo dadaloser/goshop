@@ -67,6 +67,12 @@ func (coder defaultCoder) Reference() string {
 	return coder.Ref
 }
 
+// Kind classifies unknown or unregistered codes as internal errors. It keeps
+// legacy WithCode callers safe when a code has not yet been registered.
+func (coder defaultCoder) Kind() Kind {
+	return KindInternal
+}
+
 // codes contains a map of error codes to metadata.
 var codes = map[int]Coder{}
 var codeMux sync.RWMutex
@@ -118,6 +124,13 @@ func ParseCoder(err error) Coder {
 		}
 	}
 
+	var specified Coded
+	if stderrors.As(err, &specified) {
+		if coder, ok := lookupCoder(specified.Spec().Code); ok {
+			return coder
+		}
+	}
+
 	return unknownCoder
 }
 
@@ -125,6 +138,9 @@ func ParseCoder(err error) Coder {
 func IsCode(err error, code int) bool {
 	for err != nil {
 		if coded, ok := err.(*withCode); ok && coded.code == code {
+			return true
+		}
+		if coded, ok := err.(Coded); ok && coded.Spec().Code == code {
 			return true
 		}
 

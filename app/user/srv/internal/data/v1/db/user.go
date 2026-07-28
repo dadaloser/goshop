@@ -3,14 +3,14 @@ package db
 import (
 	"context"
 	"fmt"
+	"goshop/app/pkg/bizcode"
 	"slices"
 	"strings"
 	"time"
 
 	"goshop/app/pkg/authz"
-	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 
@@ -36,7 +36,7 @@ func NewUsers(db *gorm.DB) dv1.UserStore {
 func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, error) {
 	mobile = strings.TrimSpace(mobile)
 	if mobile == "" {
-		return nil, errors.WithCode(code.ErrUserNotFound, "user not found")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 
 	user := dv1.UserDO{}
@@ -45,9 +45,9 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, er
 	err := u.db.WithContext(ctx).Where("mobile=?", mobile).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code.ErrUserNotFound, err.Error())
+			return nil, errors.NewCode(bizcode.ErrUserNotFound, err.Error())
 		}
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return &user, nil
 }
@@ -55,7 +55,7 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, er
 func (u *users) GetByUsername(ctx context.Context, username string) (*dv1.UserDO, error) {
 	username = strings.TrimSpace(username)
 	if username == "" {
-		return nil, errors.WithCode(code.ErrUserNotFound, "user not found")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 
 	user := dv1.UserDO{}
@@ -64,9 +64,9 @@ func (u *users) GetByUsername(ctx context.Context, username string) (*dv1.UserDO
 		First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code.ErrUserNotFound, err.Error())
+			return nil, errors.NewCode(bizcode.ErrUserNotFound, err.Error())
 		}
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return &user, nil
 }
@@ -81,16 +81,16 @@ func (u *users) GetByUsername(ctx context.Context, username string) (*dv1.UserDO
 //	@return error
 func (u *users) GetByID(ctx context.Context, id uint64) (*dv1.UserDO, error) {
 	if id == 0 {
-		return nil, errors.WithCode(code.ErrUserNotFound, "user not found")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 
 	user := dv1.UserDO{}
 	err := u.db.WithContext(ctx).First(&user, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code.ErrUserNotFound, err.Error())
+			return nil, errors.NewCode(bizcode.ErrUserNotFound, err.Error())
 		}
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return &user, nil
 }
@@ -114,7 +114,7 @@ func (u *users) GetAuthByID(ctx context.Context, id uint64) (*dv1.UserAuthDO, er
 func (u *users) ListRoles(ctx context.Context) ([]dv1.RoleDO, error) {
 	var roles []dv1.RoleDO
 	if err := u.db.WithContext(ctx).Order("name ASC").Find(&roles).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	definitions := make(map[string]authz.RoleDefinition)
 	for _, definition := range authz.BuiltinRoleDefinitions() {
@@ -147,7 +147,7 @@ func (u *users) ListRoles(ctx context.Context) ([]dv1.RoleDO, error) {
 func (u *users) CreateRole(ctx context.Context, roleName, description string, permissions, domains []string) (*dv1.RoleDO, error) {
 	roleName = strings.ToLower(strings.TrimSpace(roleName))
 	if roleName == "" {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role name is required")
 	}
 
 	role := dv1.RoleDO{
@@ -156,7 +156,7 @@ func (u *users) CreateRole(ctx context.Context, roleName, description string, pe
 	}
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -167,7 +167,7 @@ func (u *users) CreateRole(ctx context.Context, roleName, description string, pe
 
 	if err := tx.Create(&role).Error; err != nil {
 		tx.Rollback()
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if err := u.replaceRolePermissionsTx(tx, role.ID, permissions); err != nil {
 		tx.Rollback()
@@ -178,7 +178,7 @@ func (u *users) CreateRole(ctx context.Context, roleName, description string, pe
 		return nil, err
 	}
 	if err := tx.Commit().Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	role.Permissions = append([]string(nil), permissions...)
@@ -189,20 +189,20 @@ func (u *users) CreateRole(ctx context.Context, roleName, description string, pe
 func (u *users) UpdateRole(ctx context.Context, roleName, description string, permissions, domains []string) (*dv1.RoleDO, error) {
 	roleName = strings.ToLower(strings.TrimSpace(roleName))
 	if roleName == "" {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role name is required")
 	}
 
 	var role dv1.RoleDO
 	if err := u.db.WithContext(ctx).Where("name = ?", roleName).First(&role).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code.ErrUserNotFound, "staff role not found")
+			return nil, errors.NewCode(bizcode.ErrUserNotFound, "staff role not found")
 		}
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -213,7 +213,7 @@ func (u *users) UpdateRole(ctx context.Context, roleName, description string, pe
 
 	if err := tx.Model(&dv1.RoleDO{}).Where("id = ?", role.ID).Update("description", description).Error; err != nil {
 		tx.Rollback()
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if err := u.replaceRolePermissionsTx(tx, role.ID, permissions); err != nil {
 		tx.Rollback()
@@ -224,7 +224,7 @@ func (u *users) UpdateRole(ctx context.Context, roleName, description string, pe
 		return nil, err
 	}
 	if err := tx.Commit().Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	role.Description = description
@@ -237,31 +237,31 @@ func (u *users) UpdateRole(ctx context.Context, roleName, description string, pe
 func (u *users) DeleteRole(ctx context.Context, roleName string) error {
 	roleName = strings.ToLower(strings.TrimSpace(roleName))
 	if roleName == "" {
-		return errors.WithCode(code2.ErrValidation, "staff role name is required")
+		return errors.NewCode(errcode.ErrValidation, "staff role name is required")
 	}
 	if authz.IsValidStaffRole(roleName) {
-		return errors.WithCode(code2.ErrValidation, "built-in staff roles cannot be deleted")
+		return errors.NewCode(errcode.ErrValidation, "built-in staff roles cannot be deleted")
 	}
 
 	var role dv1.RoleDO
 	if err := u.db.WithContext(ctx).Where("name = ?", roleName).First(&role).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.WithCode(code.ErrUserNotFound, "staff role not found")
+			return errors.NewCode(bizcode.ErrUserNotFound, "staff role not found")
 		}
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	var bindingCount int64
 	if err := u.db.WithContext(ctx).Model(&dv1.UserRoleDO{}).Where("role_id = ?", role.ID).Count(&bindingCount).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if bindingCount > 0 {
-		return errors.WithCode(code2.ErrValidation, "staff role is still assigned")
+		return errors.NewCode(errcode.ErrValidation, "staff role is still assigned")
 	}
 
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -272,18 +272,18 @@ func (u *users) DeleteRole(ctx context.Context, roleName string) error {
 
 	if err := tx.Where("role_id = ?", role.ID).Delete(&dv1.RolePermissionDO{}).Error; err != nil {
 		tx.Rollback()
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if err := tx.Where("role_id = ?", role.ID).Delete(&dv1.RoleDomainDO{}).Error; err != nil {
 		tx.Rollback()
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if err := tx.Delete(&dv1.RoleDO{}, role.ID).Error; err != nil {
 		tx.Rollback()
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if err := tx.Commit().Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -301,7 +301,7 @@ func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames [
 	normalizedRoles := normalizeRoleNames(roleNames)
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -333,7 +333,7 @@ func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames [
 		}
 	}
 	if err = tx.Commit().Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	return u.buildAuthUser(ctx, user)
@@ -348,29 +348,29 @@ func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames [
 //	@return error
 func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
 	if user == nil {
-		return errors.WithCode(code2.ErrValidation, "user is required")
+		return errors.NewCode(errcode.ErrValidation, "user is required")
 	}
 
 	tx := u.db.WithContext(ctx).Create(user)
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	return nil
 }
 
 func (u *users) CreateStaff(ctx context.Context, user *dv1.UserDO, roleNames []string, actor *dv1.AuditActor) (*dv1.UserAuthDO, error) {
 	if user == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "user is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "user is required")
 	}
 
 	normalizedRoles := normalizeRoleNames(roleNames)
 	if len(normalizedRoles) == 0 {
-		return nil, errors.WithCode(code2.ErrValidation, "staff roles are required")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff roles are required")
 	}
 
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -386,7 +386,7 @@ func (u *users) CreateStaff(ctx context.Context, user *dv1.UserDO, roleNames []s
 	}
 	if err = tx.Create(user).Error; err != nil {
 		tx.Rollback()
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if err = u.replaceUserRolesTx(tx, user.ID, roles); err != nil {
 		tx.Rollback()
@@ -404,7 +404,7 @@ func (u *users) CreateStaff(ctx context.Context, user *dv1.UserDO, roleNames []s
 		return nil, err
 	}
 	if err = tx.Commit().Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	return u.buildAuthUser(ctx, user)
@@ -419,7 +419,7 @@ func (u *users) CreateStaff(ctx context.Context, user *dv1.UserDO, roleNames []s
 //	@return error
 func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
 	if user == nil || user.ID <= 0 {
-		return errors.WithCode(code.ErrUserNotFound, "user not found")
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 
 	updates := map[string]interface{}{
@@ -436,17 +436,17 @@ func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
 		Where("id = ?", user.ID).
 		Updates(updates)
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "user not found")
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 	return nil
 }
 
 func (u *users) UpdateStatus(ctx context.Context, id uint64, status string, actor *dv1.AuditActor) error {
 	if id == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "user not found")
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 
 	user, err := u.GetByID(ctx, id)
@@ -460,7 +460,7 @@ func (u *users) UpdateStatus(ctx context.Context, id uint64, status string, acto
 
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -472,11 +472,11 @@ func (u *users) UpdateStatus(ctx context.Context, id uint64, status string, acto
 	result := tx.Model(&dv1.UserDO{}).Where("id = ?", id).Update("account_status", status)
 	if result.Error != nil {
 		tx.Rollback()
-		return errors.WithCode(code2.ErrDatabase, result.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, result.Error.Error())
 	}
 	if result.RowsAffected == 0 {
 		tx.Rollback()
-		return errors.WithCode(code.ErrUserNotFound, "user not found")
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 	if err = u.appendAuditLogTx(tx, &dv1.UserAuditLogDO{
 		UserID:             user.ID,
@@ -490,14 +490,14 @@ func (u *users) UpdateStatus(ctx context.Context, id uint64, status string, acto
 		return err
 	}
 	if err = tx.Commit().Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
 
 func (u *users) Delete(ctx context.Context, id uint64) error {
 	if id == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "user not found")
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 
 	now := time.Now()
@@ -509,17 +509,17 @@ func (u *users) Delete(ctx context.Context, id uint64) error {
 			"account_status": string(authz.AccountStatusDeleted),
 		})
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "user not found")
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 	return nil
 }
 
 func (u *users) ListAuditLogs(ctx context.Context, userID uint64, filters dv1.UserAuditLogFilters, opts metav1.ListMeta) (*dv1.UserAuditLogDOList, error) {
 	if userID == 0 {
-		return nil, errors.WithCode(code.ErrUserNotFound, "user not found")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 
 	ret := &dv1.UserAuditLogDOList{}
@@ -549,26 +549,26 @@ func (u *users) ListAuditLogs(ctx context.Context, userID uint64, filters dv1.Us
 		query = query.Where("add_time <= ?", *filters.CreatedBefore)
 	}
 	if err := query.Count(&ret.TotalCount).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if err := query.Order("add_time DESC, id DESC").Offset(offset).Limit(limit).Find(&ret.Items).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return ret, nil
 }
 
 func (u *users) CreateAdminAuditLog(ctx context.Context, logEntry *dv1.AdminAuditLogDO) error {
 	if logEntry == nil {
-		return errors.WithCode(code2.ErrValidation, "admin audit log is required")
+		return errors.NewCode(errcode.ErrValidation, "admin audit log is required")
 	}
 	if strings.TrimSpace(logEntry.Action) == "" {
-		return errors.WithCode(code2.ErrValidation, "admin audit action is required")
+		return errors.NewCode(errcode.ErrValidation, "admin audit action is required")
 	}
 	if strings.TrimSpace(logEntry.ActorPrincipalType) == "" {
 		logEntry.ActorPrincipalType = string(authz.PrincipalInternalService)
 	}
 	if err := u.db.WithContext(ctx).Create(logEntry).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -604,10 +604,10 @@ func (u *users) ListAdminAuditLogs(ctx context.Context, filters dv1.AdminAuditLo
 		query = query.Where("add_time <= ?", *filters.CreatedBefore)
 	}
 	if err := query.Count(&ret.TotalCount).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if err := query.Order("add_time DESC, id DESC").Offset(offset).Limit(limit).Find(&ret.Items).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return ret, nil
 }
@@ -641,7 +641,7 @@ func (u *users) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 
 	countQuery := u.db.WithContext(ctx).Model(&dv1.UserDO{})
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	//排序
@@ -650,14 +650,14 @@ func (u *users) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 
 	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, d.Error.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, d.Error.Error())
 	}
 	return ret, nil
 }
 
 func (u *users) buildAuthUser(ctx context.Context, user *dv1.UserDO) (*dv1.UserAuthDO, error) {
 	if user == nil {
-		return nil, errors.WithCode(code.ErrUserNotFound, "user not found")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 
 	roles, err := u.listStaffRoles(ctx, user.ID)
@@ -670,7 +670,7 @@ func (u *users) buildAuthUser(ctx context.Context, user *dv1.UserDO) (*dv1.UserA
 	}
 	var scopes []dv1.UserResourceScopeDO
 	if err = u.db.WithContext(ctx).Where("user_id = ?", user.ID).Find(&scopes).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	domainSet := make(map[string]struct{}, len(scopes))
 	storeSet := make(map[string]struct{}, len(scopes))
@@ -711,7 +711,7 @@ func (u *users) buildAuthUser(ctx context.Context, user *dv1.UserDO) (*dv1.UserA
 
 func (u *users) ReplaceResourceScopes(ctx context.Context, userID uint64, scopes []dv1.UserResourceScopeDO) error {
 	if userID == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "user not found")
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 	return u.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ?", userID).Delete(&dv1.UserResourceScopeDO{}).Error; err != nil {
@@ -740,7 +740,7 @@ func (u *users) listStaffRoles(ctx context.Context, userID int32) ([]string, err
 		Order((&dv1.RoleDO{}).TableName()+".name ASC").
 		Pluck((&dv1.RoleDO{}).TableName()+".name", &roles).Error
 	if err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return roles, nil
 }
@@ -760,14 +760,14 @@ func (u *users) listPermissions(ctx context.Context, userID int32) ([]string, er
 		Order((&dv1.RolePermissionDO{}).TableName()+".permission ASC").
 		Pluck((&dv1.RolePermissionDO{}).TableName()+".permission", &permissions).Error
 	if err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return permissions, nil
 }
 
 func (u *users) listRolePermissions(ctx context.Context, roleID uint64) ([]string, error) {
 	if roleID == 0 {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role not found")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role not found")
 	}
 
 	var permissions []string
@@ -777,14 +777,14 @@ func (u *users) listRolePermissions(ctx context.Context, roleID uint64) ([]strin
 		Order("permission ASC").
 		Pluck("permission", &permissions).Error
 	if err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return permissions, nil
 }
 
 func (u *users) listRoleDomains(ctx context.Context, roleID uint64) ([]string, error) {
 	if roleID == 0 {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role not found")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role not found")
 	}
 
 	var domains []string
@@ -794,7 +794,7 @@ func (u *users) listRoleDomains(ctx context.Context, roleID uint64) ([]string, e
 		Order("domain ASC").
 		Pluck("domain", &domains).Error
 	if err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return domains, nil
 }
@@ -806,10 +806,10 @@ func (u *users) loadRoles(tx *gorm.DB, normalizedRoles []string) ([]dv1.RoleDO, 
 
 	var roles []dv1.RoleDO
 	if err := tx.Where("name IN ?", normalizedRoles).Order("name ASC").Find(&roles).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if len(roles) != len(normalizedRoles) {
-		return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff roles contain unknown values")
 	}
 	loadedNames := make([]string, 0, len(roles))
 	for _, role := range roles {
@@ -817,14 +817,14 @@ func (u *users) loadRoles(tx *gorm.DB, normalizedRoles []string) ([]dv1.RoleDO, 
 	}
 	slices.Sort(loadedNames)
 	if !slices.Equal(loadedNames, normalizedRoles) {
-		return nil, errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff roles contain unknown values")
 	}
 	return roles, nil
 }
 
 func (u *users) replaceUserRolesTx(tx *gorm.DB, userID int32, roles []dv1.RoleDO) error {
 	if err := tx.Where("user_id = ?", userID).Delete(&dv1.UserRoleDO{}).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	for _, role := range roles {
 		binding := dv1.UserRoleDO{
@@ -832,7 +832,7 @@ func (u *users) replaceUserRolesTx(tx *gorm.DB, userID int32, roles []dv1.RoleDO
 			RoleID: role.ID,
 		}
 		if err := tx.Create(&binding).Error; err != nil {
-			return errors.WithCode(code2.ErrDatabase, err.Error())
+			return errors.NewCode(errcode.ErrDatabase, err.Error())
 		}
 	}
 	return nil
@@ -840,7 +840,7 @@ func (u *users) replaceUserRolesTx(tx *gorm.DB, userID int32, roles []dv1.RoleDO
 
 func (u *users) replaceRolePermissionsTx(tx *gorm.DB, roleID uint64, permissions []string) error {
 	if err := tx.Where("role_id = ?", roleID).Delete(&dv1.RolePermissionDO{}).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	for _, permission := range permissions {
 		record := dv1.RolePermissionDO{
@@ -848,7 +848,7 @@ func (u *users) replaceRolePermissionsTx(tx *gorm.DB, roleID uint64, permissions
 			Permission: permission,
 		}
 		if err := tx.Create(&record).Error; err != nil {
-			return errors.WithCode(code2.ErrDatabase, err.Error())
+			return errors.NewCode(errcode.ErrDatabase, err.Error())
 		}
 	}
 	return nil
@@ -856,7 +856,7 @@ func (u *users) replaceRolePermissionsTx(tx *gorm.DB, roleID uint64, permissions
 
 func (u *users) replaceRoleDomainsTx(tx *gorm.DB, roleID uint64, domains []string) error {
 	if err := tx.Where("role_id = ?", roleID).Delete(&dv1.RoleDomainDO{}).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	for _, domain := range domains {
 		record := dv1.RoleDomainDO{
@@ -864,7 +864,7 @@ func (u *users) replaceRoleDomainsTx(tx *gorm.DB, roleID uint64, domains []strin
 			Domain: domain,
 		}
 		if err := tx.Create(&record).Error; err != nil {
-			return errors.WithCode(code2.ErrDatabase, err.Error())
+			return errors.NewCode(errcode.ErrDatabase, err.Error())
 		}
 	}
 	return nil
@@ -878,7 +878,7 @@ func (u *users) appendAuditLogTx(tx *gorm.DB, logEntry *dv1.UserAuditLogDO) erro
 		logEntry.ActorPrincipalType = string(authz.PrincipalInternalService)
 	}
 	if err := tx.Create(logEntry).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }

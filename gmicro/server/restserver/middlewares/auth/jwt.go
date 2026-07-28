@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
@@ -43,14 +43,14 @@ func (j JWTStrategy) AuthFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString, err := GetToken(c)
 		if err != nil {
-			core.WriteResponse(c, errors.WithCode(code.ErrMissingHeader, err.Error()), nil)
+			core.WriteResponse(c, errors.NewCode(errcode.ErrMissingHeader, err.Error()), nil)
 			c.Abort()
 			return
 		}
 
 		claims, err := j.parseToken(tokenString)
 		if err != nil {
-			core.WriteResponse(c, errors.WithCode(code.ErrSignatureInvalid, "signature is invalid"), nil)
+			core.WriteResponse(c, errors.NewCode(errcode.ErrSignatureInvalid, "signature is invalid"), nil)
 			c.Abort()
 			return
 		}
@@ -67,7 +67,7 @@ func (j JWTStrategy) AuthFunc() gin.HandlerFunc {
 		}
 
 		if !j.Authorizator(identity, c) {
-			core.WriteResponse(c, errors.WithCode(code.ErrSignatureInvalid, "signature is invalid"), nil)
+			core.WriteResponse(c, errors.NewCode(errcode.ErrSignatureInvalid, "signature is invalid"), nil)
 			c.Abort()
 			return
 		}

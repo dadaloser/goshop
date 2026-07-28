@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	stderrors "errors"
+	"goshop/app/pkg/bizcode"
 	"sync"
 	"testing"
 	"time"
@@ -12,7 +13,6 @@ import (
 	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/payment"
-	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	"goshop/pkg/errors"
 
@@ -31,24 +31,24 @@ func TestSimulatePayCallbackRejectsInvalidInput(t *testing.T) {
 			name: "missing data",
 			svc:  NewOrderService(nil),
 			req:  &PayCallbackRequest{UserID: 1, OrderSn: "order-1"},
-			code: code.ErrConnectGRPC,
+			code: bizcode.ErrConnectGRPC,
 		},
 		{
 			name: "nil request",
 			svc:  NewOrderService(fakeDataFactory{}),
-			code: code.ErrOrderStatusInvalid,
+			code: bizcode.ErrOrderStatusInvalid,
 		},
 		{
 			name: "missing user",
 			svc:  NewOrderService(fakeDataFactory{}),
 			req:  &PayCallbackRequest{OrderSn: "order-1"},
-			code: code.ErrOrderStatusInvalid,
+			code: bizcode.ErrOrderStatusInvalid,
 		},
 		{
 			name: "missing trade no for success",
 			svc:  NewOrderService(fakeDataFactory{orderClient: fakeOrderClient{detail: orderDetailResponse}, inventoryClient: fakeInventoryClient{}}),
 			req:  &PayCallbackRequest{UserID: 1, OrderSn: "order-1", Success: true},
-			code: code.ErrOrderStatusInvalid,
+			code: bizcode.ErrOrderStatusInvalid,
 		},
 		{
 			name: "empty order goods",
@@ -63,7 +63,7 @@ func TestSimulatePayCallbackRejectsInvalidInput(t *testing.T) {
 				inventoryClient: fakeInventoryClient{},
 			}),
 			req:  &PayCallbackRequest{UserID: 1, OrderSn: "order-1", TradeNo: "trade-1", Success: true},
-			code: code.ErrOrderStatusInvalid,
+			code: bizcode.ErrOrderStatusInvalid,
 		},
 	}
 
@@ -196,8 +196,8 @@ func TestSimulatePayCallbackRejectsConflictingTerminalState(t *testing.T) {
 		TradeNo: "trade-1",
 		Success: true,
 	})
-	if !errors.IsCode(err, code.ErrOrderStatusInvalid) {
-		t.Fatalf("SimulatePayCallback() error = %v, want code %d", err, code.ErrOrderStatusInvalid)
+	if !errors.IsCode(err, bizcode.ErrOrderStatusInvalid) {
+		t.Fatalf("SimulatePayCallback() error = %v, want code %d", err, bizcode.ErrOrderStatusInvalid)
 	}
 }
 
@@ -250,7 +250,7 @@ func TestProcessPayCallbackRejectsOutOfOrderBeforeInventory(t *testing.T) {
 	}).(*orderService)
 
 	_, err := svc.ProcessPayCallback(context.Background(), &payment.CallbackRequest{Provider: "mock", EventID: "evt-2", EventType: "payment_succeeded", OrderSN: "order-1", AmountFen: 100})
-	if !errors.IsCode(err, code.ErrOrderStatusInvalid) {
+	if !errors.IsCode(err, bizcode.ErrOrderStatusInvalid) {
 		t.Fatalf("ProcessPayCallback() error=%v", err)
 	}
 	if inventoryCalls != 0 || completeCalls != 1 {
@@ -571,9 +571,9 @@ func TestPayCallbackMetricResult(t *testing.T) {
 		want string
 	}{
 		{name: "success", want: "success"},
-		{name: "rejected invalid", err: errors.WithCode(code.ErrOrderStatusInvalid, "invalid"), want: "rejected"},
-		{name: "rejected missing order", err: errors.WithCode(code.ErrOrderNotFound, "missing"), want: "rejected"},
-		{name: "dependency", err: errors.WithCode(code.ErrConnectGRPC, "connect"), want: "dependency_error"},
+		{name: "rejected invalid", err: errors.NewCode(bizcode.ErrOrderStatusInvalid, "invalid"), want: "rejected"},
+		{name: "rejected missing order", err: errors.NewCode(bizcode.ErrOrderNotFound, "missing"), want: "rejected"},
+		{name: "dependency", err: errors.NewCode(bizcode.ErrConnectGRPC, "connect"), want: "dependency_error"},
 		{name: "failed", err: stderrors.New("boom"), want: "failed"},
 	}
 
@@ -711,8 +711,8 @@ func TestInitiatePaymentRejectsUnsupportedOrderState(t *testing.T) {
 	svc.provider = &lifecyclePaymentProvider{}
 	svc.paymentOpts = &options.PaymentOptions{Enabled: true}
 
-	if _, err := svc.InitiatePayment(context.Background(), 9, "order-1"); !errors.IsCode(err, code.ErrOrderStatusInvalid) {
-		t.Fatalf("InitiatePayment() error = %v, want code %d", err, code.ErrOrderStatusInvalid)
+	if _, err := svc.InitiatePayment(context.Background(), 9, "order-1"); !errors.IsCode(err, bizcode.ErrOrderStatusInvalid) {
+		t.Fatalf("InitiatePayment() error = %v, want code %d", err, bizcode.ErrOrderStatusInvalid)
 	}
 }
 

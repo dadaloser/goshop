@@ -2,14 +2,13 @@ package v1
 
 import (
 	"context"
+	"goshop/app/goshop/api/internal/data"
+	"goshop/app/pkg/bizcode"
+	"goshop/app/pkg/options"
+	"goshop/gmicro/errcode"
+	"goshop/pkg/errors"
 	"testing"
 	"time"
-
-	"goshop/app/goshop/api/internal/data"
-	"goshop/app/pkg/code"
-	"goshop/app/pkg/options"
-	code2 "goshop/gmicro/code"
-	"goshop/pkg/errors"
 )
 
 func TestLogoutAllBumpsTokenVersion(t *testing.T) {
@@ -91,7 +90,7 @@ func TestDeleteAccountRejectsEmptyPassword(t *testing.T) {
 	)
 
 	err := svc.DeleteAccount(context.Background(), 7, " ")
-	if !errors.IsCode(err, code2.ErrValidation) {
+	if !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("DeleteAccount() error = %v, want ErrValidation", err)
 	}
 }
@@ -105,7 +104,7 @@ func TestDeleteAccountReturnsPasswordErrorBeforeDelete(t *testing.T) {
 			},
 			PasswordHash: "hashed",
 		},
-		checkPasswordErr: errors.WithCode(code.ErrUserPasswordIncorrect, "bad password"),
+		checkPasswordErr: errors.NewCode(bizcode.ErrUserPasswordIncorrect, "bad password"),
 	}
 	svc := NewUserService(
 		&fakeDataFactory{users: users},
@@ -122,7 +121,7 @@ func TestDeleteAccountReturnsPasswordErrorBeforeDelete(t *testing.T) {
 	)
 
 	err := svc.DeleteAccount(context.Background(), 7, "bad")
-	if !errors.IsCode(err, code.ErrUserPasswordIncorrect) {
+	if !errors.IsCode(err, bizcode.ErrUserPasswordIncorrect) {
 		t.Fatalf("DeleteAccount() error = %v, want ErrUserPasswordIncorrect", err)
 	}
 	if users.deleteCalled {

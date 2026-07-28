@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"strings"
 	"time"
 
 	"goshop/app/order/srv/internal/domain/do"
-	appcode "goshop/app/pkg/code"
-	"goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 )
 
@@ -30,7 +30,7 @@ type paymentWorkflowStore interface {
 func (os *orderService) BeginPaymentEvent(ctx context.Context, event *do.PaymentEventDO) (*do.PaymentEventDO, *do.OrderInfoDO, bool, error) {
 	store, ok := os.data.Orders().(paymentEventStore)
 	if !ok {
-		return nil, nil, false, errors.WithCode(code.ErrDatabase, "payment event store is not configured")
+		return nil, nil, false, errors.NewCode(errcode.ErrDatabase, "payment event store is not configured")
 	}
 	event.Provider = strings.ToLower(strings.TrimSpace(event.Provider))
 	event.EventID = strings.TrimSpace(event.EventID)
@@ -43,7 +43,7 @@ func (os *orderService) BeginPaymentEvent(ctx context.Context, event *do.Payment
 func (os *orderService) ClaimRefundJobs(ctx context.Context, limit, maxAttempts int, lockTimeout time.Duration) ([]do.RefundJob, error) {
 	store, ok := os.data.Orders().(paymentWorkflowStore)
 	if !ok {
-		return nil, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "payment workflow store is not configured")
 	}
 	return store.ClaimRefundJobs(ctx, limit, maxAttempts, lockTimeout)
 }
@@ -51,7 +51,7 @@ func (os *orderService) ClaimRefundJobs(ctx context.Context, limit, maxAttempts 
 func (os *orderService) CompleteRefundJob(ctx context.Context, id uint64, success bool, provider, providerRefundID, providerStatus, detail string, maxAttempts int) error {
 	store, ok := os.data.Orders().(paymentWorkflowStore)
 	if !ok {
-		return errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+		return errors.NewCode(errcode.ErrDatabase, "payment workflow store is not configured")
 	}
 	return store.CompleteRefundJob(ctx, id, success, strings.ToLower(strings.TrimSpace(provider)), strings.TrimSpace(providerRefundID), strings.ToLower(strings.TrimSpace(providerStatus)), detail, maxAttempts)
 }
@@ -59,7 +59,7 @@ func (os *orderService) CompleteRefundJob(ctx context.Context, id uint64, succes
 func (os *orderService) ReconcilePayments(ctx context.Context, provider string, from, to time.Time, transactions []do.PaymentEventDO) (*do.PaymentReconciliationRunDO, error) {
 	store, ok := os.data.Orders().(paymentWorkflowStore)
 	if !ok {
-		return nil, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "payment workflow store is not configured")
 	}
 	return store.ReconcilePayments(ctx, provider, from, to, transactions)
 }
@@ -67,7 +67,7 @@ func (os *orderService) ReconcilePayments(ctx context.Context, provider string, 
 func (os *orderService) ListPaymentReconciliationRuns(ctx context.Context, provider string, from, to *time.Time, page, pageSize int) ([]do.PaymentReconciliationRunDO, int64, error) {
 	store, ok := os.data.Orders().(paymentWorkflowStore)
 	if !ok {
-		return nil, 0, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, "payment workflow store is not configured")
 	}
 	if page < 1 {
 		page = 1
@@ -81,7 +81,7 @@ func (os *orderService) ListPaymentReconciliationRuns(ctx context.Context, provi
 func (os *orderService) ListPaymentReconciliationItems(ctx context.Context, provider string, from, to *time.Time, result string, runID uint64, page, pageSize int) ([]do.PaymentReconciliationItemDO, int64, error) {
 	store, ok := os.data.Orders().(paymentWorkflowStore)
 	if !ok {
-		return nil, 0, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, "payment workflow store is not configured")
 	}
 	if page < 1 {
 		page = 1
@@ -95,7 +95,7 @@ func (os *orderService) ListPaymentReconciliationItems(ctx context.Context, prov
 func (os *orderService) RetryDeadRefundJob(ctx context.Context, id uint64) (*do.RefundJob, error) {
 	store, ok := os.data.Orders().(paymentWorkflowStore)
 	if !ok {
-		return nil, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "payment workflow store is not configured")
 	}
 	return store.RetryDeadRefundJob(ctx, id)
 }
@@ -103,34 +103,34 @@ func (os *orderService) RetryDeadRefundJob(ctx context.Context, id uint64) (*do.
 func (os *orderService) GetOrderTrace(ctx context.Context, lookup do.OrderTraceLookup) (*do.OrderTrace, error) {
 	store, ok := os.data.Orders().(paymentWorkflowStore)
 	if !ok {
-		return nil, errors.WithCode(code.ErrDatabase, "payment workflow store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "payment workflow store is not configured")
 	}
 	lookup.OrderSN = strings.TrimSpace(lookup.OrderSN)
 	lookup.TradeNo = strings.TrimSpace(lookup.TradeNo)
 	lookup.CorrelationID = strings.TrimSpace(lookup.CorrelationID)
 	if lookup.OrderSN == "" && lookup.TradeNo == "" && lookup.CorrelationID == "" {
-		return nil, errors.WithCode(code.ErrValidation, "order_sn, trade_no or correlation_id is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "order_sn, trade_no or correlation_id is required")
 	}
 	trace, err := store.GetOrderTrace(ctx, lookup)
 	if err != nil {
 		return nil, err
 	}
 	if trace == nil || trace.Order == nil {
-		return nil, errors.WithCode(appcode.ErrOrderNotFound, "order not found")
+		return nil, errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 	}
 	return trace, nil
 }
 func (os *orderService) CompletePaymentEvent(ctx context.Context, id uint64, success bool, detail string) error {
 	store, ok := os.data.Orders().(paymentEventStore)
 	if !ok {
-		return errors.WithCode(code.ErrDatabase, "payment event store is not configured")
+		return errors.NewCode(errcode.ErrDatabase, "payment event store is not configured")
 	}
 	return store.CompletePaymentEvent(ctx, id, success, detail)
 }
 func (os *orderService) ListPaymentEvents(ctx context.Context, orderSN string, page, pageSize int, mismatchesOnly bool) ([]do.PaymentEventDO, int64, int64, error) {
 	store, ok := os.data.Orders().(paymentEventStore)
 	if !ok {
-		return nil, 0, 0, errors.WithCode(code.ErrDatabase, "payment event store is not configured")
+		return nil, 0, 0, errors.NewCode(errcode.ErrDatabase, "payment event store is not configured")
 	}
 	if page < 1 {
 		page = 1

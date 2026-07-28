@@ -8,7 +8,7 @@ import (
 	"goshop/app/inventory/srv/internal/domain/do"
 	"goshop/app/inventory/srv/internal/domain/dto"
 	svcv1 "goshop/app/inventory/srv/internal/service/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 )
 
@@ -94,8 +94,8 @@ func TestInventoryServerRejectsNilRequests(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.run()
-			if !errors.IsCode(err, code2.ErrValidation) {
-				t.Fatalf("error = %v, want code %d", err, code2.ErrValidation)
+			if !errors.IsCode(err, errcode.ErrValidation) {
+				t.Fatalf("error = %v, want code %d", err, errcode.ErrValidation)
 			}
 		})
 	}

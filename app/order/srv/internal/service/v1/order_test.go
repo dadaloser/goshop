@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"reflect"
 	"testing"
 	"time"
@@ -10,7 +11,6 @@ import (
 	datav1 "goshop/app/order/srv/internal/data/v1"
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
-	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
@@ -51,8 +51,8 @@ func TestCreateRejectsEmptyOrderGoods(t *testing.T) {
 	err := svc.Create(context.Background(), &dto.OrderDTO{
 		OrderInfoDO: do.OrderInfoDO{OrderSn: "order-1"},
 	})
-	if !errors.IsCode(err, code.ErrNoGoodsSelect) {
-		t.Fatalf("Create() error = %v, want code %d", err, code.ErrNoGoodsSelect)
+	if !errors.IsCode(err, bizcode.ErrNoGoodsSelect) {
+		t.Fatalf("Create() error = %v, want code %d", err, bizcode.ErrNoGoodsSelect)
 	}
 }
 
@@ -131,7 +131,7 @@ func TestCreateWritesInitialStatusLog(t *testing.T) {
 		data: fakeOrderDataFactory{
 			orders: fakeOrderStore{
 				get: func(context.Context, string) (*do.OrderInfoDO, error) {
-					return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+					return nil, errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 				},
 				create: func(_ context.Context, _ *gorm.DB, order *do.OrderInfoDO) error {
 					order.ID = 42
@@ -215,8 +215,8 @@ func TestCreateRejectsOrderSnConflict(t *testing.T) {
 			},
 		},
 	})
-	if !errors.IsCode(err, code.ErrOrderConflict) {
-		t.Fatalf("Create() error = %v, want code %d", err, code.ErrOrderConflict)
+	if !errors.IsCode(err, bizcode.ErrOrderConflict) {
+		t.Fatalf("Create() error = %v, want code %d", err, bizcode.ErrOrderConflict)
 	}
 }
 
@@ -271,8 +271,8 @@ func TestGetRequiresUserOwnership(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := svc.Get(context.Background(), tt.userID, tt.orderSn)
 			if tt.wantErr {
-				if !errors.IsCode(err, code.ErrOrderNotFound) {
-					t.Fatalf("Get() error = %v, want code %d", err, code.ErrOrderNotFound)
+				if !errors.IsCode(err, bizcode.ErrOrderNotFound) {
+					t.Fatalf("Get() error = %v, want code %d", err, bizcode.ErrOrderNotFound)
 				}
 				return
 			}
@@ -326,8 +326,8 @@ func TestStatusLogsRequiresUserOwnership(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := svc.StatusLogs(context.Background(), tt.userID, tt.orderSn)
 			if tt.wantErr {
-				if !errors.IsCode(err, code.ErrOrderNotFound) {
-					t.Fatalf("StatusLogs() error = %v, want code %d", err, code.ErrOrderNotFound)
+				if !errors.IsCode(err, bizcode.ErrOrderNotFound) {
+					t.Fatalf("StatusLogs() error = %v, want code %d", err, bizcode.ErrOrderNotFound)
 				}
 				return
 			}
@@ -380,8 +380,8 @@ func TestDeleteCartItemRequiresUser(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := svc.DeleteCartItem(context.Background(), tt.userID, tt.id)
-			if !errors.IsCode(err, code.ErrShopCartItemNotFound) {
-				t.Fatalf("DeleteCartItem() error = %v, want code %d", err, code.ErrShopCartItemNotFound)
+			if !errors.IsCode(err, bizcode.ErrShopCartItemNotFound) {
+				t.Fatalf("DeleteCartItem() error = %v, want code %d", err, bizcode.ErrShopCartItemNotFound)
 			}
 		})
 	}
@@ -452,8 +452,8 @@ func TestSubmitRejectsInvalidRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.svc.Submit(context.Background(), tt.order)
-			if !errors.IsCode(err, code.ErrSubmitOrder) {
-				t.Fatalf("Submit() error = %v, want code %d", err, code.ErrSubmitOrder)
+			if !errors.IsCode(err, bizcode.ErrSubmitOrder) {
+				t.Fatalf("Submit() error = %v, want code %d", err, bizcode.ErrSubmitOrder)
 			}
 		})
 	}
@@ -564,8 +564,8 @@ func TestUpdateValidatesOrderStatus(t *testing.T) {
 				},
 			})
 			if tt.wantErr {
-				if !errors.IsCode(err, code.ErrOrderStatusInvalid) {
-					t.Fatalf("Update() error = %v, want code %d", err, code.ErrOrderStatusInvalid)
+				if !errors.IsCode(err, bizcode.ErrOrderStatusInvalid) {
+					t.Fatalf("Update() error = %v, want code %d", err, bizcode.ErrOrderStatusInvalid)
 				}
 				if updatedStatus != "" {
 					t.Fatalf("Update() called data update with status %q, want no update", updatedStatus)
@@ -605,8 +605,8 @@ func TestUpdateRequiresOrderStatusFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := svc.Update(context.Background(), tt.order)
-			if !errors.IsCode(err, code.ErrOrderStatusInvalid) {
-				t.Fatalf("Update() error = %v, want code %d", err, code.ErrOrderStatusInvalid)
+			if !errors.IsCode(err, bizcode.ErrOrderStatusInvalid) {
+				t.Fatalf("Update() error = %v, want code %d", err, bizcode.ErrOrderStatusInvalid)
 			}
 		})
 	}
@@ -902,7 +902,7 @@ func (f fakeOrderStore) Get(ctx context.Context, orderSn string) (*do.OrderInfoD
 	if f.get != nil {
 		return f.get(ctx, orderSn)
 	}
-	return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+	return nil, errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 }
 
 func (fakeOrderStore) List(context.Context, uint64, metav1.ListMeta, []string) (*do.OrderInfoDOList, error) {
@@ -1016,7 +1016,7 @@ func (fakeShopCartStore) Create(context.Context, *do.ShoppingCartDO) error {
 }
 
 func (fakeShopCartStore) Get(context.Context, uint64, uint64) (*do.ShoppingCartDO, error) {
-	return nil, errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+	return nil, errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
 }
 
 func (fakeShopCartStore) UpdateNum(context.Context, *do.ShoppingCartDO) error {

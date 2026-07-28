@@ -1,4 +1,4 @@
-package code
+package errcode
 
 import (
 	"goshop/pkg/errors"
@@ -19,6 +19,9 @@ type ErrCode struct {
 
 	//引用文档
 	Ref string
+
+	// Kind is the protocol-independent public classification.
+	K errors.Kind
 }
 
 func (e ErrCode) HTTPStatus() int {
@@ -40,8 +43,13 @@ func (e ErrCode) Code() int {
 	return e.C
 }
 
-func register(code int, httpStatus int, message string, refs ...string) {
-	found, _ := gubrak.Includes([]int{200, 400, 401, 403, 404, 500}, httpStatus)
+// Kind returns the protocol-independent classification of the legacy code.
+func (e ErrCode) Kind() errors.Kind {
+	return e.K
+}
+
+func register(code int, httpStatus int, kind errors.Kind, message string, refs ...string) {
+	found, _ := gubrak.Includes([]int{200, 400, 401, 403, 404, 409, 429, 500, 503}, httpStatus)
 	if !found {
 		panic("http code not in `200, 400, 401, 403, 404, 500`")
 	}
@@ -52,6 +60,7 @@ func register(code int, httpStatus int, message string, refs ...string) {
 	coder := ErrCode{
 		C:    code,
 		HTTP: httpStatus,
+		K:    kind,
 		Ext:  message,
 		Ref:  ref,
 	}

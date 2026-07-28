@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -9,7 +10,6 @@ import (
 	gpb "goshop/api/goods/v1"
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/pkg/authz"
-	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/errors"
@@ -24,9 +24,10 @@ func TestPasswordLoginRejectsLockedIdentifierBeforeLookup(t *testing.T) {
 
 	_, err := svc.PasswordLogin(context.Background(), "user@example.com", "secret")
 
-	if !errors.IsCode(err, code.ErrUserLoginLocked) {
+	if !errors.IsCode(err, bizcode.ErrUserLoginLocked) {
 		t.Fatalf("PasswordLogin() error = %v, want ErrUserLoginLocked", err)
 	}
+	requireErrorKind(t, err, errors.KindRateLimited)
 	if users.getByUsernameCalled {
 		t.Fatal("PasswordLogin() queried user store for locked identifier")
 	}
@@ -43,7 +44,7 @@ func TestPasswordLoginRejectsLockedIPBeforeLookup(t *testing.T) {
 
 	_, err := svc.PasswordLogin(newClientIPContext("203.0.113.10"), "user@example.com", "secret")
 
-	if !errors.IsCode(err, code.ErrUserLoginLocked) {
+	if !errors.IsCode(err, bizcode.ErrUserLoginLocked) {
 		t.Fatalf("PasswordLogin() error = %v, want ErrUserLoginLocked", err)
 	}
 	if users.getByUsernameCalled {
@@ -56,7 +57,7 @@ func TestPasswordLoginRejectsLockedIPBeforeLookup(t *testing.T) {
 
 func TestPasswordLoginRecordsFailureForMissingUser(t *testing.T) {
 	users := &fakeUserData{
-		getByUsernameErr: errors.WithCode(code.ErrUserNotFound, "not found"),
+		getByUsernameErr: errors.NewCode(bizcode.ErrUserNotFound, "not found"),
 	}
 	attempts := &fakeLoginAttempts{}
 	ipAttempts := &fakeLoginAttempts{}
@@ -64,9 +65,10 @@ func TestPasswordLoginRecordsFailureForMissingUser(t *testing.T) {
 
 	_, err := svc.PasswordLogin(newClientIPContext("198.51.100.7"), " USER@example.COM ", "secret")
 
-	if !errors.IsCode(err, code.ErrUserPasswordIncorrect) {
+	if !errors.IsCode(err, bizcode.ErrUserPasswordIncorrect) {
 		t.Fatalf("PasswordLogin() error = %v, want ErrUserPasswordIncorrect", err)
 	}
+	requireErrorKind(t, err, errors.KindUnauthenticated)
 	if attempts.recordIdentifier != "user@example.com" {
 		t.Fatalf("recorded identifier = %q, want user@example.com", attempts.recordIdentifier)
 	}
@@ -84,16 +86,17 @@ func TestPasswordLoginReturnsLockedWhenFailureReachesThreshold(t *testing.T) {
 			},
 			PasswordHash: "hashed",
 		},
-		checkPasswordErr: errors.WithCode(code.ErrUserPasswordIncorrect, "bad password"),
+		checkPasswordErr: errors.NewCode(bizcode.ErrUserPasswordIncorrect, "bad password"),
 	}
 	attempts := &fakeLoginAttempts{recordLocked: true}
 	svc := newPasswordLoginTestService(users, attempts)
 
 	_, err := svc.PasswordLogin(context.Background(), "user@example.com", "bad")
 
-	if !errors.IsCode(err, code.ErrUserLoginLocked) {
+	if !errors.IsCode(err, bizcode.ErrUserLoginLocked) {
 		t.Fatalf("PasswordLogin() error = %v, want ErrUserLoginLocked", err)
 	}
+	requireErrorKind(t, err, errors.KindRateLimited)
 	if attempts.recordIdentifier != "user@example.com" {
 		t.Fatalf("recorded identifier = %q, want user@example.com", attempts.recordIdentifier)
 	}
@@ -172,7 +175,7 @@ func TestPasswordLoginRejectsInactiveAccount(t *testing.T) {
 			svc := newPasswordLoginTestService(users, &fakeLoginAttempts{})
 
 			got, err := svc.PasswordLogin(context.Background(), "user_001", "secret")
-			if !errors.IsCode(err, code.ErrUserAccountInactive) {
+			if !errors.IsCode(err, bizcode.ErrUserAccountInactive) {
 				t.Fatalf("PasswordLogin() error = %v, want ErrUserAccountInactive", err)
 			}
 			if got != nil {

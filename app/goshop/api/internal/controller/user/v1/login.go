@@ -1,13 +1,13 @@
 package user
 
 import (
+	"goshop/app/pkg/bizcode"
 	"net/mail"
 	"regexp"
 	"strings"
 
 	"goshop/app/goshop/api/internal/captcha"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
-	"goshop/app/pkg/code"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
@@ -41,13 +41,13 @@ func (us *userServer) Login(ctx *gin.Context) {
 		username = strings.TrimSpace(passwordLoginForm.Mobile)
 	}
 	if !isLoginUsername(username) {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrUserPasswordIncorrect, "用户名、手机号或邮箱格式错误"), nil)
+		core.WriteResponse(ctx, errors.NewSpec(bizcode.LoginIdentifierInvalidSpec, "invalid login identifier"), nil)
 		return
 	}
 
 	//验证码验证
 	if !captcha.Verify(passwordLoginForm.CaptchaId, passwordLoginForm.Captcha, true) {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrCodeInCorrect, "验证码错误"), nil)
+		core.WriteResponse(ctx, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "captcha verification failed"), nil)
 		return
 	}
 
@@ -86,7 +86,7 @@ func (us *userServer) SmsLogin(ctx *gin.Context) {
 
 func writeLoginResponse(ctx *gin.Context, userDTO *userv1.UserDTO) {
 	if userDTO == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "user service response is empty"), nil)
+		core.WriteResponse(ctx, errors.NewSpec(bizcode.ConnectGRPCSpec, "user service response is empty"), nil)
 		return
 	}
 

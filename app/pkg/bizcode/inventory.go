@@ -1,4 +1,4 @@
-package code
+package bizcode
 
 const (
 	// ErrInventoryNotFound - 404: Inventory not found.

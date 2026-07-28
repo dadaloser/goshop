@@ -5,7 +5,7 @@ import (
 	upbv1 "goshop/api/user/v1"
 	v12 "goshop/app/user/srv/internal/data/v1"
 	"goshop/app/user/srv/internal/service/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 )
@@ -13,7 +13,7 @@ import (
 // controller层应该是很薄的一层， 参数校验，日志打印，错误处理，调用service层
 func (u *userServer) CreateUser(ctx context.Context, request *upbv1.CreateUserInfo) (*upbv1.UserInfoResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "create user request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "create user request is required")
 	}
 
 	log.Infof("create user function called.")
@@ -50,7 +50,7 @@ func (u *userServer) CreateUser(ctx context.Context, request *upbv1.CreateUserIn
 
 func (u *userServer) CreateStaffUser(ctx context.Context, request *upbv1.CreateStaffUserRequest) (*upbv1.StaffUserResponse, error) {
 	if request == nil || request.User == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "create staff user request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "create staff user request is required")
 	}
 
 	userDO := v12.UserDO{

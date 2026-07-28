@@ -1,4 +1,4 @@
-package code
+package errcode
 
 //go:generate codegen -type=int -doc -output ./error_code_generated.md
 

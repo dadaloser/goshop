@@ -3,9 +3,9 @@ package v1
 import (
 	"context"
 	v1 "goshop/app/inventory/srv/internal/data/v1"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	"goshop/app/pkg/options"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 	"sort"
 	"strings"
@@ -74,21 +74,21 @@ func (is *inventoryService) beginTxn() txExecutor {
 
 func (is *inventoryService) Create(ctx context.Context, inv *dto.InventoryDTO) error {
 	if inv == nil || inv.Goods <= 0 || inv.Stocks < 0 || inv.Total < 0 || inv.Available < 0 || inv.Locked < 0 || inv.Sold < 0 {
-		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory is invalid")
 	}
 	return is.data.Inventories().Create(ctx, &inv.InventoryDO)
 }
 
 func (is *inventoryService) Adjust(ctx context.Context, inv *dto.InventoryDTO, audit *do.InventoryAdjustmentDO) error {
 	if inv == nil {
-		return errors.WithCode(code2.ErrValidation, "inventory is invalid")
+		return errors.NewCode(errcode.ErrValidation, "inventory is invalid")
 	}
 	return is.data.Inventories().Adjust(ctx, &inv.InventoryDO, audit)
 }
 
 func (is *inventoryService) ListAdjustments(ctx context.Context, goodsID uint64, page, pageSize int) ([]do.InventoryAdjustmentDO, int64, error) {
 	if goodsID == 0 {
-		return nil, 0, errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+		return nil, 0, errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
 	}
 	if page < 1 {
 		page = 1
@@ -101,7 +101,7 @@ func (is *inventoryService) ListAdjustments(ctx context.Context, goodsID uint64,
 
 func (is *inventoryService) Get(ctx context.Context, goodsID uint64) (*dto.InventoryDTO, error) {
 	if goodsID == 0 {
-		return nil, errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+		return nil, errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
 	}
 
 	inv, err := is.data.Inventories().Get(ctx, goodsID)
@@ -113,7 +113,7 @@ func (is *inventoryService) Get(ctx context.Context, goodsID uint64) (*dto.Inven
 
 func (is *inventoryService) GetOrderDetail(ctx context.Context, orderSn string) (*do.StockSellDetailDO, error) {
 	if strings.TrimSpace(orderSn) == "" {
-		return nil, errors.WithCode(code2.ErrValidation, "order_sn不能为空")
+		return nil, errors.NewCode(errcode.ErrValidation, "order_sn不能为空")
 	}
 	return is.data.Inventories().GetSellDetail(ctx, nil, orderSn)
 }
@@ -187,7 +187,7 @@ func (is *inventoryService) Sell(ctx context.Context, ordersn string, details []
 				log.Infof("订单%s库存已经归还或取消, 忽略延迟扣减", ordersn)
 				return nil
 			}
-		} else if !errors.IsCode(err, code.ErrInvSellDetailNotFound) {
+		} else if !errors.IsCode(err, bizcode.ErrInvSellDetailNotFound) {
 			log.Errorf("订单%s获取扣减库存记录失败", ordersn)
 			return err
 		}
@@ -234,7 +234,7 @@ func (is *inventoryService) Reback(ctx context.Context, ordersn string, details 
 	return withTxnExecutor(is.beginTxn(), "release inventory", func(txn txExecutor) error {
 		sellDetail, err := is.data.Inventories().GetSellDetailForUpdate(ctx, txn.DB(), ordersn)
 		if err != nil {
-			if errors.IsCode(err, code.ErrInvSellDetailNotFound) {
+			if errors.IsCode(err, bizcode.ErrInvSellDetailNotFound) {
 				detail := do.GoodsDetailList(details)
 				sort.Sort(detail)
 				created, err := is.data.Inventories().CreateStockSellDetailIfAbsent(ctx, txn.DB(), &do.StockSellDetailDO{
@@ -267,7 +267,7 @@ func (is *inventoryService) Reback(ctx context.Context, ordersn string, details 
 		detail := sellDetail.Detail
 		if len(detail) == 0 {
 			log.Errorf("订单%s扣减库存记录明细为空", ordersn)
-			return errors.WithCode(code2.ErrDatabase, "inventory sell detail is empty")
+			return errors.NewCode(errcode.ErrDatabase, "inventory sell detail is empty")
 		}
 		sort.Sort(detail)
 
@@ -319,7 +319,7 @@ func (is *inventoryService) Confirm(ctx context.Context, ordersn string, details
 		detail := append(do.GoodsDetailList(nil), sellDetail.Detail...)
 		if len(detail) == 0 {
 			log.Errorf("订单%s扣减库存记录明细为空", ordersn)
-			return errors.WithCode(code2.ErrDatabase, "inventory sell detail is empty")
+			return errors.NewCode(errcode.ErrDatabase, "inventory sell detail is empty")
 		}
 		sort.Sort(detail)
 
@@ -344,14 +344,14 @@ func (is *inventoryService) Release(ctx context.Context, ordersn string, details
 
 func validateStockOperation(orderSn string, details []do.GoodsDetail) error {
 	if strings.TrimSpace(orderSn) == "" {
-		return errors.WithCode(code2.ErrValidation, "order_sn不能为空")
+		return errors.NewCode(errcode.ErrValidation, "order_sn不能为空")
 	}
 	if len(details) == 0 {
-		return errors.WithCode(code2.ErrValidation, "库存明细不能为空")
+		return errors.NewCode(errcode.ErrValidation, "库存明细不能为空")
 	}
 	for _, detail := range details {
 		if detail.Goods <= 0 || detail.Num <= 0 {
-			return errors.WithCode(code2.ErrValidation, "库存明细参数错误")
+			return errors.NewCode(errcode.ErrValidation, "库存明细参数错误")
 		}
 	}
 	return nil

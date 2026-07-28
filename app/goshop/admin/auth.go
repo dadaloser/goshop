@@ -16,8 +16,8 @@ import (
 	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
-	"goshop/gmicro/code"
 	"goshop/gmicro/core/metric"
+	"goshop/gmicro/errcode"
 	"goshop/gmicro/server/restserver/middlewares"
 	gauth "goshop/gmicro/server/restserver/middlewares/auth"
 	"goshop/pkg/errors"
@@ -639,7 +639,7 @@ func newStaffJWTAuth(
 func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
 	exp, ok := gauth.ExtractClaims(ctx)["exp"]
 	if !ok {
-		return time.Time{}, errors.WithCode(code.ErrTokenInvalid, "token missing exp")
+		return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token missing exp")
 	}
 
 	var unix int64
@@ -649,7 +649,7 @@ func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
 	case json.Number:
 		v, err := value.Int64()
 		if err != nil {
-			return time.Time{}, errors.WithCode(code.ErrTokenInvalid, "token exp invalid")
+			return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token exp invalid")
 		}
 		unix = v
 	case int64:
@@ -657,10 +657,10 @@ func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
 	case int:
 		unix = int64(value)
 	default:
-		return time.Time{}, errors.WithCode(code.ErrTokenInvalid, "token exp invalid")
+		return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token exp invalid")
 	}
 	if unix <= 0 {
-		return time.Time{}, errors.WithCode(code.ErrTokenInvalid, "token exp invalid")
+		return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token exp invalid")
 	}
 	return time.Unix(unix, 0), nil
 }
@@ -689,7 +689,7 @@ func userIDFromClaims(ctx *gin.Context) (uint64, error) {
 			return uint64(value), nil
 		}
 	}
-	return 0, errors.WithCode(code.ErrTokenInvalid, "token user id invalid")
+	return 0, errors.NewSpec(errcode.TokenInvalidSpec, "token user id invalid")
 }
 
 func tokenVersionFromClaims(claims map[string]any) uint64 {

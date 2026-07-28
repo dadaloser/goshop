@@ -4,14 +4,14 @@ import (
 	"context"
 
 	upbv1 "goshop/api/user/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 )
 
 func (u *userServer) GetUserAuthById(ctx context.Context, request *upbv1.IdRequest) (*upbv1.UserAuthResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "user id request is required")
+		return nil, errors.NewSpec(errcode.ValidationSpec, "user id request is required")
 	}
 
 	log.Infof("get user auth by id function called.")

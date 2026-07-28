@@ -6,8 +6,7 @@ import (
 	"goshop/app/inventory/srv/internal/domain/do"
 	"goshop/app/inventory/srv/internal/domain/dto"
 	v1 "goshop/app/inventory/srv/internal/service/v1"
-	"goshop/app/pkg/code"
-	code2 "goshop/gmicro/code"
+	"goshop/app/pkg/bizcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 
@@ -24,7 +23,7 @@ type inventoryServer struct {
 // 设置库存
 func (is *inventoryServer) SetInv(ctx context.Context, info *invpb.GoodsInvInfo) (*emptypb.Empty, error) {
 	if info == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "inventory request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "inventory request is required")
 	}
 
 	invDTO := &dto.InventoryDTO{}
@@ -43,7 +42,7 @@ func (is *inventoryServer) SetInv(ctx context.Context, info *invpb.GoodsInvInfo)
 
 func (is *inventoryServer) SetStock(ctx context.Context, info *invpb.GoodsInvInfo) (*emptypb.Empty, error) {
 	if info == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "inventory request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "inventory request is required")
 	}
 	inv := &dto.InventoryDTO{}
 	inv.Goods = info.GoodsId
@@ -73,7 +72,7 @@ func (is *inventoryServer) ListAdjustments(ctx context.Context, req *invpb.Inven
 
 func (is *inventoryServer) InvDetail(ctx context.Context, info *invpb.GoodsInvInfo) (*invpb.GoodsInvInfo, error) {
 	if info == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "inventory request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "inventory request is required")
 	}
 
 	inv, err := is.srv.Inventory().Get(ctx, uint64(info.GoodsId))
@@ -96,7 +95,7 @@ func (is *inventoryServer) GetStock(ctx context.Context, info *invpb.GoodsInvInf
 
 func (is *inventoryServer) GetSellDetail(ctx context.Context, info *invpb.OrderInfo) (*invpb.SellDetailInfo, error) {
 	if info == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "inventory order request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "inventory order request is required")
 	}
 
 	flow, err := is.srv.Inventory().GetOrderFlow(ctx, info.OrderSn)
@@ -144,7 +143,7 @@ func (is *inventoryServer) GetSellDetail(ctx context.Context, info *invpb.OrderI
 
 func (is *inventoryServer) Sell(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
 	if info == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "inventory sell request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "inventory sell request is required")
 	}
 
 	var detail []do.GoodsDetail
@@ -153,7 +152,7 @@ func (is *inventoryServer) Sell(ctx context.Context, info *invpb.SellInfo) (*emp
 	}
 	err := is.srv.Inventory().Sell(ctx, info.OrderSn, detail)
 	if err != nil {
-		if errors.IsCode(err, code.ErrInvNotEnough) {
+		if errors.IsCode(err, bizcode.ErrInvNotEnough) {
 			return nil, status.Error(codes.Aborted, err.Error())
 		}
 		return nil, err
@@ -169,7 +168,7 @@ func (is *inventoryServer) Reserve(ctx context.Context, info *invpb.SellInfo) (*
 
 func (is *inventoryServer) Reback(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
 	if info == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "inventory reback request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "inventory reback request is required")
 	}
 
 	log.Infof("订单%s归还库存", info.OrderSn)
@@ -186,7 +185,7 @@ func (is *inventoryServer) Reback(ctx context.Context, info *invpb.SellInfo) (*e
 
 func (is *inventoryServer) Confirm(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
 	if info == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "inventory confirm request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "inventory confirm request is required")
 	}
 
 	var detail []do.GoodsDetail
@@ -201,7 +200,7 @@ func (is *inventoryServer) Confirm(ctx context.Context, info *invpb.SellInfo) (*
 
 func (is *inventoryServer) Release(ctx context.Context, info *invpb.SellInfo) (*emptypb.Empty, error) {
 	if info == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "inventory release request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "inventory release request is required")
 	}
 
 	var detail []do.GoodsDetail

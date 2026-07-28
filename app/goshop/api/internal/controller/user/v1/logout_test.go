@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"goshop/gmicro/errcode"
 
 	"goshop/gmicro/server/restserver/middlewares"
+	"goshop/pkg/errors"
 )
 
 func TestLogoutRevokesCurrentToken(t *testing.T) {
@@ -41,6 +43,8 @@ func TestJWTExpiresAtRejectsMissingExp(t *testing.T) {
 
 	if _, err := jwtExpiresAt(ctx); err == nil {
 		t.Fatal("jwtExpiresAt() error = nil, want error")
+	} else if !errors.IsCode(err, errcode.ErrTokenInvalid) {
+		t.Fatalf("jwtExpiresAt() error = %v, want code %d", err, errcode.ErrTokenInvalid)
 	}
 }
 

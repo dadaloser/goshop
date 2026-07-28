@@ -2,11 +2,11 @@ package db
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"strings"
 	"time"
 
-	"goshop/app/pkg/code"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	v1 "goshop/app/order/srv/internal/data/v1"
@@ -23,7 +23,7 @@ type orders struct {
 
 func (o *orders) BeginPaymentEvent(ctx context.Context, event *do.PaymentEventDO) (*do.PaymentEventDO, *do.OrderInfoDO, bool, error) {
 	if event == nil || event.Provider == "" || event.EventID == "" || event.OrderSN == "" || event.EventType == "" || event.ProviderAmountFen < 0 {
-		return nil, nil, false, errors.WithCode(code2.ErrValidation, "payment event is invalid")
+		return nil, nil, false, errors.NewCode(errcode.ErrValidation, "payment event is invalid")
 	}
 	var order do.OrderInfoDO
 	accepted := false
@@ -58,7 +58,7 @@ func (o *orders) BeginPaymentEvent(ctx context.Context, event *do.PaymentEventDO
 		return nil
 	})
 	if err != nil {
-		return nil, nil, false, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, nil, false, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return event, &order, accepted, nil
 }
@@ -89,7 +89,7 @@ func (o *orders) CompletePaymentEvent(ctx context.Context, id uint64, success bo
 		return nil
 	})
 	if err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -105,7 +105,7 @@ func (o *orders) ListPaymentEvents(ctx context.Context, orderSN string, offset, 
 	}
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	var mismatches int64
 	mismatchQuery := o.db.WithContext(ctx).Model(&do.PaymentEventDO{}).Where(mismatchSQL)
@@ -113,11 +113,11 @@ func (o *orders) ListPaymentEvents(ctx context.Context, orderSN string, offset, 
 		mismatchQuery = mismatchQuery.Where("order_sn = ?", orderSN)
 	}
 	if err := mismatchQuery.Count(&mismatches).Error; err != nil {
-		return nil, 0, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	items := []do.PaymentEventDO{}
 	if err := query.Order("id DESC").Offset(offset).Limit(limit).Find(&items).Error; err != nil {
-		return nil, 0, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return items, total, mismatches, nil
 }
@@ -131,7 +131,7 @@ func newOrders(factory *dataFactory) *orders {
 func (o *orders) Get(ctx context.Context, orderSn string) (*do.OrderInfoDO, error) {
 	orderSn = strings.TrimSpace(orderSn)
 	if orderSn == "" {
-		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+		return nil, errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 	}
 
 	var order do.OrderInfoDO
@@ -140,9 +140,9 @@ func (o *orders) Get(ctx context.Context, orderSn string) (*do.OrderInfoDO, erro
 	err := o.db.WithContext(ctx).Preload("OrderGoods").Where("order_sn = ?", orderSn).First(&order).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code.ErrOrderNotFound, err.Error())
+			return nil, errors.NewCode(bizcode.ErrOrderNotFound, err.Error())
 		}
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return &order, nil
 }
@@ -168,7 +168,7 @@ func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, 
 	countQuery := o.db.WithContext(ctx).Model(&do.OrderInfoDO{})
 	countQuery = countQuery.Where("user = ?", userID)
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	//排序
@@ -178,7 +178,7 @@ func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, 
 
 	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, d.Error.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, d.Error.Error())
 	}
 	return ret, nil
 }
@@ -186,18 +186,18 @@ func (o *orders) List(ctx context.Context, userID uint64, meta metav1.ListMeta, 
 // Create 创建订单之后要删除对应的购物车记录
 func (o *orders) Create(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO) error {
 	if order == nil {
-		return errors.WithCode(code.ErrSubmitOrder, "order is required")
+		return errors.NewCode(bizcode.ErrSubmitOrder, "order is required")
 	}
 	order.OrderSn = strings.TrimSpace(order.OrderSn)
 	if order.User <= 0 || order.OrderSn == "" {
-		return errors.WithCode(code.ErrSubmitOrder, "user and order_sn are required")
+		return errors.NewCode(bizcode.ErrSubmitOrder, "user and order_sn are required")
 	}
 	db := o.db
 	if txn != nil {
 		db = txn
 	}
 	if err := db.WithContext(ctx).Create(order).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -219,29 +219,29 @@ func (o *orders) DeleteByOrderSn(ctx context.Context, txn *gorm.DB, orderSn stri
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	if err := db.WithContext(ctx).Where("`order` = ?", order.ID).Delete(&do.OrderGoods{}).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	if err := db.WithContext(ctx).Where("id = ?", order.ID).Delete(&do.OrderInfoDO{}).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
 
 func (o *orders) Update(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO) error {
 	if order == nil {
-		return errors.WithCode(code.ErrOrderNotFound, "order not found")
+		return errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 	}
 	order.OrderSn = strings.TrimSpace(order.OrderSn)
 	order.Status = strings.TrimSpace(order.Status)
 	if order.ID <= 0 && order.OrderSn == "" {
-		return errors.WithCode(code.ErrOrderNotFound, "order not found")
+		return errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 	}
 	if order.Status == "" {
-		return errors.WithCode(code.ErrOrderStatusInvalid, "order status is required")
+		return errors.NewCode(bizcode.ErrOrderStatusInvalid, "order status is required")
 	}
 
 	db := o.db
@@ -268,29 +268,29 @@ func (o *orders) Update(ctx context.Context, txn *gorm.DB, order *do.OrderInfoDO
 	}
 	tx := query.Updates(updates)
 	if tx.Error != nil {
-		return errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	if tx.RowsAffected == 0 {
-		return errors.WithCode(code.ErrOrderNotFound, "order not found")
+		return errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 	}
 	return nil
 }
 
 func (o *orders) CreateRefundRequest(ctx context.Context, txn *gorm.DB, request *do.RefundRequestDO) error {
 	if request == nil || request.OrderSN == "" || request.ActorUserID <= 0 || request.AmountFen <= 0 || request.Reason == "" || request.CorrelationID == "" {
-		return errors.WithCode(code2.ErrValidation, "refund request is invalid")
+		return errors.NewCode(errcode.ErrValidation, "refund request is invalid")
 	}
 	db := o.db
 	if txn != nil {
 		db = txn
 	}
 	if err := db.WithContext(ctx).Create(request).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	now := time.Now().UTC()
 	outbox := &do.RefundOutboxDO{RefundRequestID: request.ID, Status: "pending", AvailableAt: now, CreatedAt: now, UpdatedAt: now}
 	if err := db.WithContext(ctx).Create(outbox).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -312,7 +312,7 @@ func (o *orders) ListCloseCandidates(ctx context.Context, statuses []string, cre
 		Limit(limit).
 		Find(&orders)
 	if tx.Error != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	return orders, nil
 }
@@ -336,7 +336,7 @@ func (o *orders) ListFinishCandidates(ctx context.Context, status string, paidBe
 		Limit(limit).
 		Find(&orders)
 	if tx.Error != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, tx.Error.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
 	}
 	return orders, nil
 }

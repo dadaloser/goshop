@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"testing"
 
 	gpb "goshop/api/goods/v1"
 	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
-	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 )
 
@@ -17,24 +17,24 @@ func TestNilServiceFactoryReturnsSafeServices(t *testing.T) {
 	if goodsSrv == nil {
 		t.Fatal("Goods() returned nil")
 	}
-	if _, err := goodsSrv.List(context.Background(), &gpb.GoodsFilterRequest{}); !errors.IsCode(err, code.ErrConnectGRPC) {
-		t.Fatalf("Goods().List() error = %v, want code %d", err, code.ErrConnectGRPC)
+	if _, err := goodsSrv.List(context.Background(), &gpb.GoodsFilterRequest{}); !errors.IsCode(err, bizcode.ErrConnectGRPC) {
+		t.Fatalf("Goods().List() error = %v, want code %d", err, bizcode.ErrConnectGRPC)
 	}
 
 	inventorySrv := svc.Inventory()
 	if inventorySrv == nil {
 		t.Fatal("Inventory() returned nil")
 	}
-	if _, err := inventorySrv.Detail(context.Background(), 1); !errors.IsCode(err, code.ErrConnectGRPC) {
-		t.Fatalf("Inventory().Detail() error = %v, want code %d", err, code.ErrConnectGRPC)
+	if _, err := inventorySrv.Detail(context.Background(), 1); !errors.IsCode(err, bizcode.ErrConnectGRPC) {
+		t.Fatalf("Inventory().Detail() error = %v, want code %d", err, bizcode.ErrConnectGRPC)
 	}
 
 	userSrv := svc.Users()
 	if userSrv == nil {
 		t.Fatal("Users() returned nil")
 	}
-	if _, err := userSrv.Get(context.Background(), 1); !errors.IsCode(err, code.ErrConnectGRPC) {
-		t.Fatalf("Users().Get() error = %v, want code %d", err, code.ErrConnectGRPC)
+	if _, err := userSrv.Get(context.Background(), 1); !errors.IsCode(err, bizcode.ErrConnectGRPC) {
+		t.Fatalf("Users().Get() error = %v, want code %d", err, bizcode.ErrConnectGRPC)
 	}
 
 	orderSrv := svc.Orders()
@@ -46,8 +46,8 @@ func TestNilServiceFactoryReturnsSafeServices(t *testing.T) {
 		OrderSn: "order-1",
 		TradeNo: "trade-1",
 		Success: true,
-	}); !errors.IsCode(err, code.ErrConnectGRPC) {
-		t.Fatalf("Orders().SimulatePayCallback() error = %v, want code %d", err, code.ErrConnectGRPC)
+	}); !errors.IsCode(err, bizcode.ErrConnectGRPC) {
+		t.Fatalf("Orders().SimulatePayCallback() error = %v, want code %d", err, bizcode.ErrConnectGRPC)
 	}
 
 	smsSrv := svc.Sms()

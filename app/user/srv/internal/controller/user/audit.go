@@ -6,14 +6,14 @@ import (
 
 	upbv1 "goshop/api/user/v1"
 	v1 "goshop/app/user/srv/internal/service/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 )
 
 func (u *userServer) ListUserAuditLogs(ctx context.Context, request *upbv1.UserAuditLogPageRequest) (*upbv1.UserAuditLogListResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "user audit log request is required")
+		return nil, errors.NewSpec(errcode.ValidationSpec, "user audit log request is required")
 	}
 
 	filters := v1.UserAuditLogFilterDTO{

@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"encoding/json"
+	"goshop/app/pkg/bizcode"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,7 +15,6 @@ import (
 	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
 	smsv1 "goshop/app/goshop/api/internal/service/sms/v1"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
-	"goshop/app/pkg/code"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,10 +29,10 @@ func TestInventoryControllerRejectsMissingServiceFactory(t *testing.T) {
 
 	controller.Detail(ctx)
 
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
-	assertInventoryErrorCode(t, recorder.Body.Bytes(), code.ErrConnectGRPC)
+	assertInventoryErrorCode(t, recorder.Body.Bytes(), bizcode.ErrConnectGRPC)
 }
 
 func TestInventoryControllerRejectsInvalidGoodsID(t *testing.T) {

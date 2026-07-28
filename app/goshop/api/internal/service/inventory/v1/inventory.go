@@ -2,10 +2,10 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 
 	ipb "goshop/api/inventory/v1"
 	"goshop/app/goshop/api/internal/data"
-	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 )
 
@@ -20,15 +20,15 @@ type inventoryService struct {
 
 func (is *inventoryService) Detail(ctx context.Context, goodsID uint64) (*ipb.GoodsInvInfo, error) {
 	if is == nil || is.data == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "inventory data client is not initialized")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "inventory data client is not initialized")
 	}
 	if goodsID == 0 {
-		return nil, errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+		return nil, errors.NewSpec(bizcode.InventoryNotFoundSpec, "inventory not found")
 	}
 
 	client := is.data.Inventory()
 	if client == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "inventory grpc client is not initialized")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "inventory grpc client is not initialized")
 	}
 
 	resp, err := client.GetStock(ctx, &ipb.GoodsInvInfo{GoodsId: int32(goodsID)})
@@ -36,22 +36,22 @@ func (is *inventoryService) Detail(ctx context.Context, goodsID uint64) (*ipb.Go
 		return nil, err
 	}
 	if resp == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "inventory grpc response is empty")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "inventory grpc response is empty")
 	}
 	return resp, nil
 }
 
 func (is *inventoryService) OrderDetail(ctx context.Context, orderSn string) (*ipb.SellDetailInfo, error) {
 	if is == nil || is.data == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "inventory data client is not initialized")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "inventory data client is not initialized")
 	}
 	if orderSn == "" {
-		return nil, errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+		return nil, errors.NewSpec(bizcode.InventorySellDetailInvalidSpec, "inventory sell detail request is empty")
 	}
 
 	client := is.data.Inventory()
 	if client == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "inventory grpc client is not initialized")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "inventory grpc client is not initialized")
 	}
 
 	resp, err := client.GetSellDetail(ctx, &ipb.OrderInfo{OrderSn: orderSn})
@@ -59,7 +59,7 @@ func (is *inventoryService) OrderDetail(ctx context.Context, orderSn string) (*i
 		return nil, err
 	}
 	if resp == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "inventory grpc response is empty")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "inventory grpc response is empty")
 	}
 	return resp, nil
 }

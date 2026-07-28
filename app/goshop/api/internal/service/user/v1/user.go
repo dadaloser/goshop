@@ -8,7 +8,7 @@ import (
 	"goshop/app/goshop/api/internal/emailcode"
 	"goshop/app/goshop/api/internal/loginattempt"
 	"goshop/app/goshop/api/internal/smsattempt"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 
@@ -17,7 +17,7 @@ import (
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/options"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/storage"
 )
 
@@ -81,10 +81,10 @@ func NewUserServiceWithIPAttempts(data data.DataFactory, jwtOpts *options.JwtOpt
 func (us *userService) EmailLogin(ctx context.Context, email, verificationCode string) (*UserDTO, error) {
 	email = normalizeLoginIdentifier(email)
 	if us.emailCodes == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "email verification unavailable")
+		return nil, errors.NewSpec(bizcode.EmailVerificationUnavailableSpec, "email verification unavailable")
 	}
 	if err := us.emailCodes.Consume(ctx, email, "login", verificationCode); err != nil {
-		return nil, errors.WithCode(code.ErrCodeInCorrect, "验证码错误或已失效")
+		return nil, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "email verification code did not match")
 	}
 	users, err := us.usersData()
 	if err != nil {
@@ -95,7 +95,7 @@ func (us *userService) EmailLogin(ctx context.Context, email, verificationCode s
 		return nil, err
 	}
 	if !user.EmailVerified {
-		return nil, errors.WithCode(code.ErrUserAccountInactive, "邮箱尚未验证")
+		return nil, errors.NewSpec(bizcode.UserAccountInactiveSpec, "email has not been verified")
 	}
 	token, expiresAt, refreshToken, refreshExpiresAt, sessionID, err := us.createToken(ctx, user)
 	if err != nil {
@@ -107,10 +107,10 @@ func (us *userService) EmailLogin(ctx context.Context, email, verificationCode s
 func (us *userService) EmailRegister(ctx context.Context, mobile, email, username, password, nickName, verificationCode string) (*UserDTO, error) {
 	email = normalizeLoginIdentifier(email)
 	if us.emailCodes == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "email verification unavailable")
+		return nil, errors.NewSpec(bizcode.EmailVerificationUnavailableSpec, "email verification unavailable")
 	}
 	if err := us.emailCodes.Consume(ctx, email, "register", verificationCode); err != nil {
-		return nil, errors.WithCode(code.ErrCodeInCorrect, "验证码错误或已失效")
+		return nil, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "email verification code did not match")
 	}
 	users, err := us.usersData()
 	if err != nil {
@@ -140,11 +140,11 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 
 	user, err := users.GetAuthByUsername(ctx, username)
 	if err != nil {
-		if errors.IsCode(err, code.ErrUserNotFound) {
+		if errors.IsCode(err, bizcode.ErrUserNotFound) {
 			if lockedErr := us.recordPasswordLoginFailure(ctx, username, clientIP); lockedErr != nil {
 				return nil, lockedErr
 			}
-			return nil, errors.WithCode(code.ErrUserPasswordIncorrect, "手机号或密码错误")
+			return nil, errors.NewSpec(bizcode.UserPasswordIncorrectSpec, "mobile number or password was incorrect")
 		}
 		return nil, err
 	}
@@ -152,11 +152,11 @@ func (us *userService) PasswordLogin(ctx context.Context, username, password str
 	//检查密码是否正确
 	err = users.CheckPassWord(ctx, password, user.PasswordHash)
 	if err != nil {
-		if errors.IsCode(err, code.ErrUserPasswordIncorrect) {
+		if errors.IsCode(err, bizcode.ErrUserPasswordIncorrect) {
 			if lockedErr := us.recordPasswordLoginFailure(ctx, username, clientIP); lockedErr != nil {
 				return nil, lockedErr
 			}
-			return nil, errors.WithCode(code.ErrUserPasswordIncorrect, "手机号或密码错误")
+			return nil, errors.NewSpec(bizcode.UserPasswordIncorrectSpec, "mobile number or password was incorrect")
 		}
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 		return nil, err
 	}
 	if us == nil || us.codeStore == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "sms code store is not initialized")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "sms code store is not initialized")
 	}
 
 	key := smscode.LoginKey(mobile)
@@ -196,13 +196,13 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeLogin); lockedErr != nil {
 			return nil, lockedErr
 		}
-		return nil, errors.WithCode(code.ErrCodeNotExist, "验证码不存在")
+		return nil, errors.NewSpec(bizcode.SMSCodeNotExistSpec, "sms verification code was not found")
 	}
 	if value != smsCode {
 		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeLogin); lockedErr != nil {
 			return nil, lockedErr
 		}
-		return nil, errors.WithCode(code.ErrCodeInCorrect, "验证码错误")
+		return nil, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "sms verification code did not match")
 	}
 
 	us.resetSmsCodeFailures(ctx, mobile, smscode.TypeLogin)
@@ -237,7 +237,7 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 		return nil, err
 	}
 	if us == nil || us.codeStore == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "sms code store is not initialized")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "sms code store is not initialized")
 	}
 
 	key := smscode.RegisterKey(mobile)
@@ -252,14 +252,14 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeRegister); lockedErr != nil {
 			return nil, lockedErr
 		}
-		return nil, errors.WithCode(code.ErrCodeNotExist, "验证码不存在")
+		return nil, errors.NewSpec(bizcode.SMSCodeNotExistSpec, "sms verification code was not found")
 	}
 
 	if value != codes {
 		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeRegister); lockedErr != nil {
 			return nil, lockedErr
 		}
-		return nil, errors.WithCode(code.ErrCodeInCorrect, "验证码错误")
+		return nil, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "registration sms code did not match")
 	}
 
 	us.resetSmsCodeFailures(ctx, mobile, smscode.TypeRegister)
@@ -301,10 +301,10 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 
 func (us *userService) DeleteAccount(ctx context.Context, userID uint64, password string) error {
 	if userID == 0 {
-		return errors.WithCode(code.ErrUserNotFound, "用户不存在")
+		return errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
 	}
 	if strings.TrimSpace(password) == "" {
-		return errors.WithCode(code2.ErrValidation, "密码不能为空")
+		return errors.NewCode(errcode.ErrValidation, "密码不能为空")
 	}
 	if _, err := us.tokenVersionStore(); err != nil {
 		return err
@@ -328,7 +328,7 @@ func (us *userService) DeleteAccount(ctx context.Context, userID uint64, passwor
 		return err
 	}
 	if err = us.bumpTokenVersion(ctx, userID); err != nil {
-		return errors.WithCode(code.ErrConnectGRPC, "注销账号失败")
+		return errors.NewCode(bizcode.ErrConnectGRPC, "注销账号失败")
 	}
 	if sessions, ok := us.sessionData(); ok {
 		_ = sessions.RevokeAllSessions(ctx, userID)
@@ -338,7 +338,7 @@ func (us *userService) DeleteAccount(ctx context.Context, userID uint64, passwor
 
 func (us *userService) ensureAccountDeletionAllowed(ctx context.Context, userID uint64) error {
 	if us == nil || us.data == nil {
-		return errors.WithCode(code.ErrConnectGRPC, "无法检查未完成业务")
+		return errors.NewCode(bizcode.ErrConnectGRPC, "无法检查未完成业务")
 	}
 	if us.data.Orders() == nil {
 		return nil
@@ -347,12 +347,12 @@ func (us *userService) ensureAccountDeletionAllowed(ctx context.Context, userID 
 	for page := int32(1); ; page++ {
 		resp, err := us.data.Orders().OrderList(ctx, &opb.OrderFilterRequest{UserId: int32(userID), Pages: page, PagePerNums: pageSize})
 		if err != nil {
-			return errors.WithCode(code.ErrConnectGRPC, "无法检查未完成业务")
+			return errors.NewCode(bizcode.ErrConnectGRPC, "无法检查未完成业务")
 		}
 		for _, order := range resp.GetData() {
 			status := strings.TrimSpace(order.GetStatus())
 			if status != "TRADE_CLOSED" && status != "TRADE_FINISHED" {
-				return errors.WithCode(code.ErrAccountDeletionBlocked, "存在未完成订单、退款或售后，暂不能注销")
+				return errors.NewCode(bizcode.ErrAccountDeletionBlocked, "存在未完成订单、退款或售后，暂不能注销")
 			}
 		}
 		if len(resp.GetData()) < pageSize {
@@ -363,7 +363,7 @@ func (us *userService) ensureAccountDeletionAllowed(ctx context.Context, userID 
 
 func (u *userService) Update(ctx context.Context, userDTO *UserDTO) error {
 	if userDTO == nil || userDTO.ID == 0 {
-		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+		return errors.NewCode(errcode.ErrValidation, "用户信息不能为空")
 	}
 
 	users, err := u.usersData()
@@ -375,7 +375,7 @@ func (u *userService) Update(ctx context.Context, userDTO *UserDTO) error {
 
 func (us *userService) Get(ctx context.Context, userID uint64) (*UserDTO, error) {
 	if userID == 0 {
-		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
 	}
 
 	users, err := us.usersData()
@@ -392,7 +392,7 @@ func (us *userService) Get(ctx context.Context, userID uint64) (*UserDTO, error)
 func (u *userService) GetByUsername(ctx context.Context, username string) (*UserDTO, error) {
 	username = normalizeLoginIdentifier(username)
 	if username == "" {
-		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
 	}
 
 	users, err := u.usersData()
@@ -408,18 +408,18 @@ func (u *userService) GetByUsername(ctx context.Context, username string) (*User
 
 func (us *userService) usersData() (data.UserData, error) {
 	if us == nil || us.data == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "user data client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "user data client is not initialized")
 	}
 	users := us.data.Users()
 	if users == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "user data client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "user data client is not initialized")
 	}
 	return users, nil
 }
 
 func (us *userService) tokenVersionStore() (tokenversion.Store, error) {
 	if us == nil || us.tokenVersions == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "token version store is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "token version store is not initialized")
 	}
 	return us.tokenVersions, nil
 }

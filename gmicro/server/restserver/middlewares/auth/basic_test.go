@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	pkgerrors "goshop/pkg/errors"
 )
 
@@ -32,7 +32,7 @@ func TestBasicStrategyRejectsMalformedBase64Authorization(t *testing.T) {
 		t.Fatalf("status = %d, want authentication failure", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, pkgerrors.ParseCoder(pkgerrors.WithCode(code.ErrSignatureInvalid, "")).String()) {
+	if !strings.Contains(body, pkgerrors.ParseCoder(pkgerrors.NewCode(errcode.ErrSignatureInvalid, "")).String()) {
 		t.Fatalf("response body = %q, want signature invalid code", body)
 	}
 }

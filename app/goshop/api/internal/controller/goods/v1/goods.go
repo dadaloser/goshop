@@ -4,7 +4,7 @@ import (
 	proto "goshop/api/goods/v1"
 	"goshop/app/goshop/api/internal/domain/request"
 	"goshop/app/goshop/api/internal/service"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
@@ -31,7 +31,7 @@ func (gc *goodsController) List(ctx *gin.Context) {
 	log.Info("goods list function called ...")
 
 	if gc == nil || gc.srv == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "goods service is not initialized"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "goods service is not initialized"), nil)
 		return
 	}
 
@@ -56,7 +56,7 @@ func (gc *goodsController) List(ctx *gin.Context) {
 
 	goodsSrv := gc.srv.Goods()
 	if goodsSrv == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "goods service is not initialized"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "goods service is not initialized"), nil)
 		return
 	}
 
@@ -66,7 +66,7 @@ func (gc *goodsController) List(ctx *gin.Context) {
 		return
 	}
 	if goodsDTOList == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "goods service response is empty"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "goods service response is empty"), nil)
 		return
 	}
 

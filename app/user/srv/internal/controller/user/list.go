@@ -4,7 +4,7 @@ import (
 	"context"
 	upbv1 "goshop/api/user/v1"
 	srvv1 "goshop/app/user/srv/internal/service/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
@@ -71,7 +71,7 @@ controller依赖service并不是直接依赖了具体的struct而是依赖了int
 */
 func (us *userServer) GetUserList(ctx context.Context, info *upbv1.PageInfo) (*upbv1.UserListResponse, error) {
 	if info == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "page request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "page request is required")
 	}
 
 	log.Info("GetUserList is called")

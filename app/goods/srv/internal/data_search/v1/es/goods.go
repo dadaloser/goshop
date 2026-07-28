@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	proto "goshop/api/goods/v1"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	"goshop/pkg/errors"
 	"strconv"
 
@@ -28,7 +28,7 @@ func NewGoods(esClient *elastic.Client) *goods {
 
 func (g *goods) Create(ctx context.Context, goods *do.GoodsSearchDO) error {
 	if goods == nil || goods.ID <= 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "goods is required")
 	}
 
 	_, err := g.esClient.Index().
@@ -41,7 +41,7 @@ func (g *goods) Create(ctx context.Context, goods *do.GoodsSearchDO) error {
 
 func (g *goods) Delete(ctx context.Context, ID uint64) error {
 	if ID == 0 {
-		return errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+		return errors.NewCode(bizcode.ErrGoodsNotFound, "goods not found")
 	}
 
 	_, err := g.esClient.Delete().Index(do.GoodsSearchDO{}.GetIndexName()).Id(strconv.Itoa(int(ID))).Refresh("true").Do(ctx)
@@ -53,7 +53,7 @@ func (g *goods) Delete(ctx context.Context, ID uint64) error {
 
 func (g *goods) Update(ctx context.Context, goods *do.GoodsSearchDO) error {
 	if goods == nil || goods.ID <= 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "goods is required")
 	}
 
 	return g.Create(ctx, goods)
@@ -87,7 +87,7 @@ func (g *goods) Search(ctx context.Context, req *v1.GoodsFilterRequest) (*do.Goo
 		Size(int(req.PagePerNums)).Do(ctx)
 
 	if err != nil {
-		return nil, errors.WithCode(code.ErrGoodsNotFound, err.Error())
+		return nil, errors.NewCode(bizcode.ErrGoodsNotFound, err.Error())
 	}
 
 	var ret do.GoodsSearchDOList
@@ -96,7 +96,7 @@ func (g *goods) Search(ctx context.Context, req *v1.GoodsFilterRequest) (*do.Goo
 		goods := do.GoodsSearchDO{}
 		err := json.Unmarshal(value.Source, &goods)
 		if err != nil {
-			return nil, errors.WithCode(code.ErrEsUnmarshal, err.Error())
+			return nil, errors.NewCode(bizcode.ErrEsUnmarshal, err.Error())
 		}
 		ret.Items = append(ret.Items, &goods)
 	}

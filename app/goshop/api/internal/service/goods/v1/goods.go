@@ -4,7 +4,7 @@ import (
 	"context"
 	gpb "goshop/api/goods/v1"
 	"goshop/app/goshop/api/internal/data"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	"goshop/pkg/errors"
 )
 
@@ -20,22 +20,22 @@ type goodsService struct {
 
 func (gs *goodsService) List(ctx context.Context, request *gpb.GoodsFilterRequest) (*gpb.GoodsListResponse, error) {
 	if gs == nil || gs.data == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "goods data client is not initialized")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "goods data client is not initialized")
 	}
 	if request == nil {
-		return nil, errors.WithCode(code.ErrGoodsInvalid, "goods filter request is required")
+		return nil, errors.NewSpec(bizcode.GoodsInvalidSpec, "goods filter request is required")
 	}
 
 	client := gs.data.Goods()
 	if client == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "goods grpc client is not initialized")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "goods grpc client is not initialized")
 	}
 	resp, err := client.GoodsList(ctx, request)
 	if err != nil {
 		return nil, err
 	}
 	if resp == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "goods grpc response is empty")
+		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "goods grpc response is empty")
 	}
 	return resp, nil
 }

@@ -1,4 +1,4 @@
-package code
+package bizcode
 
 const (
 	// ErrConnectDB - 500: Init db error.

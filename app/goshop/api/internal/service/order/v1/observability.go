@@ -1,10 +1,10 @@
 package v1
 
 import (
+	"goshop/app/pkg/bizcode"
 	"strings"
 	"time"
 
-	"goshop/app/pkg/code"
 	"goshop/gmicro/core/metric"
 	"goshop/pkg/errors"
 )
@@ -53,9 +53,9 @@ func payCallbackMetricResult(err error) string {
 		return "success"
 	}
 	switch {
-	case errors.IsCode(err, code.ErrOrderStatusInvalid), errors.IsCode(err, code.ErrOrderNotFound):
+	case errors.IsCode(err, bizcode.ErrOrderStatusInvalid), errors.IsCode(err, bizcode.ErrOrderNotFound):
 		return "rejected"
-	case errors.IsCode(err, code.ErrConnectGRPC):
+	case errors.IsCode(err, bizcode.ErrConnectGRPC):
 		return "dependency_error"
 	default:
 		return "failed"

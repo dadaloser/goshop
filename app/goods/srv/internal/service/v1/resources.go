@@ -2,11 +2,11 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"strings"
 
 	v1 "goshop/app/goods/srv/internal/data/v1"
 	"goshop/app/goods/srv/internal/domain/do"
-	"goshop/app/pkg/code"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 )
@@ -55,7 +55,7 @@ func (s *categoryService) ListAll(ctx context.Context, orderBy []string) (*do.Ca
 
 func (s *categoryService) Get(ctx context.Context, id uint64) (*do.CategoryDO, error) {
 	if id == 0 {
-		return nil, errors.WithCode(code.ErrCategoryNotFound, "category not found")
+		return nil, errors.NewCode(bizcode.ErrCategoryNotFound, "category not found")
 	}
 	return s.data.Categories().Get(ctx, id)
 }
@@ -92,28 +92,28 @@ func (s *categoryService) Update(ctx context.Context, category *do.CategoryDO) e
 
 func (s *categoryService) Delete(ctx context.Context, id uint64) error {
 	if id == 0 {
-		return errors.WithCode(code.ErrCategoryNotFound, "category not found")
+		return errors.NewCode(bizcode.ErrCategoryNotFound, "category not found")
 	}
 	category, err := s.data.Categories().Get(ctx, id)
 	if err != nil {
 		return err
 	}
 	if len(category.SubCategory) > 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "category has sub categories")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "category has sub categories")
 	}
 	goodsCount, err := s.data.Goods().CountByCategory(ctx, id)
 	if err != nil {
 		return err
 	}
 	if goodsCount > 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "category has goods")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "category has goods")
 	}
 	relations, err := s.data.CategoryBrands().ListByCategory(ctx, id, []string{})
 	if err != nil {
 		return err
 	}
 	if relations.TotalCount > 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "category has brand relations")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "category has brand relations")
 	}
 	return s.data.Categories().Delete(ctx, id)
 }
@@ -152,7 +152,7 @@ func (s *brandService) Update(ctx context.Context, brand *do.BrandsDO) error {
 
 func (s *brandService) Delete(ctx context.Context, id uint64) error {
 	if id == 0 {
-		return errors.WithCode(code.ErrBrandNotFound, "brand not found")
+		return errors.NewCode(bizcode.ErrBrandNotFound, "brand not found")
 	}
 	if _, err := s.data.Brands().Get(ctx, id); err != nil {
 		return err
@@ -162,14 +162,14 @@ func (s *brandService) Delete(ctx context.Context, id uint64) error {
 		return err
 	}
 	if goodsCount > 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "brand has goods")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "brand has goods")
 	}
 	relationCount, err := s.data.CategoryBrands().CountByBrand(ctx, id)
 	if err != nil {
 		return err
 	}
 	if relationCount > 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "brand has category relations")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "brand has category relations")
 	}
 	return s.data.Brands().Delete(ctx, id)
 }
@@ -205,24 +205,24 @@ func (s *bannerService) Update(ctx context.Context, banner *do.BannerDO) error {
 
 func (s *bannerService) Delete(ctx context.Context, id uint64) error {
 	if id == 0 {
-		return errors.WithCode(code.ErrBannerNotFound, "banner not found")
+		return errors.NewCode(bizcode.ErrBannerNotFound, "banner not found")
 	}
 	return s.data.Banners().Delete(ctx, id)
 }
 
 func validateCategory(category *do.CategoryDO, requireID bool) error {
 	if category == nil {
-		return errors.WithCode(code.ErrGoodsInvalid, "category is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "category is required")
 	}
 	if requireID && category.ID <= 0 {
-		return errors.WithCode(code.ErrCategoryNotFound, "category not found")
+		return errors.NewCode(bizcode.ErrCategoryNotFound, "category not found")
 	}
 	category.Name = strings.TrimSpace(category.Name)
 	if category.Name == "" || category.Level <= 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "category name and level are required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "category name and level are required")
 	}
 	if category.ParentCategoryID == category.ID && category.ID > 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "category parent cannot be itself")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "category parent cannot be itself")
 	}
 	return nil
 }
@@ -284,50 +284,50 @@ func (s *categoryBrandService) Update(ctx context.Context, relation *do.GoodsCat
 
 func (s *categoryBrandService) Delete(ctx context.Context, id uint64) error {
 	if id == 0 {
-		return errors.WithCode(code.ErrCategoryBrandNotFound, "category brand relation not found")
+		return errors.NewCode(bizcode.ErrCategoryBrandNotFound, "category brand relation not found")
 	}
 	return s.data.CategoryBrands().Delete(ctx, id)
 }
 
 func validateCategoryBrand(relation *do.GoodsCategoryBrandDO, requireID bool) error {
 	if relation == nil {
-		return errors.WithCode(code.ErrGoodsInvalid, "category brand relation is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "category brand relation is required")
 	}
 	if requireID && relation.ID <= 0 {
-		return errors.WithCode(code.ErrCategoryBrandNotFound, "category brand relation not found")
+		return errors.NewCode(bizcode.ErrCategoryBrandNotFound, "category brand relation not found")
 	}
 	if relation.CategoryID <= 0 || relation.BrandsID <= 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "category_id and brand_id are required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "category_id and brand_id are required")
 	}
 	return nil
 }
 
 func validateBrand(brand *do.BrandsDO, requireID bool) error {
 	if brand == nil {
-		return errors.WithCode(code.ErrGoodsInvalid, "brand is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "brand is required")
 	}
 	if requireID && brand.ID <= 0 {
-		return errors.WithCode(code.ErrBrandNotFound, "brand not found")
+		return errors.NewCode(bizcode.ErrBrandNotFound, "brand not found")
 	}
 	brand.Name = strings.TrimSpace(brand.Name)
 	brand.Logo = strings.TrimSpace(brand.Logo)
 	if brand.Name == "" {
-		return errors.WithCode(code.ErrGoodsInvalid, "brand name is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "brand name is required")
 	}
 	return nil
 }
 
 func validateBanner(banner *do.BannerDO, requireID bool) error {
 	if banner == nil {
-		return errors.WithCode(code.ErrGoodsInvalid, "banner is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "banner is required")
 	}
 	if requireID && banner.ID <= 0 {
-		return errors.WithCode(code.ErrBannerNotFound, "banner not found")
+		return errors.NewCode(bizcode.ErrBannerNotFound, "banner not found")
 	}
 	banner.Image = strings.TrimSpace(banner.Image)
 	banner.Url = strings.TrimSpace(banner.Url)
 	if banner.Image == "" || banner.Url == "" {
-		return errors.WithCode(code.ErrGoodsInvalid, "banner image and url are required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "banner image and url are required")
 	}
 	return nil
 }

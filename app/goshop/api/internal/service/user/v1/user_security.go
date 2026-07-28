@@ -2,10 +2,10 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"net"
 	"strings"
 
-	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 )
@@ -18,10 +18,10 @@ func (us *userService) ensurePasswordLoginAllowed(ctx context.Context, username,
 	locked, err := us.loginAttempts.IsLocked(ctx, username)
 	if err != nil {
 		log.Errorf("check password login attempts failed: %v", err)
-		return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
+		return errors.NewSpec(bizcode.UserLoginLockedSpec, "check password login attempts")
 	}
 	if locked {
-		return errors.WithCode(code.ErrUserLoginLocked, "登录失败次数过多，请稍后重试")
+		return errors.NewSpec(bizcode.UserLoginLockedSpec, "password login attempts exceeded")
 	}
 	return us.ensurePasswordLoginIPAllowed(ctx, clientIP)
 }
@@ -34,10 +34,10 @@ func (us *userService) ensurePasswordLoginIPAllowed(ctx context.Context, clientI
 	locked, err := us.loginIPAttempts.IsLocked(ctx, clientIP)
 	if err != nil {
 		log.Errorf("check password login attempts by ip failed: %v", err)
-		return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
+		return errors.NewSpec(bizcode.UserLoginLockedSpec, "check password login attempts by ip")
 	}
 	if locked {
-		return errors.WithCode(code.ErrUserLoginLocked, "登录失败次数过多，请稍后重试")
+		return errors.NewSpec(bizcode.UserLoginLockedSpec, "password login attempts by ip exceeded")
 	}
 	return nil
 }
@@ -52,7 +52,7 @@ func (us *userService) recordPasswordLoginFailure(ctx context.Context, username,
 		accountLocked, err := us.loginAttempts.RecordFailure(ctx, username)
 		if err != nil {
 			log.Errorf("record password login failure failed: %v", err)
-			return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
+			return errors.NewSpec(bizcode.UserLoginLockedSpec, "record password login failure")
 		}
 		locked = locked || accountLocked
 	}
@@ -60,12 +60,12 @@ func (us *userService) recordPasswordLoginFailure(ctx context.Context, username,
 		ipLocked, err := us.loginIPAttempts.RecordFailure(ctx, clientIP)
 		if err != nil {
 			log.Errorf("record password login failure by ip failed: %v", err)
-			return errors.WithCode(code.ErrUserLoginLocked, "登录暂时不可用，请稍后重试")
+			return errors.NewSpec(bizcode.UserLoginLockedSpec, "record password login failure by ip")
 		}
 		locked = locked || ipLocked
 	}
 	if locked {
-		return errors.WithCode(code.ErrUserLoginLocked, "登录失败次数过多，请稍后重试")
+		return errors.NewSpec(bizcode.UserLoginLockedSpec, "password login attempts exceeded")
 	}
 	return nil
 }
@@ -95,10 +95,10 @@ func (us *userService) ensureSmsCodeAllowed(ctx context.Context, mobile string, 
 	locked, err := us.smsAttempts.IsLocked(ctx, mobile, codeType)
 	if err != nil {
 		log.Errorf("check sms verification attempts failed: %v", err)
-		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码验证暂时不可用，请稍后重试")
+		return errors.NewSpec(bizcode.SMSVerifyLockedSpec, "check sms verification attempts")
 	}
 	if locked {
-		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码错误次数过多，请稍后重试")
+		return errors.NewSpec(bizcode.SMSVerifyLockedSpec, "sms verification attempts exceeded")
 	}
 	return nil
 }
@@ -111,10 +111,10 @@ func (us *userService) recordSmsCodeFailure(ctx context.Context, mobile string, 
 	locked, err := us.smsAttempts.RecordFailure(ctx, mobile, codeType)
 	if err != nil {
 		log.Errorf("record sms verification failure failed: %v", err)
-		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码验证暂时不可用，请稍后重试")
+		return errors.NewSpec(bizcode.SMSVerifyLockedSpec, "record sms verification failure")
 	}
 	if locked {
-		return errors.WithCode(code.ErrSmsVerifyLocked, "验证码错误次数过多，请稍后重试")
+		return errors.NewSpec(bizcode.SMSVerifyLockedSpec, "sms verification attempts exceeded")
 	}
 	return nil
 }

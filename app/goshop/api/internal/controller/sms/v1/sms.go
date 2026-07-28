@@ -6,7 +6,7 @@ import (
 	v1 "goshop/app/goshop/api/internal/service/sms/v1"
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/goshop/api/internal/smslimit"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
@@ -36,7 +36,7 @@ func NewSmsController(sf service.ServiceFactory, trans ut.Translator, codeStore 
 
 func (sc *SmsController) SendSms(c *gin.Context) {
 	if sc == nil {
-		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, "sms controller is not initialized"), nil)
+		core.WriteResponse(c, errors.NewCode(bizcode.ErrSmsSend, "sms controller is not initialized"), nil)
 		return
 	}
 
@@ -47,52 +47,52 @@ func (sc *SmsController) SendSms(c *gin.Context) {
 	}
 
 	if !captcha.Verify(sendSmsForm.CaptchaId, sendSmsForm.Captcha, true) {
-		core.WriteResponse(c, errors.WithCode(code.ErrCodeInCorrect, "验证码错误"), nil)
+		core.WriteResponse(c, errors.NewCode(bizcode.ErrCodeInCorrect, "验证码错误"), nil)
 		return
 	}
 
 	if sc.sf == nil {
-		core.WriteResponse(c, errors.WithCode(code.ErrConnectGRPC, "sms service is not initialized"), nil)
+		core.WriteResponse(c, errors.NewCode(bizcode.ErrConnectGRPC, "sms service is not initialized"), nil)
 		return
 	}
 	if sc.codeStore == nil {
-		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, "sms code store is not initialized"), nil)
+		core.WriteResponse(c, errors.NewCode(bizcode.ErrSmsSend, "sms code store is not initialized"), nil)
 		return
 	}
 
 	if sc.limiter != nil {
 		allowed, err := sc.limiter.Take(c.Request.Context(), sendSmsForm.Mobile, sendSmsForm.Type)
 		if err != nil {
-			core.WriteResponse(c, errors.WithCode(code.ErrSmsRateLimited, "短信发送暂时不可用，请稍后重试"), nil)
+			core.WriteResponse(c, errors.NewCode(bizcode.ErrSmsRateLimited, "短信发送暂时不可用，请稍后重试"), nil)
 			return
 		}
 		if !allowed {
-			core.WriteResponse(c, errors.WithCode(code.ErrSmsRateLimited, "短信发送过于频繁，请稍后重试"), nil)
+			core.WriteResponse(c, errors.NewCode(bizcode.ErrSmsRateLimited, "短信发送过于频繁，请稍后重试"), nil)
 			return
 		}
 	}
 
 	smsCode, err := v1.GenerateSmsCode(6)
 	if err != nil {
-		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, err.Error()), nil)
+		core.WriteResponse(c, errors.NewCode(bizcode.ErrSmsSend, err.Error()), nil)
 		return
 	}
 	smsSrv := sc.sf.Sms()
 	if smsSrv == nil {
-		core.WriteResponse(c, errors.WithCode(code.ErrConnectGRPC, "sms service is not initialized"), nil)
+		core.WriteResponse(c, errors.NewCode(bizcode.ErrConnectGRPC, "sms service is not initialized"), nil)
 		return
 	}
 
 	err = smsSrv.SendSms(c, sendSmsForm.Mobile, "SMS_181850725", "{\"code\":"+smsCode+"}")
 	if err != nil {
-		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, err.Error()), nil)
+		core.WriteResponse(c, errors.NewCode(bizcode.ErrSmsSend, err.Error()), nil)
 		return
 	}
 
 	//将验证码保存起来 - redis
 	key := smscode.Key(sendSmsForm.Mobile, sendSmsForm.Type)
 	if err := sc.codeStore.Set(c, key, smsCode, smscode.DefaultTTL); err != nil {
-		core.WriteResponse(c, errors.WithCode(code.ErrSmsSend, err.Error()), nil)
+		core.WriteResponse(c, errors.NewCode(bizcode.ErrSmsSend, err.Error()), nil)
 		return
 	}
 

@@ -5,7 +5,7 @@ import (
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/user/srv/internal/data/v1"
 	v12 "goshop/app/user/srv/internal/service/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 	"time"
@@ -15,7 +15,7 @@ import (
 
 func (u *userServer) UpdateUser(ctx context.Context, request *upbv1.UpdateUserInfo) (*emptypb.Empty, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "update user request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "update user request is required")
 	}
 
 	log.Infof("update user function called.")

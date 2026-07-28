@@ -109,10 +109,10 @@ func ExampleCause_printf() {
 	// Output: failed
 }
 
-func ExampleWithCode() {
+func ExampleNewCode() {
 	var err error
 
-	err = WithCode(ConfigurationNotValid, "this is an error message")
+	err = NewCode(ConfigurationNotValid, "this is an error message")
 	fmt.Println(err)
 
 	err = Wrap(err, "this is a wrap error message with error code not change")
@@ -126,7 +126,7 @@ func ExampleWithCode() {
 
 	// Output:
 	// ConfigurationNotValid error
-	// ConfigurationNotValid error
+	// this is a wrap error message with error code not change
 	// Data is not valid JSON
 	// Data is not valid JSON
 }

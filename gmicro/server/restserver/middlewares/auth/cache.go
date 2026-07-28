@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/common/core"
 
@@ -47,7 +47,7 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.Request.Header.Get("Authorization")
 		if len(header) == 0 {
-			core.WriteResponse(c, errors.WithCode(code.ErrMissingHeader, "Authorization header cannot be empty."), nil)
+			core.WriteResponse(c, errors.NewCode(errcode.ErrMissingHeader, "Authorization header cannot be empty."), nil)
 			c.Abort()
 
 			return
@@ -55,7 +55,7 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 
 		rawJWT, ok := strings.CutPrefix(strings.TrimSpace(header), "Bearer ")
 		if !ok || strings.TrimSpace(rawJWT) == "" {
-			core.WriteResponse(c, errors.WithCode(code.ErrMissingHeader, "Authorization header format is invalid."), nil)
+			core.WriteResponse(c, errors.NewCode(errcode.ErrMissingHeader, "Authorization header format is invalid."), nil)
 			c.Abort()
 			return
 		}
@@ -88,7 +88,7 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 			return []byte(secret.Key), nil
 		}, jwt.WithAudience(AuthzAudience))
 		if err != nil || !parsedT.Valid {
-			core.WriteResponse(c, errors.WithCode(code.ErrSignatureInvalid, "signature is invalid"), nil)
+			core.WriteResponse(c, errors.NewCode(errcode.ErrSignatureInvalid, "signature is invalid"), nil)
 			c.Abort()
 
 			return
@@ -96,7 +96,7 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 
 		if KeyExpired(secret.Expires) {
 			tm := time.Unix(secret.Expires, 0).Format("2006-01-02 15:04:05")
-			core.WriteResponse(c, errors.WithCodeF(code.ErrExpired, "expired at: %s", tm), nil)
+			core.WriteResponse(c, errors.NewCode(errcode.ErrExpired, fmt.Sprintf("expired at: %s", tm)), nil)
 			c.Abort()
 
 			return

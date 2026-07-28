@@ -1,10 +1,9 @@
 package core
 
 import (
-	"fmt"
 	"net/http"
 
-	"goshop/pkg/errors"
+	"goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,24 +19,22 @@ type ErrResponse struct {
 	// This message is suitable to be exposed to external
 	Message string `json:"msg"`
 
-	Detail string `json:"detail"`
+	Detail string `json:"detail,omitempty"`
 
 	// Reference returns the reference document which maybe useful to solve this error.
 	Reference string `json:"reference,omitempty"`
 }
 
-// WriteResponse write an error or the response data into http response body.
-// It use errors.ParseCoder to parse any error into errors.Coder
-// errors.Coder contains error code, user-safe error message and http status code.
+// WriteResponse writes an error or response data into the HTTP response body.
+// Public error metadata is selected by the HTTP error adapter; internal error
+// details must be logged by the request boundary and are not returned to clients.
 func WriteResponse(c *gin.Context, err error, data interface{}) {
 	if err != nil {
-		errStr := fmt.Sprintf("%#+v", err)
-		coder := errors.ParseCoder(err)
-		c.JSON(coder.HTTPStatus(), ErrResponse{
-			Code:      coder.Code(),
-			Message:   coder.String(),
-			Detail:    errStr,
-			Reference: coder.Reference(),
+		response := httperror.ResponseFor(err)
+		c.JSON(response.Status, ErrResponse{
+			Code:      response.Code,
+			Message:   response.Message,
+			Reference: response.Reference,
 		})
 
 		return

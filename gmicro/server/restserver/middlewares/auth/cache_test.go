@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
-	"goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	pkgerrors "goshop/pkg/errors"
 )
 
@@ -39,7 +39,7 @@ func TestCacheStrategyDoesNotExposeInternalParseError(t *testing.T) {
 	router.ServeHTTP(rec, req)
 
 	body := rec.Body.String()
-	if !strings.Contains(body, pkgerrors.ParseCoder(pkgerrors.WithCode(code.ErrSignatureInvalid, "")).String()) {
+	if !strings.Contains(body, pkgerrors.ParseCoder(pkgerrors.NewCode(errcode.ErrSignatureInvalid, "")).String()) {
 		t.Fatalf("response body = %q, want signature invalid code", body)
 	}
 	if strings.Contains(body, "backend secret lookup failed") || strings.Contains(body, ErrMissingSecret.Error()) {

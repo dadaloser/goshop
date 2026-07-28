@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"net/mail"
 	"regexp"
 	"sort"
@@ -11,9 +12,8 @@ import (
 	"unicode/utf8"
 
 	"goshop/app/pkg/authz"
-	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/common/auth"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
@@ -222,7 +222,7 @@ type resourceScopeStore interface {
 func (u *userService) ReplaceResourceScopes(ctx context.Context, userID uint64, scopes []ResourceScopeDTO) ([]ResourceScopeDTO, error) {
 	store, ok := u.userStore.(resourceScopeStore)
 	if !ok {
-		return nil, errors.WithCode(code2.ErrDatabase, "resource scope store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "resource scope store is not configured")
 	}
 	models := make([]dv1.UserResourceScopeDO, 0, len(scopes))
 	normalized := make([]ResourceScopeDTO, 0, len(scopes))
@@ -232,15 +232,15 @@ func (u *userService) ReplaceResourceScopes(ctx context.Context, userID uint64, 
 		scope.StoreID = strings.TrimSpace(scope.StoreID)
 		scope.TeamID = strings.TrimSpace(scope.TeamID)
 		if !authz.IsValidBusinessDomain(scope.Domain) {
-			return nil, errors.WithCode(code2.ErrValidation, "resource scope domain is invalid")
+			return nil, errors.NewCode(errcode.ErrValidation, "resource scope domain is invalid")
 		}
 		if !authz.ResourceScopeMatchesDomain(authz.BusinessDomain(scope.Domain), scope.StoreID, scope.TeamID) {
-			return nil, errors.WithCode(code2.ErrValidation, "resource scope does not match domain dimension")
+			return nil, errors.NewCode(errcode.ErrValidation, "resource scope does not match domain dimension")
 		}
 		scope.ResourceType = strings.ToLower(strings.TrimSpace(scope.ResourceType))
 		scope.ResourceID = strings.TrimSpace(scope.ResourceID)
 		if (scope.ResourceType == "") != (scope.ResourceID == "") {
-			return nil, errors.WithCode(code2.ErrValidation, "resource scope resource binding is incomplete")
+			return nil, errors.NewCode(errcode.ErrValidation, "resource scope resource binding is incomplete")
 		}
 		key := scope.Domain + "\x00" + scope.StoreID + "\x00" + scope.TeamID + "\x00" + scope.ResourceType + "\x00" + scope.ResourceID
 		if _, exists := seen[key]; exists {
@@ -281,7 +281,7 @@ const (
 
 func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 	if user == nil {
-		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+		return errors.NewCode(errcode.ErrValidation, "用户信息不能为空")
 	}
 	if err := u.prepareNewUser(ctx, user, authz.LegacyUserRoleCustomer, string(authz.AccountStatusActive)); err != nil {
 		return err
@@ -291,11 +291,11 @@ func (u *userService) Create(ctx context.Context, user *UserDTO) error {
 
 func (u *userService) CreateStaff(ctx context.Context, user *UserDTO, roleNames []string, status string, actor AuditActorDTO) (*StaffUserDTO, error) {
 	if user == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+		return nil, errors.NewCode(errcode.ErrValidation, "用户信息不能为空")
 	}
 	roleNames = normalizeRoleNames(roleNames)
 	if len(roleNames) == 0 {
-		return nil, errors.WithCode(code2.ErrValidation, "staff roles are required")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff roles are required")
 	}
 	if err := u.validateKnownRoleNames(ctx, roleNames); err != nil {
 		return nil, err
@@ -327,10 +327,10 @@ func (u *userService) prepareNewUser(ctx context.Context, user *UserDTO, legacyR
 		return err
 	}
 	if !mobilePattern.MatchString(user.Mobile) {
-		return errors.WithCode(code2.ErrValidation, "手机号格式错误")
+		return errors.NewCode(errcode.ErrValidation, "手机号格式错误")
 	}
 	if !isStrongPassword(user.Password) {
-		return errors.WithCode(code2.ErrValidation, "密码必须为8-72字节，并包含大小写字母、数字和特殊字符")
+		return errors.NewCode(errcode.ErrValidation, "密码必须为8-72字节，并包含大小写字母、数字和特殊字符")
 	}
 	if strings.TrimSpace(user.Status) == "" {
 		user.Status = defaultStatus
@@ -338,30 +338,30 @@ func (u *userService) prepareNewUser(ctx context.Context, user *UserDTO, legacyR
 
 	//先判断用户是否存在
 	if _, err := u.userStore.GetByMobile(ctx, user.Mobile); err == nil {
-		return errors.WithCode(code.ErrUserAlreadyExists, "用户已经存在")
-	} else if !errors.IsCode(err, code.ErrUserNotFound) {
+		return errors.NewCode(bizcode.ErrUserAlreadyExists, "用户已经存在")
+	} else if !errors.IsCode(err, bizcode.ErrUserNotFound) {
 		return err
 	}
 
 	if user.Email != nil {
 		if _, err := u.userStore.GetByUsername(ctx, *user.Email); err == nil {
-			return errors.WithCode(code.ErrUserAlreadyExists, "邮箱已经存在")
-		} else if !errors.IsCode(err, code.ErrUserNotFound) {
+			return errors.NewCode(bizcode.ErrUserAlreadyExists, "邮箱已经存在")
+		} else if !errors.IsCode(err, bizcode.ErrUserNotFound) {
 			return err
 		}
 	}
 
 	if user.Username != nil {
 		if _, err := u.userStore.GetByUsername(ctx, *user.Username); err == nil {
-			return errors.WithCode(code.ErrUserAlreadyExists, "用户名已经存在")
-		} else if !errors.IsCode(err, code.ErrUserNotFound) {
+			return errors.NewCode(bizcode.ErrUserAlreadyExists, "用户名已经存在")
+		} else if !errors.IsCode(err, bizcode.ErrUserNotFound) {
 			return err
 		}
 	}
 
 	encryptedPassword, err := auth.Encrypt(user.Password)
 	if err != nil {
-		return errors.WithCode(code2.ErrEncrypt, "加密密码失败")
+		return errors.NewCode(errcode.ErrEncrypt, "加密密码失败")
 	}
 	user.Password = encryptedPassword
 	return nil
@@ -369,7 +369,7 @@ func (u *userService) prepareNewUser(ctx context.Context, user *UserDTO, legacyR
 
 func (u *userService) Update(ctx context.Context, user *UserDTO) error {
 	if user == nil {
-		return errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+		return errors.NewCode(errcode.ErrValidation, "用户信息不能为空")
 	}
 	if err := normalizeUserIdentifiers(user); err != nil {
 		return err
@@ -392,7 +392,7 @@ func (u *userService) Update(ctx context.Context, user *UserDTO) error {
 
 func (u *userService) Delete(ctx context.Context, id uint64) error {
 	if id == 0 {
-		return errors.WithCode(code2.ErrValidation, "用户不存在")
+		return errors.NewCode(errcode.ErrValidation, "用户不存在")
 	}
 	return u.userStore.Delete(ctx, id)
 }
@@ -416,7 +416,7 @@ func (u *userService) GetByMobile(ctx context.Context, mobile string) (*UserPubl
 func (u *userService) GetByUsername(ctx context.Context, username string) (*UserPublicDTO, error) {
 	username = normalizeLoginIdentifier(username)
 	if username == "" {
-		return nil, errors.WithCode(code2.ErrValidation, "登录标识不能为空")
+		return nil, errors.NewCode(errcode.ErrValidation, "登录标识不能为空")
 	}
 
 	userDO, err := u.userStore.GetByUsername(ctx, username)
@@ -428,7 +428,7 @@ func (u *userService) GetByUsername(ctx context.Context, username string) (*User
 
 func (u *userService) UpdateStatus(ctx context.Context, userID uint64, status string, actor AuditActorDTO) (*UserPublicDTO, error) {
 	if userID == 0 {
-		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
 	}
 
 	normalizedStatus, err := normalizeMutableAccountStatus(status)
@@ -453,7 +453,7 @@ func (u *userService) GetAuthByID(ctx context.Context, ID uint64) (*UserAuthDTO,
 func (u *userService) GetAuthByUsername(ctx context.Context, username string) (*UserAuthDTO, error) {
 	username = normalizeLoginIdentifier(username)
 	if username == "" {
-		return nil, errors.WithCode(code2.ErrValidation, "登录标识不能为空")
+		return nil, errors.NewCode(errcode.ErrValidation, "登录标识不能为空")
 	}
 
 	userDO, err := u.userStore.GetAuthByUsername(ctx, username)
@@ -497,19 +497,19 @@ func (u *userService) CreateStaffRole(ctx context.Context, role StaffRoleDTO) (*
 	role.Name = strings.ToLower(strings.TrimSpace(role.Name))
 	role.Description = strings.TrimSpace(role.Description)
 	if role.Name == "" {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role name is required")
 	}
 	if authz.IsReservedNonStaffRoleName(role.Name) {
-		return nil, errors.WithCode(code2.ErrValidation, "bootstrap and compatibility role names cannot be used as staff roles")
+		return nil, errors.NewCode(errcode.ErrValidation, "bootstrap and compatibility role names cannot be used as staff roles")
 	}
 	if authz.IsValidStaffRole(role.Name) {
-		return nil, errors.WithCode(code2.ErrValidation, "built-in staff roles cannot be created again")
+		return nil, errors.NewCode(errcode.ErrValidation, "built-in staff roles cannot be created again")
 	}
 	if !roleNamePattern.MatchString(role.Name) {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role name format is invalid")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role name format is invalid")
 	}
 	if role.Description == "" {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role description is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role description is required")
 	}
 
 	permissions, err := normalizePermissionNames(role.Permissions)
@@ -538,13 +538,13 @@ func (u *userService) UpdateStaffRole(ctx context.Context, role StaffRoleDTO) (*
 	role.Name = strings.ToLower(strings.TrimSpace(role.Name))
 	role.Description = strings.TrimSpace(role.Description)
 	if role.Name == "" {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role name is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role name is required")
 	}
 	if authz.IsReservedNonStaffRoleName(role.Name) {
-		return nil, errors.WithCode(code2.ErrValidation, "bootstrap and compatibility role names cannot be used as staff roles")
+		return nil, errors.NewCode(errcode.ErrValidation, "bootstrap and compatibility role names cannot be used as staff roles")
 	}
 	if role.Description == "" {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role description is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role description is required")
 	}
 	permissions, err := normalizePermissionNames(role.Permissions)
 	if err != nil {
@@ -577,16 +577,16 @@ func (u *userService) UpdateStaffRole(ctx context.Context, role StaffRoleDTO) (*
 func (u *userService) DeleteStaffRole(ctx context.Context, roleName string) error {
 	roleName = strings.ToLower(strings.TrimSpace(roleName))
 	if roleName == "" {
-		return errors.WithCode(code2.ErrValidation, "staff role name is required")
+		return errors.NewCode(errcode.ErrValidation, "staff role name is required")
 	}
 	if authz.IsReservedNonStaffRoleName(roleName) {
-		return errors.WithCode(code2.ErrValidation, "bootstrap and compatibility role names cannot be used as staff roles")
+		return errors.NewCode(errcode.ErrValidation, "bootstrap and compatibility role names cannot be used as staff roles")
 	}
 	if authz.IsValidStaffRole(roleName) {
-		return errors.WithCode(code2.ErrValidation, "built-in staff roles cannot be deleted")
+		return errors.NewCode(errcode.ErrValidation, "built-in staff roles cannot be deleted")
 	}
 	if !roleNamePattern.MatchString(roleName) {
-		return errors.WithCode(code2.ErrValidation, "staff role name format is invalid")
+		return errors.NewCode(errcode.ErrValidation, "staff role name format is invalid")
 	}
 	return u.userStore.DeleteRole(ctx, roleName)
 }
@@ -613,7 +613,7 @@ func (u *userService) ReplaceUserRoleBinding(ctx context.Context, userID uint64,
 
 func (u *userService) ListUserAuditLogs(ctx context.Context, userID uint64, filters UserAuditLogFilterDTO, opts metav1.ListMeta) (*UserAuditLogDTOList, error) {
 	if userID == 0 {
-		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
 	}
 	logs, err := u.userStore.ListAuditLogs(ctx, userID, dv1.UserAuditLogFilters{
 		Action:             strings.TrimSpace(filters.Action),
@@ -650,10 +650,10 @@ func (u *userService) CreateAdminAuditLog(ctx context.Context, log AdminAuditLog
 	log.ActorPrincipalType = strings.TrimSpace(log.ActorPrincipalType)
 	log.Detail = strings.TrimSpace(log.Detail)
 	if !isValidAdminAuditAction(log.Action) {
-		return errors.WithCode(code2.ErrValidation, "admin audit action is invalid")
+		return errors.NewCode(errcode.ErrValidation, "admin audit action is invalid")
 	}
 	if log.ActorPrincipalType == "" {
-		return errors.WithCode(code2.ErrValidation, "admin audit actor principal type is required")
+		return errors.NewCode(errcode.ErrValidation, "admin audit actor principal type is required")
 	}
 	var correlationID *string
 	if value := strings.TrimSpace(log.CorrelationID); value != "" {
@@ -734,10 +734,10 @@ func normalizeUserIdentifiers(user *UserDTO) error {
 	user.Email = normalizeEmail(user.EmailValue())
 
 	if user.Username != nil && !usernamePattern.MatchString(*user.Username) {
-		return errors.WithCode(code2.ErrValidation, "用户名格式错误")
+		return errors.NewCode(errcode.ErrValidation, "用户名格式错误")
 	}
 	if user.Email != nil && !isEmailAddress(*user.Email) {
-		return errors.WithCode(code2.ErrValidation, "邮箱格式错误")
+		return errors.NewCode(errcode.ErrValidation, "邮箱格式错误")
 	}
 	return nil
 }
@@ -786,7 +786,7 @@ func normalizeMutableAccountStatus(status string) (authz.AccountStatus, error) {
 	case authz.AccountStatusActive, authz.AccountStatusDisabled, authz.AccountStatusLocked:
 		return normalizedStatus, nil
 	default:
-		return "", errors.WithCode(code2.ErrValidation, "account status must be one of: active, disabled, locked")
+		return "", errors.NewCode(errcode.ErrValidation, "account status must be one of: active, disabled, locked")
 	}
 }
 
@@ -864,7 +864,7 @@ func (u *userService) List(ctx context.Context, orderBy []string, opts metav1.Li
 
 func newUserPublicDTO(user *dv1.UserDO) (*UserPublicDTO, error) {
 	if user == nil {
-		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
 	}
 	if err := validateLegacyRole(int32(user.Role)); err != nil {
 		return nil, err
@@ -891,7 +891,7 @@ func newUserPublicDTO(user *dv1.UserDO) (*UserPublicDTO, error) {
 
 func newUserAuthDTO(user *dv1.UserAuthDO) (*UserAuthDTO, error) {
 	if user == nil {
-		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
 	}
 	publicDTO, err := newUserPublicDTO(&user.UserDO)
 	if err != nil {
@@ -926,14 +926,14 @@ func resourceScopeDTOsFromDO(values []dv1.UserResourceScopeDO) []ResourceScopeDT
 
 func PublicDTOFromMutation(user *UserDTO) (*UserPublicDTO, error) {
 	if user == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "用户信息不能为空")
+		return nil, errors.NewCode(errcode.ErrValidation, "用户信息不能为空")
 	}
 	return newUserPublicDTO(&user.UserDO)
 }
 
 func newUserRoleBindingDTO(user *dv1.UserAuthDO) (*UserRoleBindingDTO, error) {
 	if user == nil {
-		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
 	}
 	return &UserRoleBindingDTO{
 		UserID:      user.ID,
@@ -944,7 +944,7 @@ func newUserRoleBindingDTO(user *dv1.UserAuthDO) (*UserRoleBindingDTO, error) {
 
 func newStaffUserDTO(user *dv1.UserAuthDO) (*StaffUserDTO, error) {
 	if user == nil {
-		return nil, errors.WithCode(code.ErrUserNotFound, "用户不存在")
+		return nil, errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
 	}
 	publicDTO, err := newUserPublicDTO(&user.UserDO)
 	if err != nil {
@@ -969,7 +969,7 @@ func newAuditActor(actor AuditActorDTO) *dv1.AuditActor {
 
 func validateLegacyRole(role int32) error {
 	if !authz.IsValidLegacyUserRole(role) {
-		return errors.WithCode(code2.ErrValidation, "legacy role must be one of: 1(customer), 2(admin)")
+		return errors.NewCode(errcode.ErrValidation, "legacy role must be one of: 1(customer), 2(admin)")
 	}
 	return nil
 }
@@ -982,12 +982,12 @@ func normalizePermissionNames(permissionNames []string) ([]string, error) {
 			continue
 		}
 		if !authz.IsValidPermission(permissionName) {
-			return nil, errors.WithCode(code2.ErrValidation, "staff role permissions contain unknown values")
+			return nil, errors.NewCode(errcode.ErrValidation, "staff role permissions contain unknown values")
 		}
 		normalized[permissionName] = struct{}{}
 	}
 	if len(normalized) == 0 {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role permissions are required")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role permissions are required")
 	}
 
 	result := make([]string, 0, len(normalized))
@@ -1006,12 +1006,12 @@ func normalizeBusinessDomains(domains []string) ([]string, error) {
 			continue
 		}
 		if !authz.IsValidBusinessDomain(domain) {
-			return nil, errors.WithCode(code2.ErrValidation, "staff role domains contain unknown values")
+			return nil, errors.NewCode(errcode.ErrValidation, "staff role domains contain unknown values")
 		}
 		normalized[domain] = struct{}{}
 	}
 	if len(normalized) == 0 {
-		return nil, errors.WithCode(code2.ErrValidation, "staff role domains are required")
+		return nil, errors.NewCode(errcode.ErrValidation, "staff role domains are required")
 	}
 
 	result := make([]string, 0, len(normalized))
@@ -1036,10 +1036,10 @@ func (u *userService) validateKnownRoleNames(ctx context.Context, roleNames []st
 	}
 	for _, roleName := range roleNames {
 		if authz.IsReservedNonStaffRoleName(roleName) {
-			return errors.WithCode(code2.ErrValidation, "staff roles contain reserved non-staff values")
+			return errors.NewCode(errcode.ErrValidation, "staff roles contain reserved non-staff values")
 		}
 		if _, ok := known[roleName]; !ok {
-			return errors.WithCode(code2.ErrValidation, "staff roles contain unknown values")
+			return errors.NewCode(errcode.ErrValidation, "staff roles contain unknown values")
 		}
 	}
 	return nil

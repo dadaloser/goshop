@@ -6,7 +6,7 @@ import (
 	"time"
 
 	dv1 "goshop/app/user/srv/internal/data/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"gorm.io/gorm"
@@ -15,10 +15,10 @@ import (
 
 func (u *users) CreateBreakGlassApproval(ctx context.Context, approval *dv1.BreakGlassApprovalDO) error {
 	if approval == nil || approval.ID == "" {
-		return errors.WithCode(code2.ErrValidation, "break-glass approval is invalid")
+		return errors.NewCode(errcode.ErrValidation, "break-glass approval is invalid")
 	}
 	if err := u.db.WithContext(ctx).Create(approval).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -33,7 +33,7 @@ func (u *users) ApproveBreakGlassApproval(ctx context.Context, approvalID string
 			return gorm.ErrRecordNotFound
 		}
 		if approval.RequesterUserID == approverUserID {
-			return errors.WithCode(code2.ErrValidation, "break-glass approver must be different from requester")
+			return errors.NewCode(errcode.ErrValidation, "break-glass approver must be different from requester")
 		}
 		approvedAt := now.UTC()
 		approval.ApproverUserID = approverUserID
@@ -49,7 +49,7 @@ func (u *users) ApproveBreakGlassApproval(ctx context.Context, approvalID string
 	})
 	if err != nil {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code2.ErrValidation, "break-glass approval is not approvable")
+			return nil, errors.NewCode(errcode.ErrValidation, "break-glass approval is not approvable")
 		}
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (u *users) ConsumeBreakGlassApproval(ctx context.Context, approvalID string
 	})
 	if err != nil {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.WithCode(code2.ErrValidation, "break-glass approval is not usable")
+			return nil, errors.NewCode(errcode.ErrValidation, "break-glass approval is not usable")
 		}
 		return nil, err
 	}

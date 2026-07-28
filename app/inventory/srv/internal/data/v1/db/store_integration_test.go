@@ -3,13 +3,13 @@ package mysql
 import (
 	"context"
 	"fmt"
+	"goshop/app/pkg/bizcode"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"goshop/app/inventory/srv/internal/domain/do"
-	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 )
 
@@ -68,7 +68,7 @@ func TestInventoryStoreReduceConcurrentRealDB(t *testing.T) {
 			switch {
 			case err == nil:
 				success.Add(1)
-			case errors.IsCode(err, code.ErrInvNotEnough):
+			case errors.IsCode(err, bizcode.ErrInvNotEnough):
 			default:
 				errs <- fmt.Errorf("Reduce(concurrent goodsID=%d) error = %v, want nil or ErrInvNotEnough", goodsID, err)
 			}

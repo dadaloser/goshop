@@ -3,13 +3,13 @@ package es
 import (
 	"context"
 	"encoding/json"
+	"goshop/app/pkg/bizcode"
 	"strings"
 	"testing"
 
 	proto "goshop/api/goods/v1"
 	searchv1 "goshop/app/goods/srv/internal/data_search/v1"
 	"goshop/app/goods/srv/internal/domain/do"
-	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 )
 
@@ -26,35 +26,35 @@ func TestGoodsWriteRejectsInvalidInput(t *testing.T) {
 			run: func() error {
 				return store.Create(context.Background(), nil)
 			},
-			code: code.ErrGoodsInvalid,
+			code: bizcode.ErrGoodsInvalid,
 		},
 		{
 			name: "create zero id",
 			run: func() error {
 				return store.Create(context.Background(), &do.GoodsSearchDO{})
 			},
-			code: code.ErrGoodsInvalid,
+			code: bizcode.ErrGoodsInvalid,
 		},
 		{
 			name: "delete zero id",
 			run: func() error {
 				return store.Delete(context.Background(), 0)
 			},
-			code: code.ErrGoodsNotFound,
+			code: bizcode.ErrGoodsNotFound,
 		},
 		{
 			name: "update nil goods",
 			run: func() error {
 				return store.Update(context.Background(), nil)
 			},
-			code: code.ErrGoodsInvalid,
+			code: bizcode.ErrGoodsInvalid,
 		},
 		{
 			name: "update zero id",
 			run: func() error {
 				return store.Update(context.Background(), &do.GoodsSearchDO{})
 			},
-			code: code.ErrGoodsInvalid,
+			code: bizcode.ErrGoodsInvalid,
 		},
 	}
 

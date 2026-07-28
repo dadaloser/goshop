@@ -3,11 +3,11 @@ package db
 import (
 	"bytes"
 	"context"
+	"goshop/app/pkg/bizcode"
 	"sync"
 	"testing"
 	"time"
 
-	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
 	"goshop/pkg/errors"
 )
@@ -83,7 +83,7 @@ func TestRotateSessionAllowsOnlyOneConcurrentRefreshRealDB(t *testing.T) {
 		case item.err == nil:
 			success++
 			winnerHash = item.hash
-		case errors.IsCode(item.err, code.ErrUserAccountInactive):
+		case errors.IsCode(item.err, bizcode.ErrUserAccountInactive):
 		default:
 			t.Fatalf("RotateSession() unexpected error = %v", item.err)
 		}

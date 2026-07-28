@@ -1,4 +1,4 @@
-package code
+package bizcode
 
 const (
 	// ErrGoodsNotFound - 404: Goods not found.

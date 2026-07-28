@@ -2,12 +2,12 @@ package user
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"net/mail"
 	"strings"
 
 	"goshop/app/goshop/api/internal/emailcode"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
-	"goshop/app/pkg/code"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
 
@@ -40,15 +40,15 @@ func SendEmailCode(sender emailcode.Sender) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var form SendEmailCodeForm
 		if err := ctx.ShouldBindJSON(&form); err != nil {
-			core.WriteResponse(ctx, errors.WithCode(code.ErrCodeInCorrect, "invalid email code request"), nil)
+			core.WriteResponse(ctx, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "invalid email code request"), nil)
 			return
 		}
 		if _, err := mail.ParseAddress(form.Email); err != nil {
-			core.WriteResponse(ctx, errors.WithCode(code.ErrCodeInCorrect, "invalid email"), nil)
+			core.WriteResponse(ctx, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "invalid email"), nil)
 			return
 		}
 		if err := sender.Send(ctx, strings.ToLower(strings.TrimSpace(form.Email)), form.Purpose); err != nil {
-			core.WriteResponse(ctx, errors.WithCode(code.ErrSmsVerifyLocked, "email verification temporarily unavailable"), nil)
+			core.WriteResponse(ctx, errors.NewSpec(bizcode.EmailVerificationUnavailableSpec, "send email verification code"), nil)
 			return
 		}
 		core.WriteResponse(ctx, nil, gin.H{"ok": true})
@@ -58,7 +58,7 @@ func SendEmailCode(sender emailcode.Sender) gin.HandlerFunc {
 func (us *userServer) EmailLogin(ctx *gin.Context) {
 	var form EmailLoginForm
 	if err := ctx.ShouldBindJSON(&form); err != nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrCodeInCorrect, "invalid email login request"), nil)
+		core.WriteResponse(ctx, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "invalid email login request"), nil)
 		return
 	}
 	base, err := us.usersService()
@@ -68,7 +68,7 @@ func (us *userServer) EmailLogin(ctx *gin.Context) {
 	}
 	service, ok := base.(emailAuthService)
 	if !ok {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "email login unavailable"), nil)
+		core.WriteResponse(ctx, errors.NewSpec(bizcode.ConnectGRPCSpec, "email login unavailable"), nil)
 		return
 	}
 	user, err := service.EmailLogin(ctx, form.Email, form.Code)
@@ -82,7 +82,7 @@ func (us *userServer) EmailLogin(ctx *gin.Context) {
 func (us *userServer) EmailRegister(ctx *gin.Context) {
 	var form EmailRegisterForm
 	if err := ctx.ShouldBindJSON(&form); err != nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrCodeInCorrect, "invalid email registration request"), nil)
+		core.WriteResponse(ctx, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "invalid email registration request"), nil)
 		return
 	}
 	base, err := us.usersService()
@@ -92,7 +92,7 @@ func (us *userServer) EmailRegister(ctx *gin.Context) {
 	}
 	service, ok := base.(emailAuthService)
 	if !ok {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "email registration unavailable"), nil)
+		core.WriteResponse(ctx, errors.NewSpec(bizcode.ConnectGRPCSpec, "email registration unavailable"), nil)
 		return
 	}
 	user, err := service.EmailRegister(ctx, form.Mobile, form.Email, form.Username, form.Password, form.NickName, form.Code)

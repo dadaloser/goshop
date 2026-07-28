@@ -2,13 +2,13 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"testing"
 
 	gpb "goshop/api/goods/v1"
 	ipb "goshop/api/inventory/v1"
 	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
-	"goshop/app/pkg/code"
 	"goshop/pkg/errors"
 
 	"google.golang.org/grpc"
@@ -20,12 +20,13 @@ func TestInventoryServiceDetailRejectsInvalidBoundary(t *testing.T) {
 		svc  InventorySrv
 		id   uint64
 		code int
+		kind errors.Kind
 	}{
-		{name: "nil service", svc: (*inventoryService)(nil), id: 1, code: code.ErrConnectGRPC},
-		{name: "nil data factory", svc: NewInventory(nil), id: 1, code: code.ErrConnectGRPC},
-		{name: "zero goods id", svc: NewInventory(&fakeInventoryDataFactory{inventory: &fakeInventoryClient{}}), id: 0, code: code.ErrInventoryNotFound},
-		{name: "nil inventory client", svc: NewInventory(&fakeInventoryDataFactory{}), id: 1, code: code.ErrConnectGRPC},
-		{name: "nil downstream response", svc: NewInventory(&fakeInventoryDataFactory{inventory: &fakeInventoryClient{}}), id: 1, code: code.ErrConnectGRPC},
+		{name: "nil service", svc: (*inventoryService)(nil), id: 1, code: bizcode.ErrConnectGRPC, kind: errors.KindUnavailable},
+		{name: "nil data factory", svc: NewInventory(nil), id: 1, code: bizcode.ErrConnectGRPC, kind: errors.KindUnavailable},
+		{name: "zero goods id", svc: NewInventory(&fakeInventoryDataFactory{inventory: &fakeInventoryClient{}}), id: 0, code: bizcode.ErrInventoryNotFound, kind: errors.KindNotFound},
+		{name: "nil inventory client", svc: NewInventory(&fakeInventoryDataFactory{}), id: 1, code: bizcode.ErrConnectGRPC, kind: errors.KindUnavailable},
+		{name: "nil downstream response", svc: NewInventory(&fakeInventoryDataFactory{inventory: &fakeInventoryClient{}}), id: 1, code: bizcode.ErrConnectGRPC, kind: errors.KindUnavailable},
 	}
 
 	for _, tt := range tests {
@@ -34,7 +35,30 @@ func TestInventoryServiceDetailRejectsInvalidBoundary(t *testing.T) {
 			if !errors.IsCode(err, tt.code) {
 				t.Fatalf("Detail() error = %v, want code %d", err, tt.code)
 			}
+			spec, ok := errors.SpecOf(err)
+			if !ok {
+				t.Fatal("Detail() error has no specification")
+			}
+			if spec.Kind != tt.kind {
+				t.Fatalf("Detail() error kind = %q, want %q", spec.Kind, tt.kind)
+			}
 		})
+	}
+}
+
+func TestInventoryServiceOrderDetailRejectsEmptyOrderSN(t *testing.T) {
+	svc := NewInventory(&fakeInventoryDataFactory{inventory: &fakeInventoryClient{}})
+	_, err := svc.OrderDetail(context.Background(), "")
+
+	if !errors.IsCode(err, bizcode.ErrInvSellDetailNotFound) {
+		t.Fatalf("OrderDetail() error = %v, want code %d", err, bizcode.ErrInvSellDetailNotFound)
+	}
+	spec, ok := errors.SpecOf(err)
+	if !ok {
+		t.Fatal("OrderDetail() error has no specification")
+	}
+	if spec.Kind != errors.KindInvalidArgument {
+		t.Fatalf("OrderDetail() error kind = %q, want %q", spec.Kind, errors.KindInvalidArgument)
 	}
 }
 

@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"goshop/app/pkg/bizcode"
 	"strings"
 	"time"
 
 	"goshop/app/order/srv/internal/domain/do"
-	appcode "goshop/app/pkg/code"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"gorm.io/gorm"
@@ -57,14 +57,14 @@ func (o *orders) ClaimRefundJobs(ctx context.Context, limit, maxAttempts int, lo
 		return nil
 	})
 	if err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return jobs, nil
 }
 
 func (o *orders) CompleteRefundJob(ctx context.Context, id uint64, success bool, provider, providerRefundID, providerStatus, detail string, maxAttempts int) error {
 	if id == 0 {
-		return errors.WithCode(code2.ErrValidation, "refund job id is required")
+		return errors.NewCode(errcode.ErrValidation, "refund job id is required")
 	}
 	if maxAttempts <= 0 {
 		maxAttempts = 8
@@ -114,7 +114,7 @@ func (o *orders) CompleteRefundJob(ctx context.Context, id uint64, success bool,
 		return tx.Model(&outbox).Updates(map[string]interface{}{"status": "retry", "available_at": decision.availableAt, "locked_at": nil, "last_error": detail, "updated_at": now}).Error
 	})
 	if err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -169,20 +169,20 @@ func truncatePaymentDetail(value string) string {
 func (o *orders) ReconcilePayments(ctx context.Context, provider string, from, to time.Time, transactions []do.PaymentEventDO) (*do.PaymentReconciliationRunDO, error) {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	if provider == "" || !from.Before(to) {
-		return nil, errors.WithCode(code2.ErrValidation, "invalid reconciliation request")
+		return nil, errors.NewCode(errcode.ErrValidation, "invalid reconciliation request")
 	}
 	if len(transactions) > 10000 {
-		return nil, errors.WithCode(code2.ErrValidation, "reconciliation batch is too large")
+		return nil, errors.NewCode(errcode.ErrValidation, "reconciliation batch is too large")
 	}
 	for _, transaction := range transactions {
 		if strings.TrimSpace(transaction.EventID) == "" || strings.TrimSpace(transaction.OrderSN) == "" || strings.TrimSpace(transaction.EventType) == "" || transaction.ProviderAmountFen < 0 {
-			return nil, errors.WithCode(code2.ErrValidation, "provider transaction is invalid")
+			return nil, errors.NewCode(errcode.ErrValidation, "provider transaction is invalid")
 		}
 	}
 	providerEvents := make(map[string]struct{}, len(transactions))
 	for _, transaction := range transactions {
 		if _, exists := providerEvents[transaction.EventID]; exists {
-			return nil, errors.WithCode(code2.ErrValidation, "provider statement contains duplicate event_id")
+			return nil, errors.NewCode(errcode.ErrValidation, "provider statement contains duplicate event_id")
 		}
 		providerEvents[transaction.EventID] = struct{}{}
 	}
@@ -240,7 +240,7 @@ func (o *orders) ReconcilePayments(ctx context.Context, provider string, from, t
 		return tx.Model(run).Updates(map[string]interface{}{"checked_count": run.CheckedCount, "mismatch_count": mismatches, "status": run.Status, "finished_at": finished}).Error
 	})
 	if err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, fmt.Sprintf("reconcile payments: %v", err))
+		return nil, errors.NewCode(errcode.ErrDatabase, fmt.Sprintf("reconcile payments: %v", err))
 	}
 	return run, nil
 }
@@ -258,11 +258,11 @@ func (o *orders) ListPaymentReconciliationRuns(ctx context.Context, provider str
 	}
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	items := make([]do.PaymentReconciliationRunDO, 0, limit)
 	if err := query.Order("id DESC").Offset(offset).Limit(limit).Find(&items).Error; err != nil {
-		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return items, total, nil
 }
@@ -286,18 +286,18 @@ func (o *orders) ListPaymentReconciliationItems(ctx context.Context, provider st
 	}
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	items := make([]do.PaymentReconciliationItemDO, 0, limit)
 	if err := query.Select("i.*").Order("i.id DESC").Offset(offset).Limit(limit).Scan(&items).Error; err != nil {
-		return nil, 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return items, total, nil
 }
 
 func (o *orders) RetryDeadRefundJob(ctx context.Context, id uint64) (*do.RefundJob, error) {
 	if id == 0 {
-		return nil, errors.WithCode(code2.ErrValidation, "refund job id is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "refund job id is required")
 	}
 	now := time.Now().UTC()
 	job := &do.RefundJob{}
@@ -338,7 +338,7 @@ func (o *orders) RetryDeadRefundJob(ctx context.Context, id uint64) (*do.RefundJ
 		return nil
 	})
 	if err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return job, nil
 }
@@ -386,10 +386,10 @@ func (o *orders) resolveTraceOrder(ctx context.Context, lookup do.OrderTraceLook
 	switch {
 	case lookup.TradeNo != "":
 		if err := query.Table("orderinfo").Select("order_sn").Where("trade_no = ?", lookup.TradeNo).Limit(1).Scan(&orderSN).Error; err != nil {
-			return nil, "", "", errors.WithCode(code2.ErrDatabase, err.Error())
+			return nil, "", "", errors.NewCode(errcode.ErrDatabase, err.Error())
 		}
 		if strings.TrimSpace(orderSN) == "" {
-			return nil, "", "", errors.WithCode(appcode.ErrOrderNotFound, "order not found")
+			return nil, "", "", errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 		}
 		order, err := o.Get(ctx, orderSN)
 		if err != nil {
@@ -398,10 +398,10 @@ func (o *orders) resolveTraceOrder(ctx context.Context, lookup do.OrderTraceLook
 		return order, "trade_no", lookup.TradeNo, nil
 	case lookup.CorrelationID != "":
 		if err := query.Table("order_refund_requests").Select("order_sn").Where("correlation_id = ?", lookup.CorrelationID).Limit(1).Scan(&orderSN).Error; err != nil {
-			return nil, "", "", errors.WithCode(code2.ErrDatabase, err.Error())
+			return nil, "", "", errors.NewCode(errcode.ErrDatabase, err.Error())
 		}
 		if strings.TrimSpace(orderSN) == "" {
-			return nil, "", "", errors.WithCode(appcode.ErrOrderNotFound, "order not found")
+			return nil, "", "", errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 		}
 		order, err := o.Get(ctx, orderSN)
 		if err != nil {
@@ -409,7 +409,7 @@ func (o *orders) resolveTraceOrder(ctx context.Context, lookup do.OrderTraceLook
 		}
 		return order, "correlation_id", lookup.CorrelationID, nil
 	default:
-		return nil, "", "", errors.WithCode(code2.ErrValidation, "order_sn, trade_no or correlation_id is required")
+		return nil, "", "", errors.NewCode(errcode.ErrValidation, "order_sn, trade_no or correlation_id is required")
 	}
 }
 
@@ -419,7 +419,7 @@ func (o *orders) loadTraceStatusLogs(ctx context.Context, orderSN string) ([]*do
 		Where("order_sn = ?", orderSN).
 		Order("add_time asc, id asc").
 		Find(&entries).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return entries, nil
 }
@@ -454,7 +454,7 @@ func (o *orders) loadTraceRefunds(ctx context.Context, orderSN string) ([]do.Ref
 		Where("r.order_sn = ?", orderSN).
 		Order("r.id ASC").
 		Scan(&rows).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 
 	refunds := make([]do.RefundTraceRecord, 0, len(rows))

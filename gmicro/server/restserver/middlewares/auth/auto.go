@@ -4,7 +4,7 @@ import (
 	"goshop/pkg/common/core"
 	"strings"
 
-	"goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/gmicro/server/restserver/middlewares"
 
 	"goshop/pkg/errors"
@@ -40,7 +40,7 @@ func (a AutoStrategy) AuthFunc() gin.HandlerFunc {
 		if len(authHeader) != authHeaderCount {
 			core.WriteResponse(
 				c,
-				errors.WithCode(code.ErrInvalidAuthHeader, "Authorization header format is wrong."),
+				errors.NewCode(errcode.ErrInvalidAuthHeader, "Authorization header format is wrong."),
 				nil,
 			)
 			c.Abort()
@@ -55,7 +55,7 @@ func (a AutoStrategy) AuthFunc() gin.HandlerFunc {
 			operator.SetStrategy(a.jwt)
 			// a.JWT.MiddlewareFunc()(c)
 		default:
-			core.WriteResponse(c, errors.WithCode(code.ErrSignatureInvalid, "unrecognized Authorization header."), nil)
+			core.WriteResponse(c, errors.NewCode(errcode.ErrSignatureInvalid, "unrecognized Authorization header."), nil)
 			c.Abort()
 
 			return

@@ -3,6 +3,7 @@ package sms
 import (
 	"context"
 	"encoding/json"
+	"goshop/app/pkg/bizcode"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -16,7 +17,6 @@ import (
 	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
 	smsv1 "goshop/app/goshop/api/internal/service/sms/v1"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
-	"goshop/app/pkg/code"
 	"goshop/gmicro/server/restserver/validation"
 
 	"github.com/gin-gonic/gin"
@@ -35,10 +35,10 @@ func TestSmsControllerSendSmsRejectsMissingServiceFactory(t *testing.T) {
 
 	controller.SendSms(ctx)
 
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
-	assertSmsErrorCode(t, recorder.Body.Bytes(), code.ErrConnectGRPC)
+	assertSmsErrorCode(t, recorder.Body.Bytes(), bizcode.ErrConnectGRPC)
 }
 
 func TestSmsControllerSendSmsRejectsMissingCodeStoreBeforeSending(t *testing.T) {
@@ -53,10 +53,10 @@ func TestSmsControllerSendSmsRejectsMissingCodeStoreBeforeSending(t *testing.T) 
 
 	controller.SendSms(ctx)
 
-	if recorder.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
-	assertSmsErrorCode(t, recorder.Body.Bytes(), code.ErrSmsSend)
+	assertSmsErrorCode(t, recorder.Body.Bytes(), bizcode.ErrSmsSend)
 	if smsSrv.called {
 		t.Fatal("SendSms reached sms service when code store is missing")
 	}
@@ -73,10 +73,10 @@ func TestSmsControllerSendSmsRejectsNilSmsService(t *testing.T) {
 
 	controller.SendSms(ctx)
 
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
-	assertSmsErrorCode(t, recorder.Body.Bytes(), code.ErrConnectGRPC)
+	assertSmsErrorCode(t, recorder.Body.Bytes(), bizcode.ErrConnectGRPC)
 }
 
 func TestSmsControllerSendSmsStoresGeneratedCode(t *testing.T) {

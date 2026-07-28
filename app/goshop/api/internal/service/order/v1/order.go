@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"goshop/app/pkg/bizcode"
 	"strings"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/payment"
-	"goshop/app/pkg/code"
 	"goshop/app/pkg/options"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
@@ -97,7 +97,7 @@ type PaymentInitiation struct {
 
 func (os *orderService) InitiatePayment(ctx context.Context, userID uint64, orderSN string) (*PaymentInitiation, error) {
 	if os == nil || os.paymentOpts == nil || !os.paymentOpts.Enabled {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "payment provider is disabled")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "payment provider is disabled")
 	}
 	detail, err := os.OrderDetail(ctx, userID, orderSN)
 	if err != nil {
@@ -105,7 +105,7 @@ func (os *orderService) InitiatePayment(ctx context.Context, userID uint64, orde
 	}
 	status := strings.TrimSpace(detail.GetOrderInfo().GetStatus())
 	if status != orderStatusWaitBuyerPay && status != orderStatusPaying {
-		return nil, errors.WithCode(code.ErrOrderStatusInvalid, "order cannot be paid in current status")
+		return nil, errors.NewCode(bizcode.ErrOrderStatusInvalid, "order cannot be paid in current status")
 	}
 	amount := detail.GetOrderInfo().GetTotalFen()
 	result, err := os.provider.Initiate(ctx, payment.InitiateRequest{OrderSN: orderSN, AmountFen: amount, Subject: "goshop order"})
@@ -125,7 +125,7 @@ func (os *orderService) CancelOrder(ctx context.Context, userID uint64, orderSN 
 	}
 	current := strings.TrimSpace(detail.GetOrderInfo().GetStatus())
 	if current != orderStatusWaitBuyerPay && current != orderStatusPaying {
-		return errors.WithCode(code.ErrOrderStatusInvalid, "order cannot be cancelled in current status")
+		return errors.NewCode(bizcode.ErrOrderStatusInvalid, "order cannot be cancelled in current status")
 	}
 	sellInfo, err := sellInfoFromOrder(orderSN, detail.GetGoods())
 	if err != nil {
@@ -140,7 +140,7 @@ func (os *orderService) CancelOrder(ctx context.Context, userID uint64, orderSN 
 
 func (os *orderService) ProcessPayCallback(ctx context.Context, req *payment.CallbackRequest) (bool, error) {
 	if req == nil || req.Provider == "" || req.EventID == "" || req.EventType == "" || req.OrderSN == "" || req.AmountFen < 0 {
-		return false, errors.WithCode(code.ErrOrderStatusInvalid, "payment callback is invalid")
+		return false, errors.NewCode(bizcode.ErrOrderStatusInvalid, "payment callback is invalid")
 	}
 	orders := os.data.Orders()
 	refundAmount := int64(0)
@@ -155,7 +155,7 @@ func (os *orderService) ProcessPayCallback(ctx context.Context, req *payment.Cal
 		if begin.GetCompleted() {
 			return true, nil
 		}
-		return false, errors.WithCode(code.ErrConnectGRPC, "payment callback is already processing")
+		return false, errors.NewCode(bizcode.ErrConnectGRPC, "payment callback is already processing")
 	}
 	success := false
 	detail := "callback processing failed"
@@ -169,7 +169,7 @@ func (os *orderService) ProcessPayCallback(ctx context.Context, req *payment.Cal
 	invalidRefund := isRefund && (req.AmountFen <= 0 || req.AmountFen > begin.GetOrderAmountFen())
 	if amountMismatch || invalidRefund {
 		detail = "payment amount mismatch"
-		return false, errors.WithCode(code.ErrOrderStatusInvalid, detail)
+		return false, errors.NewCode(bizcode.ErrOrderStatusInvalid, detail)
 	}
 	orderDetail, err := orders.GetOrderBySn(ctx, &opb.OrderLookupRequest{OrderSn: req.OrderSN})
 	if err != nil {
@@ -179,7 +179,7 @@ func (os *orderService) ProcessPayCallback(ctx context.Context, req *payment.Cal
 	currentStatus := strings.TrimSpace(orderDetail.GetOrderInfo().GetStatus())
 	if !paymentEventAllowed(req.EventType, currentStatus) {
 		detail = "payment event is out of order"
-		return false, errors.WithCode(code.ErrOrderStatusInvalid, detail)
+		return false, errors.NewCode(bizcode.ErrOrderStatusInvalid, detail)
 	}
 	sellInfo, err := sellInfoFromOrder(req.OrderSN, orderDetail.GetGoods())
 	if err != nil {
@@ -206,7 +206,7 @@ func (os *orderService) ProcessPayCallback(ctx context.Context, req *payment.Cal
 		target = "REFUND_FAILED"
 	default:
 		detail = "unknown payment event"
-		return false, errors.WithCode(code.ErrOrderStatusInvalid, detail)
+		return false, errors.NewCode(bizcode.ErrOrderStatusInvalid, detail)
 	}
 	status := &opb.OrderStatus{OrderSn: req.OrderSN, Status: target, PayType: req.Provider, TradeNo: req.TradeNo}
 	if target == orderStatusTradeSuccess {
@@ -234,7 +234,7 @@ func paymentEventAllowed(eventType, status string) bool {
 
 func (os *orderService) CartItemList(ctx context.Context, userID uint64) (*opb.CartItemListResponse, error) {
 	if os == nil || os.data == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order data client is not initialized")
 	}
 	if userID == 0 {
 		return &opb.CartItemListResponse{}, nil
@@ -242,7 +242,7 @@ func (os *orderService) CartItemList(ctx context.Context, userID uint64) (*opb.C
 
 	client := os.data.Orders()
 	if client == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order grpc client is not initialized")
 	}
 
 	resp, err := client.CartItemList(ctx, &opb.UserInfo{Id: int32(userID)})
@@ -250,22 +250,22 @@ func (os *orderService) CartItemList(ctx context.Context, userID uint64) (*opb.C
 		return nil, err
 	}
 	if resp == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc response is empty")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order grpc response is empty")
 	}
 	return resp, nil
 }
 
 func (os *orderService) CreateCartItem(ctx context.Context, userID uint64, req *CartItemRequest) (*opb.ShopCartInfoResponse, error) {
 	if os == nil || os.data == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order data client is not initialized")
 	}
 	if userID == 0 || req == nil || req.GoodsID <= 0 || req.Nums <= 0 {
-		return nil, errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+		return nil, errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
 	}
 
 	client := os.data.Orders()
 	if client == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order grpc client is not initialized")
 	}
 
 	resp, err := client.CreateCartItem(ctx, &opb.CartItemRequest{
@@ -278,22 +278,22 @@ func (os *orderService) CreateCartItem(ctx context.Context, userID uint64, req *
 		return nil, err
 	}
 	if resp == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc response is empty")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order grpc response is empty")
 	}
 	return resp, nil
 }
 
 func (os *orderService) UpdateCartItem(ctx context.Context, userID uint64, req *CartItemRequest) error {
 	if os == nil || os.data == nil {
-		return errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		return errors.NewCode(bizcode.ErrConnectGRPC, "order data client is not initialized")
 	}
 	if userID == 0 || req == nil || req.GoodsID <= 0 || req.Nums <= 0 {
-		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+		return errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
 	}
 
 	client := os.data.Orders()
 	if client == nil {
-		return errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		return errors.NewCode(bizcode.ErrConnectGRPC, "order grpc client is not initialized")
 	}
 
 	_, err := client.UpdateCartItem(ctx, &opb.CartItemRequest{
@@ -307,15 +307,15 @@ func (os *orderService) UpdateCartItem(ctx context.Context, userID uint64, req *
 
 func (os *orderService) DeleteCartItem(ctx context.Context, userID, id uint64) error {
 	if os == nil || os.data == nil {
-		return errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		return errors.NewCode(bizcode.ErrConnectGRPC, "order data client is not initialized")
 	}
 	if userID == 0 || id == 0 {
-		return errors.WithCode(code.ErrShopCartItemNotFound, "shop cart item not found")
+		return errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
 	}
 
 	client := os.data.Orders()
 	if client == nil {
-		return errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		return errors.NewCode(bizcode.ErrConnectGRPC, "order grpc client is not initialized")
 	}
 
 	_, err := client.DeleteCartItem(ctx, &opb.CartItemRequest{
@@ -327,10 +327,10 @@ func (os *orderService) DeleteCartItem(ctx context.Context, userID, id uint64) e
 
 func (os *orderService) SubmitOrder(ctx context.Context, userID uint64, req *SubmitOrderRequest) (string, error) {
 	if os == nil || os.data == nil {
-		return "", errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		return "", errors.NewCode(bizcode.ErrConnectGRPC, "order data client is not initialized")
 	}
 	if userID == 0 || req == nil {
-		return "", errors.WithCode(code.ErrSubmitOrder, "order request is required")
+		return "", errors.NewCode(bizcode.ErrSubmitOrder, "order request is required")
 	}
 
 	req.Address = strings.TrimSpace(req.Address)
@@ -339,7 +339,7 @@ func (os *orderService) SubmitOrder(ctx context.Context, userID uint64, req *Sub
 	req.Post = strings.TrimSpace(req.Post)
 	req.OrderSn = strings.TrimSpace(req.OrderSn)
 	if req.Address == "" || req.Name == "" || req.Mobile == "" {
-		return "", errors.WithCode(code.ErrSubmitOrder, "address, name and mobile are required")
+		return "", errors.NewCode(bizcode.ErrSubmitOrder, "address, name and mobile are required")
 	}
 	if req.OrderSn == "" {
 		req.OrderSn = generateOrderSn(userID)
@@ -347,7 +347,7 @@ func (os *orderService) SubmitOrder(ctx context.Context, userID uint64, req *Sub
 
 	client := os.data.Orders()
 	if client == nil {
-		return "", errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		return "", errors.NewCode(bizcode.ErrConnectGRPC, "order grpc client is not initialized")
 	}
 
 	_, err := client.SubmitOrder(ctx, &opb.OrderRequest{
@@ -366,7 +366,7 @@ func (os *orderService) SubmitOrder(ctx context.Context, userID uint64, req *Sub
 
 func (os *orderService) OrderList(ctx context.Context, userID uint64, filter *OrderListFilter) (*opb.OrderListResponse, error) {
 	if os == nil || os.data == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order data client is not initialized")
 	}
 	if userID == 0 {
 		return &opb.OrderListResponse{}, nil
@@ -374,7 +374,7 @@ func (os *orderService) OrderList(ctx context.Context, userID uint64, filter *Or
 
 	client := os.data.Orders()
 	if client == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order grpc client is not initialized")
 	}
 
 	filter = normalizeOrderListFilter(filter)
@@ -387,23 +387,23 @@ func (os *orderService) OrderList(ctx context.Context, userID uint64, filter *Or
 		return nil, err
 	}
 	if resp == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc response is empty")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order grpc response is empty")
 	}
 	return resp, nil
 }
 
 func (os *orderService) OrderDetail(ctx context.Context, userID uint64, orderSn string) (*opb.OrderInfoDetailResponse, error) {
 	if os == nil || os.data == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order data client is not initialized")
 	}
 	orderSn = strings.TrimSpace(orderSn)
 	if userID == 0 || orderSn == "" {
-		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+		return nil, errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 	}
 
 	client := os.data.Orders()
 	if client == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order grpc client is not initialized")
 	}
 
 	resp, err := client.OrderDetail(ctx, &opb.OrderRequest{
@@ -414,26 +414,26 @@ func (os *orderService) OrderDetail(ctx context.Context, userID uint64, orderSn 
 		return nil, err
 	}
 	if resp == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc response is empty")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order grpc response is empty")
 	}
 	if resp.OrderInfo == nil {
-		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+		return nil, errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 	}
 	return resp, nil
 }
 
 func (os *orderService) OrderStatusLogs(ctx context.Context, userID uint64, orderSn string) (*opb.OrderStatusLogListResponse, error) {
 	if os == nil || os.data == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order data client is not initialized")
 	}
 	orderSn = strings.TrimSpace(orderSn)
 	if userID == 0 || orderSn == "" {
-		return nil, errors.WithCode(code.ErrOrderNotFound, "order not found")
+		return nil, errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 	}
 
 	client := os.data.Orders()
 	if client == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order grpc client is not initialized")
 	}
 
 	resp, err := client.OrderStatusLogs(ctx, &opb.OrderRequest{
@@ -444,7 +444,7 @@ func (os *orderService) OrderStatusLogs(ctx context.Context, userID uint64, orde
 		return nil, err
 	}
 	if resp == nil {
-		return nil, errors.WithCode(code.ErrConnectGRPC, "order grpc response is empty")
+		return nil, errors.NewCode(bizcode.ErrConnectGRPC, "order grpc response is empty")
 	}
 	return resp, nil
 }
@@ -458,29 +458,29 @@ func (os *orderService) SimulatePayCallback(ctx context.Context, req *PayCallbac
 	}()
 
 	if os == nil || os.data == nil {
-		callbackErr = errors.WithCode(code.ErrConnectGRPC, "order data client is not initialized")
+		callbackErr = errors.NewCode(bizcode.ErrConnectGRPC, "order data client is not initialized")
 		return callbackErr
 	}
 	if req == nil {
-		callbackErr = errors.WithCode(code.ErrOrderStatusInvalid, "pay callback request is required")
+		callbackErr = errors.NewCode(bizcode.ErrOrderStatusInvalid, "pay callback request is required")
 		return callbackErr
 	}
 	req.OrderSn = strings.TrimSpace(req.OrderSn)
 	req.PayType = strings.TrimSpace(req.PayType)
 	req.TradeNo = strings.TrimSpace(req.TradeNo)
 	if req.UserID == 0 || req.OrderSn == "" {
-		callbackErr = errors.WithCode(code.ErrOrderStatusInvalid, "user_id and order_sn are required")
+		callbackErr = errors.NewCode(bizcode.ErrOrderStatusInvalid, "user_id and order_sn are required")
 		return callbackErr
 	}
 
 	client := os.data.Orders()
 	if client == nil {
-		callbackErr = errors.WithCode(code.ErrConnectGRPC, "order grpc client is not initialized")
+		callbackErr = errors.NewCode(bizcode.ErrConnectGRPC, "order grpc client is not initialized")
 		return callbackErr
 	}
 	inventoryClient := os.data.Inventory()
 	if inventoryClient == nil {
-		callbackErr = errors.WithCode(code.ErrConnectGRPC, "inventory grpc client is not initialized")
+		callbackErr = errors.NewCode(bizcode.ErrConnectGRPC, "inventory grpc client is not initialized")
 		return callbackErr
 	}
 
@@ -493,13 +493,13 @@ func (os *orderService) SimulatePayCallback(ctx context.Context, req *PayCallbac
 		return callbackErr
 	}
 	if orderDetail == nil || orderDetail.OrderInfo == nil {
-		callbackErr = errors.WithCode(code.ErrOrderNotFound, "order not found")
+		callbackErr = errors.NewCode(bizcode.ErrOrderNotFound, "order not found")
 		return callbackErr
 	}
 
 	if req.Success {
 		if req.TradeNo == "" {
-			callbackErr = errors.WithCode(code.ErrOrderStatusInvalid, "trade_no is required for paid callback")
+			callbackErr = errors.NewCode(bizcode.ErrOrderStatusInvalid, "trade_no is required for paid callback")
 			return callbackErr
 		}
 		targetStatus = orderStatusTradeSuccess
@@ -507,7 +507,7 @@ func (os *orderService) SimulatePayCallback(ctx context.Context, req *PayCallbac
 
 	currentStatus := strings.TrimSpace(orderDetail.OrderInfo.Status)
 	if !canApplyPayCallback(currentStatus, targetStatus) {
-		callbackErr = errors.WithCode(code.ErrOrderStatusInvalid, "invalid order status transition")
+		callbackErr = errors.NewCode(bizcode.ErrOrderStatusInvalid, "invalid order status transition")
 		return callbackErr
 	}
 
@@ -562,7 +562,7 @@ func sellInfoFromOrder(orderSn string, goods []*opb.OrderItemResponse) (*ipb.Sel
 	sellInfo := &ipb.SellInfo{OrderSn: orderSn}
 	for _, item := range goods {
 		if item == nil || item.GoodsId <= 0 || item.Nums <= 0 {
-			return nil, errors.WithCode(code.ErrOrderStatusInvalid, "order goods are invalid")
+			return nil, errors.NewCode(bizcode.ErrOrderStatusInvalid, "order goods are invalid")
 		}
 		sellInfo.GoodsInfo = append(sellInfo.GoodsInfo, &ipb.GoodsInvInfo{
 			GoodsId: item.GoodsId,
@@ -570,7 +570,7 @@ func sellInfoFromOrder(orderSn string, goods []*opb.OrderItemResponse) (*ipb.Sel
 		})
 	}
 	if len(sellInfo.GoodsInfo) == 0 {
-		return nil, errors.WithCode(code.ErrOrderStatusInvalid, "order goods are required")
+		return nil, errors.NewCode(bizcode.ErrOrderStatusInvalid, "order goods are required")
 	}
 	return sellInfo, nil
 }

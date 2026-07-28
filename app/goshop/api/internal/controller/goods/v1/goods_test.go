@@ -3,6 +3,7 @@ package goods
 import (
 	"context"
 	"encoding/json"
+	"goshop/app/pkg/bizcode"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,7 +15,6 @@ import (
 	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
 	smsv1 "goshop/app/goshop/api/internal/service/sms/v1"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
-	"goshop/app/pkg/code"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,10 +28,10 @@ func TestGoodsControllerListRejectsMissingService(t *testing.T) {
 
 	controller.List(ctx)
 
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
-	assertErrorCode(t, recorder.Body.Bytes(), code.ErrConnectGRPC)
+	assertErrorCode(t, recorder.Body.Bytes(), bizcode.ErrConnectGRPC)
 }
 
 func TestGoodsControllerListRejectsNilGoodsService(t *testing.T) {
@@ -43,10 +43,10 @@ func TestGoodsControllerListRejectsNilGoodsService(t *testing.T) {
 
 	controller.List(ctx)
 
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
-	assertErrorCode(t, recorder.Body.Bytes(), code.ErrConnectGRPC)
+	assertErrorCode(t, recorder.Body.Bytes(), bizcode.ErrConnectGRPC)
 }
 
 func TestGoodsControllerListRejectsNilGoodsResponse(t *testing.T) {
@@ -58,10 +58,10 @@ func TestGoodsControllerListRejectsNilGoodsResponse(t *testing.T) {
 
 	controller.List(ctx)
 
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
-	assertErrorCode(t, recorder.Body.Bytes(), code.ErrConnectGRPC)
+	assertErrorCode(t, recorder.Body.Bytes(), bizcode.ErrConnectGRPC)
 }
 
 func TestGoodsControllerListHandlesPartialGoodsData(t *testing.T) {

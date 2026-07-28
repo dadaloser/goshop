@@ -6,7 +6,7 @@ import (
 	"time"
 
 	dv1 "goshop/app/user/srv/internal/data/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"github.com/google/uuid"
@@ -21,12 +21,12 @@ type breakGlassApprovalStore interface {
 func (u *userService) CreateBreakGlassApproval(ctx context.Context, requesterUserID int32, reason, requestID string, expiresAt time.Time) (*BreakGlassApprovalDTO, error) {
 	store, ok := u.userStore.(breakGlassApprovalStore)
 	if !ok {
-		return nil, errors.WithCode(code2.ErrDatabase, "break-glass approval store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "break-glass approval store is not configured")
 	}
 	reason = strings.TrimSpace(reason)
 	requestID = strings.TrimSpace(requestID)
 	if requesterUserID <= 0 || reason == "" || requestID == "" || !expiresAt.After(time.Now().UTC()) {
-		return nil, errors.WithCode(code2.ErrValidation, "invalid break-glass approval request")
+		return nil, errors.NewCode(errcode.ErrValidation, "invalid break-glass approval request")
 	}
 	model := &dv1.BreakGlassApprovalDO{
 		ID:              uuid.NewString(),
@@ -46,7 +46,7 @@ func (u *userService) CreateBreakGlassApproval(ctx context.Context, requesterUse
 func (u *userService) ApproveBreakGlassApproval(ctx context.Context, approvalID string, approverUserID int32, requestID string) (*BreakGlassApprovalDTO, error) {
 	store, ok := u.userStore.(breakGlassApprovalStore)
 	if !ok {
-		return nil, errors.WithCode(code2.ErrDatabase, "break-glass approval store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "break-glass approval store is not configured")
 	}
 	model, err := store.ApproveBreakGlassApproval(ctx, strings.TrimSpace(approvalID), approverUserID, strings.TrimSpace(requestID), time.Now().UTC())
 	if err != nil {
@@ -58,7 +58,7 @@ func (u *userService) ApproveBreakGlassApproval(ctx context.Context, approvalID 
 func (u *userService) ConsumeBreakGlassApproval(ctx context.Context, approvalID string, requesterUserID int32, requestID string) (*BreakGlassApprovalDTO, error) {
 	store, ok := u.userStore.(breakGlassApprovalStore)
 	if !ok {
-		return nil, errors.WithCode(code2.ErrDatabase, "break-glass approval store is not configured")
+		return nil, errors.NewCode(errcode.ErrDatabase, "break-glass approval store is not configured")
 	}
 	model, err := store.ConsumeBreakGlassApproval(ctx, strings.TrimSpace(approvalID), requesterUserID, strings.TrimSpace(requestID), time.Now().UTC())
 	if err != nil {

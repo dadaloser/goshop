@@ -2,11 +2,11 @@ package mysql
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"testing"
 
 	"goshop/app/inventory/srv/internal/domain/do"
-	"goshop/app/pkg/code"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 )
 
@@ -24,56 +24,56 @@ func TestInventoryStoreRejectsInvalidInputBeforeDatabase(t *testing.T) {
 				_, err := store.Get(context.Background(), 0)
 				return err
 			},
-			code: code.ErrInventoryNotFound,
+			code: bizcode.ErrInventoryNotFound,
 		},
 		{
 			name: "reduce zero goods",
 			run: func() error {
 				return store.Reduce(context.Background(), nil, 0, 1)
 			},
-			code: code.ErrInventoryNotFound,
+			code: bizcode.ErrInventoryNotFound,
 		},
 		{
 			name: "reduce negative quantity",
 			run: func() error {
 				return store.Reduce(context.Background(), nil, 1, -1)
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "increase zero quantity",
 			run: func() error {
 				return store.Increase(context.Background(), nil, 1, 0)
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "confirm sell zero goods",
 			run: func() error {
 				return store.ConfirmSell(context.Background(), nil, 0, 1)
 			},
-			code: code.ErrInventoryNotFound,
+			code: bizcode.ErrInventoryNotFound,
 		},
 		{
 			name: "confirm sell zero quantity",
 			run: func() error {
 				return store.ConfirmSell(context.Background(), nil, 1, 0)
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "create nil inventory",
 			run: func() error {
 				return store.Create(context.Background(), nil)
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "create negative stock",
 			run: func() error {
 				return store.Create(context.Background(), &do.InventoryDO{Goods: 1, Stocks: -1})
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "get sell detail empty order",
@@ -81,28 +81,28 @@ func TestInventoryStoreRejectsInvalidInputBeforeDatabase(t *testing.T) {
 				_, err := store.GetSellDetail(context.Background(), nil, " ")
 				return err
 			},
-			code: code.ErrInvSellDetailNotFound,
+			code: bizcode.ErrInvSellDetailNotFound,
 		},
 		{
 			name: "update sell detail empty order",
 			run: func() error {
 				return store.UpdateStockSellDetailStatus(context.Background(), nil, " ", 1)
 			},
-			code: code.ErrInvSellDetailNotFound,
+			code: bizcode.ErrInvSellDetailNotFound,
 		},
 		{
 			name: "update sell detail invalid status",
 			run: func() error {
 				return store.UpdateStockSellDetailStatus(context.Background(), nil, "order-1", 0)
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "create nil sell detail",
 			run: func() error {
 				return store.CreateStockSellDetail(context.Background(), nil, nil)
 			},
-			code: code.ErrInvSellDetailNotFound,
+			code: bizcode.ErrInvSellDetailNotFound,
 		},
 		{
 			name: "create sell detail invalid item",
@@ -113,7 +113,7 @@ func TestInventoryStoreRejectsInvalidInputBeforeDatabase(t *testing.T) {
 					Detail:  do.GoodsDetailList{{Goods: 1}},
 				})
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "create sell detail if absent invalid status",
@@ -124,7 +124,7 @@ func TestInventoryStoreRejectsInvalidInputBeforeDatabase(t *testing.T) {
 				})
 				return err
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 	}
 
@@ -221,7 +221,7 @@ func TestNormalizeInventory(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := normalizeInventory(tt.inv)
 			if tt.wantErr {
-				if !errors.IsCode(err, code2.ErrValidation) {
+				if !errors.IsCode(err, errcode.ErrValidation) {
 					t.Fatalf("normalizeInventory() error = %v, want ErrValidation", err)
 				}
 				return

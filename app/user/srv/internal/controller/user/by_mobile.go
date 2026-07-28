@@ -4,7 +4,7 @@ import (
 	"context"
 
 	upbv1 "goshop/api/user/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"goshop/pkg/log"
@@ -12,7 +12,7 @@ import (
 
 func (u *userServer) GetUserByMobile(ctx context.Context, request *upbv1.MobileRequest) (*upbv1.UserInfoResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "mobile request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "mobile request is required")
 	}
 
 	log.Infof("get user by username function called.")

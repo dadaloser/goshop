@@ -8,7 +8,7 @@ import (
 	pb "goshop/api/order/v1"
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 )
 
@@ -101,8 +101,8 @@ func TestOrderServerRejectsNilRequests(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.run()
-			if !errors.IsCode(err, code2.ErrValidation) {
-				t.Fatalf("error = %v, want code %d", err, code2.ErrValidation)
+			if !errors.IsCode(err, errcode.ErrValidation) {
+				t.Fatalf("error = %v, want code %d", err, errcode.ErrValidation)
 			}
 		})
 	}
@@ -114,8 +114,8 @@ func TestOrderServerRejectsNilOrderItem(t *testing.T) {
 	_, err := server.CreateOrder(context.Background(), &pb.OrderRequest{
 		OrderItems: []*pb.OrderItemResponse{nil},
 	})
-	if !errors.IsCode(err, code2.ErrValidation) {
-		t.Fatalf("error = %v, want code %d", err, code2.ErrValidation)
+	if !errors.IsCode(err, errcode.ErrValidation) {
+		t.Fatalf("error = %v, want code %d", err, errcode.ErrValidation)
 	}
 }
 

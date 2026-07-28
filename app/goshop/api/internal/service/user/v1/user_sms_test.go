@@ -10,7 +10,7 @@ import (
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/pkg/authz"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	"goshop/app/pkg/options"
 	"goshop/pkg/errors"
 	"goshop/pkg/storage"
@@ -23,9 +23,10 @@ func TestSmsLoginRejectsLockedMobileBeforeCodeLookup(t *testing.T) {
 
 	_, err := svc.SmsLogin(context.Background(), "13800138000", "123456")
 
-	if !errors.IsCode(err, code.ErrSmsVerifyLocked) {
+	if !errors.IsCode(err, bizcode.ErrSmsVerifyLocked) {
 		t.Fatalf("SmsLogin() error = %v, want ErrSmsVerifyLocked", err)
 	}
+	requireErrorKind(t, err, errors.KindRateLimited)
 	if codes.getCalled {
 		t.Fatal("SmsLogin() read sms code for locked mobile")
 	}
@@ -38,9 +39,10 @@ func TestSmsLoginRecordsFailureForIncorrectCode(t *testing.T) {
 
 	_, err := svc.SmsLogin(context.Background(), "13800138000", "654321")
 
-	if !errors.IsCode(err, code.ErrCodeInCorrect) {
+	if !errors.IsCode(err, bizcode.ErrCodeInCorrect) {
 		t.Fatalf("SmsLogin() error = %v, want ErrCodeInCorrect", err)
 	}
+	requireErrorKind(t, err, errors.KindInvalidArgument)
 	if attempts.recordMobile != "13800138000" {
 		t.Fatalf("record mobile = %q, want 13800138000", attempts.recordMobile)
 	}
@@ -56,9 +58,10 @@ func TestSmsLoginReturnsLockedWhenFailureReachesThreshold(t *testing.T) {
 
 	_, err := svc.SmsLogin(context.Background(), "13800138000", "654321")
 
-	if !errors.IsCode(err, code.ErrSmsVerifyLocked) {
+	if !errors.IsCode(err, bizcode.ErrSmsVerifyLocked) {
 		t.Fatalf("SmsLogin() error = %v, want ErrSmsVerifyLocked", err)
 	}
+	requireErrorKind(t, err, errors.KindRateLimited)
 }
 
 func TestSmsLoginRejectsInactiveAccount(t *testing.T) {
@@ -84,7 +87,7 @@ func TestSmsLoginRejectsInactiveAccount(t *testing.T) {
 			svc := newSmsTestService(users, codes, &fakeSmsAttempts{})
 
 			got, err := svc.SmsLogin(context.Background(), "13800138000", "123456")
-			if !errors.IsCode(err, code.ErrUserAccountInactive) {
+			if !errors.IsCode(err, bizcode.ErrUserAccountInactive) {
 				t.Fatalf("SmsLogin() error = %v, want ErrUserAccountInactive", err)
 			}
 			if got != nil {
@@ -167,7 +170,7 @@ func TestSmsLoginReturnsCodeNotExistForMissingSmsCode(t *testing.T) {
 
 	_, err := svc.SmsLogin(context.Background(), "13800138000", "123456")
 
-	if !errors.IsCode(err, code.ErrCodeNotExist) {
+	if !errors.IsCode(err, bizcode.ErrCodeNotExist) {
 		t.Fatalf("SmsLogin() error = %v, want ErrCodeNotExist", err)
 	}
 	if attempts.recordMobile != "13800138000" {

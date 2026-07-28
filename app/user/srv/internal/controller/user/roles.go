@@ -5,7 +5,7 @@ import (
 
 	upbv1 "goshop/api/user/v1"
 	srvv1 "goshop/app/user/srv/internal/service/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -32,7 +32,7 @@ func (u *userServer) ListStaffRoles(ctx context.Context, _ *emptypb.Empty) (*upb
 
 func (u *userServer) CreateStaffRole(ctx context.Context, request *upbv1.CreateStaffRoleRequest) (*upbv1.StaffRole, error) {
 	if request == nil || request.Role == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "create staff role request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "create staff role request is required")
 	}
 
 	role, err := u.srv.CreateStaffRole(ctx, srvv1.StaffRoleDTO{
@@ -55,7 +55,7 @@ func (u *userServer) CreateStaffRole(ctx context.Context, request *upbv1.CreateS
 
 func (u *userServer) UpdateStaffRole(ctx context.Context, request *upbv1.UpdateStaffRoleRequest) (*upbv1.StaffRole, error) {
 	if request == nil || request.Role == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "update staff role request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "update staff role request is required")
 	}
 
 	role, err := u.srv.UpdateStaffRole(ctx, srvv1.StaffRoleDTO{
@@ -78,7 +78,7 @@ func (u *userServer) UpdateStaffRole(ctx context.Context, request *upbv1.UpdateS
 
 func (u *userServer) DeleteStaffRole(ctx context.Context, request *upbv1.DeleteStaffRoleRequest) (*emptypb.Empty, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "delete staff role request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "delete staff role request is required")
 	}
 	if err := u.srv.DeleteStaffRole(ctx, request.GetName()); err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (u *userServer) DeleteStaffRole(ctx context.Context, request *upbv1.DeleteS
 
 func (u *userServer) GetUserStaffRoles(ctx context.Context, request *upbv1.IdRequest) (*upbv1.UserRoleBindingResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "user id request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "user id request is required")
 	}
 
 	binding, err := u.srv.GetUserRoleBinding(ctx, uint64(request.Id))
@@ -104,7 +104,7 @@ func (u *userServer) GetUserStaffRoles(ctx context.Context, request *upbv1.IdReq
 
 func (u *userServer) ReplaceUserStaffRoles(ctx context.Context, request *upbv1.ReplaceUserStaffRolesRequest) (*upbv1.UserRoleBindingResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "replace user staff roles request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "replace user staff roles request is required")
 	}
 
 	binding, err := u.srv.ReplaceUserRoleBinding(ctx, uint64(request.UserId), request.Roles, auditActorFromProto(request.Actor))

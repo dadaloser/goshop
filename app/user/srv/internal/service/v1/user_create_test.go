@@ -2,14 +2,14 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"strings"
 	"testing"
 	"time"
 
 	"goshop/app/pkg/authz"
-	"goshop/app/pkg/code"
 	dv1 "goshop/app/user/srv/internal/data/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 )
@@ -64,7 +64,7 @@ func TestUserService_CreateRejectsDuplicateEmailAfterNormalization(t *testing.T)
 			Password: "Secret123!",
 		},
 	})
-	if !errors.IsCode(err, code.ErrUserAlreadyExists) {
+	if !errors.IsCode(err, bizcode.ErrUserAlreadyExists) {
 		t.Fatalf("Create() error = %v, want ErrUserAlreadyExists", err)
 	}
 }
@@ -84,7 +84,7 @@ func TestUserService_CreateRejectsDuplicateUsername(t *testing.T) {
 			Password: "Secret123!",
 		},
 	})
-	if !errors.IsCode(err, code.ErrUserAlreadyExists) {
+	if !errors.IsCode(err, bizcode.ErrUserAlreadyExists) {
 		t.Fatalf("Create() error = %v, want ErrUserAlreadyExists", err)
 	}
 }
@@ -102,7 +102,7 @@ func TestUserService_CreateRejectsInvalidUsername(t *testing.T) {
 			Password: "Secret123!",
 		},
 	})
-	if !errors.IsCode(err, code2.ErrValidation) {
+	if !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("Create() error = %v, want ErrValidation", err)
 	}
 	if store.created != nil {
@@ -123,7 +123,7 @@ func TestUserService_CreateRejectsInvalidEmail(t *testing.T) {
 			Password: "Secret123!",
 		},
 	})
-	if !errors.IsCode(err, code2.ErrValidation) {
+	if !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("Create() error = %v, want ErrValidation", err)
 	}
 	if store.created != nil {
@@ -158,7 +158,7 @@ func TestUserService_CreateRejectsWeakPasswords(t *testing.T) {
 					Password: tt.password,
 				},
 			})
-			if !errors.IsCode(err, code2.ErrValidation) {
+			if !errors.IsCode(err, errcode.ErrValidation) {
 				t.Fatalf("Create() error = %v, want ErrValidation", err)
 			}
 			if store.created != nil {
@@ -181,7 +181,7 @@ func TestUserService_CreateRejectsUnknownLegacyRole(t *testing.T) {
 			Role:     99,
 		},
 	})
-	if !errors.IsCode(err, code2.ErrValidation) {
+	if !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("Create() error = %v, want ErrValidation", err)
 	}
 	if store.created != nil {
@@ -268,7 +268,7 @@ func TestUserService_UpdateStaffRoleValidatesAndNormalizesPermissions(t *testing
 		Name:        "custom_role",
 		Description: "custom",
 		Permissions: []string{string(authz.PermissionOrderReadAny)},
-	}); !errors.IsCode(err, code2.ErrValidation) {
+	}); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("UpdateStaffRole() custom role error = %v, want ErrValidation", err)
 	}
 
@@ -277,7 +277,7 @@ func TestUserService_UpdateStaffRoleValidatesAndNormalizesPermissions(t *testing
 		Description: "updated ops role",
 		Permissions: []string{"role:own:any"},
 		Domains:     []string{string(authz.BusinessDomainOps)},
-	}); !errors.IsCode(err, code2.ErrValidation) {
+	}); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("UpdateStaffRole() unknown permission error = %v, want ErrValidation", err)
 	}
 }
@@ -310,7 +310,7 @@ func TestUserService_CreateStaffRoleValidatesAndCreatesCustomRole(t *testing.T) 
 		Description: "builtin duplicate",
 		Permissions: []string{string(authz.PermissionOrderReadAny)},
 		Domains:     []string{string(authz.BusinessDomainOps)},
-	}); !errors.IsCode(err, code2.ErrValidation) {
+	}); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("CreateStaffRole() builtin duplicate error = %v, want ErrValidation", err)
 	}
 
@@ -319,7 +319,7 @@ func TestUserService_CreateStaffRoleValidatesAndCreatesCustomRole(t *testing.T) 
 		Description: "legacy bootstrap alias",
 		Permissions: []string{string(authz.PermissionOrderReadAny)},
 		Domains:     []string{string(authz.BusinessDomainOps)},
-	}); !errors.IsCode(err, code2.ErrValidation) {
+	}); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("CreateStaffRole() reserved non-staff role error = %v, want ErrValidation", err)
 	}
 }
@@ -335,15 +335,15 @@ func TestUserService_DeleteStaffRoleValidatesAndDeletesCustomRole(t *testing.T) 
 		t.Fatalf("deleted role name = %q, want ops_delegate", store.deletedRoleName)
 	}
 
-	if err := svc.DeleteStaffRole(context.Background(), string(authz.StaffRoleOps)); !errors.IsCode(err, code2.ErrValidation) {
+	if err := svc.DeleteStaffRole(context.Background(), string(authz.StaffRoleOps)); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("DeleteStaffRole() builtin delete error = %v, want ErrValidation", err)
 	}
 
-	if err := svc.DeleteStaffRole(context.Background(), "basic"); !errors.IsCode(err, code2.ErrValidation) {
+	if err := svc.DeleteStaffRole(context.Background(), "basic"); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("DeleteStaffRole() reserved non-staff role error = %v, want ErrValidation", err)
 	}
 
-	if err := svc.DeleteStaffRole(context.Background(), "!!!"); !errors.IsCode(err, code2.ErrValidation) {
+	if err := svc.DeleteStaffRole(context.Background(), "!!!"); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("DeleteStaffRole() invalid name error = %v, want ErrValidation", err)
 	}
 }
@@ -369,7 +369,7 @@ func TestUserService_ReplaceResourceScopesValidatesDomainDimensions(t *testing.T
 
 	if _, err := svc.ReplaceResourceScopes(context.Background(), 7, []ResourceScopeDTO{
 		{Domain: string(authz.BusinessDomainCatalog), TeamID: "warehouse-a"},
-	}); !errors.IsCode(err, code2.ErrValidation) {
+	}); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("ReplaceResourceScopes() catalog team-only error = %v, want ErrValidation", err)
 	}
 
@@ -385,7 +385,7 @@ func TestUserService_ReplaceResourceScopesValidatesDomainDimensions(t *testing.T
 
 	if _, err := svc.ReplaceResourceScopes(context.Background(), 7, []ResourceScopeDTO{
 		{Domain: string(authz.BusinessDomainPlatform), StoreID: "store-a"},
-	}); !errors.IsCode(err, code2.ErrValidation) {
+	}); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("ReplaceResourceScopes() platform scoped error = %v, want ErrValidation", err)
 	}
 }
@@ -426,7 +426,7 @@ func TestUserService_ReplaceUserRoleBindingValidatesAndReturnsBinding(t *testing
 		t.Fatal("binding permissions is empty")
 	}
 
-	if _, err = svc.ReplaceUserRoleBinding(context.Background(), 7, []string{"owner"}, AuditActorDTO{}); !errors.IsCode(err, code2.ErrValidation) {
+	if _, err = svc.ReplaceUserRoleBinding(context.Background(), 7, []string{"owner"}, AuditActorDTO{}); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("ReplaceUserRoleBinding() invalid role error = %v, want ErrValidation", err)
 	}
 }
@@ -494,7 +494,7 @@ func TestUserService_UpdateStatus(t *testing.T) {
 		t.Fatalf("updated status actor = %#v, want user id 5", store.updatedStatusActor)
 	}
 
-	if _, err = svc.UpdateStatus(context.Background(), 7, "deleted", AuditActorDTO{}); !errors.IsCode(err, code2.ErrValidation) {
+	if _, err = svc.UpdateStatus(context.Background(), 7, "deleted", AuditActorDTO{}); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("UpdateStatus() invalid status error = %v, want ErrValidation", err)
 	}
 }
@@ -555,13 +555,13 @@ func TestUserService_CreateAdminAuditLogValidatesAndPersists(t *testing.T) {
 	if err := svc.CreateAdminAuditLog(context.Background(), AdminAuditLogDTO{
 		ActorPrincipalType: string(authz.PrincipalStaff),
 		Action:             "unknown_action",
-	}); !errors.IsCode(err, code2.ErrValidation) {
+	}); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("CreateAdminAuditLog() unknown action error = %v, want ErrValidation", err)
 	}
 
 	if err := svc.CreateAdminAuditLog(context.Background(), AdminAuditLogDTO{
 		Action: dv1.AdminAuditActionBreakGlassSessionIssued,
-	}); !errors.IsCode(err, code2.ErrValidation) {
+	}); !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("CreateAdminAuditLog() missing principal error = %v, want ErrValidation", err)
 	}
 }
@@ -636,14 +636,14 @@ func (f *fakeUserStore) GetByMobile(_ context.Context, mobile string) (*dv1.User
 	if user, ok := f.usersByIdentifier[mobile]; ok {
 		return user, nil
 	}
-	return nil, errors.WithCode(code.ErrUserNotFound, "not found")
+	return nil, errors.NewCode(bizcode.ErrUserNotFound, "not found")
 }
 
 func (f *fakeUserStore) GetByUsername(_ context.Context, username string) (*dv1.UserDO, error) {
 	if user, ok := f.usersByIdentifier[username]; ok {
 		return user, nil
 	}
-	return nil, errors.WithCode(code.ErrUserNotFound, "not found")
+	return nil, errors.NewCode(bizcode.ErrUserNotFound, "not found")
 }
 
 func (f *fakeUserStore) GetByID(_ context.Context, id uint64) (*dv1.UserDO, error) {
@@ -652,7 +652,7 @@ func (f *fakeUserStore) GetByID(_ context.Context, id uint64) (*dv1.UserDO, erro
 			return user, nil
 		}
 	}
-	return nil, errors.WithCode(code.ErrUserNotFound, "not found")
+	return nil, errors.NewCode(bizcode.ErrUserNotFound, "not found")
 }
 
 func (f *fakeUserStore) GetAuthByUsername(_ context.Context, username string) (*dv1.UserAuthDO, error) {
@@ -733,7 +733,7 @@ func (f *fakeUserStore) ReplaceUserRoles(_ context.Context, userID uint64, roleN
 			return user, nil
 		}
 	}
-	return nil, errors.WithCode(code.ErrUserNotFound, "not found")
+	return nil, errors.NewCode(bizcode.ErrUserNotFound, "not found")
 }
 
 func (f *fakeUserStore) ReplaceResourceScopes(_ context.Context, _ uint64, scopes []dv1.UserResourceScopeDO) error {
@@ -793,7 +793,7 @@ func (f *fakeUserStore) UpdateStatus(_ context.Context, id uint64, status string
 			return nil
 		}
 	}
-	return errors.WithCode(code.ErrUserNotFound, "not found")
+	return errors.NewCode(bizcode.ErrUserNotFound, "not found")
 }
 
 func (f *fakeUserStore) Delete(_ context.Context, id uint64) error {

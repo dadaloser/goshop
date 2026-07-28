@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"encoding/json"
+	"goshop/app/pkg/bizcode"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
 	smsv1 "goshop/app/goshop/api/internal/service/sms/v1"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
-	"goshop/app/pkg/code"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/errors"
 
@@ -42,7 +42,7 @@ func TestUserControllerUsersServiceRejectsMissingDependencies(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := tt.server.usersService()
-			assertUserErrorCodeFromErr(t, err, code.ErrConnectGRPC)
+			assertUserErrorCodeFromErr(t, err, bizcode.ErrConnectGRPC)
 		})
 	}
 }
@@ -54,10 +54,10 @@ func TestWriteLoginResponseRejectsNilDTO(t *testing.T) {
 
 	writeLoginResponse(ctx, nil)
 
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
-	assertUserErrorCode(t, recorder.Body.Bytes(), code.ErrConnectGRPC)
+	assertUserErrorCode(t, recorder.Body.Bytes(), bizcode.ErrConnectGRPC)
 }
 
 func TestGetUserDetailRejectsMissingUserService(t *testing.T) {
@@ -69,10 +69,10 @@ func TestGetUserDetailRejectsMissingUserService(t *testing.T) {
 
 	server.GetUserDetail(ctx)
 
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
-	assertUserErrorCode(t, recorder.Body.Bytes(), code.ErrConnectGRPC)
+	assertUserErrorCode(t, recorder.Body.Bytes(), bizcode.ErrConnectGRPC)
 }
 
 func TestUpdateUserRejectsNilUserResponse(t *testing.T) {
@@ -86,10 +86,10 @@ func TestUpdateUserRejectsNilUserResponse(t *testing.T) {
 
 	server.UpdateUser(ctx)
 
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d body=%s", recorder.Code, http.StatusInternalServerError, recorder.Body.String())
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d body=%s", recorder.Code, http.StatusServiceUnavailable, recorder.Body.String())
 	}
-	assertUserErrorCode(t, recorder.Body.Bytes(), code.ErrConnectGRPC)
+	assertUserErrorCode(t, recorder.Body.Bytes(), bizcode.ErrConnectGRPC)
 	if userSrv.updateCalled {
 		t.Fatal("UpdateUser reached Update after nil Get response")
 	}

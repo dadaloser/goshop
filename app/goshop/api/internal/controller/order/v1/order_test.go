@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"encoding/json"
+	"goshop/app/pkg/bizcode"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
 	smsv1 "goshop/app/goshop/api/internal/service/sms/v1"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
-	"goshop/app/pkg/code"
 	"goshop/gmicro/server/restserver/middlewares"
 
 	"github.com/gin-gonic/gin"
@@ -31,10 +31,10 @@ func TestOrderControllerRejectsMissingServiceFactory(t *testing.T) {
 
 	controller.SimulatePayCallback(ctx)
 
-	if recorder.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
-	assertOrderErrorCode(t, recorder.Body.Bytes(), code.ErrConnectGRPC)
+	assertOrderErrorCode(t, recorder.Body.Bytes(), bizcode.ErrConnectGRPC)
 }
 
 func TestOrderControllerRejectsMissingUserContext(t *testing.T) {

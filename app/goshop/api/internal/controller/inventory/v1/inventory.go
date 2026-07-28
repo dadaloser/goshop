@@ -3,7 +3,7 @@ package v1
 import (
 	"goshop/app/goshop/api/internal/domain/request"
 	"goshop/app/goshop/api/internal/service"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
@@ -23,7 +23,7 @@ func NewInventoryController(sf service.ServiceFactory, trans ut.Translator) *inv
 
 func (ic *inventoryController) Detail(ctx *gin.Context) {
 	if ic == nil || ic.sf == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "inventory service is not initialized"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "inventory service is not initialized"), nil)
 		return
 	}
 
@@ -35,7 +35,7 @@ func (ic *inventoryController) Detail(ctx *gin.Context) {
 
 	inventorySrv := ic.sf.Inventory()
 	if inventorySrv == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "inventory service is not initialized"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "inventory service is not initialized"), nil)
 		return
 	}
 
@@ -45,7 +45,7 @@ func (ic *inventoryController) Detail(ctx *gin.Context) {
 		return
 	}
 	if inv == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "inventory service response is empty"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "inventory service response is empty"), nil)
 		return
 	}
 
@@ -61,7 +61,7 @@ func (ic *inventoryController) Detail(ctx *gin.Context) {
 
 func (ic *inventoryController) OrderDetail(ctx *gin.Context) {
 	if ic == nil || ic.sf == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "inventory service is not initialized"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "inventory service is not initialized"), nil)
 		return
 	}
 
@@ -73,7 +73,7 @@ func (ic *inventoryController) OrderDetail(ctx *gin.Context) {
 
 	inventorySrv := ic.sf.Inventory()
 	if inventorySrv == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "inventory service is not initialized"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "inventory service is not initialized"), nil)
 		return
 	}
 
@@ -83,7 +83,7 @@ func (ic *inventoryController) OrderDetail(ctx *gin.Context) {
 		return
 	}
 	if detail == nil {
-		core.WriteResponse(ctx, errors.WithCode(code.ErrConnectGRPC, "inventory service response is empty"), nil)
+		core.WriteResponse(ctx, errors.NewCode(bizcode.ErrConnectGRPC, "inventory service response is empty"), nil)
 		return
 	}
 

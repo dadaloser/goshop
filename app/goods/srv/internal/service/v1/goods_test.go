@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"testing"
 
 	proto "goshop/api/goods/v1"
@@ -9,7 +10,6 @@ import (
 	searchv1 "goshop/app/goods/srv/internal/data_search/v1"
 	"goshop/app/goods/srv/internal/domain/do"
 	"goshop/app/goods/srv/internal/domain/dto"
-	"goshop/app/pkg/code"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 
@@ -65,8 +65,8 @@ func TestCreateRejectsInvalidGoods(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &goodsService{}
 			err := svc.Create(context.Background(), tt.goods)
-			if !errors.IsCode(err, code.ErrGoodsInvalid) {
-				t.Fatalf("Create() error = %v, want code %d", err, code.ErrGoodsInvalid)
+			if !errors.IsCode(err, bizcode.ErrGoodsInvalid) {
+				t.Fatalf("Create() error = %v, want code %d", err, bizcode.ErrGoodsInvalid)
 			}
 		})
 	}
@@ -99,8 +99,8 @@ func TestUpdateRejectsInvalidGoods(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &goodsService{}
 			err := svc.Update(context.Background(), tt.goods)
-			if !errors.IsCode(err, code.ErrGoodsInvalid) {
-				t.Fatalf("Update() error = %v, want code %d", err, code.ErrGoodsInvalid)
+			if !errors.IsCode(err, bizcode.ErrGoodsInvalid) {
+				t.Fatalf("Update() error = %v, want code %d", err, bizcode.ErrGoodsInvalid)
 			}
 		})
 	}
@@ -110,8 +110,8 @@ func TestDeleteRejectsMissingGoodsID(t *testing.T) {
 	svc := &goodsService{}
 
 	err := svc.Delete(context.Background(), 0)
-	if !errors.IsCode(err, code.ErrGoodsInvalid) {
-		t.Fatalf("Delete() error = %v, want code %d", err, code.ErrGoodsInvalid)
+	if !errors.IsCode(err, bizcode.ErrGoodsInvalid) {
+		t.Fatalf("Delete() error = %v, want code %d", err, bizcode.ErrGoodsInvalid)
 	}
 }
 
@@ -119,8 +119,8 @@ func TestGetRejectsMissingGoodsID(t *testing.T) {
 	svc := &goodsService{}
 
 	_, err := svc.Get(context.Background(), 0)
-	if !errors.IsCode(err, code.ErrGoodsNotFound) {
-		t.Fatalf("Get() error = %v, want code %d", err, code.ErrGoodsNotFound)
+	if !errors.IsCode(err, bizcode.ErrGoodsNotFound) {
+		t.Fatalf("Get() error = %v, want code %d", err, bizcode.ErrGoodsNotFound)
 	}
 }
 
@@ -216,7 +216,7 @@ func TestUpdateChecksGoodsExistsBeforeReferences(t *testing.T) {
 		data: fakeGoodsDataFactory{
 			goods: fakeGoodsStore{
 				get: func(context.Context, uint64) (*do.GoodsDO, error) {
-					return nil, errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+					return nil, errors.NewCode(bizcode.ErrGoodsNotFound, "goods not found")
 				},
 			},
 			brands: fakeBrandStore{
@@ -231,8 +231,8 @@ func TestUpdateChecksGoodsExistsBeforeReferences(t *testing.T) {
 	goods := validGoodsDTO()
 	goods.ID = 1
 	err := svc.Update(context.Background(), goods)
-	if !errors.IsCode(err, code.ErrGoodsNotFound) {
-		t.Fatalf("Update() error = %v, want code %d", err, code.ErrGoodsNotFound)
+	if !errors.IsCode(err, bizcode.ErrGoodsNotFound) {
+		t.Fatalf("Update() error = %v, want code %d", err, bizcode.ErrGoodsNotFound)
 	}
 	if brandLookups != 0 {
 		t.Fatalf("Update() brand lookups = %d, want 0", brandLookups)

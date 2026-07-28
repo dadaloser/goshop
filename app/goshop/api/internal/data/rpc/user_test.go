@@ -6,8 +6,8 @@ import (
 
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/api/internal/data"
-	"goshop/app/pkg/code"
-	code2 "goshop/gmicro/code"
+	"goshop/app/pkg/bizcode"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"google.golang.org/grpc"
@@ -29,21 +29,21 @@ func TestUsersRejectInvalidInputBeforeRPC(t *testing.T) {
 				_, err := store.Create(context.Background(), nil)
 				return err
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "update nil user",
 			run: func() error {
 				return store.Update(context.Background(), nil)
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "update zero id",
 			run: func() error {
 				return store.Update(context.Background(), &data.User{})
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "get zero id",
@@ -51,14 +51,14 @@ func TestUsersRejectInvalidInputBeforeRPC(t *testing.T) {
 				_, err := store.Get(context.Background(), 0)
 				return err
 			},
-			code: code.ErrUserNotFound,
+			code: bizcode.ErrUserNotFound,
 		},
 		{
 			name: "delete zero id",
 			run: func() error {
 				return store.Delete(context.Background(), 0)
 			},
-			code: code.ErrUserNotFound,
+			code: bizcode.ErrUserNotFound,
 		},
 		{
 			name: "get empty username",
@@ -66,14 +66,14 @@ func TestUsersRejectInvalidInputBeforeRPC(t *testing.T) {
 				_, err := store.GetByUsername(context.Background(), " ")
 				return err
 			},
-			code: code.ErrUserNotFound,
+			code: bizcode.ErrUserNotFound,
 		},
 		{
 			name: "check password empty hash",
 			run: func() error {
 				return store.CheckPassWord(context.Background(), "secret", " ")
 			},
-			code: code.ErrUserPasswordIncorrect,
+			code: bizcode.ErrUserPasswordIncorrect,
 		},
 	}
 
@@ -161,7 +161,7 @@ func TestUsersHandleNilRPCResponses(t *testing.T) {
 				_, err := store.Create(context.Background(), &data.UserCreate{Mobile: "13800138000"})
 				return err
 			},
-			code: code.ErrUserAlreadyExists,
+			code: bizcode.ErrUserAlreadyExists,
 		},
 		{
 			name: "get nil response",
@@ -169,7 +169,7 @@ func TestUsersHandleNilRPCResponses(t *testing.T) {
 				_, err := store.Get(context.Background(), 1)
 				return err
 			},
-			code: code.ErrUserNotFound,
+			code: bizcode.ErrUserNotFound,
 		},
 		{
 			name: "get username nil response",
@@ -177,14 +177,14 @@ func TestUsersHandleNilRPCResponses(t *testing.T) {
 				_, err := store.GetByUsername(context.Background(), "user@example.com")
 				return err
 			},
-			code: code.ErrUserNotFound,
+			code: bizcode.ErrUserNotFound,
 		},
 		{
 			name: "check password nil response",
 			run: func() error {
 				return store.CheckPassWord(context.Background(), "secret", "hashed")
 			},
-			code: code.ErrUserPasswordIncorrect,
+			code: bizcode.ErrUserPasswordIncorrect,
 		},
 	}
 

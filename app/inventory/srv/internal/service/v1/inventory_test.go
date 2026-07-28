@@ -2,14 +2,14 @@ package v1
 
 import (
 	"context"
+	"goshop/app/pkg/bizcode"
 	"reflect"
 	"testing"
 
 	datav1 "goshop/app/inventory/srv/internal/data/v1"
 	"goshop/app/inventory/srv/internal/domain/do"
 	"goshop/app/inventory/srv/internal/domain/dto"
-	"goshop/app/pkg/code"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"gorm.io/gorm"
@@ -64,7 +64,7 @@ func TestValidateStockOperation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateStockOperation(tt.orderSn, tt.details)
 			if tt.wantErr {
-				if !errors.IsCode(err, code2.ErrValidation) {
+				if !errors.IsCode(err, errcode.ErrValidation) {
 					t.Fatalf("validateStockOperation() error = %v, want ErrValidation", err)
 				}
 				return
@@ -89,21 +89,21 @@ func TestInventoryServiceRejectsInvalidCreateAndGet(t *testing.T) {
 			run: func() error {
 				return srv.Create(context.Background(), nil)
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "create zero goods",
 			run: func() error {
 				return srv.Create(context.Background(), &dto.InventoryDTO{})
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "create negative stock",
 			run: func() error {
 				return srv.Create(context.Background(), &dto.InventoryDTO{InventoryDO: do.InventoryDO{Goods: 1, Stocks: -1}})
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 		{
 			name: "get zero goods",
@@ -111,7 +111,7 @@ func TestInventoryServiceRejectsInvalidCreateAndGet(t *testing.T) {
 				_, err := srv.Get(context.Background(), 0)
 				return err
 			},
-			code: code.ErrInventoryNotFound,
+			code: bizcode.ErrInventoryNotFound,
 		},
 		{
 			name: "get order detail empty order sn",
@@ -119,7 +119,7 @@ func TestInventoryServiceRejectsInvalidCreateAndGet(t *testing.T) {
 				_, err := srv.GetOrderDetail(context.Background(), " ")
 				return err
 			},
-			code: code2.ErrValidation,
+			code: errcode.ErrValidation,
 		},
 	}
 
@@ -433,7 +433,7 @@ func TestSellSortsDetailBeforeReduceAndPersist(t *testing.T) {
 		data: fakeInventoryDataFactory{
 			store: fakeInventoryStore{
 				getSellDetail: func(context.Context, *gorm.DB, string) (*do.StockSellDetailDO, error) {
-					return nil, errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+					return nil, errors.NewCode(bizcode.ErrInvSellDetailNotFound, "inventory sell detail not found")
 				},
 				reduce: func(_ context.Context, _ *gorm.DB, goodsID uint64, num int) error {
 					reducedGoods = append(reducedGoods, do.GoodsDetail{Goods: int32(goodsID), Num: int32(num)})
@@ -477,7 +477,7 @@ func TestReleaseWritesCancelMarkerWhenSellDetailMissing(t *testing.T) {
 		data: fakeInventoryDataFactory{
 			store: fakeInventoryStore{
 				getSellDetail: func(context.Context, *gorm.DB, string) (*do.StockSellDetailDO, error) {
-					return nil, errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+					return nil, errors.NewCode(bizcode.ErrInvSellDetailNotFound, "inventory sell detail not found")
 				},
 				createStockIfAbsent: func(_ context.Context, _ *gorm.DB, detail *do.StockSellDetailDO) (bool, error) {
 					copied := *detail
@@ -612,14 +612,14 @@ func (f fakeInventoryStore) Get(ctx context.Context, goodsID uint64) (*do.Invent
 	if f.get != nil {
 		return f.get(ctx, goodsID)
 	}
-	return nil, errors.WithCode(code.ErrInventoryNotFound, "inventory not found")
+	return nil, errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
 }
 
 func (f fakeInventoryStore) GetSellDetail(ctx context.Context, txn *gorm.DB, ordersn string) (*do.StockSellDetailDO, error) {
 	if f.getSellDetail != nil {
 		return f.getSellDetail(ctx, txn, ordersn)
 	}
-	return nil, errors.WithCode(code.ErrInvSellDetailNotFound, "inventory sell detail not found")
+	return nil, errors.NewCode(bizcode.ErrInvSellDetailNotFound, "inventory sell detail not found")
 }
 
 func (f fakeInventoryStore) GetSellDetailForUpdate(ctx context.Context, txn *gorm.DB, ordersn string) (*do.StockSellDetailDO, error) {

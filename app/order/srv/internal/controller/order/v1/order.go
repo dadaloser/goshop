@@ -6,7 +6,7 @@ import (
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
 	"goshop/app/order/srv/internal/service/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
@@ -27,7 +27,7 @@ func NewOrderServer(srv service.ServiceFactory) *orderServer {
 
 func (os *orderServer) CartItemList(ctx context.Context, info *pb.UserInfo) (*pb.CartItemListResponse, error) {
 	if info == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "user info is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "user info is required")
 	}
 
 	list, err := os.srv.Orders().CartItemList(ctx, uint64(info.Id), metav1.ListMeta{}, []string{})
@@ -43,7 +43,7 @@ func (os *orderServer) CartItemList(ctx context.Context, info *pb.UserInfo) (*pb
 
 func (os *orderServer) CreateCartItem(ctx context.Context, request *pb.CartItemRequest) (*pb.ShopCartInfoResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "cart item request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "cart item request is required")
 	}
 
 	cart, err := os.srv.Orders().CreateCartItem(ctx, &dto.ShopCartDTO{
@@ -62,7 +62,7 @@ func (os *orderServer) CreateCartItem(ctx context.Context, request *pb.CartItemR
 
 func (os *orderServer) UpdateCartItem(ctx context.Context, request *pb.CartItemRequest) (*emptypb.Empty, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "cart item request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "cart item request is required")
 	}
 
 	err := os.srv.Orders().UpdateCartItem(ctx, &dto.ShopCartDTO{
@@ -81,7 +81,7 @@ func (os *orderServer) UpdateCartItem(ctx context.Context, request *pb.CartItemR
 
 func (os *orderServer) DeleteCartItem(ctx context.Context, request *pb.CartItemRequest) (*emptypb.Empty, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "cart item request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "cart item request is required")
 	}
 
 	if err := os.srv.Orders().DeleteCartItem(ctx, uint64(request.UserId), uint64(request.Id)); err != nil {
@@ -93,13 +93,13 @@ func (os *orderServer) DeleteCartItem(ctx context.Context, request *pb.CartItemR
 // 这个是给分布式事务saga调用的，目前没为api提供的目的
 func (os *orderServer) CreateOrder(ctx context.Context, request *pb.OrderRequest) (*emptypb.Empty, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "order request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "order request is required")
 	}
 
 	orderGoods := make([]*do.OrderGoods, len(request.OrderItems))
 	for i, item := range request.OrderItems {
 		if item == nil {
-			return nil, errors.WithCode(code2.ErrValidation, "order item is required")
+			return nil, errors.NewCode(errcode.ErrValidation, "order item is required")
 		}
 		orderGoods[i] = &do.OrderGoods{
 			Goods: item.GoodsId,
@@ -126,7 +126,7 @@ func (os *orderServer) CreateOrder(ctx context.Context, request *pb.OrderRequest
 
 func (os *orderServer) CreateOrderCom(ctx context.Context, request *pb.OrderRequest) (*emptypb.Empty, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "order request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "order request is required")
 	}
 
 	err := os.srv.Orders().CreateCom(ctx, &dto.OrderDTO{
@@ -161,7 +161,7 @@ func (os *orderServer) CreateOrderCom(ctx context.Context, request *pb.OrderRequ
 */
 func (os *orderServer) SubmitOrder(ctx context.Context, request *pb.OrderRequest) (*emptypb.Empty, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "order request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "order request is required")
 	}
 
 	//从购物车中得到选中的商品
@@ -186,7 +186,7 @@ func (os *orderServer) SubmitOrder(ctx context.Context, request *pb.OrderRequest
 
 func (os *orderServer) OrderList(ctx context.Context, request *pb.OrderFilterRequest) (*pb.OrderListResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "order filter request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "order filter request is required")
 	}
 
 	list, err := os.srv.Orders().List(ctx, uint64(request.UserId), metav1.ListMeta{
@@ -205,7 +205,7 @@ func (os *orderServer) OrderList(ctx context.Context, request *pb.OrderFilterReq
 
 func (os *orderServer) OrderDetail(ctx context.Context, request *pb.OrderRequest) (*pb.OrderInfoDetailResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "order request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "order request is required")
 	}
 
 	order, err := os.srv.Orders().Get(ctx, uint64(request.UserId), request.OrderSn)
@@ -220,7 +220,7 @@ func (os *orderServer) OrderDetail(ctx context.Context, request *pb.OrderRequest
 
 func (os *orderServer) OrderStatusLogs(ctx context.Context, request *pb.OrderRequest) (*pb.OrderStatusLogListResponse, error) {
 	if request == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "order request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "order request is required")
 	}
 
 	list, err := os.srv.Orders().StatusLogs(ctx, uint64(request.UserId), request.OrderSn)
@@ -240,7 +240,7 @@ func (os *orderServer) OrderStatusLogs(ctx context.Context, request *pb.OrderReq
 
 func (os *orderServer) UpdateOrderStatus(ctx context.Context, status *pb.OrderStatus) (*emptypb.Empty, error) {
 	if status == nil {
-		return nil, errors.WithCode(code2.ErrValidation, "order status is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "order status is required")
 	}
 
 	orderDTO := &dto.OrderDTO{

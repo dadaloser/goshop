@@ -6,7 +6,7 @@ import (
 
 	v1 "goshop/app/goods/srv/internal/data/v1"
 	"goshop/app/goods/srv/internal/domain/do"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
 	"gorm.io/gorm"
@@ -23,10 +23,10 @@ func newOutbox(factory *mysqlFactory) *outbox {
 
 func (o *outbox) CreateInTxn(ctx context.Context, txn *gorm.DB, event *do.OutboxEventDO) error {
 	if txn == nil || event == nil {
-		return errors.WithCode(code2.ErrValidation, "outbox event is required")
+		return errors.NewCode(errcode.ErrValidation, "outbox event is required")
 	}
 	if err := txn.WithContext(ctx).Create(event).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }
@@ -43,7 +43,7 @@ func (o *outbox) ClaimPending(ctx context.Context, topic string, limit int, nowU
 			Order("id asc").
 			Limit(limit).
 			Find(&events).Error; err != nil {
-			return errors.WithCode(code2.ErrDatabase, err.Error())
+			return errors.NewCode(errcode.ErrDatabase, err.Error())
 		}
 		if len(events) == 0 {
 			return nil
@@ -68,7 +68,7 @@ func (o *outbox) ClaimPending(ctx context.Context, topic string, limit int, nowU
 				"processing_lock": topic,
 				"claimed_at":      nowUnix,
 			}).Error; err != nil {
-			return errors.WithCode(code2.ErrDatabase, err.Error())
+			return errors.NewCode(errcode.ErrDatabase, err.Error())
 		}
 		return nil
 	})
@@ -92,7 +92,7 @@ func (o *outbox) ListByStatus(ctx context.Context, topic, status string, limit i
 		query = query.Where("status = ?", status)
 	}
 	if err := query.Find(&events).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return events, nil
 }
@@ -103,7 +103,7 @@ func (o *outbox) ListByIDs(ctx context.Context, ids []int32) ([]*do.OutboxEventD
 	}
 	var events []*do.OutboxEventDO
 	if err := o.db.WithContext(ctx).Where("id IN ?", ids).Order("id asc").Find(&events).Error; err != nil {
-		return nil, errors.WithCode(code2.ErrDatabase, err.Error())
+		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return events, nil
 }
@@ -118,7 +118,7 @@ func (o *outbox) CountByStatus(ctx context.Context, topic, status string) (int64
 	}
 	var count int64
 	if err := query.Count(&count).Error; err != nil {
-		return 0, errors.WithCode(code2.ErrDatabase, err.Error())
+		return 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return count, nil
 }
@@ -128,7 +128,7 @@ func (o *outbox) RequeueStale(ctx context.Context, topic string, claimedBefore i
 		Where("topic = ? AND status = ? AND claimed_at > 0 AND claimed_at <= ?", topic, do.OutboxStatusProcessing, claimedBefore).
 		Updates(map[string]interface{}{"status": do.OutboxStatusPending, "processing_lock": "", "claimed_at": 0, "next_attempt_at": 0})
 	if result.Error != nil {
-		return 0, errors.WithCode(code2.ErrDatabase, result.Error.Error())
+		return 0, errors.NewCode(errcode.ErrDatabase, result.Error.Error())
 	}
 	return result.RowsAffected, nil
 }
@@ -173,13 +173,13 @@ func (o *outbox) ReleaseClaim(ctx context.Context, id int32) error {
 
 func (o *outbox) updateStatus(ctx context.Context, id int32, updates map[string]interface{}) error {
 	if id <= 0 {
-		return errors.WithCode(code2.ErrValidation, "outbox event id is required")
+		return errors.NewCode(errcode.ErrValidation, "outbox event id is required")
 	}
 	if err := o.db.WithContext(ctx).
 		Model(&do.OutboxEventDO{}).
 		Where("id = ?", id).
 		Updates(updates).Error; err != nil {
-		return errors.WithCode(code2.ErrDatabase, err.Error())
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
 }

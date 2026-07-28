@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	dv1 "goshop/app/user/srv/internal/data/v1"
-	code2 "goshop/gmicro/code"
+	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 )
 
@@ -13,7 +13,7 @@ func TestUserServiceDeleteRejectsZeroID(t *testing.T) {
 	svc := NewUserService(&fakeUserStore{})
 
 	err := svc.Delete(context.Background(), 0)
-	if !errors.IsCode(err, code2.ErrValidation) {
+	if !errors.IsCode(err, errcode.ErrValidation) {
 		t.Fatalf("Delete() error = %v, want ErrValidation", err)
 	}
 }

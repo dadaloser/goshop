@@ -224,54 +224,37 @@ func TestWithMessagef(t *testing.T) {
 	}
 }
 
-func TestWithCode(t *testing.T) {
+func TestNewCode(t *testing.T) {
 	tests := []struct {
 		code     int
 		message  string
-		wantType string
 		wantCode int
 	}{
-		{ConfigurationNotValid, "ConfigurationNotValid error", "*withCode", ConfigurationNotValid},
+		{ConfigurationNotValid, "ConfigurationNotValid error", ConfigurationNotValid},
 	}
 
 	for _, tt := range tests {
-		got := WithCode(tt.code, tt.message)
-		err, ok := got.(*withCode)
-		if !ok {
-			t.Errorf("WithCode(%v, %q): error type got: %T, want %s", tt.code, tt.message, got, tt.wantType)
-		}
-
-		if err.code != tt.wantCode {
-			t.Errorf("WithCode(%v, %q): got: %v, want %v", tt.code, tt.message, err.code, tt.wantCode)
+		got := NewCode(tt.code, tt.message)
+		if !IsCode(got, tt.wantCode) {
+			t.Errorf("NewCode(%v, %q) does not preserve code %d", tt.code, tt.message, tt.wantCode)
 		}
 	}
 }
 
-func TestWithCodef(t *testing.T) {
+func TestNewCodeWithFormattedDiagnostic(t *testing.T) {
 	tests := []struct {
-		code       int
-		format     string
-		args       string
-		wantType   string
-		wantCode   int
-		wangString string
+		code     int
+		format   string
+		args     string
+		wantCode int
 	}{
-		{ConfigurationNotValid, "Configuration %s", "failed", "*withCode", ConfigurationNotValid, `ConfigurationNotValid error`},
+		{ConfigurationNotValid, "Configuration %s", "failed", ConfigurationNotValid},
 	}
 
 	for _, tt := range tests {
-		got := WithCodeF(tt.code, tt.format, tt.args)
-		err, ok := got.(*withCode)
-		if !ok {
-			t.Errorf("WithCode(%v, %q %q): error type got: %T, want %s", tt.code, tt.format, tt.args, got, tt.wantType)
-		}
-
-		if err.code != tt.wantCode {
-			t.Errorf("WithCode(%v, %q %q): got: %v, want %v", tt.code, tt.format, tt.args, err.code, tt.wantCode)
-		}
-
-		if got.Error() != tt.wangString {
-			t.Errorf("WithCode(%v, %q %q): got: %v, want %v", tt.code, tt.format, tt.args, got.Error(), tt.wangString)
+		got := NewCode(tt.code, fmt.Sprintf(tt.format, tt.args))
+		if !IsCode(got, tt.wantCode) {
+			t.Errorf("NewCode(%v, %q %q) does not preserve code %d", tt.code, tt.format, tt.args, tt.wantCode)
 		}
 	}
 }
@@ -311,7 +294,7 @@ func TestParseCoder(t *testing.T) {
 		wantReference string
 	}{
 		{fmt.Errorf("yes error"), 500, "An internal server error occurred", 1, "http://goshop/pkg/errors/README.md"},
-		{WithCode(unknownCoder.Code(), "internal error message"), 500, "An internal server error occurred", 1, "http://goshop/pkg/errors/README.md"},
+		{NewCode(unknownCoder.Code(), "internal error message"), 500, "An internal server error occurred", 1, "http://goshop/pkg/errors/README.md"},
 	}
 
 	for i, tt := range tests {

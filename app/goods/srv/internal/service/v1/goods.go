@@ -7,7 +7,7 @@ import (
 	v12 "goshop/app/goods/srv/internal/data_search/v1"
 	"goshop/app/goods/srv/internal/domain/do"
 	"goshop/app/goods/srv/internal/domain/dto"
-	"goshop/app/pkg/code"
+	"goshop/app/pkg/bizcode"
 	"goshop/pkg/errors"
 	"sync"
 
@@ -141,7 +141,7 @@ func (gs *goodsService) List(ctx context.Context, opts metav1.ListMeta, req *pro
 
 func (gs *goodsService) Get(ctx context.Context, ID uint64) (*dto.GoodsDTO, error) {
 	if ID == 0 {
-		return nil, errors.WithCode(code.ErrGoodsNotFound, "goods not found")
+		return nil, errors.NewCode(bizcode.ErrGoodsNotFound, "goods not found")
 	}
 
 	goods, err := gs.data.Goods().Get(ctx, ID)
@@ -243,7 +243,7 @@ func (gs *goodsService) Update(ctx context.Context, goods *dto.GoodsDTO) (err er
 
 func (gs *goodsService) Delete(ctx context.Context, ID uint64) (err error) {
 	if ID == 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "goods id is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "goods id is required")
 	}
 	if _, err := gs.data.Goods().Get(ctx, ID); err != nil {
 		return err
@@ -297,10 +297,10 @@ var _ GoodsSrv = &goodsService{}
 
 func validateGoodsForWrite(goods *dto.GoodsDTO, requireID bool) error {
 	if goods == nil {
-		return errors.WithCode(code.ErrGoodsInvalid, "goods is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "goods is required")
 	}
 	if requireID && goods.ID <= 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "goods id is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "goods id is required")
 	}
 
 	goods.Name = strings.TrimSpace(goods.Name)
@@ -318,16 +318,16 @@ func validateGoodsForWrite(goods *dto.GoodsDTO, requireID bool) error {
 	goods.GoodsFrontImage = strings.TrimSpace(goods.GoodsFrontImage)
 
 	if goods.CategoryID <= 0 || goods.BrandsID <= 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "category_id and brand_id are required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "category_id and brand_id are required")
 	}
 	if goods.Name == "" || goods.GoodsSn == "" {
-		return errors.WithCode(code.ErrGoodsInvalid, "name and goods_sn are required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "name and goods_sn are required")
 	}
 	if goods.StoreID == "" {
-		return errors.WithCode(code.ErrGoodsInvalid, "store_id is required")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "store_id is required")
 	}
 	if goods.MarketPriceFen < 0 || goods.ShopPriceFen < 0 {
-		return errors.WithCode(code.ErrGoodsInvalid, "goods price must not be negative")
+		return errors.NewCode(bizcode.ErrGoodsInvalid, "goods price must not be negative")
 	}
 	return nil
 }
