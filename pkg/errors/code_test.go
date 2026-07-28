@@ -45,6 +45,26 @@ func TestCatalogRegisterAllIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestCatalogRegisterAllPanicsForInvalidSpec(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("Catalog.RegisterAll() did not panic for invalid specification")
+		}
+	}()
+	Catalog{{Code: 0, Kind: KindInternal, Message: "invalid"}}.RegisterAll()
+}
+
+type cyclicError struct{}
+
+func (cyclicError) Error() string { return "cyclic error" }
+func (cyclicError) Unwrap() error { return cyclicError{} }
+
+func TestIsCodeStopsOnCyclicError(t *testing.T) {
+	if IsCode(cyclicError{}, 991003) {
+		t.Fatal("IsCode() = true for cyclic error without code")
+	}
+}
+
 func TestIsCodeFindsCodesInJoinedAndAggregatedErrors(t *testing.T) {
 	const code = 991002
 	err := NewSpec(Spec{Code: code, Kind: KindUnavailable, Message: "dependency unavailable"}, "dial tcp: refused")

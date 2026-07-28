@@ -37,6 +37,24 @@ func TestSpecOfFindsSpecInAggregate(t *testing.T) {
 	}
 }
 
+func TestSpecValidate(t *testing.T) {
+	tests := []struct {
+		name string
+		spec Spec
+	}{
+		{name: "zero code", spec: Spec{Kind: KindInternal, Message: "internal error"}},
+		{name: "invalid kind", spec: Spec{Code: 990108, Kind: "invalid", Message: "invalid"}},
+		{name: "empty message", spec: Spec{Code: 990109, Kind: KindInternal}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.spec.Validate(); err == nil {
+				t.Fatal("Spec.Validate() = nil, want validation error")
+			}
+		})
+	}
+}
+
 func TestParseCoderAndIsCodeFindWrappedCode(t *testing.T) {
 	const code = 990102
 	Register(defaultCoder{C: code, Ext: "wrapped error"})

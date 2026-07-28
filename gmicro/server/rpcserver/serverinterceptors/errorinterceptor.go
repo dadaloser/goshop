@@ -38,6 +38,6 @@ func toGRPCStatusError(method string, err error) error {
 		return err
 	}
 
-	log.Errorf("[grpc] method=%s error=%+v", method, err)
+	log.Error("grpc request failed", log.String("method", method), log.ErrorDetail(err))
 	return toGRPCError(err)
 }

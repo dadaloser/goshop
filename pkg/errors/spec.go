@@ -2,6 +2,7 @@ package errors
 
 import (
 	stderrors "errors"
+	"fmt"
 )
 
 // Kind classifies an error independently of a transport protocol.
@@ -27,6 +28,30 @@ type Spec struct {
 	Kind      Kind
 	Message   string
 	Reference string
+}
+
+// Validate reports whether Spec is a complete public error contract.
+func (spec Spec) Validate() error {
+	if spec.Code <= 0 {
+		return fmt.Errorf("error code must be greater than zero")
+	}
+	if !spec.Kind.valid() {
+		return fmt.Errorf("error kind %q is invalid", spec.Kind)
+	}
+	if spec.Message == "" {
+		return fmt.Errorf("error message must not be empty")
+	}
+	return nil
+}
+
+func (kind Kind) valid() bool {
+	switch kind {
+	case KindInvalidArgument, KindUnauthenticated, KindPermissionDenied, KindNotFound,
+		KindConflict, KindRateLimited, KindUnavailable, KindTimeout, KindInternal:
+		return true
+	default:
+		return false
+	}
 }
 
 // Coded is implemented by errors that carry a business error specification.

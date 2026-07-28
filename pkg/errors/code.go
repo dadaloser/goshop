@@ -35,6 +35,9 @@ type Catalog []Spec
 // explicitly request their required catalogs without depending on init order.
 func (catalog Catalog) RegisterAll() {
 	for _, spec := range catalog {
+		if err := spec.Validate(); err != nil {
+			panic(fmt.Sprintf("invalid error specification: %v", err))
+		}
 		Register(specCoder{spec: spec})
 	}
 }

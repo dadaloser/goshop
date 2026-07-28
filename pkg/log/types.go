@@ -1,6 +1,8 @@
 package log
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -21,8 +23,15 @@ const (
 	KeyCurrentStatus string = "current_status"
 	KeyTargetStatus  string = "target_status"
 	KeySuccess       string = "success"
+	KeyErrorDetail   string = "error_detail"
 	KeyPayType       string = "pay_type"
 )
+
+// ErrorDetail returns a log-only field containing internal diagnostics and
+// stack details. Never include this field in a client response.
+func ErrorDetail(err error) Field {
+	return zap.String(KeyErrorDetail, fmt.Sprintf("%+v", err))
+}
 
 // Field is an alias for the field structure in the underlying log frame.
 type Field = zapcore.Field
