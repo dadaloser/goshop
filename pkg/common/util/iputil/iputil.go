@@ -3,6 +3,7 @@ package iputil
 import (
 	"net"
 	"net/http"
+	"strings"
 )
 
 // Define http headers.
@@ -29,22 +30,63 @@ func GetLocalIP() string {
 	return "127.0.0.1"
 }
 
-// RemoteIP returns the remote ip of the request.
+// RemoteIP returns the direct peer IP of the request. Forwarded headers are
+// intentionally ignored because they can be supplied by an untrusted client.
 func RemoteIP(req *http.Request) string {
-	remoteAddr := req.RemoteAddr
-	if ip := req.Header.Get(XClientIP); ip != "" {
-		remoteAddr = ip
-	} else if ip := req.Header.Get(XRealIP); ip != "" {
-		remoteAddr = ip
-	} else if ip = req.Header.Get(XForwardedFor); ip != "" {
-		remoteAddr = ip
-	} else {
-		remoteAddr, _, _ = net.SplitHostPort(remoteAddr)
+	return directRemoteIP(req)
+}
+
+// RemoteIPFromTrustedProxy returns the client IP from forwarding headers only
+// when the direct peer belongs to trustedProxies. The first valid value in
+// X-Forwarded-For is preferred, followed by X-Real-IP and X-Client-IP.
+func RemoteIPFromTrustedProxy(req *http.Request, trustedProxies []*net.IPNet) string {
+	peerIP := directRemoteIP(req)
+	if !isTrustedProxy(peerIP, trustedProxies) {
+		return peerIP
 	}
 
+	for _, header := range []string{XForwardedFor, XRealIP, XClientIP} {
+		if forwardedIP := firstValidIP(req.Header.Get(header)); forwardedIP != "" {
+			return forwardedIP
+		}
+	}
+
+	return peerIP
+}
+
+func directRemoteIP(req *http.Request) string {
+	remoteAddr, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		remoteAddr = req.RemoteAddr
+	}
 	if remoteAddr == "::1" {
-		remoteAddr = "127.0.0.1"
+		return "127.0.0.1"
 	}
 
 	return remoteAddr
+}
+
+func isTrustedProxy(remoteAddr string, trustedProxies []*net.IPNet) bool {
+	ip := net.ParseIP(remoteAddr)
+	if ip == nil {
+		return false
+	}
+	for _, trustedProxy := range trustedProxies {
+		if trustedProxy != nil && trustedProxy.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func firstValidIP(header string) string {
+	for _, value := range strings.Split(header, ",") {
+		value = strings.TrimSpace(value)
+		if net.ParseIP(value) != nil {
+			return value
+		}
+	}
+
+	return ""
 }

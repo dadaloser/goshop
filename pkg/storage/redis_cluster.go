@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -215,6 +216,7 @@ func NewRedisClusterPool(isCache bool, config *Config) redis.UniversalClient {
 	opts := &RedisOpts{
 		Addrs:        getRedisAddrs(config),
 		MasterName:   config.MasterName,
+		Username:     config.Username,
 		Password:     config.Password,
 		DB:           config.Database,
 		DialTimeout:  timeout,
@@ -279,6 +281,7 @@ func (o *RedisOpts) cluster() *redis.ClusterOptions {
 		Addrs:     o.Addrs,
 		OnConnect: o.OnConnect,
 
+		Username: o.Username,
 		Password: o.Password,
 
 		MaxRedirects:   o.MaxRedirects,
@@ -312,6 +315,7 @@ func (o *RedisOpts) simple() *redis.Options {
 		OnConnect: o.OnConnect,
 
 		DB:       o.DB,
+		Username: o.Username,
 		Password: o.Password,
 
 		MaxRetries:      o.MaxRetries,
@@ -341,6 +345,7 @@ func (o *RedisOpts) failover() *redis.FailoverOptions {
 		OnConnect:     o.OnConnect,
 
 		DB:       o.DB,
+		Username: o.Username,
 		Password: o.Password,
 
 		MaxRetries:      o.MaxRetries,
@@ -648,39 +653,36 @@ func (r *RedisCluster) GetKeys(ctx context.Context, filter string) []string {
 		return values, nil
 	}
 
-	var err error
-	var values []string
 	sessions := make([]string, 0)
 
 	switch v := client.(type) {
 	case *redis.ClusterClient:
-		ch := make(chan []string)
+		var sessionsMu sync.Mutex
+		err := v.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
+			values, err := fnFetchKeys(client)
+			if err != nil {
+				return err
+			}
 
-		go func() {
-			err = v.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
-				values, err = fnFetchKeys(client)
-				if err != nil {
-					return err
-				}
+			sessionsMu.Lock()
+			sessions = append(sessions, values...)
+			sessionsMu.Unlock()
 
-				ch <- values
+			return nil
+		})
+		if err != nil {
+			log.Errorf("Error while fetching keys: %s", err)
 
-				return nil
-			})
-			close(ch)
-		}()
-
-		for res := range ch {
-			sessions = append(sessions, res...)
+			return nil
 		}
 	case *redis.Client:
+		var err error
 		sessions, err = fnFetchKeys(v)
-	}
+		if err != nil {
+			log.Errorf("Error while fetching keys: %s", err)
 
-	if err != nil {
-		log.Errorf("Error while fetching keys: %s", err)
-
-		return nil
+			return nil
+		}
 	}
 
 	for i, v := range sessions {
@@ -836,38 +838,36 @@ func (r *RedisCluster) DeleteScanMatch(ctx context.Context, pattern string) bool
 		return values, nil
 	}
 
-	var err error
 	var keys []string
-	var values []string
 
 	switch v := client.(type) {
 	case *redis.ClusterClient:
-		ch := make(chan []string)
-		go func() {
-			err = v.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
-				values, err = fnScan(client)
-				if err != nil {
-					return err
-				}
+		var keysMu sync.Mutex
+		err := v.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
+			values, err := fnScan(client)
+			if err != nil {
+				return err
+			}
 
-				ch <- values
+			keysMu.Lock()
+			keys = append(keys, values...)
+			keysMu.Unlock()
 
-				return nil
-			})
-			close(ch)
-		}()
+			return nil
+		})
+		if err != nil {
+			log.Errorf("SCAN command failed: %s", err)
 
-		for vals := range ch {
-			keys = append(keys, vals...)
+			return false
 		}
 	case *redis.Client:
+		var err error
 		keys, err = fnScan(v)
-	}
+		if err != nil {
+			log.Errorf("SCAN command failed: %s", err)
 
-	if err != nil {
-		log.Errorf("SCAN command field with err: %s", err.Error())
-
-		return false
+			return false
+		}
 	}
 
 	if len(keys) > 0 {

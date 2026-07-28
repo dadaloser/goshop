@@ -32,6 +32,33 @@ func TestRedisTLSConfigUsesMinimumTLS12(t *testing.T) {
 	}
 }
 
+func TestRedisUsernameIsPropagatedToAllClientOptions(t *testing.T) {
+	const username = "app-user"
+
+	client := NewRedisClusterPool(false, &Config{
+		Host:     "127.0.0.1",
+		Port:     6379,
+		Username: username,
+	})
+	defer client.Close()
+
+	redisClient, ok := client.(*redis.Client)
+	if !ok {
+		t.Fatalf("client type = %T, want *redis.Client", client)
+	}
+	if got := redisClient.Options().Username; got != username {
+		t.Fatalf("simple client username = %q, want %q", got, username)
+	}
+
+	opts := &RedisOpts{Username: username}
+	if got := opts.cluster().Username; got != username {
+		t.Fatalf("cluster client username = %q, want %q", got, username)
+	}
+	if got := opts.failover().Username; got != username {
+		t.Fatalf("failover client username = %q, want %q", got, username)
+	}
+}
+
 func TestRedisKeyRedaction(t *testing.T) {
 	raw := "mobile:13800138000"
 
