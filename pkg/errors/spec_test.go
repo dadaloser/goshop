@@ -3,6 +3,7 @@ package errors
 import (
 	stderrors "errors"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -53,11 +54,11 @@ func TestWrapCodeUsesRegisteredSpecAndPreservesCause(t *testing.T) {
 	if !stderrors.Is(err, cause) {
 		t.Fatal("WrapCode() does not preserve the cause")
 	}
-	if err.Error() != "connect inventory service" {
-		t.Fatalf("WrapCode() diagnostic = %q, want %q", err.Error(), "connect inventory service")
+	if err.Error() != "dependency unavailable" {
+		t.Fatalf("WrapCode() public message = %q, want %q", err.Error(), "dependency unavailable")
 	}
-	if got := fmt.Sprintf("%v", err); got != "dependency unavailable" {
-		t.Fatalf("WrapCode() public message = %q, want %q", got, "dependency unavailable")
+	if diagnostic := fmt.Sprintf("%+v", err); !strings.Contains(diagnostic, "connect inventory service") {
+		t.Fatalf("WrapCode() detailed format = %q, want diagnostic", diagnostic)
 	}
 	if spec, ok := SpecOf(err); !ok || spec != SpecForCode(code) {
 		t.Fatalf("SpecOf(WrapCode()) = (%#v, %t), want (%#v, true)", spec, ok, SpecForCode(code))

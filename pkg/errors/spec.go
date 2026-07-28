@@ -67,8 +67,8 @@ func SpecForCode(code int) Spec {
 }
 
 // NewSpec returns an error with a public business-error contract and internal
-// diagnostic text. The diagnostic text is retained for logs and must not be
-// returned directly to clients.
+// diagnostic text. Error always returns the public message; diagnostics are
+// available only through explicit detailed formatting for controlled logs.
 func NewSpec(spec Spec, internal string) error {
 	return &withSpec{
 		spec:  spec,
@@ -113,7 +113,16 @@ type withSpec struct {
 	*stack
 }
 
-func (w *withSpec) Error() string { return w.err.Error() }
+// Error returns only the public error message. It must be safe to expose at
+// every boundary, including paths that accidentally bypass a transport adapter.
+func (w *withSpec) Error() string {
+	if w.spec.Message != "" {
+		return w.spec.Message
+	}
+	return unknownCoder.String()
+}
+
+func (w *withSpec) diagnostic() string { return w.err.Error() }
 
 func (w *withSpec) Unwrap() error { return w.cause }
 

@@ -94,7 +94,7 @@ func buildFormatInfo(err error) *formatInfo {
 		if message == "" {
 			message = value.Error()
 		}
-		return &formatInfo{code: value.spec.Code, message: message, err: value.Error(), stack: value.stack}
+		return &formatInfo{code: value.spec.Code, message: message, err: value.diagnostic(), stack: value.stack}
 	default:
 		return &formatInfo{code: unknownCoder.Code(), message: err.Error(), err: err.Error()}
 	}
