@@ -2,6 +2,7 @@ package idutil
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,4 +33,14 @@ func TestRandString(t *testing.T) {
 	str = randString(Alphabet62, 255)
 	assert.Equal(t, 255, len(str))
 	t.Log(str)
+
+	if got := randString("", 12); got != "" {
+		t.Fatalf("randString(empty, 12) = %q, want empty", got)
+	}
+	if got := randString(Alphabet62, 0); got != "" {
+		t.Fatalf("randString(alphabet, 0) = %q, want empty", got)
+	}
+	if strings.IndexFunc(str, func(r rune) bool { return !strings.ContainsRune(Alphabet62, r) }) >= 0 {
+		t.Fatalf("randString() produced character outside alphabet: %q", str)
+	}
 }

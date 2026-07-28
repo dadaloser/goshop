@@ -28,10 +28,10 @@ func (f Fen) YuanString() string {
 	sign := ""
 	if value < 0 {
 		sign = "-"
-		value = -value
 	}
-	yuan := value / FenPerYuan
-	fen := value % FenPerYuan
+	magnitude := int64Magnitude(value)
+	yuan := magnitude / uint64(FenPerYuan)
+	fen := magnitude % uint64(FenPerYuan)
 	return fmt.Sprintf("%s%d.%02d", sign, yuan, fen)
 }
 
@@ -49,13 +49,18 @@ func (f Fen) Multiply(qty int64) (Fen, error) {
 		return 0, nil
 	}
 
-	overflow, product := bits.Mul64(uint64(absInt64(int64(f))), uint64(absInt64(qty)))
-	if overflow != 0 || product > math.MaxInt64 {
+	overflow, product := bits.Mul64(int64Magnitude(int64(f)), int64Magnitude(qty))
+	negative := (f < 0) != (qty < 0)
+	limit := uint64(math.MaxInt64)
+	if negative {
+		limit++
+	}
+	if overflow != 0 || product > limit {
 		return 0, fmt.Errorf("money multiply overflow: %d * %d", f, qty)
 	}
 
 	result := int64(product)
-	if (f < 0) != (qty < 0) {
+	if negative && product != uint64(1)<<63 {
 		result = -result
 	}
 	return Fen(result), nil
@@ -111,15 +116,24 @@ func ParseYuan(value string) (Fen, error) {
 		return 0, nil
 	}
 
-	fenValue, err := strconv.ParseInt(normalized, 10, 64)
+	fenValue, err := strconv.ParseUint(normalized, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("parse money %q: %w", value, err)
 	}
 
+	limit := uint64(math.MaxInt64)
 	if sign < 0 {
-		fenValue = -fenValue
+		limit++
 	}
-	return Fen(fenValue), nil
+	if fenValue > limit {
+		return 0, fmt.Errorf("parse money %q: value out of range", value)
+	}
+
+	result := int64(fenValue)
+	if sign < 0 && fenValue != uint64(1)<<63 {
+		result = -result
+	}
+	return Fen(result), nil
 }
 
 func MustParseYuan(value string) Fen {
@@ -139,9 +153,9 @@ func allDigits(value string) bool {
 	return true
 }
 
-func absInt64(v int64) int64 {
+func int64Magnitude(v int64) uint64 {
 	if v < 0 {
-		return -v
+		return uint64(-(v + 1)) + 1
 	}
-	return v
+	return uint64(v)
 }

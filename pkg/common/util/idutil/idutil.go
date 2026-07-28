@@ -2,6 +2,7 @@ package idutil
 
 import (
 	"crypto/rand"
+	"math/big"
 
 	"github.com/sony/sonyflake"
 	hashids "github.com/speps/go-hashids"
@@ -79,28 +80,18 @@ func GetUUID36(prefix string) string {
 }
 
 func randString(letters string, n int) string {
-	output := make([]byte, n)
-
-	// We will take n bytes, one byte for each character of output.
-	randomness := make([]byte, n)
-
-	// read all random
-	_, err := rand.Read(randomness)
-	if err != nil {
-		panic(err)
+	if len(letters) == 0 || n <= 0 {
+		return ""
 	}
 
-	l := len(letters)
-	// fill output
+	output := make([]byte, n)
+	limit := big.NewInt(int64(len(letters)))
 	for pos := range output {
-		// get random item
-		random := randomness[pos]
-
-		// random % 64
-		randomPos := random % uint8(l)
-
-		// put into output
-		output[pos] = letters[randomPos]
+		randomPos, err := rand.Int(rand.Reader, limit)
+		if err != nil {
+			panic(err)
+		}
+		output[pos] = letters[randomPos.Int64()]
 	}
 
 	return string(output)

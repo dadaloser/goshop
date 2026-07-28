@@ -4,7 +4,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -24,6 +26,11 @@ type EsOptions struct {
 }
 
 func NewEsClient(opts *EsOptions) (*elastic.Client, error) {
+	if opts == nil {
+		return nil, fmt.Errorf("elasticsearch options are required")
+	}
+	options := *opts
+	opts = &options
 	if opts.Scheme == "" {
 		opts.Scheme = "http"
 	}
@@ -52,7 +59,7 @@ func NewEsClient(opts *EsOptions) (*elastic.Client, error) {
 		elastic.SetInfoLog(log.New(os.Stdout, "", log.LstdFlags)),
 		elastic.SetSniff(false),
 		elastic.SetHttpClient(client),
-		elastic.SetURL(fmt.Sprintf("%s://%s:%s/", opts.Scheme, opts.Host, opts.Port)),
+		elastic.SetURL(buildESURL(opts.Scheme, opts.Host, opts.Port)),
 	}
 	if opts.DisableHealthcheck {
 		clientOptions = append(clientOptions, elastic.SetHealthcheck(false))
@@ -68,4 +75,15 @@ func NewEsClient(opts *EsOptions) (*elastic.Client, error) {
 		return nil, err
 	}
 	return esClient, nil
+}
+
+func buildESURL(scheme, host, port string) string {
+	address := host
+	if port != "" {
+		address = net.JoinHostPort(host, port)
+	} else if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+		address = "[" + host + "]"
+	}
+
+	return (&url.URL{Scheme: scheme, Host: address, Path: "/"}).String()
 }

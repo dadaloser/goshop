@@ -53,6 +53,7 @@ func TestFenYuanString(t *testing.T) {
 		{input: 1200, want: "12.00"},
 		{input: 1234, want: "12.34"},
 		{input: -1234, want: "-12.34"},
+		{input: Fen(math.MinInt64), want: "-92233720368547758.08"},
 	}
 
 	for _, tt := range tests {
@@ -87,5 +88,27 @@ func TestFenMultiply(t *testing.T) {
 
 	if _, err := Fen(math.MaxInt64).Multiply(2); err == nil {
 		t.Fatalf("Multiply() overflow error = nil, want error")
+	}
+
+	got, err = Fen(math.MinInt64).Multiply(1)
+	if err != nil {
+		t.Fatalf("MinInt64.Multiply(1) error = %v", err)
+	}
+	if got != Fen(math.MinInt64) {
+		t.Fatalf("MinInt64.Multiply(1) = %d, want %d", got, int64(math.MinInt64))
+	}
+
+	if _, err := Fen(math.MinInt64).Multiply(-1); err == nil {
+		t.Fatal("MinInt64.Multiply(-1) error = nil, want error")
+	}
+}
+
+func TestParseYuanSupportsMinInt64(t *testing.T) {
+	got, err := ParseYuan("-92233720368547758.08")
+	if err != nil {
+		t.Fatalf("ParseYuan() error = %v", err)
+	}
+	if got != Fen(math.MinInt64) {
+		t.Fatalf("ParseYuan() = %d, want %d", got, int64(math.MinInt64))
 	}
 }

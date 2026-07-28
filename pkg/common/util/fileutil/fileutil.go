@@ -234,6 +234,9 @@ func GetIntraDir(pattern string, depth, length int) string {
 
 // GetParent returns the parent directory of the given path.
 func GetParent(path string) *string {
+	if path == "" {
+		return nil
+	}
 	isRoot := path[len(path)-1:] == "/"
 	if isRoot {
 		return nil

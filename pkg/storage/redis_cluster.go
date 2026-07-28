@@ -52,6 +52,14 @@ var (
 
 var disableRedis atomic.Value
 
+var incrementWithExpireScript = redis.NewScript(`
+local value = redis.call("INCR", KEYS[1])
+if value == 1 and tonumber(ARGV[1]) > 0 then
+  redis.call("EXPIRE", KEYS[1], ARGV[1])
+end
+return value
+`)
+
 // DisableRedis very handy when testsing it allows to dynamically enable/disable talking with redisW.
 func DisableRedis(ok bool) {
 	if ok {
@@ -600,28 +608,21 @@ func (r *RedisCluster) Decrement(ctx context.Context, keyName string) {
 	}
 }
 
-// IncrememntWithExpire will increment a key in redis.
-func (r *RedisCluster) IncrememntWithExpire(ctx context.Context, keyName string, expire int64) int64 {
+// IncrememntWithExpire atomically increments a raw key and sets its expiry on
+// the first increment.
+func (r *RedisCluster) IncrememntWithExpire(ctx context.Context, keyName string, expire int64) (int64, error) {
 	log.Debug("Incrementing raw key", log.String("keyHash", redactedRedisKey(keyName)))
 	if err := r.up(); err != nil {
-		return 0
+		return 0, err
 	}
-	// This function uses a raw key, so we shouldn't call fixKey
-	fixedKey := keyName
-	val, err := r.singleton().Incr(ctx, fixedKey).Result()
+	val, err := incrementWithExpireScript.Run(ctx, r.singleton(), []string{keyName}, expire).Int64()
 
 	if err != nil {
-		log.Errorf("Error trying to increment value: %s", err.Error())
-	} else {
-		log.Debug("Incremented key", log.String("keyHash", redactedRedisKey(fixedKey)), log.Int64("value", val))
+		return 0, fmt.Errorf("increment redis key: %w", err)
 	}
 
-	if val == 1 && expire > 0 {
-		log.Debug("--> Setting Expire")
-		r.singleton().Expire(ctx, fixedKey, time.Duration(expire)*time.Second)
-	}
-
-	return val
+	log.Debug("Incremented key", log.String("keyHash", redactedRedisKey(keyName)), log.Int64("value", val))
+	return val, nil
 }
 
 // GetKeys will return all keys according to the filter (filter is a prefix - e.g. tyk.keys.*).
@@ -896,31 +897,37 @@ func (r *RedisCluster) DeleteKeys(ctx context.Context, keys []string) bool {
 		return false
 	}
 	if len(keys) > 0 {
-		for i, v := range keys {
-			keys[i] = r.fixKey(v)
+		fixedKeys := make([]string, len(keys))
+		for i, key := range keys {
+			fixedKeys[i] = r.fixKey(key)
 		}
 
-		log.Debug("Deleting redis keys", log.Int("count", len(keys)))
+		log.Debug("Deleting redis keys", log.Int("count", len(fixedKeys)))
 		client := r.singleton()
 		switch v := client.(type) {
 		case *redis.ClusterClient:
 			{
 				pipe := v.Pipeline()
-				for _, k := range keys {
+				for _, k := range fixedKeys {
 					pipe.Del(ctx, k)
 				}
 
 				if _, err := pipe.Exec(ctx); err != nil {
 					log.Errorf("Error trying to delete keys: %s", err.Error())
+					return false
 				}
 			}
 		case *redis.Client:
 			{
-				_, err := v.Del(ctx, keys...).Result()
+				_, err := v.Del(ctx, fixedKeys...).Result()
 				if err != nil {
 					log.Errorf("Error trying to delete keys: %s", err.Error())
+					return false
 				}
 			}
+		default:
+			log.Errorf("Unsupported Redis client type: %T", client)
+			return false
 		}
 	} else {
 		log.Debug("RedisCluster called DEL - Nothing to delete")
