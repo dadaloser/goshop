@@ -1,7 +1,6 @@
 package errors
 
 import (
-	stderrors "errors"
 	"fmt"
 	"sync"
 )
@@ -117,9 +116,8 @@ func ParseCoder(err error) Coder {
 		return nil
 	}
 
-	var specified Coded
-	if stderrors.As(err, &specified) {
-		if coder, ok := lookupCoder(specified.Spec().Code); ok {
+	if spec, ok := SpecOf(err); ok {
+		if coder, ok := lookupCoder(spec.Code); ok {
 			return coder
 		}
 	}

@@ -121,14 +121,18 @@ func wrapSpec(err error, spec Spec, internal string, stack *stack) error {
 	}
 }
 
-// SpecOf returns the first business-error specification in err's chain.
+// SpecOf returns the first business-error specification in err's tree.
 func SpecOf(err error) (Spec, bool) {
-	var coded Coded
-	if !stderrors.As(err, &coded) {
-		return Spec{}, false
-	}
-
-	return coded.Spec(), true
+	var spec Spec
+	found := walkErrors(err, func(err error) bool {
+		coded, ok := err.(Coded)
+		if !ok {
+			return false
+		}
+		spec = coded.Spec()
+		return true
+	})
+	return spec, found
 }
 
 type withSpec struct {

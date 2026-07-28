@@ -65,6 +65,17 @@ func TestIsCodeStopsOnCyclicError(t *testing.T) {
 	}
 }
 
+func TestWalkErrorsCapsEntireJoinedTree(t *testing.T) {
+	branches := make([]error, maxErrorTreeNodes+10)
+	for i := range branches {
+		branches[i] = stderrors.New("branch")
+	}
+
+	if got := len(list(stderrors.Join(branches...))); got != maxErrorTreeNodes {
+		t.Fatalf("list(joined tree) length = %d, want %d", got, maxErrorTreeNodes)
+	}
+}
+
 func TestIsCodeFindsCodesInJoinedAndAggregatedErrors(t *testing.T) {
 	const code = 991002
 	err := NewSpec(Spec{Code: code, Kind: KindUnavailable, Message: "dependency unavailable"}, "dial tcp: refused")

@@ -37,6 +37,15 @@ func TestSpecOfFindsSpecInAggregate(t *testing.T) {
 	}
 }
 
+func TestSpecOfStopsOnCyclicError(t *testing.T) {
+	if _, ok := SpecOf(cyclicError{}); ok {
+		t.Fatal("SpecOf() found a specification in cyclic error")
+	}
+	if got := ParseCoder(cyclicError{}); got != unknownCoder {
+		t.Fatalf("ParseCoder(cyclic error) = %#v, want unknown coder", got)
+	}
+}
+
 func TestSpecValidate(t *testing.T) {
 	tests := []struct {
 		name string
