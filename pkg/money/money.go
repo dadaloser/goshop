@@ -9,8 +9,7 @@ import (
 )
 
 const (
-	CurrencyCNY = "CNY"
-	FenPerYuan  = int64(100)
+	FenPerYuan = int64(100)
 )
 
 type Fen int64

@@ -37,15 +37,19 @@ func RemoteIP(req *http.Request) string {
 }
 
 // RemoteIPFromTrustedProxy returns the client IP from forwarding headers only
-// when the direct peer belongs to trustedProxies. The first valid value in
-// X-Forwarded-For is preferred, followed by X-Real-IP and X-Client-IP.
+// when the direct peer belongs to trustedProxies. X-Forwarded-For is evaluated
+// from right to left, skipping trusted proxies, so appended proxy hops cannot
+// cause a client-supplied leftmost address to be trusted.
 func RemoteIPFromTrustedProxy(req *http.Request, trustedProxies []*net.IPNet) string {
 	peerIP := directRemoteIP(req)
 	if !isTrustedProxy(peerIP, trustedProxies) {
 		return peerIP
 	}
 
-	for _, header := range []string{XForwardedFor, XRealIP, XClientIP} {
+	if forwardedIP := clientIPFromForwardedFor(req.Header.Get(XForwardedFor), trustedProxies); forwardedIP != "" {
+		return forwardedIP
+	}
+	for _, header := range []string{XRealIP, XClientIP} {
 		if forwardedIP := firstValidIP(req.Header.Get(header)); forwardedIP != "" {
 			return forwardedIP
 		}
@@ -86,6 +90,19 @@ func firstValidIP(header string) string {
 		if net.ParseIP(value) != nil {
 			return value
 		}
+	}
+
+	return ""
+}
+
+func clientIPFromForwardedFor(header string, trustedProxies []*net.IPNet) string {
+	values := strings.Split(header, ",")
+	for i := len(values) - 1; i >= 0; i-- {
+		value := strings.TrimSpace(values[i])
+		if net.ParseIP(value) == nil || isTrustedProxy(value, trustedProxies) {
+			continue
+		}
+		return value
 	}
 
 	return ""

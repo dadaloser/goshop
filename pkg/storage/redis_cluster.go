@@ -869,18 +869,21 @@ func (r *RedisCluster) DeleteScanMatch(ctx context.Context, pattern string) bool
 
 			return false
 		}
+	default:
+		log.Errorf("Unsupported Redis client type: %T", client)
+		return false
 	}
 
 	if len(keys) > 0 {
 		for _, name := range keys {
 			log.Info("Deleting scanned redis key", log.String("keyHash", redactedRedisKey(name)))
-			err := client.Del(ctx, name).Err()
-			if err != nil {
+			if err := client.Del(ctx, name).Err(); err != nil {
 				log.Error(
 					"Error trying to delete key",
 					log.String("keyHash", redactedRedisKey(name)),
 					log.String("error", err.Error()),
 				)
+				return false
 			}
 		}
 		log.Infof("Deleted: %d records", len(keys))

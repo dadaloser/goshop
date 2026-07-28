@@ -17,7 +17,7 @@ func TestRemoteIPIgnoresForwardedHeadersFromUntrustedPeer(t *testing.T) {
 	}
 }
 
-func TestRemoteIPFromTrustedProxyUsesFirstValidForwardedIP(t *testing.T) {
+func TestRemoteIPFromTrustedProxyUsesRightmostUntrustedForwardedIP(t *testing.T) {
 	_, trustedProxy, err := net.ParseCIDR("10.0.0.0/8")
 	if err != nil {
 		t.Fatalf("ParseCIDR() error = %v", err)
@@ -26,6 +26,21 @@ func TestRemoteIPFromTrustedProxyUsesFirstValidForwardedIP(t *testing.T) {
 	req := httptest.NewRequest("GET", "http://example.test", nil)
 	req.RemoteAddr = "10.1.2.3:8080"
 	req.Header.Set(XForwardedFor, "not-an-ip, 198.51.100.8, 198.51.100.9")
+
+	if got, want := RemoteIPFromTrustedProxy(req, []*net.IPNet{trustedProxy}), "198.51.100.9"; got != want {
+		t.Fatalf("RemoteIPFromTrustedProxy() = %q, want %q", got, want)
+	}
+}
+
+func TestRemoteIPFromTrustedProxySkipsTrustedForwardedHops(t *testing.T) {
+	_, trustedProxy, err := net.ParseCIDR("10.0.0.0/8")
+	if err != nil {
+		t.Fatalf("ParseCIDR() error = %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "http://example.test", nil)
+	req.RemoteAddr = "10.1.2.3:8080"
+	req.Header.Set(XForwardedFor, "198.51.100.8, 10.2.3.4")
 
 	if got, want := RemoteIPFromTrustedProxy(req, []*net.IPNet{trustedProxy}), "198.51.100.8"; got != want {
 		t.Fatalf("RemoteIPFromTrustedProxy() = %q, want %q", got, want)
