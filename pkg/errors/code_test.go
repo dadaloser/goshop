@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestMustRegisterAllowsIdenticalDuplicate(t *testing.T) {
+func TestRegisterAllowsIdenticalDuplicate(t *testing.T) {
 	restoreCodes(t)
 
 	coder := defaultCoder{
@@ -15,8 +15,7 @@ func TestMustRegisterAllowsIdenticalDuplicate(t *testing.T) {
 		Ref: "https://example.test/duplicate",
 	}
 
-	MustRegister(coder)
-	MustRegister(coder)
+	Register(coder)
 
 	got, ok := codes[coder.Code()]
 	if !ok {
@@ -58,10 +57,10 @@ func TestIsCodeFindsCodesInJoinedAndAggregatedErrors(t *testing.T) {
 	}
 }
 
-func TestMustRegisterPanicsOnConflictingDuplicate(t *testing.T) {
+func TestRegisterPanicsOnConflictingDuplicate(t *testing.T) {
 	restoreCodes(t)
 
-	MustRegister(defaultCoder{
+	Register(defaultCoder{
 		C:   990002,
 		K:   KindInvalidArgument,
 		Ext: "first coder",
@@ -70,11 +69,11 @@ func TestMustRegisterPanicsOnConflictingDuplicate(t *testing.T) {
 
 	defer func() {
 		if recover() == nil {
-			t.Fatal("MustRegister() did not panic for conflicting duplicate coder")
+			t.Fatal("Register() did not panic for conflicting duplicate coder")
 		}
 	}()
 
-	MustRegister(defaultCoder{
+	Register(defaultCoder{
 		C:   990002,
 		K:   KindInternal,
 		Ext: "second coder",

@@ -59,6 +59,18 @@ func TestResponseForLegacyCode(t *testing.T) {
 	}
 }
 
+func TestResponseForAggregateSpec(t *testing.T) {
+	err := apperrors.NewAggregate([]error{
+		apperrors.New("other failure"),
+		apperrors.NewSpec(apperrors.Spec{Code: 990203, Kind: apperrors.KindNotFound, Message: "safe message"}, "query user"),
+	})
+
+	response := ResponseFor(err)
+	if response.Status != http.StatusNotFound || response.Code != 990203 || response.Message != "safe message" {
+		t.Fatalf("ResponseFor(Aggregate) = %#v, want not-found public response", response)
+	}
+}
+
 type testCoder struct {
 	code    int
 	kind    apperrors.Kind

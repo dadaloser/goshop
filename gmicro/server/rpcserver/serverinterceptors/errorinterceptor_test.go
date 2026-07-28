@@ -91,6 +91,18 @@ func TestToGRPCErrorKeepsLegacyCodeMapping(t *testing.T) {
 	}
 }
 
+func TestToGRPCErrorMapsAggregateSpec(t *testing.T) {
+	err := apperrors.NewAggregate([]error{
+		apperrors.New("other failure"),
+		apperrors.NewSpec(apperrors.Spec{Code: 990405, Kind: apperrors.KindNotFound, Message: "safe message"}, "query user"),
+	})
+
+	got := toGRPCError(err)
+	if status.Code(got) != codes.NotFound || status.Convert(got).Message() != "safe message" {
+		t.Fatalf("toGRPCError(Aggregate) = %v, want not-found safe message", got)
+	}
+}
+
 func TestToGRPCErrorMapsContextErrors(t *testing.T) {
 	tests := []struct {
 		name string

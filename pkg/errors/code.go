@@ -35,7 +35,7 @@ type Catalog []Spec
 // explicitly request their required catalogs without depending on init order.
 func (catalog Catalog) RegisterAll() {
 	for _, spec := range catalog {
-		MustRegister(specCoder{spec: spec})
+		Register(specCoder{spec: spec})
 	}
 }
 
@@ -87,22 +87,9 @@ func (coder defaultCoder) Kind() Kind {
 var codes = map[int]Coder{unknownCoder.Code(): unknownCoder}
 var codeMux sync.RWMutex
 
-// Register register a user define error code.
-// It will overrid the exist code.
-func Register(coder Coder) {
-	if coder.Code() == 0 {
-		panic("code `0` is reserved by `goshop/pkg/errors` as unknownCode error code")
-	}
-
-	codeMux.Lock()
-	defer codeMux.Unlock()
-
-	codes[coder.Code()] = coder
-}
-
-// MustRegister register a user define error code.
+// Register a user define error code.
 // It will panic when the same Code already exist.
-func MustRegister(coder Coder) {
+func Register(coder Coder) {
 	if coder.Code() == 0 {
 		panic("code '0' is reserved by 'goshop/pkg/errors' as ErrUnknown error code")
 	}

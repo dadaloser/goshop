@@ -10,10 +10,8 @@ type MessageCountMap map[string]int
 
 // Aggregate represents an object that contains multiple errors, but does not
 // necessarily have singular semantic meaning.
-// The aggregate can be used with `errors.Is()` to check for the occurrence of
-// a specific error type.
-// Errors.As() is not supported, because the caller presumably cares about a
-// specific error of potentially multiple that match the given type.
+// The aggregate participates in standard Go error-tree traversal, so
+// errors.Is and errors.As inspect every contained error.
 type Aggregate interface {
 	error
 	Errors() []error
@@ -81,6 +79,9 @@ func (agg aggregate) Is(target error) bool {
 		return errors.Is(err, target)
 	})
 }
+
+// Unwrap exposes every contained error to the standard Go error traversal.
+func (agg aggregate) Unwrap() []error { return []error(agg) }
 
 func (agg aggregate) visit(f func(err error) bool) bool {
 	for _, err := range agg {

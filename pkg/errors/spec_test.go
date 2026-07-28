@@ -27,6 +27,16 @@ func TestSpecOfFindsSpecInWrappedChain(t *testing.T) {
 	}
 }
 
+func TestSpecOfFindsSpecInAggregate(t *testing.T) {
+	spec := Spec{Code: 990107, Kind: KindNotFound, Message: "user not found"}
+	err := NewAggregate([]error{stderrors.New("other failure"), NewSpec(spec, "query user")})
+
+	got, ok := SpecOf(err)
+	if !ok || got != spec {
+		t.Fatalf("SpecOf(Aggregate) = (%#v, %t), want (%#v, true)", got, ok, spec)
+	}
+}
+
 func TestParseCoderAndIsCodeFindWrappedCode(t *testing.T) {
 	const code = 990102
 	Register(defaultCoder{C: code, Ext: "wrapped error"})
