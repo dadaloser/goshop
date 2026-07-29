@@ -42,6 +42,31 @@ func TestReadyzReturnsUnavailableAfterStop(t *testing.T) {
 	}
 }
 
+func TestReadyzReturnsUnavailableWhenDependencyFails(t *testing.T) {
+	srv := NewServer(WithHealthCheck(true), WithReadinessCheck(func() error {
+		return errors.New("redis unavailable")
+	}))
+	srv.registerHealthRoutes()
+	srv.readyOnce.Do(func() {
+		close(srv.ready)
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	req.RemoteAddr = "10.0.0.2:1234"
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("readyz dependency failure status = %d, want 503", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/livez", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("livez dependency failure status = %d, want 200", rec.Code)
+	}
+}
+
 func TestRegisterBuiltInRoutesIsIdempotent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	srv := NewServer(

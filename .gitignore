@@ -16,3 +16,4 @@
 !/docs/business-and-observability.md
 !/docs/production-baseline.md
 /cache/
+/chaos/records/

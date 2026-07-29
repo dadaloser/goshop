@@ -17,6 +17,17 @@ func (r *RedisCluster) Connect() bool {
 	return true
 }
 
+// ReadinessCheck returns a dependency check for services that require Redis to
+// serve traffic. Services that can degrade Redis-backed features should omit it.
+func ReadinessCheck() func() error {
+	return func() error {
+		if Connected() {
+			return nil
+		}
+		return ErrRedisIsDown
+	}
+}
+
 func (r *RedisCluster) singleton() redis.UniversalClient {
 	return singleton(r.IsCache)
 }

@@ -6,6 +6,7 @@ import (
 	"goshop/app/goshop/api/config"
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/restserver/middlewares"
+	"goshop/pkg/storage"
 )
 
 func NewAPIHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Server, error) {
@@ -15,6 +16,7 @@ func NewAPIHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Serv
 		restserver.WithHost(cfg.Server.Host),
 		restserver.WithMiddlewares(cfg.Server.Middlewares),
 		restserver.WithHealthCheck(enableBuiltInRoutes && cfg.Server.EnableHealthCheck),
+		restserver.WithReadinessCheck(storage.ReadinessCheck()),
 		restserver.WithEnableProfiling(enableBuiltInRoutes && cfg.Server.EnableProfiling),
 		restserver.WithProfilingToken(cfg.Server.ProfilingToken),
 		restserver.WithMetrics(enableBuiltInRoutes && cfg.Server.EnableMetrics),
@@ -58,6 +60,7 @@ func NewAPIManagementServer(cfg *config.Config) *restserver.Server {
 		restserver.WithHost(cfg.Server.Host),
 		restserver.WithServiceName(cfg.Server.Name+"-management"),
 		restserver.WithHealthCheck(cfg.Server.EnableHealthCheck),
+		restserver.WithReadinessCheck(storage.ReadinessCheck()),
 		restserver.WithEnableProfiling(cfg.Server.EnableProfiling),
 		restserver.WithProfilingToken(cfg.Server.ProfilingToken),
 		restserver.WithMetrics(cfg.Server.EnableMetrics),

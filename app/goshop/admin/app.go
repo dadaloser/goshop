@@ -40,7 +40,7 @@ func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error)
 		cli,
 		consul.WithHealthCheck(true),
 		consul.WithHeartbeat(false),
-		consul.WithHTTPHealthCheckPath("/livez"),
+		consul.WithHTTPHealthCheckPath("/readyz"),
 	)
 	return r, nil
 }

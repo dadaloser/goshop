@@ -77,6 +77,15 @@ func WithHealthCheck(health bool) ServerOption {
 	}
 }
 
+// WithReadinessCheck adds a dependency check evaluated by /readyz and /healthz.
+func WithReadinessCheck(check func() error) ServerOption {
+	return func(s *Server) {
+		if check != nil {
+			s.readinessChecks = append(s.readinessChecks, check)
+		}
+	}
+}
+
 func WithJwt(jwt *JwtInfo) ServerOption {
 	return func(s *Server) {
 		s.jwt = jwt

@@ -34,11 +34,12 @@ type Server struct {
 	lis        net.Listener
 	timeout    time.Duration
 
-	health    *health.Server
-	metadata  *apimd.Server
-	endpoint  *url.URL
-	ready     chan struct{}
-	readyOnce sync.Once
+	health         *health.Server
+	metadata       *apimd.Server
+	endpoint       *url.URL
+	ready          chan struct{}
+	readyOnce      sync.Once
+	readinessCheck func() error
 
 	tlsEnabled         bool
 	enableMetrics      bool
@@ -164,6 +165,13 @@ func WithAddress(address string) ServerOption {
 	}
 }
 
+// WithReadinessCheck controls the gRPC health status for an external dependency.
+func WithReadinessCheck(check func() error) ServerOption {
+	return func(s *Server) {
+		s.readinessCheck = check
+	}
+}
+
 func WithMetrics(metric bool) ServerOption {
 	return func(s *Server) {
 		s.enableMetrics = metric
@@ -268,10 +276,35 @@ func (s *Server) listenAndEndpoint() error {
 func (s *Server) Start(ctx context.Context) error {
 	log.Infof("[grpc] server listening on: %s", s.lis.Addr().String())
 	s.health.Resume()
+	s.updateReadiness()
+	if s.readinessCheck != nil {
+		go s.monitorReadiness(ctx)
+	}
 	s.readyOnce.Do(func() {
 		close(s.ready)
 	})
 	return s.Serve(s.lis)
+}
+
+func (s *Server) monitorReadiness(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.updateReadiness()
+		}
+	}
+}
+
+func (s *Server) updateReadiness() {
+	if s.readinessCheck == nil || s.readinessCheck() == nil {
+		s.health.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+		return
+	}
+	s.health.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 }
 
 func (s *Server) Stop(ctx context.Context) error {

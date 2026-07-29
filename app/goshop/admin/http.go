@@ -9,6 +9,7 @@ import (
 	appclient "goshop/app/pkg/client"
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/restserver/middlewares"
+	"goshop/pkg/storage"
 )
 
 const adminStartupClientDialTimeout = 5 * time.Second
@@ -24,6 +25,7 @@ func NewUserHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Ser
 		restserver.WithServiceName(cfg.Server.Name),
 		restserver.WithMiddlewares(cfg.Server.Middlewares),
 		restserver.WithHealthCheck(enableBuiltInRoutes && cfg.Server.EnableHealthCheck),
+		restserver.WithReadinessCheck(storage.ReadinessCheck()),
 		restserver.WithEnableProfiling(enableBuiltInRoutes && cfg.Server.EnableProfiling),
 		restserver.WithProfilingToken(cfg.Server.ProfilingToken),
 		restserver.WithMetrics(enableBuiltInRoutes && cfg.Server.EnableMetrics),
@@ -95,6 +97,7 @@ func NewAdminManagementServer(cfg *config.Config) *restserver.Server {
 		restserver.WithHost(cfg.Server.Host),
 		restserver.WithServiceName(cfg.Server.Name+"-management"),
 		restserver.WithHealthCheck(cfg.Server.EnableHealthCheck),
+		restserver.WithReadinessCheck(storage.ReadinessCheck()),
 		restserver.WithEnableProfiling(cfg.Server.EnableProfiling),
 		restserver.WithProfilingToken(cfg.Server.ProfilingToken),
 		restserver.WithMetrics(cfg.Server.EnableMetrics),

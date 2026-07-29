@@ -66,6 +66,7 @@ type Server struct {
 	writeTimeout      time.Duration
 	idleTimeout       time.Duration
 	startupValidators []StartupValidator
+	readinessChecks   []func() error
 	rateLimit         rate.Limit
 	rateLimitBurst    int
 	maxConcurrentReqs int
@@ -375,6 +376,12 @@ func (s *Server) registerHealthRoutes() {
 			if s.draining.Load() {
 				c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})
 				return
+			}
+			for _, check := range s.readinessChecks {
+				if err := check(); err != nil {
+					c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})
+					return
+				}
 			}
 			c.JSON(http.StatusOK, gin.H{"status": "ready"})
 		default:

@@ -9,6 +9,7 @@ import (
 	v13 "goshop/app/inventory/srv/internal/service/v1"
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
+	"goshop/pkg/storage"
 )
 
 func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
@@ -34,6 +35,7 @@ func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 		rpcserver.WithAddress(rpcAddr),
 		rpcserver.WithMetrics(cfg.Server != nil && cfg.Server.EnableMetrics),
 		rpcserver.WithServerSecurityPolicy(cfg.RPC),
+		rpcserver.WithReadinessCheck(storage.ReadinessCheck()),
 	)
 	if err != nil {
 		return nil, err

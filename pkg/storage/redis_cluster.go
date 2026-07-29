@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -46,6 +47,12 @@ type Config struct {
 
 // ErrRedisIsDown is returned when we can't communicate with redis.
 var ErrRedisIsDown = errors.New("storage: Redis is either down or ws not configured")
+
+const (
+	redisRetryInitialDelay = time.Second
+	redisRetryMaxDelay     = 30 * time.Second
+	redisHealthyProbeDelay = 30 * time.Second
+)
 
 var (
 	singlePool      atomic.Value
@@ -153,53 +160,60 @@ func clusterConnectionIsOpen(ctx context.Context, cluster RedisCluster) bool {
 	return true
 }
 
-// ConnectToRedis starts a go routine that periodically tries to connect to redis.
-// 可以启动一个goroutine不断重试链接
+// ConnectToRedis keeps the Redis dependency status current for the lifetime of
+// ctx. Failures use capped exponential backoff with jitter; healthy clients are
+// probed at a low frequency.
 func ConnectToRedis(ctx context.Context, config *Config) {
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
-	c := []RedisCluster{
+	clusters := []RedisCluster{
 		{}, {IsCache: true},
 	}
-	var ok bool
-	for _, v := range c {
-		if !connectSingleton(v.IsCache, config) {
-			break
-		}
+	failures := 0
+	delay := time.Duration(0)
 
-		if !clusterConnectionIsOpen(ctx, v) {
-			redisUp.Store(false)
-
-			break
-		}
-		ok = true
-	}
-	redisUp.Store(ok)
-again:
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-tick.C:
-			if !shouldConnect() {
-				continue
-			}
-			for _, v := range c {
-				if !connectSingleton(v.IsCache, config) {
-					redisUp.Store(false)
+		case <-time.After(delay):
+		}
 
-					goto again
-				}
-
-				if !clusterConnectionIsOpen(ctx, v) {
-					redisUp.Store(false)
-
-					goto again
-				}
-			}
+		if shouldConnect() && redisConnectionIsOpen(ctx, config, clusters) {
 			redisUp.Store(true)
+			failures = 0
+			delay = redisHealthyProbeDelay
+			continue
+		}
+
+		redisUp.Store(false)
+		failures++
+		delay = redisRetryDelay(failures)
+	}
+}
+
+func redisConnectionIsOpen(ctx context.Context, config *Config, clusters []RedisCluster) bool {
+	for _, cluster := range clusters {
+		if !connectSingleton(cluster.IsCache, config) || !clusterConnectionIsOpen(ctx, cluster) {
+			return false
 		}
 	}
+	return true
+}
+
+func redisRetryDelay(failures int) time.Duration {
+	if failures < 1 {
+		return redisRetryInitialDelay
+	}
+
+	delay := redisRetryInitialDelay
+	for attempt := 1; attempt < failures && delay < redisRetryMaxDelay; attempt++ {
+		delay *= 2
+	}
+	if delay > redisRetryMaxDelay {
+		delay = redisRetryMaxDelay
+	}
+
+	half := delay / 2
+	return half + time.Duration(rand.Int63n(int64(half)+1))
 }
 
 // NewRedisClusterPool create a redis cluster pool.

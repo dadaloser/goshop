@@ -66,3 +66,26 @@ func TestIsRedisDependencyError(t *testing.T) {
 		})
 	}
 }
+
+func TestRedisRetryDelayUsesCappedExponentialBackoff(t *testing.T) {
+	tests := []struct {
+		failures int
+		min      time.Duration
+		max      time.Duration
+	}{
+		{failures: 0, min: time.Second, max: time.Second},
+		{failures: 1, min: 500 * time.Millisecond, max: time.Second},
+		{failures: 2, min: time.Second, max: 2 * time.Second},
+		{failures: 6, min: 15 * time.Second, max: 30 * time.Second},
+		{failures: 20, min: 15 * time.Second, max: 30 * time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run("failures", func(t *testing.T) {
+			got := redisRetryDelay(tt.failures)
+			if got < tt.min || got > tt.max {
+				t.Errorf("redisRetryDelay(%d) = %s, want within [%s, %s]", tt.failures, got, tt.min, tt.max)
+			}
+		})
+	}
+}
