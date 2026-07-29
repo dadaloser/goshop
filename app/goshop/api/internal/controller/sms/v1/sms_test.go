@@ -210,3 +210,9 @@ func (f *fakeSmsCodeStore) Set(_ context.Context, key, value string, ttl time.Du
 func (f *fakeSmsCodeStore) Delete(context.Context, string) bool {
 	return true
 }
+
+func (f *fakeSmsCodeStore) DeleteIfValue(context.Context, string, string) (bool, error) {
+	return true, nil
+}
+
+func (f *fakeSmsCodeStore) Consume(context.Context, string, string) error { return nil }

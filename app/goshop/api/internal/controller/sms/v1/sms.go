@@ -83,15 +83,20 @@ func (sc *SmsController) SendSms(c *gin.Context) {
 		return
 	}
 
-	err = smsSrv.SendSms(c, sendSmsForm.Mobile, "SMS_181850725", "{\"code\":"+smsCode+"}")
-	if err != nil {
+	// Persist the code before delivery so a successfully delivered SMS is never
+	// unusable solely because Redis becomes unavailable afterwards.
+	key := smscode.Key(sendSmsForm.Mobile, sendSmsForm.Type)
+	if err := sc.codeStore.Set(c, key, smsCode, smscode.DefaultTTL); err != nil {
 		core.WriteResponse(c, errors.NewCode(bizcode.ErrSmsSend, err.Error()), nil)
 		return
 	}
 
-	//将验证码保存起来 - redis
-	key := smscode.Key(sendSmsForm.Mobile, sendSmsForm.Type)
-	if err := sc.codeStore.Set(c, key, smsCode, smscode.DefaultTTL); err != nil {
+	err = smsSrv.SendSms(c, sendSmsForm.Mobile, "SMS_181850725", "{\"code\":"+smsCode+"}")
+	if err != nil {
+		if _, deleteErr := sc.codeStore.DeleteIfValue(c, key, smsCode); deleteErr != nil {
+			core.WriteResponse(c, errors.NewCode(bizcode.ErrSmsSend, deleteErr.Error()), nil)
+			return
+		}
 		core.WriteResponse(c, errors.NewCode(bizcode.ErrSmsSend, err.Error()), nil)
 		return
 	}

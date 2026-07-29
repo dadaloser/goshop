@@ -46,6 +46,7 @@ func (a *App) servers() []gs.Server {
 
 func New(opts ...Option) *App {
 	o := options{
+		//默认参数
 		sigs:             []os.Signal{syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT},
 		registrarTimeout: 10 * time.Second,
 		stopTimeout:      10 * time.Second,

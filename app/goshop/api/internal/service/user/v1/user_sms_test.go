@@ -121,7 +121,10 @@ func TestRegisterResetsSmsFailuresOnSuccess(t *testing.T) {
 		t.Fatalf("reset type = %d, want %d", attempts.resetType, smscode.TypeRegister)
 	}
 	if !codes.deleteCalled {
-		t.Fatal("Register() did not delete used sms code")
+		t.Fatal("Register() did not consume used sms code")
+	}
+	if !codes.consumeCalled {
+		t.Fatal("Register() did not atomically consume used sms code")
 	}
 }
 
@@ -179,7 +182,7 @@ func TestSmsLoginReturnsCodeNotExistForMissingSmsCode(t *testing.T) {
 }
 
 func newSmsTestService(users *fakeUserData, codes *fakeSmsCodeStore, attempts *fakeSmsAttempts) UserSrv {
-	return NewUserService(
+	return NewUserServiceWithIPAttemptsAndSMSRegistrationVerification(
 		&fakeDataFactory{users: users},
 		&options.JwtOptions{
 			Realm:      "test",
@@ -189,17 +192,20 @@ func newSmsTestService(users *fakeUserData, codes *fakeSmsCodeStore, attempts *f
 		},
 		codes,
 		nil,
+		nil,
 		attempts,
 		nil,
+		true,
 	)
 }
 
 type fakeSmsCodeStore struct {
-	value        string
-	getErr       error
-	getCalled    bool
-	deleteCalled bool
-	get          func(context.Context, string) (string, error)
+	value         string
+	getErr        error
+	getCalled     bool
+	deleteCalled  bool
+	consumeCalled bool
+	get           func(context.Context, string) (string, error)
 }
 
 func (f *fakeSmsCodeStore) Get(ctx context.Context, key string) (string, error) {
@@ -220,6 +226,24 @@ func (f *fakeSmsCodeStore) Set(context.Context, string, string, time.Duration) e
 func (f *fakeSmsCodeStore) Delete(context.Context, string) bool {
 	f.deleteCalled = true
 	return true
+}
+
+func (f *fakeSmsCodeStore) DeleteIfValue(context.Context, string, string) (bool, error) {
+	f.deleteCalled = true
+	return true, nil
+}
+
+func (f *fakeSmsCodeStore) Consume(ctx context.Context, key, value string) error {
+	f.consumeCalled = true
+	actual, err := f.Get(ctx, key)
+	if err != nil {
+		return err
+	}
+	if actual != value {
+		return smscode.ErrCodeMismatch
+	}
+	f.deleteCalled = true
+	return nil
 }
 
 type fakeSmsAttempts struct {

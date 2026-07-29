@@ -74,7 +74,16 @@ func (s *service) Users() vUser.UserSrv {
 	if s == nil {
 		return vUser.NewUserService(nil, nil, nil, nil, nil, nil)
 	}
-	return vUser.NewUserServiceWithIPAttempts(s.data, s.jwtOpts, s.codeStore, s.loginAttempts, s.loginIPAttempts, s.smsAttempts, s.tokenVersions)
+	return vUser.NewUserServiceWithIPAttemptsAndSMSRegistrationVerification(
+		s.data,
+		s.jwtOpts,
+		s.codeStore,
+		s.loginAttempts,
+		s.loginIPAttempts,
+		s.smsAttempts,
+		s.tokenVersions,
+		s.smsOpts != nil && s.smsOpts.RegistrationVerificationEnabled,
+	)
 }
 
 func NewService(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) *service {

@@ -101,6 +101,7 @@ func writeLoginResponse(ctx *gin.Context, userDTO *userv1.UserDTO) {
 		"refresh_token":      userDTO.RefreshToken,
 		"refresh_expired_at": userDTO.RefreshExpiresAt,
 		"session_id":         userDTO.SessionID,
+		"login_required":     userDTO.LoginRequired,
 	})
 }
 

@@ -121,7 +121,9 @@ func TestUserServiceRejectsMissingDataDependency(t *testing.T) {
 }
 
 func TestUserServiceRejectsMissingCodeStore(t *testing.T) {
-	svc := NewUserService(&fakeDataFactory{users: &fakeUserData{}}, validJWTOptions(), nil, nil, nil, nil)
+	svc := NewUserServiceWithIPAttemptsAndSMSRegistrationVerification(
+		&fakeDataFactory{users: &fakeUserData{}}, validJWTOptions(), nil, nil, nil, nil, nil, true,
+	)
 
 	tests := []struct {
 		name string
@@ -150,6 +152,15 @@ func TestUserServiceRejectsMissingCodeStore(t *testing.T) {
 				t.Fatalf("error = %v, want code %d", err, bizcode.ErrConnectGRPC)
 			}
 		})
+	}
+}
+
+func TestUserServiceRegisterWithoutSMSVerificationDoesNotRequireCodeStore(t *testing.T) {
+	svc := NewUserService(&fakeDataFactory{users: &fakeUserData{}}, validJWTOptions(), nil, nil, nil, nil)
+
+	_, err := svc.Register(context.Background(), "13800138000", "user@example.com", "user_001", "Strong1!", "tester", "")
+	if err != nil {
+		t.Fatalf("Register() error = %v, want nil when SMS verification is disabled", err)
 	}
 }
 

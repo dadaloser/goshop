@@ -13,12 +13,29 @@ import (
 type userServer struct {
 	trans ut.Translator
 
-	sf            service.ServiceFactory
-	revokedTokens tokenrevocation.Store
+	sf                                 service.ServiceFactory
+	revokedTokens                      tokenrevocation.Store
+	smsRegistrationVerificationEnabled bool
 }
 
-func NewUserController(trans ut.Translator, sf service.ServiceFactory, revokedTokens tokenrevocation.Store) *userServer {
-	return &userServer{trans: trans, sf: sf, revokedTokens: revokedTokens}
+type ControllerOption func(*userServer)
+
+// WithSMSRegistrationVerification requires SMS codes rather than image
+// captchas for registration.
+func WithSMSRegistrationVerification(enabled bool) ControllerOption {
+	return func(server *userServer) {
+		server.smsRegistrationVerificationEnabled = enabled
+	}
+}
+
+func NewUserController(trans ut.Translator, sf service.ServiceFactory, revokedTokens tokenrevocation.Store, opts ...ControllerOption) *userServer {
+	server := &userServer{trans: trans, sf: sf, revokedTokens: revokedTokens}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(server)
+		}
+	}
+	return server
 }
 
 func (us *userServer) usersService() (userv1.UserSrv, error) {

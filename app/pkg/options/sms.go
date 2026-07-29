@@ -2,9 +2,14 @@ package options
 
 import "github.com/spf13/pflag"
 
+/**
+短信配置
+*/
+
 type SmsOptions struct {
-	APIKey    string `mapstructure:"key" json:"key"`
-	APISecret string `mapstructure:"secret" json:"secret"`
+	APIKey                          string `mapstructure:"key" json:"key"`
+	APISecret                       string `mapstructure:"secret" json:"secret"`
+	RegistrationVerificationEnabled bool   `mapstructure:"registration-verification-enabled" json:"registration-verification-enabled"`
 }
 
 func NewSmsOptions() *SmsOptions {
@@ -25,4 +30,6 @@ func (o *SmsOptions) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.APISecret, "sms.secret", o.APISecret, ""+
 		"sms api secret")
+	fs.BoolVar(&o.RegistrationVerificationEnabled, "sms.registration-verification-enabled", o.RegistrationVerificationEnabled,
+		"require SMS verification codes for user registration")
 }

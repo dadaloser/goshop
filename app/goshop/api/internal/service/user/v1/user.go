@@ -21,6 +21,10 @@ import (
 	"goshop/pkg/storage"
 )
 
+/**
+注册服务
+*/
+
 type UserDTO struct {
 	data.User
 
@@ -29,6 +33,7 @@ type UserDTO struct {
 	RefreshToken     string `json:"refresh_token,omitempty"`
 	RefreshExpiresAt int64  `json:"refresh_expires_at,omitempty"`
 	SessionID        string `json:"session_id,omitempty"`
+	LoginRequired    bool   `json:"login_required,omitempty"`
 }
 
 type UserSrv interface {
@@ -57,6 +62,8 @@ type userService struct {
 
 	smsAttempts smsattempt.Store
 
+	smsRegistrationVerificationEnabled bool
+
 	tokenVersions tokenversion.Store
 	emailCodes    emailcode.Store
 }
@@ -66,15 +73,22 @@ func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStor
 }
 
 func NewUserServiceWithIPAttempts(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts, loginIPAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) UserSrv {
+	return NewUserServiceWithIPAttemptsAndSMSRegistrationVerification(data, jwtOpts, codeStore, loginAttempts, loginIPAttempts, smsAttempts, tokenVersions, false)
+}
+
+// NewUserServiceWithIPAttemptsAndSMSRegistrationVerification configures
+// whether registration must consume a SMS verification code.
+func NewUserServiceWithIPAttemptsAndSMSRegistrationVerification(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts, loginIPAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store, smsRegistrationVerificationEnabled bool) UserSrv {
 	return &userService{
-		data:            data,
-		jwtOpts:         jwtOpts,
-		codeStore:       codeStore,
-		loginAttempts:   loginAttempts,
-		loginIPAttempts: loginIPAttempts,
-		smsAttempts:     smsAttempts,
-		tokenVersions:   tokenVersions,
-		emailCodes:      emailcode.NewRedisStore(),
+		data:                               data,
+		jwtOpts:                            jwtOpts,
+		codeStore:                          codeStore,
+		loginAttempts:                      loginAttempts,
+		loginIPAttempts:                    loginIPAttempts,
+		smsAttempts:                        smsAttempts,
+		smsRegistrationVerificationEnabled: smsRegistrationVerificationEnabled,
+		tokenVersions:                      tokenVersions,
+		emailCodes:                         emailcode.NewRedisStore(),
 	}
 }
 
@@ -233,36 +247,11 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 }
 
 func (us *userService) Register(ctx context.Context, mobile, email, username, password, nickName, codes string) (*UserDTO, error) {
-	if err := us.ensureSmsCodeAllowed(ctx, mobile, smscode.TypeRegister); err != nil {
-		return nil, err
-	}
-	if us == nil || us.codeStore == nil {
-		return nil, errors.NewSpec(bizcode.ConnectGRPCSpec, "sms code store is not initialized")
-	}
-
-	key := smscode.RegisterKey(mobile)
-	value, err := us.codeStore.Get(ctx, key)
-	if err != nil {
-		if isContextError(err) {
+	if us.smsRegistrationVerificationEnabled {
+		if err := us.consumeRegistrationSMSCode(ctx, mobile, codes); err != nil {
 			return nil, err
 		}
-		if !stderrors.Is(err, storage.ErrKeyNotFound) {
-			return nil, err
-		}
-		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeRegister); lockedErr != nil {
-			return nil, lockedErr
-		}
-		return nil, errors.NewSpec(bizcode.SMSCodeNotExistSpec, "sms verification code was not found")
 	}
-
-	if value != codes {
-		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeRegister); lockedErr != nil {
-			return nil, lockedErr
-		}
-		return nil, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "registration sms code did not match")
-	}
-
-	us.resetSmsCodeFailures(ctx, mobile, smscode.TypeRegister)
 
 	var user = &data.UserCreate{
 		Username:       username,
@@ -282,13 +271,10 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 		return nil, err
 	}
 
-	if ok := us.codeStore.Delete(ctx, key); !ok {
-		log.Warn("delete sms code failed")
-	}
-
 	token, expiresAt, refreshToken, refreshExpiresAt, sessionID, err := us.createToken(ctx, data.UserAuth{User: createdUser, PasswordHash: ""})
 	if err != nil {
-		return nil, err
+		log.Errorf("user %d registered but automatic login failed: %v", createdUser.ID, err)
+		return &UserDTO{User: createdUser, LoginRequired: true}, nil
 	}
 
 	return &UserDTO{
@@ -297,6 +283,32 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 		ExpiresAt:    expiresAt,
 		RefreshToken: refreshToken, RefreshExpiresAt: refreshExpiresAt, SessionID: sessionID,
 	}, nil
+}
+
+func (us *userService) consumeRegistrationSMSCode(ctx context.Context, mobile, code string) error {
+	if err := us.ensureSmsCodeAllowed(ctx, mobile, smscode.TypeRegister); err != nil {
+		return err
+	}
+	if us.codeStore == nil {
+		return errors.NewSpec(bizcode.ConnectGRPCSpec, "sms code store is not initialized")
+	}
+	if err := us.codeStore.Consume(ctx, smscode.RegisterKey(mobile), code); err != nil {
+		if isContextError(err) {
+			return err
+		}
+		if !stderrors.Is(err, storage.ErrKeyNotFound) && !stderrors.Is(err, smscode.ErrCodeMismatch) {
+			return err
+		}
+		if lockedErr := us.recordSmsCodeFailure(ctx, mobile, smscode.TypeRegister); lockedErr != nil {
+			return lockedErr
+		}
+		if stderrors.Is(err, storage.ErrKeyNotFound) {
+			return errors.NewSpec(bizcode.SMSCodeNotExistSpec, "sms verification code was not found")
+		}
+		return errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "registration sms code did not match")
+	}
+	us.resetSmsCodeFailures(ctx, mobile, smscode.TypeRegister)
+	return nil
 }
 
 func (us *userService) DeleteAccount(ctx context.Context, userID uint64, password string) error {

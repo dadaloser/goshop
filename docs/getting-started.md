@@ -134,6 +134,7 @@ go run ./cmd/admin --config ../goshop-local-configs/admin.yaml
 ```
 
 建议启动顺序：用户 → 商品/库存 → 订单/评价 → API/后台。商品服务需要 ES；订单服务需要 DTM；API、后台和库存服务需要 Redis。
+注:用户服务可独立运行, 但商品、库存、订单、评价服务需要用户服务提供的鉴权和 RBAC。
 
 ## 6. 启动后验证
 

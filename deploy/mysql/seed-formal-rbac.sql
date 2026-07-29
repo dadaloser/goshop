@@ -1,9 +1,9 @@
 -- Formal DB-backed RBAC seed. No bootstrap/config role is created here.
 INSERT IGNORE INTO roles (name, description) VALUES
-  ('support', 'customer support operations'), ('ops', 'operations management'),
-  ('finance', 'payment and refund operations'), ('catalog', 'catalog and inventory maintenance'),
-  ('review', 'review moderation and merchant replies'), ('admin', 'broad backoffice administration'),
-  ('super_admin', 'full backoffice administration');
+  ('support', '客户支持运营权限'), ('ops', '运营管理权限'),
+  ('finance', '支付与退款操作权限'), ('catalog', '目录和库存维护权限'),
+  ('review', '评论审核和商家回复权限'), ('admin', '有限后台管理权限'),
+  ('super_admin', '全量后台管理权限');
 INSERT IGNORE INTO role_domains (role_id, domain) SELECT id, CASE name WHEN 'support' THEN 'support' WHEN 'ops' THEN 'operations' ELSE name END FROM roles WHERE name IN ('support','ops','finance','catalog','review');
 INSERT IGNORE INTO role_domains (role_id, domain) SELECT id, 'platform' FROM roles WHERE name IN ('admin','super_admin');
 INSERT IGNORE INTO role_permissions (role_id, permission)

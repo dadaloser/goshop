@@ -75,7 +75,12 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	if callbackService, ok := serviceFactory.Orders().(paymenthandler.CallbackService); ok {
 		v1.POST("/internal/payment/callback/:provider", paymenthandler.NewCallbackHandler(cfg.Payment, callbackService).Handle)
 	}
-	uController := user.NewUserController(g.Translator(), serviceFactory, revokedTokens)
+	uController := user.NewUserController(
+		g.Translator(),
+		serviceFactory,
+		revokedTokens,
+		user.WithSMSRegistrationVerification(cfg.Sms != nil && cfg.Sms.RegistrationVerificationEnabled),
+	)
 	{
 		uGroup.POST("pwd_login", uController.Login)
 		uGroup.POST("sms_login", uController.SmsLogin)
