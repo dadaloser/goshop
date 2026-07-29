@@ -3,13 +3,13 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Install the pinned protoc plugins used by `make proto`.
-# Usage:
+# 安装 `make proto` 使用的固定版本 protoc 插件。
+# 用法：
 #   make proto-tools
 #   PROTOC_GEN_GO_GIN_INSTALL=example.com/tools/protoc-gen-go-gin@v1.2.3 make proto-tools
 #
-# protoc itself is intentionally not installed here; install it with brew/apt or
-# your build image, then verify with `protoc --version`.
+# 本脚本不会安装 protoc 本体；请使用 brew/apt 或构建镜像安装，再用
+# `protoc --version` 验证。
 source "${ROOT_DIR}/scripts/proto-versions.sh"
 
 go install "google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION}"

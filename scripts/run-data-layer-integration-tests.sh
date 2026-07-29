@@ -27,4 +27,31 @@ for index in "${!packages[@]}"; do
   tail -n +2 "${profile}" >> "${PROFILE}"
 done
 
-GOSHOP_DATA_LAYER_COVERAGE_PROFILE="${PROFILE}" bash ./scripts/data-layer-coverage-check.sh
+check_coverage_gate() {
+  local name="$1" prefix="$2" minimum="$3"
+  local result
+  result="$(awk -v prefix="${prefix}" '
+    NR > 1 {
+      split($1, location, ":")
+      if (index(location[1], prefix) == 1) {
+        total += $2
+        if ($3 > 0) covered += $2
+      }
+    }
+    END { if (total == 0) print "NOFILES"; else printf "%.2f %d %d", covered * 100 / total, covered, total }
+  ' "${PROFILE}")"
+  if [[ "${result}" == NOFILES ]]; then
+    echo "[data-coverage] ${name}: no matching statements" >&2
+    return 1
+  fi
+  read -r percent covered total <<< "${result}"
+  if ! awk -v actual="${percent}" -v minimum="${minimum}" 'BEGIN { exit !(actual + 0 >= minimum + 0) }'; then
+    echo "[data-coverage] ${name}: ${percent}% (${covered}/${total}) is below ${minimum}%" >&2
+    return 1
+  fi
+  echo "[data-coverage] ${name}: ${percent}% (${covered}/${total})"
+}
+
+# 数据层覆盖率仅由本集成测试产生的 profile 使用，因此就近校验，避免维护独立脚本。
+check_coverage_gate goods-db goshop/app/goods/srv/internal/data/v1/db/ 15
+check_coverage_gate inventory-db goshop/app/inventory/srv/internal/data/v1/db/ 25

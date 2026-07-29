@@ -24,8 +24,9 @@ runbooks="$(rg '^\s+runbook_url:' monitoring/prometheus | wc -l | tr -d ' ')"
 test "$alerts" -eq "$owners"
 test "$alerts" -eq "$runbooks"
 
-test -f docs/runbooks/deploy-rollback-incident.md
-test -f docs/slo/service-slo.md
+# 运行手册、SLO 与历史演练已按主题收敛为当前有效的中文文档。
+test -f docs/operations-and-release.md
+test -f docs/production-baseline.md
 test -f performance/k6/core-business.js
 test -f chaos/records/drill-record-template.md
 test -f chaos/records/2026-07-24-review-canary-rollback-drill.md

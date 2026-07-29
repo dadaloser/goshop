@@ -45,8 +45,8 @@ assert_up_migration_contains() {
   fi
 }
 
-# startup validation requires these reviewed schema changes to exist before
-# production can safely keep mysql.auto-migrate disabled.
+# 启动校验依赖这些已审核的 schema 变更，生产环境才能安全地保持
+# mysql.auto-migrate 为禁用状态。
 assert_up_migration_contains 'CREATE TABLE `category`' 'goods category table'
 assert_up_migration_contains 'CREATE TABLE `brands`' 'goods brands table'
 assert_up_migration_contains 'CREATE TABLE `banner`' 'goods banner table'

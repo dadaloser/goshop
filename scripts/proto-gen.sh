@@ -5,13 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 THIRD_PARTY_DIR="${ROOT_DIR}/third_party"
 PROTO_OUT_ROOT="${PROTO_OUT_ROOT:-${ROOT_DIR}}"
 
-# Regenerate all checked-in protobuf artifacts under api/.
-# Usage:
+# 重新生成 api/ 下所有已提交的 protobuf 产物。
+# 用法：
 #   make proto
 #   ./scripts/proto-gen.sh
 #
-# Do not edit generated *.pb.go files by hand. Change the matching .proto file,
-# run this command, and commit both the .proto and generated files together.
+# 不要手工修改生成的 *.pb.go 文件。应修改对应的 .proto 文件，执行本命令，
+# 并将 .proto 与生成文件一并提交。
 
 require_bins() {
   local missing=()
