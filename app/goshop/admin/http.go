@@ -9,6 +9,7 @@ import (
 	appclient "goshop/app/pkg/client"
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/restserver/middlewares"
+	"goshop/gmicro/server/rpcserver"
 	"goshop/pkg/storage"
 )
 
@@ -52,26 +53,28 @@ func NewUserHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Ser
 		return nil, err
 	}
 
+	// 用户服务承载认证和授权，必须在启动时就绪；其余领域服务则允许
+	// 延迟连接，以便后台在局部服务不可用时仍提供用户和 RBAC 功能。
 	dialCtx, cancel = context.WithTimeout(ctx, adminStartupClientDialTimeout)
-	goodsClient, _, err := appclient.NewGoodsClient(dialCtx, cfg.Registry, cfg.RPC)
+	goodsClient, _, err := appclient.NewGoodsClient(dialCtx, cfg.Registry, cfg.RPC, rpcserver.WithConnectProbe(false))
 	cancel()
 	if err != nil {
 		return nil, err
 	}
 	dialCtx, cancel = context.WithTimeout(ctx, adminStartupClientDialTimeout)
-	inventoryClient, _, err := appclient.NewInventoryClient(dialCtx, cfg.Registry, cfg.RPC)
+	inventoryClient, _, err := appclient.NewInventoryClient(dialCtx, cfg.Registry, cfg.RPC, rpcserver.WithConnectProbe(false))
 	cancel()
 	if err != nil {
 		return nil, err
 	}
 	dialCtx, cancel = context.WithTimeout(ctx, adminStartupClientDialTimeout)
-	orderClient, _, err := appclient.NewOrderClient(dialCtx, cfg.Registry, cfg.RPC)
+	orderClient, _, err := appclient.NewOrderClient(dialCtx, cfg.Registry, cfg.RPC, rpcserver.WithConnectProbe(false))
 	cancel()
 	if err != nil {
 		return nil, err
 	}
 	dialCtx, cancel = context.WithTimeout(ctx, adminStartupClientDialTimeout)
-	reviewClient, _, err := appclient.NewReviewClient(dialCtx, cfg.Registry, cfg.RPC)
+	reviewClient, _, err := appclient.NewReviewClient(dialCtx, cfg.Registry, cfg.RPC, rpcserver.WithConnectProbe(false))
 	cancel()
 	if err != nil {
 		return nil, err

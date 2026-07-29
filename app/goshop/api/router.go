@@ -24,6 +24,7 @@ import (
 	"goshop/app/pkg/authz"
 	appclient "goshop/app/pkg/client"
 	"goshop/gmicro/server/restserver"
+	"goshop/gmicro/server/rpcserver"
 	"goshop/pkg/log"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,9 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	if err != nil {
 		return err
 	}
-	reviewClient, _, err := appclient.NewReviewClient(ctx, cfg.Registry, cfg.RPC)
+	// 评价是可选业务依赖：其暂时未注册不应阻止用户、认证等 API 启动。
+	// 请求会在运行时由 gRPC 的 Unavailable 状态转换为 HTTP 503。
+	reviewClient, _, err := appclient.NewReviewClient(ctx, cfg.Registry, cfg.RPC, rpcserver.WithConnectProbe(false))
 	if err != nil {
 		return err
 	}
