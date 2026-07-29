@@ -80,3 +80,24 @@ func TestRedisValueRedaction(t *testing.T) {
 		t.Fatalf("redactedRedisValue(empty) = %q, want empty", got)
 	}
 }
+
+func TestRedisClusterCleanKey(t *testing.T) {
+	cluster := RedisCluster{KeyPrefix: "goshop:"}
+	tests := []struct {
+		name string
+		key  string
+		want string
+	}{
+		{name: "removes leading prefix", key: "goshop:session", want: "session"},
+		{name: "preserves embedded prefix", key: "session:goshop:1", want: "session:goshop:1"},
+		{name: "preserves key without prefix", key: "session", want: "session"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := cluster.cleanKey(tt.key); got != tt.want {
+				t.Errorf("cleanKey(%q) = %q, want %q", tt.key, got, tt.want)
+			}
+		})
+	}
+}

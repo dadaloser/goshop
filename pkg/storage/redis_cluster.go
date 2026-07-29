@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,6 +20,10 @@ import (
 
 	"goshop/pkg/log"
 )
+
+/**
+连接配置、普通键操作、扫描删除、List/Set 与滚动窗口
+*/
 
 // Config defines options for redis cluster.
 type Config struct {
@@ -131,6 +134,11 @@ type RedisCluster struct {
 
 func clusterConnectionIsOpen(ctx context.Context, cluster RedisCluster) bool {
 	c := singleton(cluster.IsCache)
+	if c == nil {
+		log.Warn("Redis client has not been initialized")
+
+		return false
+	}
 	testKey := "redis-test-" + uuid.Must(uuid.NewV4(), nil).String()
 	if err := c.Set(ctx, testKey, "test", time.Second).Err(); err != nil {
 		log.Warnf("Error trying to set test key: %s", err.Error())
@@ -370,60 +378,6 @@ func (o *RedisOpts) failover() *redis.FailoverOptions {
 
 		TLSConfig: o.TLSConfig,
 	}
-}
-
-// Connect will establish a connection this is always true because we are dynamically using redis.
-func (r *RedisCluster) Connect() bool {
-	return true
-}
-
-func (r *RedisCluster) singleton() redis.UniversalClient {
-	return singleton(r.IsCache)
-}
-
-func (r *RedisCluster) GetClient() redis.UniversalClient {
-	return singleton(false)
-}
-
-func (r *RedisCluster) hashKey(in string) string {
-	if !r.HashKeys {
-		// Not hashing? Return the raw key
-		return in
-	}
-
-	return HashStr(in)
-}
-
-func (r *RedisCluster) fixKey(keyName string) string {
-	return r.KeyPrefix + r.hashKey(keyName)
-}
-
-func redactedRedisValue(value string) string {
-	if value == "" {
-		return ""
-	}
-
-	return fmt.Sprintf("<redacted len=%d>", len(value))
-}
-
-func redactedRedisKey(key string) string {
-	if key == "" {
-		return ""
-	}
-
-	return HashStr(key)
-}
-
-func (r *RedisCluster) cleanKey(keyName string) string {
-	return strings.Replace(keyName, r.KeyPrefix, "", 1)
-}
-
-func (r *RedisCluster) up() error {
-	if !Connected() {
-		return ErrRedisIsDown
-	}
-
-	return nil
 }
 
 // GetKey will retrieve a key from the database.
@@ -824,35 +778,38 @@ func (r *RedisCluster) DeleteScanMatch(ctx context.Context, pattern string) bool
 	client := r.singleton()
 	log.Debug("Deleting scan match", log.String("patternHash", redactedRedisKey(pattern)))
 
-	fnScan := func(client *redis.Client) ([]string, error) {
-		values := make([]string, 0)
-
-		iter := client.Scan(ctx, 0, pattern, 0).Iterator()
+	deleteScannedKeys := func(node *redis.Client) (int, error) {
+		deleted := 0
+		iter := node.Scan(ctx, 0, pattern, 0).Iterator()
 		for iter.Next(ctx) {
-			values = append(values, iter.Val())
+			key := iter.Val()
+			if err := node.Del(ctx, key).Err(); err != nil {
+				return deleted, fmt.Errorf("delete key %s: %w", redactedRedisKey(key), err)
+			}
+			deleted++
 		}
 
 		if err := iter.Err(); err != nil {
-			return nil, err
+			return deleted, err
 		}
 
-		return values, nil
+		return deleted, nil
 	}
 
-	var keys []string
+	deleted := 0
 
 	switch v := client.(type) {
 	case *redis.ClusterClient:
-		var keysMu sync.Mutex
-		err := v.ForEachMaster(ctx, func(ctx context.Context, client *redis.Client) error {
-			values, err := fnScan(client)
+		var deletedMu sync.Mutex
+		err := v.ForEachMaster(ctx, func(ctx context.Context, node *redis.Client) error {
+			count, err := deleteScannedKeys(node)
 			if err != nil {
 				return err
 			}
 
-			keysMu.Lock()
-			keys = append(keys, values...)
-			keysMu.Unlock()
+			deletedMu.Lock()
+			deleted += count
+			deletedMu.Unlock()
 
 			return nil
 		})
@@ -863,7 +820,7 @@ func (r *RedisCluster) DeleteScanMatch(ctx context.Context, pattern string) bool
 		}
 	case *redis.Client:
 		var err error
-		keys, err = fnScan(v)
+		deleted, err = deleteScannedKeys(v)
 		if err != nil {
 			log.Errorf("SCAN command failed: %s", err)
 
@@ -874,19 +831,8 @@ func (r *RedisCluster) DeleteScanMatch(ctx context.Context, pattern string) bool
 		return false
 	}
 
-	if len(keys) > 0 {
-		for _, name := range keys {
-			log.Info("Deleting scanned redis key", log.String("keyHash", redactedRedisKey(name)))
-			if err := client.Del(ctx, name).Err(); err != nil {
-				log.Error(
-					"Error trying to delete key",
-					log.String("keyHash", redactedRedisKey(name)),
-					log.String("error", err.Error()),
-				)
-				return false
-			}
-		}
-		log.Infof("Deleted: %d records", len(keys))
+	if deleted > 0 {
+		log.Infof("Deleted: %d records", deleted)
 	} else {
 		log.Debug("RedisCluster called DEL - Nothing to delete")
 	}
@@ -937,53 +883,6 @@ func (r *RedisCluster) DeleteKeys(ctx context.Context, keys []string) bool {
 	}
 
 	return true
-}
-
-// StartPubSubHandler will listen for a signal and run the callback for
-// every subscription and message event.
-func (r *RedisCluster) StartPubSubHandler(ctx context.Context, channel string, callback func(interface{})) error {
-	if err := r.up(); err != nil {
-		return err
-	}
-	client := r.singleton()
-	if client == nil {
-		return errors.New("redis connection failed")
-	}
-
-	pubsub := client.Subscribe(ctx, channel)
-	defer func(pubsub *redis.PubSub) {
-		err := pubsub.Close()
-		if err != nil {
-			log.Errorf("Error trying to close pubsub: %s", err.Error())
-		}
-	}(pubsub)
-
-	if _, err := pubsub.Receive(ctx); err != nil {
-		log.Errorf("Error while receiving pubsub message: %s", err.Error())
-
-		return err
-	}
-
-	for msg := range pubsub.Channel() {
-		callback(msg)
-	}
-
-	return nil
-}
-
-// Publish publish a message to the specify channel.
-func (r *RedisCluster) Publish(ctx context.Context, channel, message string) error {
-	if err := r.up(); err != nil {
-		return err
-	}
-	err := r.singleton().Publish(ctx, channel, message).Err()
-	if err != nil {
-		log.Errorf("Error trying to set value: %s", err.Error())
-
-		return err
-	}
-
-	return nil
 }
 
 // GetAndDeleteSet get and delete a key.
@@ -1044,6 +943,9 @@ func (r *RedisCluster) AppendToSet(ctx context.Context, keyName, value string) {
 
 // Exists check if keyName exists.
 func (r *RedisCluster) Exists(ctx context.Context, keyName string) (bool, error) {
+	if err := r.up(); err != nil {
+		return false, err
+	}
 	fixedKey := r.fixKey(keyName)
 	log.Debug("Checking if exists", log.String("keyHash", redactedRedisKey(fixedKey)))
 
@@ -1058,53 +960,6 @@ func (r *RedisCluster) Exists(ctx context.Context, keyName string) (bool, error)
 	}
 
 	return false, nil
-}
-
-// RemoveFromList delete an value from a list idetinfied with the keyName.
-func (r *RedisCluster) RemoveFromList(ctx context.Context, keyName, value string) error {
-	fixedKey := r.fixKey(keyName)
-
-	log.Debug(
-		"Removing value from list",
-		log.String("keyHash", redactedRedisKey(keyName)),
-		log.String("fixedKeyHash", redactedRedisKey(fixedKey)),
-		log.String("value", redactedRedisValue(value)),
-	)
-
-	if err := r.singleton().LRem(ctx, fixedKey, 0, value).Err(); err != nil {
-		log.Error(
-			"LREM command failed",
-			log.String("keyHash", redactedRedisKey(keyName)),
-			log.String("fixedKeyHash", redactedRedisKey(fixedKey)),
-			log.String("value", redactedRedisValue(value)),
-			log.String("error", err.Error()),
-		)
-
-		return err
-	}
-
-	return nil
-}
-
-// GetListRange gets range of elements of list identified by keyName.
-func (r *RedisCluster) GetListRange(ctx context.Context, keyName string, from, to int64) ([]string, error) {
-	fixedKey := r.fixKey(keyName)
-
-	elements, err := r.singleton().LRange(ctx, fixedKey, from, to).Result()
-	if err != nil {
-		log.Error(
-			"LRANGE command failed",
-			log.String("keyHash", redactedRedisKey(keyName)),
-			log.String("fixedKeyHash", redactedRedisKey(fixedKey)),
-			log.Int64("from", from),
-			log.Int64("to", to),
-			log.String("error", err.Error()),
-		)
-
-		return nil, err
-	}
-
-	return elements, nil
 }
 
 // AppendToSetPipelined append values to redis pipeline.
@@ -1352,100 +1207,4 @@ func (r *RedisCluster) GetRollingWindow(ctx context.Context, keyName string, per
 // GetKeyPrefix returns storage key prefix.
 func (r *RedisCluster) GetKeyPrefix() string {
 	return r.KeyPrefix
-}
-
-// AddToSortedSet adds value with given score to sorted set identified by keyName.
-func (r *RedisCluster) AddToSortedSet(ctx context.Context, keyName, value string, score float64) {
-	fixedKey := r.fixKey(keyName)
-
-	log.Debug(
-		"Pushing key to sorted set",
-		log.String("keyHash", redactedRedisKey(keyName)),
-		log.String("fixedKeyHash", redactedRedisKey(fixedKey)),
-		log.String("value", redactedRedisValue(value)),
-	)
-
-	if err := r.up(); err != nil {
-		log.Debug(err.Error())
-
-		return
-	}
-	member := redis.Z{Score: score, Member: value}
-	if err := r.singleton().ZAdd(ctx, fixedKey, member).Err(); err != nil {
-		log.Error(
-			"ZADD command failed",
-			log.String("keyHash", redactedRedisKey(keyName)),
-			log.String("fixedKeyHash", redactedRedisKey(fixedKey)),
-			log.String("error", err.Error()),
-		)
-	}
-}
-
-// GetSortedSetRange gets range of elements of sorted set identified by keyName.
-func (r *RedisCluster) GetSortedSetRange(ctx context.Context, keyName, scoreFrom, scoreTo string) ([]string, []float64, error) {
-	fixedKey := r.fixKey(keyName)
-	log.Debug(
-		"Getting sorted set range",
-		log.String("keyHash", redactedRedisKey(keyName)),
-		log.String("fixedKeyHash", redactedRedisKey(fixedKey)),
-		log.String("scoreFrom", scoreFrom),
-		log.String("scoreTo", scoreTo),
-	)
-
-	args := redis.ZRangeBy{Min: scoreFrom, Max: scoreTo}
-	values, err := r.singleton().ZRangeByScoreWithScores(ctx, fixedKey, &args).Result()
-	if err != nil {
-		log.Error(
-			"ZRANGEBYSCORE command failed",
-			log.String("keyHash", redactedRedisKey(keyName)),
-			log.String("fixedKeyHash", redactedRedisKey(fixedKey)),
-			log.String("scoreFrom", scoreFrom),
-			log.String("scoreTo", scoreTo),
-			log.String("error", err.Error()),
-		)
-
-		return nil, nil, err
-	}
-
-	if len(values) == 0 {
-		return nil, nil, nil
-	}
-
-	elements := make([]string, len(values))
-	scores := make([]float64, len(values))
-
-	for i, v := range values {
-		elements[i] = fmt.Sprint(v.Member)
-		scores[i] = v.Score
-	}
-
-	return elements, scores, nil
-}
-
-// RemoveSortedSetRange removes range of elements from sorted set identified by keyName.
-func (r *RedisCluster) RemoveSortedSetRange(ctx context.Context, keyName, scoreFrom, scoreTo string) error {
-	fixedKey := r.fixKey(keyName)
-
-	log.Debug(
-		"Removing sorted set range",
-		log.String("keyHash", redactedRedisKey(keyName)),
-		log.String("fixedKeyHash", redactedRedisKey(fixedKey)),
-		log.String("scoreFrom", scoreFrom),
-		log.String("scoreTo", scoreTo),
-	)
-
-	if err := r.singleton().ZRemRangeByScore(ctx, fixedKey, scoreFrom, scoreTo).Err(); err != nil {
-		log.Debug(
-			"ZREMRANGEBYSCORE command failed",
-			log.String("keyHash", redactedRedisKey(keyName)),
-			log.String("fixedKeyHash", redactedRedisKey(fixedKey)),
-			log.String("scoreFrom", scoreFrom),
-			log.String("scoreTo", scoreTo),
-			log.String("error", err.Error()),
-		)
-
-		return err
-	}
-
-	return nil
 }
