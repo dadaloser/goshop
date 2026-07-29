@@ -49,6 +49,7 @@ func NewReviewApp(cfg *config.Config, reviewService *Service) (*gapp.App, error)
 
 	return gapp.New(
 		gapp.WithName(cfg.Server.Name),
+		gapp.WithVersion(cfg.Registry.Version),
 		gapp.WithRPCServer(rpcServer),
 		gapp.WithRegistrar(register),
 	), nil

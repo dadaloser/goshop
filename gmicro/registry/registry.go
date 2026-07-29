@@ -44,4 +44,9 @@ type ServiceInstance struct {
 	//http://127.0.0.1:8000
 	//grpc://127.0.0.1:9000
 	Endpoints []string `json:"endpoints"`
+
+	// HealthCheckEndpoint is used by registries for active health checks only.
+	// It is deliberately excluded from Endpoints so callers continue to receive
+	// only business traffic addresses from service discovery.
+	HealthCheckEndpoint string `json:"health_check_endpoint,omitempty"`
 }

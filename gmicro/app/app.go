@@ -28,9 +28,6 @@ type App struct {
 	cancel   context.CancelFunc
 }
 
-// 控制consul版本
-const serviceRegistrationVersion = "2026.07.29"
-
 type readyServer interface {
 	Ready() <-chan struct{}
 }
@@ -52,7 +49,7 @@ func New(opts ...Option) *App {
 		sigs:             []os.Signal{syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT},
 		registrarTimeout: 10 * time.Second,
 		stopTimeout:      10 * time.Second,
-		version:          serviceRegistrationVersion,
+		version:          "latest",
 	}
 
 	if id, err := uuid.NewUUID(); err == nil {
@@ -263,10 +260,18 @@ func (a *App) buildInstance() (*registry.ServiceInstance, error) {
 		}
 	}
 
+	healthCheckEndpoint := ""
+	if a.opts.healthCheckEndpointServer != nil && a.opts.healthCheckEndpointServer.Endpoint() != nil {
+		healthCheckEndpoint = a.opts.healthCheckEndpointServer.Endpoint().String()
+	} else if a.opts.healthCheckEndpoint != nil {
+		healthCheckEndpoint = a.opts.healthCheckEndpoint.String()
+	}
+
 	return &registry.ServiceInstance{
-		ID:        a.opts.id,
-		Name:      a.opts.name,
-		Version:   a.opts.version,
-		Endpoints: endpoints,
+		ID:                  a.opts.id,
+		Name:                a.opts.name,
+		Version:             a.opts.version,
+		Endpoints:           endpoints,
+		HealthCheckEndpoint: healthCheckEndpoint,
 	}, nil
 }

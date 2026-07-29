@@ -13,10 +13,12 @@ import (
 type Option func(o *options)
 
 type options struct {
-	id        string
-	endpoints []*url.URL
-	name      string
-	version   string
+	id                        string
+	endpoints                 []*url.URL
+	healthCheckEndpoint       *url.URL
+	healthCheckEndpointServer *restserver.Server
+	name                      string
+	version                   string
 
 	sigs []os.Signal
 
@@ -41,6 +43,22 @@ func WithRegistrar(registrar registry.Registrar) Option {
 func WithEndpoints(endpoints []*url.URL) Option {
 	return func(o *options) {
 		o.endpoints = endpoints
+	}
+}
+
+// WithHealthCheckEndpoint sets the endpoint used by service registries for
+// active health checks. It is not advertised as a business service endpoint.
+func WithHealthCheckEndpoint(endpoint *url.URL) Option {
+	return func(o *options) {
+		o.healthCheckEndpoint = endpoint
+	}
+}
+
+// WithHealthCheckServer uses a REST server's listening endpoint for active
+// registry health checks. The endpoint is read after the server reports ready.
+func WithHealthCheckServer(server *restserver.Server) Option {
+	return func(o *options) {
+		o.healthCheckEndpointServer = server
 	}
 }
 
@@ -73,6 +91,15 @@ func WithID(id string) Option {
 func WithName(name string) Option {
 	return func(o *options) {
 		o.name = name
+	}
+}
+
+// WithVersion sets the service version registered with service discovery.
+func WithVersion(version string) Option {
+	return func(o *options) {
+		if version != "" {
+			o.version = version
+		}
 	}
 }
 

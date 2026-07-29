@@ -80,11 +80,15 @@ func NewAPIApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	managementServer := NewAPIManagementServer(cfg)
 	opts := []gapp.Option{
 		gapp.WithName(cfg.Server.Name),
+		gapp.WithVersion(cfg.Registry.Version),
 		gapp.WithRestServer(rpcServer),
 		gapp.WithRegistrar(register),
 	}
 	if managementServer != nil {
-		opts = append(opts, gapp.WithServer(managementServer))
+		opts = append(opts,
+			gapp.WithServer(managementServer),
+			gapp.WithHealthCheckServer(managementServer),
+		)
 	}
 
 	return gapp.New(opts...), nil

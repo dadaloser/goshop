@@ -40,6 +40,44 @@ func TestNewUsesServiceRegistrationVersion(t *testing.T) {
 	}
 }
 
+func TestWithVersionOverridesServiceRegistrationVersion(t *testing.T) {
+	app := New(WithVersion("2026.08.01"))
+
+	instance, err := app.buildInstance()
+	if err != nil {
+		t.Fatalf("buildInstance() error = %v", err)
+	}
+	if instance.Version != "2026.08.01" {
+		t.Fatalf("instance.Version = %q, want %q", instance.Version, "2026.08.01")
+	}
+}
+
+func TestBuildInstanceSeparatesHealthCheckEndpoint(t *testing.T) {
+	businessEndpoint, err := url.Parse("http://127.0.0.1:8052")
+	if err != nil {
+		t.Fatalf("parse business endpoint failed: %v", err)
+	}
+	healthCheckEndpoint, err := url.Parse("http://127.0.0.1:8152")
+	if err != nil {
+		t.Fatalf("parse health check endpoint failed: %v", err)
+	}
+
+	app := New(
+		WithEndpoints([]*url.URL{businessEndpoint}),
+		WithHealthCheckEndpoint(healthCheckEndpoint),
+	)
+	instance, err := app.buildInstance()
+	if err != nil {
+		t.Fatalf("buildInstance() error = %v", err)
+	}
+	if len(instance.Endpoints) != 1 || instance.Endpoints[0] != businessEndpoint.String() {
+		t.Fatalf("buildInstance() endpoints = %v, want [%s]", instance.Endpoints, businessEndpoint)
+	}
+	if instance.HealthCheckEndpoint != healthCheckEndpoint.String() {
+		t.Fatalf("buildInstance() health check endpoint = %q, want %q", instance.HealthCheckEndpoint, healthCheckEndpoint)
+	}
+}
+
 type fakeServer struct {
 	ready   chan struct{}
 	started chan struct{}

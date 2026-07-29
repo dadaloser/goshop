@@ -12,12 +12,14 @@ import (
 type RegistryOptions struct {
 	Address string `mapstructure:"address" json:"address,omitempty"`
 	Scheme  string `mapstructure:"scheme" json:"scheme,omitempty"`
+	Version string `mapstructure:"version" json:"version,omitempty"`
 }
 
 func NewRegistryOptions() *RegistryOptions {
 	return &RegistryOptions{
 		Address: "192.168.1.92:8500",
 		Scheme:  "http",
+		Version: "1.0.1",
 	}
 }
 
@@ -42,4 +44,7 @@ func (o *RegistryOptions) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.Scheme, "registry.scheme", o.Scheme, ""+
 		"registry scheme, default is http")
+
+	fs.StringVar(&o.Version, "registry.version", o.Version, ""+
+		"service version registered in Consul")
 }

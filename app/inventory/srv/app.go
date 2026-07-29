@@ -75,6 +75,7 @@ func NewInventoryApp(ctx context.Context, cfg *config.Config) (*gapp.App, error)
 
 	return gapp.New(
 		gapp.WithName(cfg.Server.Name),
+		gapp.WithVersion(cfg.Registry.Version),
 		gapp.WithRPCServer(rpcServer),
 		gapp.WithRegistrar(register),
 	), nil

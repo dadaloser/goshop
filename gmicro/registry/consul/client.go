@@ -121,6 +121,20 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 	addresses := make(map[string]api.ServiceAddress, len(svc.Endpoints))
 	checkAddresses := make([]string, 0, len(svc.Endpoints))
 	checks := make(api.AgentServiceChecks, 0, len(svc.Endpoints))
+	var healthCheckEndpoint *url.URL
+	if svc.HealthCheckEndpoint != "" {
+		parsed, err := url.Parse(svc.HealthCheckEndpoint)
+		if err != nil {
+			return fmt.Errorf("parse health check endpoint: %w", err)
+		}
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return fmt.Errorf("invalid health check endpoint %q: scheme must be http or https", svc.HealthCheckEndpoint)
+		}
+		if _, _, err := parseEndpointAddress(parsed); err != nil {
+			return err
+		}
+		healthCheckEndpoint = parsed
+	}
 	for _, endpoint := range svc.Endpoints {
 		raw, err := url.Parse(endpoint)
 		if err != nil {
@@ -137,6 +151,11 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 		if enableHealthCheck {
 			switch raw.Scheme {
 			case "http", "https":
+				if healthCheckEndpoint != nil {
+					// The dedicated management endpoint is the single source of
+					// HTTP readiness; do not probe the business traffic port.
+					continue
+				}
 				check := &api.AgentServiceCheck{
 					Interval:                       fmt.Sprintf("%ds", c.healthcheckInterval),
 					DeregisterCriticalServiceAfter: fmt.Sprintf("%ds", c.deregisterCriticalServiceAfter),
@@ -169,6 +188,14 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 				checks = append(checks, check)
 			}
 		}
+	}
+	if enableHealthCheck && healthCheckEndpoint != nil {
+		checks = append(checks, &api.AgentServiceCheck{
+			Interval:                       fmt.Sprintf("%ds", c.healthcheckInterval),
+			DeregisterCriticalServiceAfter: fmt.Sprintf("%ds", c.deregisterCriticalServiceAfter),
+			Timeout:                        "5s",
+			HTTP:                           c.healthCheckURL(healthCheckEndpoint),
+		})
 	}
 	asr := &api.AgentServiceRegistration{
 		ID:              svc.ID,

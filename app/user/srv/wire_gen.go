@@ -33,7 +33,7 @@ func initApp(nacosOptions *options.NacosOptions, serverOptions *options.ServerOp
 	if err != nil {
 		return nil, err
 	}
-	appApp, err := NewUserApp(registrar, serverOptions, server)
+	appApp, err := NewUserApp(registrar, serverOptions, registryOptions, server)
 	if err != nil {
 		return nil, err
 	}

@@ -66,6 +66,7 @@ func newOrderAppWithServiceFactory(cfg *config.Config, orderSrvFactory v1.Servic
 
 	return gapp.New(
 		gapp.WithName(cfg.Server.Name),
+		gapp.WithVersion(cfg.Registry.Version),
 		gapp.WithRPCServer(rpcServer),
 		gapp.WithRegistrar(register),
 	), nil

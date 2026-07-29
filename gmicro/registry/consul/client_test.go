@@ -89,6 +89,51 @@ func TestRegisterUsesHTTPHealthCheckForHTTPEndpoints(t *testing.T) {
 	}
 }
 
+func TestRegisterUsesDedicatedHTTPHealthCheckEndpoint(t *testing.T) {
+	var got struct {
+		Address string `json:"Address"`
+		Port    int    `json:"Port"`
+		Checks  []struct {
+			HTTP string `json:"HTTP"`
+		} `json:"Checks"`
+	}
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodPut || req.URL.Path != "/v1/agent/service/register" {
+			t.Fatalf("Register() request = %s %s, want PUT /v1/agent/service/register", req.Method, req.URL.Path)
+		}
+		if err := json.NewDecoder(req.Body).Decode(&got); err != nil {
+			t.Fatalf("Register() decode request error = %v, want nil", err)
+		}
+		return consulOKResponse(), nil
+	})
+	apiClient, err := api.NewClient(&api.Config{
+		Address:    "http://consul.local",
+		HttpClient: &http.Client{Transport: transport},
+	})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	client := NewClient(apiClient)
+	client.heartbeat = false
+
+	err = client.Register(context.Background(), &registry.ServiceInstance{
+		ID:                  "api-1",
+		Name:                "api",
+		Version:             "v1",
+		Endpoints:           []string{"http://127.0.0.1:8052"},
+		HealthCheckEndpoint: "http://127.0.0.1:8152",
+	}, true)
+	if err != nil {
+		t.Fatalf("Register() error = %v, want nil", err)
+	}
+	if got.Address != "127.0.0.1" || got.Port != 8052 {
+		t.Fatalf("Register() business address = %s:%d, want 127.0.0.1:8052", got.Address, got.Port)
+	}
+	if len(got.Checks) != 1 || got.Checks[0].HTTP != "http://127.0.0.1:8152/readyz" {
+		t.Fatalf("Register() checks = %+v, want one management /readyz check", got.Checks)
+	}
+}
+
 func TestNewClientDisablesTTLHeartbeatByDefault(t *testing.T) {
 	apiClient, err := api.NewClient(&api.Config{Address: "http://127.0.0.1:1"})
 	if err != nil {

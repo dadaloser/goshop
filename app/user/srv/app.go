@@ -44,11 +44,16 @@ func NewRegistrar(registry *options.RegistryOptions) (registry.Registrar, error)
 	return r, nil
 }
 
-func NewUserApp(register registry.Registrar,
-	serverOpts *options.ServerOptions, rpcServer *rpcserver.Server) (*gapp.App, error) {
+func NewUserApp(
+	register registry.Registrar,
+	serverOpts *options.ServerOptions,
+	registryOpts *options.RegistryOptions,
+	rpcServer *rpcserver.Server,
+) (*gapp.App, error) {
 	log.Infof("creating user application: name=%s", serverOpts.Name)
 	return gapp.New(
 		gapp.WithName(serverOpts.Name),
+		gapp.WithVersion(registryOpts.Version),
 		gapp.WithRPCServer(rpcServer),
 		gapp.WithRegistrar(register),
 	), nil
