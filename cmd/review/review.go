@@ -9,6 +9,7 @@ import (
 	"goshop/app/review/srv"
 )
 
+// 程序实参: --config=./configs/review/srv.yaml
 func main() {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 	if len(os.Getenv("GOMAXPROCS")) == 0 {

@@ -16,6 +16,7 @@ type options struct {
 	id        string
 	endpoints []*url.URL
 	name      string
+	version   string
 
 	sigs []os.Signal
 
