@@ -18,7 +18,7 @@ func TestUserServiceDeleteRejectsZeroID(t *testing.T) {
 	}
 }
 
-func TestUserServiceDeleteCallsStore(t *testing.T) {
+func TestUserServiceDeleteRequestsReversibleDeletion(t *testing.T) {
 	store := &fakeUserStore{
 		usersByIdentifier: map[string]*dv1.UserDO{},
 	}
@@ -27,7 +27,10 @@ func TestUserServiceDeleteCallsStore(t *testing.T) {
 	if err := svc.Delete(context.Background(), 9); err != nil {
 		t.Fatalf("Delete() error = %v", err)
 	}
-	if store.deletedID != 9 {
-		t.Fatalf("deleted id = %d, want 9", store.deletedID)
+	if store.deletionRequestedID != 9 {
+		t.Fatalf("deletion request id = %d, want 9", store.deletionRequestedID)
+	}
+	if store.deletedID != 0 {
+		t.Fatalf("deleted id = %d, want no physical deletion", store.deletedID)
 	}
 }

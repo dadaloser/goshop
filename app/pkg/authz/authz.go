@@ -25,7 +25,10 @@ const (
 	AccountStatusActive   AccountStatus = "active"
 	AccountStatusDisabled AccountStatus = "disabled"
 	AccountStatusLocked   AccountStatus = "locked"
-	AccountStatusDeleted  AccountStatus = "deleted"
+	// AccountStatusDeletionPending prevents authentication while a downstream
+	// service verifies whether an account can be permanently deleted.
+	AccountStatusDeletionPending AccountStatus = "deletion_pending"
+	AccountStatusDeleted         AccountStatus = "deleted"
 )
 
 // Permission is an authorization action with an explicit resource scope.

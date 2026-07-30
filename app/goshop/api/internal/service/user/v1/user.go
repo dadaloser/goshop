@@ -12,7 +12,6 @@ import (
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 
-	opb "goshop/api/order/v1"
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/pkg/authsession/tokenversion"
@@ -334,9 +333,6 @@ func (us *userService) DeleteAccount(ctx context.Context, userID uint64, passwor
 	if err = users.CheckPassWord(ctx, password, user.PasswordHash); err != nil {
 		return err
 	}
-	if err = us.ensureAccountDeletionAllowed(ctx, userID); err != nil {
-		return err
-	}
 	if err = users.Delete(ctx, userID); err != nil {
 		return err
 	}
@@ -347,31 +343,6 @@ func (us *userService) DeleteAccount(ctx context.Context, userID uint64, passwor
 		_ = sessions.RevokeAllSessions(ctx, userID)
 	}
 	return nil
-}
-
-func (us *userService) ensureAccountDeletionAllowed(ctx context.Context, userID uint64) error {
-	if us == nil || us.data == nil {
-		return errors.NewCode(bizcode.ErrConnectGRPC, "无法检查未完成业务")
-	}
-	if us.data.Orders() == nil {
-		return nil
-	}
-	const pageSize = 100
-	for page := int32(1); ; page++ {
-		resp, err := us.data.Orders().OrderList(ctx, &opb.OrderFilterRequest{UserId: int32(userID), Pages: page, PagePerNums: pageSize})
-		if err != nil {
-			return errors.NewCode(bizcode.ErrConnectGRPC, "无法检查未完成业务")
-		}
-		for _, order := range resp.GetData() {
-			status := strings.TrimSpace(order.GetStatus())
-			if status != "TRADE_CLOSED" && status != "TRADE_FINISHED" {
-				return errors.NewCode(bizcode.ErrAccountDeletionBlocked, "存在未完成订单、退款或售后，暂不能注销")
-			}
-		}
-		if len(resp.GetData()) < pageSize {
-			return nil
-		}
-	}
 }
 
 func (u *userService) Update(ctx context.Context, userDTO *UserDTO) error {

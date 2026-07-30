@@ -125,6 +125,13 @@ func TestDeleteAccountCallsUserService(t *testing.T) {
 	ctx.Set(middlewares.KeyUserID, float64(12))
 
 	server.DeleteAccount(ctx)
+	var response map[string]interface{}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response["code"] != float64(200) || response["msg"] != "用户已注销" {
+		t.Fatalf(`"response = %#v, want code=200 msg=用户已注销"`, response)
+	}
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())

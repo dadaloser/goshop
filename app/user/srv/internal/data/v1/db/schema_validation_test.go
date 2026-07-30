@@ -11,6 +11,7 @@ func TestValidateUserSchemaRejectsNilDB(t *testing.T) {
 func TestUserSchemaChecksRequireIdentitySessionsAndRBAC(t *testing.T) {
 	var userCheck *schemaTableCheck
 	var sessionCheck *schemaTableCheck
+	var outboxCheck *schemaTableCheck
 	var scopeCheck *schemaTableCheck
 	for i := range userSchemaChecks() {
 		check := userSchemaChecks()[i]
@@ -19,17 +20,20 @@ func TestUserSchemaChecksRequireIdentitySessionsAndRBAC(t *testing.T) {
 			userCheck = &check
 		case "user_sessions":
 			sessionCheck = &check
+		case "user_account_deletion_outbox":
+			outboxCheck = &check
 		case "user_resource_scopes":
 			scopeCheck = &check
 		}
 	}
-	if userCheck == nil || sessionCheck == nil || scopeCheck == nil {
-		t.Fatalf("user schema checks missing required tables: user=%v user_sessions=%v user_resource_scopes=%v", userCheck != nil, sessionCheck != nil, scopeCheck != nil)
+	if userCheck == nil || sessionCheck == nil || scopeCheck == nil || outboxCheck == nil {
+		t.Fatalf("user schema checks missing required tables: user=%v user_sessions=%v user_resource_scopes=%v user_account_deletion_outbox=%v", userCheck != nil, sessionCheck != nil, scopeCheck != nil, outboxCheck != nil)
 	}
 
 	assertContainsAll(t, userCheck.required, []string{"username", "email", "account_status", "mobile_verified", "email_verified", "last_login_at"})
 	assertContainsAll(t, sessionCheck.required, []string{"refresh_token_hash", "device_id", "expires_at", "revoked_at"})
 	assertContainsAll(t, scopeCheck.required, []string{"user_id", "domain", "store_id", "team_id"})
+	assertContainsAll(t, outboxCheck.required, []string{"id", "event_type", "user_id", "payload", "status", "available_at", "published_at"})
 }
 
 func assertContainsAll(t *testing.T, got []string, want []string) {

@@ -3,6 +3,7 @@ package user
 import (
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -32,5 +33,5 @@ func (us *userServer) DeleteAccount(ctx *gin.Context) {
 		core.WriteResponse(ctx, err, nil)
 		return
 	}
-	core.WriteResponse(ctx, nil, gin.H{"ok": true})
+	core.WriteResponse(ctx, nil, gin.H{"code": http.StatusOK, "msg": "用户已注销"})
 }

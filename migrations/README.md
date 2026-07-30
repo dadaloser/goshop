@@ -1,17 +1,15 @@
 # Database Migrations
-
-This directory stores reviewed database migrations for each service.
+此目录存储每个服务的已审核数据库迁移。
 
 ## Naming
-
-Use monotonic timestamps and service names:
+使用单调时间戳和服务名称：
 
 ```text
 YYYYMMDDHHMMSS_service_short_description.up.sql
 YYYYMMDDHHMMSS_service_short_description.down.sql
 ```
 
-Examples:
+例子:
 
 ```text
 202607050001_user_add_identity_columns.up.sql
@@ -22,27 +20,23 @@ Examples:
 
 ## Rules
 
-- Do not rely on Gorm auto-migration in production.
-- Keep `mysql.auto-migrate` disabled in production. It exists only for local bootstrap or temporary development environments.
-- Every schema change must have an `up` and `down` migration.
-- Risky rollback steps must be marked with comments and reviewed manually.
-- Add indexes and unique constraints explicitly.
-- Run migrations in staging before production.
-- Keep data backfills separate from schema migrations when they may take time.
-- Keep startup-required schema in reviewed migrations. For example, `user-srv`
-  startup validation currently requires `user.account_status`,
-  `roles/user_roles/role_permissions/role_domains`, `user_audit_logs`, and
-  `admin_audit_logs` to exist before production boots with `mysql.auto-migrate=false`.
+- 不要在生产中依赖 Gorm 自动迁移。
+- 在生产中保持“mysql.auto-migrate”禁用。它仅适用于本地引导程序或临时开发环境。 
+- 每个架构更改都必须有“向上”和“向下”迁移。 - 有风险的回滚步骤必须标记注释并手动审核。 
+- 显式添加索引和唯一约束。 
+- 在生产之前在暂存中运行迁移。 
+- 当数据回填可能需要时间时，将数据回填与架构迁移分开。 
+- 在审核的迁移中保留启动所需的架构。例如，“user-srv”启动验证当前需要“user.account_status”、“rolesuser_rolesrole_permissionsrole_domains”、“user_audit_logs”和“admin_audit_logs”在使用“mysql.auto-migrate=false”启动生产之前存在
+
 
 ## P0 Baseline
 
-The first implementation milestone should add reviewed migrations for:
-
-- goods core tables, category/brand/banner relations, and order core tables.
-- order list filtering support and order status logs.
-- admin users, roles, permissions, role bindings, and audit logs.
-- inventory stock/reservation/log tables.
-- user identity/session/account status fields.
+首个实施里程碑应添加经评审的数据库迁移脚本，涵盖以下内容：
+- 商品核心表、分类/品牌/轮播图关联表，以及订单核心表。
+- 订单列表筛选功能支持及订单状态变更日志。
+- 后台管理员用户、角色、权限、角色绑定关系及操作审计日志。
+- 库存现货、预占及变动日志表。
+- 用户身份标识、会话信息及账户状态字段。
 
 ## Schema Smoke Test
 
@@ -81,7 +75,5 @@ Set either:
   `INVENTORY_MYSQL_PORT`, `INVENTORY_MYSQL_DATABASE`,
   `REVIEW_MYSQL_HOST`, `REVIEW_MYSQL_PORT`, and `REVIEW_MYSQL_DATABASE`
 
-The test flow connects to each service database separately, drops the target
-service tables, applies the reviewed service-specific migrations from scratch,
-and verifies that startup schema validation passes with
+测试流程会分别连接至各服务的数据库，删除目标服务的相关表，从零开始应用经评审的服务专属迁移脚本，并验证启动时的 Schema 校验能否通过。
 `mysql.auto-migrate=false`.

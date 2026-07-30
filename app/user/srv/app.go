@@ -6,6 +6,8 @@ import (
 	"goshop/app/pkg/errorcatalog"
 	"goshop/app/pkg/options"
 	"goshop/app/user/srv/config"
+	"goshop/app/user/srv/internal/data/v1/db"
+	userservice "goshop/app/user/srv/internal/service/v1"
 	gapp "goshop/gmicro/app"
 	"goshop/gmicro/server/rpcserver"
 	"goshop/pkg/app"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/google/wire"
 	"github.com/hashicorp/consul/api"
+	"golang.org/x/sync/errgroup"
 
 	"goshop/gmicro/registry"
 	"goshop/gmicro/registry/consul"
@@ -71,8 +74,25 @@ func run(cfg *config.Config) app.RunFunc {
 			return err
 		}
 
-		//启动
 		log.Infof("starting user service")
-		return userApp.RunContext(ctx)
+		group, groupCtx := errgroup.WithContext(ctx)
+		group.Go(func() error { return userApp.RunContext(groupCtx) })
+		if cfg.AccountDeletionEvents.Enabled() {
+			gormDB, err := db.GetDBFactoryOr(cfg.MySQLOptions)
+			if err != nil {
+				return err
+			}
+			worker := userservice.NewAccountDeletionOutboxWorker(
+				db.NewAccountDeletionOutboxStore(gormDB),
+				userservice.AccountDeletionOutboxConfig{
+					NATSURL:      cfg.AccountDeletionEvents.URL,
+					PollInterval: cfg.AccountDeletionEvents.PollInterval,
+					BatchSize:    cfg.AccountDeletionEvents.BatchSize,
+					MaxRetries:   cfg.AccountDeletionEvents.MaxRetries,
+				},
+			)
+			group.Go(func() error { return worker.Run(groupCtx) })
+		}
+		return group.Wait()
 	}
 }

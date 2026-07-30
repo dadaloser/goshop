@@ -19,9 +19,7 @@
 - [生产基线](production-baseline.md)
 
 ## 运维与发布
-
+- [Schema 迁移记录](schema-migrations.md)：`schema_migrations` 的核验、已有库迁移和回滚边界。
 - [运维、发布与历史演练](operations-and-release.md)
 
-## 已清理内容
 
-已将架构草案、研发规则、运行手册和带日期的演练记录合并为上述主题文档。`gmicro-.md` 是内容截断的旧进度表，已移除。

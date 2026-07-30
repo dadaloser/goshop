@@ -12,12 +12,13 @@ import (
 type Config struct {
 	Log *log.Options `json:"log" mapstructure:"log"`
 
-	Nacos        *options.NacosOptions       `json:"nacos" mapstructure:"nacos"`
-	Server       *options.ServerOptions      `json:"server" mapstructure:"server"`
-	Registry     *options.RegistryOptions    `json:"registry" mapstructure:"registry"`
-	RPC          *options.RPCSecurityOptions `json:"rpc-security" mapstructure:"rpc-security"`
-	Telemetry    *options.TelemetryOptions   `json:"telemetry" mapstructure:"telemetry"`
-	MySQLOptions *options.MySQLOptions       `json:"mysql" mapstructure:"mysql"`
+	Nacos                 *options.NacosOptions        `json:"nacos" mapstructure:"nacos"`
+	Server                *options.ServerOptions       `json:"server" mapstructure:"server"`
+	Registry              *options.RegistryOptions     `json:"registry" mapstructure:"registry"`
+	RPC                   *options.RPCSecurityOptions  `json:"rpc-security" mapstructure:"rpc-security"`
+	Telemetry             *options.TelemetryOptions    `json:"telemetry" mapstructure:"telemetry"`
+	MySQLOptions          *options.MySQLOptions        `json:"mysql" mapstructure:"mysql"`
+	AccountDeletionEvents *AccountDeletionEventOptions `json:"account-deletion-events" mapstructure:"account-deletion-events"`
 }
 
 func (c *Config) Validate() []error {
@@ -29,6 +30,7 @@ func (c *Config) Validate() []error {
 	errors = append(errors, c.Telemetry.Validate()...)
 	errors = append(errors, c.MySQLOptions.Validate()...)
 	errors = append(errors, c.Nacos.Validate()...)
+	errors = append(errors, c.AccountDeletionEvents.Validate()...)
 	return errors
 }
 
@@ -69,18 +71,20 @@ func (c *Config) Flags() (fss cliflag.NamedFlagSets) {
 	c.Telemetry.AddFlags(fss.FlagSet("telemetry"))
 	c.MySQLOptions.AddFlags(fss.FlagSet("mysql"))
 	c.Nacos.AddFlags(fss.FlagSet("nacos"))
+	c.AccountDeletionEvents.AddFlags(fss.FlagSet("account-deletion-events"))
 	return fss
 }
 
 func New() *Config {
 	//配置默认初始化
 	return &Config{
-		Log:          log.NewOptions(),
-		Server:       options.NewServerOptions(),
-		Registry:     options.NewRegistryOptions(),
-		RPC:          options.NewRPCSecurityOptions(),
-		Telemetry:    options.NewTelemetryOptions(),
-		MySQLOptions: options.NewMySQLOptions(),
-		Nacos:        options.NewNacosOptions(),
+		Log:                   log.NewOptions(),
+		Server:                options.NewServerOptions(),
+		Registry:              options.NewRegistryOptions(),
+		RPC:                   options.NewRPCSecurityOptions(),
+		Telemetry:             options.NewTelemetryOptions(),
+		MySQLOptions:          options.NewMySQLOptions(),
+		Nacos:                 options.NewNacosOptions(),
+		AccountDeletionEvents: NewAccountDeletionEventOptions(),
 	}
 }

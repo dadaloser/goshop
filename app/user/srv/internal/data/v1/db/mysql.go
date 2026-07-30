@@ -88,7 +88,7 @@ func migrateUserSchema(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("user schema migration failed: nil db")
 	}
-	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.UserSessionDO{}, &dv1.VerificationCodeDO{}, &dv1.UserResourceScopeDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}, &dv1.RoleDomainDO{}, &dv1.UserAuditLogDO{}, &dv1.AdminAuditLogDO{}, &dv1.BreakGlassApprovalDO{}); err != nil {
+	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.UserSessionDO{}, &dv1.AccountDeletionOutboxEventDO{}, &dv1.VerificationCodeDO{}, &dv1.UserResourceScopeDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}, &dv1.RoleDomainDO{}, &dv1.UserAuditLogDO{}, &dv1.AdminAuditLogDO{}, &dv1.BreakGlassApprovalDO{}); err != nil {
 		return fmt.Errorf("user schema migration failed: %w", err)
 	}
 	return nil
@@ -143,6 +143,10 @@ func userSchemaChecks() []schemaTableCheck {
 		{
 			model:    &dv1.UserSessionDO{},
 			required: []string{"id", "user_id", "refresh_token_hash", "device_id", "device_name", "created_at", "last_used_at", "expires_at", "revoked_at"},
+		},
+		{
+			model:    &dv1.AccountDeletionOutboxEventDO{},
+			required: []string{"id", "event_type", "user_id", "payload", "status", "retry_count", "available_at", "locked_at", "published_at", "last_error", "created_at", "updated_at"},
 		},
 		{
 			model:    &dv1.VerificationCodeDO{},

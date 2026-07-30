@@ -23,7 +23,8 @@ func (u *UserAuditLogDO) TableName() string {
 }
 
 const (
-	UserAuditActionStaffCreated  = "staff_user_created"
-	UserAuditActionStatusUpdated = "staff_user_status_updated"
-	UserAuditActionRolesReplaced = "staff_user_roles_replaced"
+	UserAuditActionStaffCreated             = "staff_user_created"
+	UserAuditActionStatusUpdated            = "staff_user_status_updated"
+	UserAuditActionRolesReplaced            = "staff_user_roles_replaced"
+	UserAuditActionAccountDeletionRequested = "account_deletion_requested"
 )

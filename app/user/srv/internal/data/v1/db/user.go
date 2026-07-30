@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"goshop/app/pkg/accountdeletion"
 	"goshop/app/pkg/bizcode"
 	"slices"
 	"strings"
@@ -15,6 +17,9 @@ import (
 	"goshop/pkg/errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	"github.com/google/uuid"
 )
 
 type users struct {
@@ -515,6 +520,78 @@ func (u *users) Delete(ctx context.Context, id uint64) error {
 		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
 	}
 	return nil
+}
+
+// RequestAccountDeletion starts a reversible account-deletion workflow.
+// The actual deletion decision is made asynchronously by downstream services.
+// Keeping the account row intact is essential: a rejected request must be able
+// to restore the account without recreating identities or foreign keys.
+func (u *users) RequestAccountDeletion(ctx context.Context, id uint64, at time.Time) error {
+	if id == 0 {
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
+	}
+
+	eventID := uuid.NewString()
+	err := u.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user dv1.UserDO
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND deleted_at IS NULL", id).
+			First(&user).Error; err != nil {
+			return err
+		}
+
+		if user.Status == string(authz.AccountStatusDeletionPending) {
+			return nil // duplicate requests are idempotent
+		}
+		if authz.NormalizeAccountStatus(user.Status) != authz.AccountStatusActive {
+			return errors.NewCode(bizcode.ErrUserAccountInactive, "account is not active")
+		}
+
+		if err := tx.Model(&dv1.UserDO{}).Where("id = ?", id).
+			Update("account_status", string(authz.AccountStatusDeletionPending)).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&dv1.UserSessionDO{}).
+			Where("user_id = ? AND revoked_at IS NULL", id).
+			Update("revoked_at", at.UTC()).Error; err != nil {
+			return err
+		}
+		payload, err := json.Marshal(accountdeletion.Requested{EventID: eventID, UserID: id, RequestedAt: at.UTC()})
+		if err != nil {
+			return err
+		}
+		if err := tx.Create(&dv1.AccountDeletionOutboxEventDO{
+			ID:          eventID,
+			EventType:   accountdeletion.SubjectRequested,
+			UserID:      user.ID,
+			Payload:     payload,
+			Status:      "PENDING",
+			AvailableAt: at.UTC(),
+			CreatedAt:   at.UTC(),
+			UpdatedAt:   at.UTC(),
+		}).Error; err != nil {
+			return err
+		}
+		return u.appendAuditLogTx(tx, &dv1.UserAuditLogDO{
+			UserID:             user.ID,
+			ActorUserID:        user.ID,
+			ActorPrincipalType: string(authz.PrincipalCustomer),
+			Action:             dv1.UserAuditActionAccountDeletionRequested,
+			FromStatus:         user.Status,
+			ToStatus:           string(authz.AccountStatusDeletionPending),
+		})
+	})
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
+	}
+	// Keep business errors generated inside the transaction intact.
+	if errors.IsCode(err, bizcode.ErrUserAccountInactive) {
+		return err
+	}
+	return errors.NewCode(errcode.ErrDatabase, err.Error())
 }
 
 func (u *users) ListAuditLogs(ctx context.Context, userID uint64, filters dv1.UserAuditLogFilters, opts metav1.ListMeta) (*dv1.UserAuditLogDOList, error) {

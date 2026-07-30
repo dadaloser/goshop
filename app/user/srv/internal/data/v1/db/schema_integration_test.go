@@ -138,6 +138,7 @@ func prepareUserSchemaMigrations(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
 	dropStatements := []string{
+		"DROP TABLE IF EXISTS `user_account_deletion_outbox`",
 		"DROP TABLE IF EXISTS `break_glass_approvals`",
 		"DROP TABLE IF EXISTS `user_resource_scopes`",
 		"DROP TABLE IF EXISTS `verification_codes`",
@@ -187,6 +188,7 @@ func userMigrationFiles(t *testing.T) []string {
 		filepath.Join(root, "migrations/202607220002_user_add_rbac_core_tables.up.sql"),
 		filepath.Join(root, "migrations/202607230001_user_add_identity_and_sessions.up.sql"),
 		filepath.Join(root, "migrations/202607230006_user_add_review_rbac.up.sql"),
+		filepath.Join(root, "migrations/202607300001_user_add_account_deletion_outbox.up.sql"),
 	}
 }
 

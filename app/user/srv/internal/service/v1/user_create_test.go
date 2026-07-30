@@ -647,6 +647,7 @@ type fakeUserStore struct {
 	adminAuditFilters      dv1.AdminAuditLogFilters
 	createdAdminAudit      *dv1.AdminAuditLogDO
 	deletedID              uint64
+	deletionRequestedID    uint64
 }
 
 func (f *fakeUserStore) List(context.Context, []string, metav1.ListMeta) (*dv1.UserDOList, error) {
@@ -819,6 +820,11 @@ func (f *fakeUserStore) UpdateStatus(_ context.Context, id uint64, status string
 
 func (f *fakeUserStore) Delete(_ context.Context, id uint64) error {
 	f.deletedID = id
+	return nil
+}
+
+func (f *fakeUserStore) RequestAccountDeletion(_ context.Context, id uint64, _ time.Time) error {
+	f.deletionRequestedID = id
 	return nil
 }
 

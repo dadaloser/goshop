@@ -268,6 +268,13 @@ type userService struct {
 	userStore dv1.UserStore
 }
 
+// accountDeletionStore performs the reversible part of a customer deletion
+// request atomically. It deliberately is not part of UserStore: ordinary
+// administrative deletion has different retention and authorization rules.
+type accountDeletionStore interface {
+	RequestAccountDeletion(ctx context.Context, userID uint64, at time.Time) error
+}
+
 var (
 	usernamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{2,31}$`)
 	mobilePattern   = regexp.MustCompile(`^1([38][0-9]|14[579]|5[^4]|16[6]|7[1-35-8]|9[189])\d{8}$`)
@@ -394,7 +401,11 @@ func (u *userService) Delete(ctx context.Context, id uint64) error {
 	if id == 0 {
 		return errors.NewCode(errcode.ErrValidation, "用户不存在")
 	}
-	return u.userStore.Delete(ctx, id)
+	store, ok := u.userStore.(accountDeletionStore)
+	if !ok {
+		return errors.NewCode(errcode.ErrDatabase, "账号注销申请失败")
+	}
+	return store.RequestAccountDeletion(ctx, id, time.Now().UTC())
 }
 
 func (u *userService) GetByID(ctx context.Context, ID uint64) (*UserPublicDTO, error) {
