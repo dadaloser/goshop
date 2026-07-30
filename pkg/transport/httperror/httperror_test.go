@@ -4,7 +4,11 @@ import (
 	"net/http"
 	"testing"
 
+	"goshop/gmicro/errcode"
 	apperrors "goshop/pkg/errors"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestResponseForSpec(t *testing.T) {
@@ -37,6 +41,40 @@ func TestResponseForSpec(t *testing.T) {
 			}
 			if response.Message != "safe message" {
 				t.Fatalf("ResponseFor() message = %q, want safe message", response.Message)
+			}
+		})
+	}
+}
+
+func TestResponseForGRPCDomainErrorsNeverUseUnknownCode(t *testing.T) {
+	errcode.RegisterAll()
+
+	tests := []struct {
+		name       string
+		grpcCode   codes.Code
+		message    string
+		wantStatus int
+	}{
+		{name: "user validation", grpcCode: codes.InvalidArgument, message: "password must contain a number", wantStatus: http.StatusBadRequest},
+		{name: "goods conflict", grpcCode: codes.Aborted, message: "concurrent update", wantStatus: http.StatusConflict},
+		{name: "inventory missing", grpcCode: codes.NotFound, message: "stock not found", wantStatus: http.StatusNotFound},
+		{name: "order dependency unavailable", grpcCode: codes.Unavailable, message: "inventory unavailable", wantStatus: http.StatusServiceUnavailable},
+		{name: "review validation", grpcCode: codes.FailedPrecondition, message: "order is not reviewable", wantStatus: http.StatusBadRequest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response := ResponseFor(status.Error(tt.grpcCode, tt.message))
+			if response.Status != tt.wantStatus {
+				t.Errorf("ResponseFor(%s) status = %d, want %d", tt.grpcCode, response.Status, tt.wantStatus)
+			}
+			if response.Code == 1 {
+				t.Errorf("ResponseFor(%s) code = %d, want a public non-unknown code", tt.grpcCode, response.Code)
+			}
+			if tt.grpcCode == codes.InvalidArgument || tt.grpcCode == codes.FailedPrecondition {
+				if response.Message != tt.message {
+					t.Errorf("ResponseFor(%s) message = %q, want %q", tt.grpcCode, response.Message, tt.message)
+				}
 			}
 		})
 	}

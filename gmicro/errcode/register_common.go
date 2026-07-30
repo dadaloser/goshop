@@ -10,6 +10,9 @@ var commonCatalog = errors.Catalog{
 	{Code: ErrValidation, Kind: errors.KindInvalidArgument, Message: "Validation failed"},
 	{Code: ErrTokenInvalid, Kind: errors.KindUnauthenticated, Message: "Token invalid"},
 	{Code: ErrPageNotFound, Kind: errors.KindNotFound, Message: "Page not found"},
+	{Code: ErrConflict, Kind: errors.KindConflict, Message: "Request conflicts with the current resource state"},
+	{Code: ErrServiceUnavailable, Kind: errors.KindUnavailable, Message: "Required service is temporarily unavailable"},
+	{Code: ErrTimeout, Kind: errors.KindTimeout, Message: "Required service response timed out"},
 }
 
 // Catalog is the complete framework error-code catalog.

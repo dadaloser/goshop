@@ -156,11 +156,15 @@ func TestUserServiceRejectsMissingCodeStore(t *testing.T) {
 }
 
 func TestUserServiceRegisterWithoutSMSVerificationDoesNotRequireCodeStore(t *testing.T) {
-	svc := NewUserService(&fakeDataFactory{users: &fakeUserData{}}, validJWTOptions(), nil, nil, nil, nil)
+	users := &fakeUserData{}
+	svc := NewUserService(&fakeDataFactory{users: users}, validJWTOptions(), nil, nil, nil, nil)
 
 	_, err := svc.Register(context.Background(), "13800138000", "user@example.com", "user_001", "Strong1!", "tester", "")
 	if err != nil {
 		t.Fatalf("Register() error = %v, want nil when SMS verification is disabled", err)
+	}
+	if users.created.MobileVerified {
+		t.Fatal("Register() marked mobile as verified without SMS verification")
 	}
 }
 

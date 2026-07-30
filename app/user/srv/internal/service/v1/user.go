@@ -327,10 +327,10 @@ func (u *userService) prepareNewUser(ctx context.Context, user *UserDTO, legacyR
 		return err
 	}
 	if !mobilePattern.MatchString(user.Mobile) {
-		return errors.NewCode(errcode.ErrValidation, "手机号格式错误")
+		return newValidationError("手机号格式错误")
 	}
 	if !isStrongPassword(user.Password) {
-		return errors.NewCode(errcode.ErrValidation, "密码必须为8-72字节，并包含大小写字母、数字和特殊字符")
+		return newValidationError("密码必须为8-72字节，并包含大小写字母、数字和特殊字符")
 	}
 	if strings.TrimSpace(user.Status) == "" {
 		user.Status = defaultStatus
@@ -734,12 +734,20 @@ func normalizeUserIdentifiers(user *UserDTO) error {
 	user.Email = normalizeEmail(user.EmailValue())
 
 	if user.Username != nil && !usernamePattern.MatchString(*user.Username) {
-		return errors.NewCode(errcode.ErrValidation, "用户名格式错误")
+		return newValidationError("用户名格式错误")
 	}
 	if user.Email != nil && !isEmailAddress(*user.Email) {
-		return errors.NewCode(errcode.ErrValidation, "邮箱格式错误")
+		return newValidationError("邮箱格式错误")
 	}
 	return nil
+}
+
+func newValidationError(message string) error {
+	return errors.NewSpec(errors.Spec{
+		Code:    errcode.ErrValidation,
+		Kind:    errors.KindInvalidArgument,
+		Message: message,
+	}, message)
 }
 
 func normalizeUsername(value string) *string {

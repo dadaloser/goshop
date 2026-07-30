@@ -6,9 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"goshop/gmicro/errcode"
 	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestWriteResponseUsesSpecPublicFields(t *testing.T) {
@@ -36,5 +39,44 @@ func TestWriteResponseUsesSpecPublicFields(t *testing.T) {
 	}
 	if _, ok := response["detail"]; ok {
 		t.Fatalf("WriteResponse() exposed detail: %v", response["detail"])
+	}
+	if _, ok := response["reference"]; ok {
+		t.Fatalf("WriteResponse() exposed reference: %v", response["reference"])
+	}
+}
+
+func TestWriteResponseMapsKnownGRPCServiceErrorsToPublicCodes(t *testing.T) {
+	errcode.RegisterAll()
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name       string
+		err        error
+		wantStatus int
+	}{
+		{name: "user validation", err: status.Error(codes.InvalidArgument, "password must contain a digit"), wantStatus: http.StatusBadRequest},
+		{name: "goods conflict", err: status.Error(codes.Aborted, "version conflict"), wantStatus: http.StatusConflict},
+		{name: "inventory not found", err: status.Error(codes.NotFound, "stock not found"), wantStatus: http.StatusNotFound},
+		{name: "order dependency unavailable", err: status.Error(codes.Unavailable, "inventory unavailable"), wantStatus: http.StatusServiceUnavailable},
+		{name: "review validation", err: status.Error(codes.FailedPrecondition, "order cannot be reviewed"), wantStatus: http.StatusBadRequest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			WriteResponse(ctx, tt.err, nil)
+
+			if recorder.Code != tt.wantStatus {
+				t.Errorf("WriteResponse(%s) status = %d, want %d", tt.name, recorder.Code, tt.wantStatus)
+			}
+			var response ErrResponse
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatalf("WriteResponse(%s) decode response = %v", tt.name, err)
+			}
+			if response.Code == 1 {
+				t.Errorf("WriteResponse(%s) code = %d, want a public non-unknown code", tt.name, response.Code)
+			}
+		})
 	}
 }

@@ -1,12 +1,14 @@
 package controller
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/pkg/authz"
+	"goshop/gmicro/errcode"
+	"goshop/pkg/common/core"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -25,64 +27,46 @@ type updateStaffRoleRequest struct {
 
 func (us *userServer) ListStaffRoles(ctx *gin.Context) {
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user rpc client is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 
 	response, err := us.users.ListStaffRoles(ctx.Request.Context(), &emptypb.Empty{})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "list staff roles failed",
-		})
+		writeUserRPCError(ctx, err, "list staff roles failed")
 		return
 	}
 
 	templates := roleTemplateViews(currentRoles(ctx))
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"roles":     response.GetRoles(),
 		"templates": templates,
 	})
 }
 
 func (us *userServer) ListPermissionTemplates(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"templates": roleTemplateViews(currentRoles(ctx)),
 	})
 }
 
 func (us *userServer) CreateStaffRole(ctx *gin.Context) {
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user rpc client is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 
 	var request updateStaffRoleRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "invalid request",
-		})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "invalid request")
 		return
 	}
 	if !canManageBusinessDomains(currentRoles(ctx), request.Domains) {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"code": http.StatusForbidden,
-			"msg":  "cross-domain role creation denied",
-		})
+		writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "cross-domain role creation denied")
 		return
 	}
 	if !canGrantPermissions(currentPermissions(ctx), request.Permissions) {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"code": http.StatusForbidden,
-			"msg":  "permission escalation denied",
-		})
+		writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "permission escalation denied")
 		return
 	}
 	actor, ok := currentActor(ctx)
@@ -104,7 +88,7 @@ func (us *userServer) CreateStaffRole(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"role": role,
 	})
 }
@@ -112,48 +96,30 @@ func (us *userServer) CreateStaffRole(ctx *gin.Context) {
 func (us *userServer) UpdateStaffRole(ctx *gin.Context) {
 	roleName := strings.ToLower(strings.TrimSpace(ctx.Param("name")))
 	if roleName == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "invalid role name",
-		})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "invalid role name")
 		return
 	}
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user rpc client is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 
 	var request updateStaffRoleRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "invalid request",
-		})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "invalid request")
 		return
 	}
 	roleCatalog, err := us.users.ListStaffRoles(ctx.Request.Context(), &emptypb.Empty{})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "list staff roles failed",
-		})
+		writeUserRPCError(ctx, err, "list staff roles failed")
 		return
 	}
 	if !canManageRoleNamesWithCatalog(currentRoles(ctx), []string{roleName}, roleCatalog.GetRoles()) {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"code": http.StatusForbidden,
-			"msg":  "cross-domain role update denied",
-		})
+		writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "cross-domain role update denied")
 		return
 	}
 	if !canGrantPermissions(currentPermissions(ctx), request.Permissions) {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"code": http.StatusForbidden,
-			"msg":  "permission escalation denied",
-		})
+		writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "permission escalation denied")
 		return
 	}
 	actor, ok := currentActor(ctx)
@@ -175,7 +141,7 @@ func (us *userServer) UpdateStaffRole(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"role": role,
 	})
 }
@@ -183,33 +149,21 @@ func (us *userServer) UpdateStaffRole(ctx *gin.Context) {
 func (us *userServer) DeleteStaffRole(ctx *gin.Context) {
 	roleName := strings.ToLower(strings.TrimSpace(ctx.Param("name")))
 	if roleName == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "invalid role name",
-		})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "invalid role name")
 		return
 	}
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user rpc client is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 
 	roleCatalog, err := us.users.ListStaffRoles(ctx.Request.Context(), &emptypb.Empty{})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "list staff roles failed",
-		})
+		writeUserRPCError(ctx, err, "list staff roles failed")
 		return
 	}
 	if !canManageRoleNamesWithCatalog(currentRoles(ctx), []string{roleName}, roleCatalog.GetRoles()) {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"code": http.StatusForbidden,
-			"msg":  "cross-domain role delete denied",
-		})
+		writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "cross-domain role delete denied")
 		return
 	}
 	actor, ok := currentActor(ctx)
@@ -225,7 +179,7 @@ func (us *userServer) DeleteStaffRole(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"ok": true,
 	})
 }
@@ -236,23 +190,17 @@ func (us *userServer) GetUserStaffRoles(ctx *gin.Context) {
 		return
 	}
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user rpc client is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 
 	response, err := us.users.GetUserStaffRoles(ctx.Request.Context(), &upbv1.IdRequest{Id: int32(userID)})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "get user staff roles failed",
-		})
+		writeUserRPCError(ctx, err, "get user staff roles failed")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"user_id":     response.GetUserId(),
 		"roles":       response.GetRoles(),
 		"permissions": response.GetPermissions(),
@@ -265,19 +213,13 @@ func (us *userServer) ReplaceUserStaffRoles(ctx *gin.Context) {
 		return
 	}
 	if us == nil || us.users == nil || us.tokenVersions == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "role management backend is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "role management backend is temporarily unavailable")
 		return
 	}
 
 	var request replaceUserRolesRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "invalid request",
-		})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "invalid request")
 		return
 	}
 	actor, ok := currentActor(ctx)
@@ -286,43 +228,28 @@ func (us *userServer) ReplaceUserStaffRoles(ctx *gin.Context) {
 	}
 	roleCatalog, err := us.users.ListStaffRoles(ctx.Request.Context(), &emptypb.Empty{})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "list staff roles failed",
-		})
+		writeUserRPCError(ctx, err, "list staff roles failed")
 		return
 	}
 	if !canManageRoleNamesWithCatalog(currentRoles(ctx), request.Roles, roleCatalog.GetRoles()) {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"code": http.StatusForbidden,
-			"msg":  "cross-domain role assignment denied",
-		})
+		writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "cross-domain role assignment denied")
 		return
 	}
 	if !hasCurrentRole(ctx, authz.StaffRoleSuperAdmin) {
 		currentBinding, err := us.users.GetUserStaffRoles(ctx.Request.Context(), &upbv1.IdRequest{Id: int32(userID)})
 		if err != nil {
-			ctx.JSON(http.StatusBadGateway, gin.H{
-				"code": http.StatusBadGateway,
-				"msg":  "get user staff roles failed",
-			})
+			writeUserRPCError(ctx, err, "get user staff roles failed")
 			return
 		}
 		for _, role := range currentBinding.GetRoles() {
 			if strings.EqualFold(role, string(authz.StaffRoleSuperAdmin)) {
-				ctx.JSON(http.StatusForbidden, gin.H{
-					"code": http.StatusForbidden,
-					"msg":  "super admin roles can only be changed by super admin",
-				})
+				writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "super admin roles can only be changed by super admin")
 				return
 			}
 		}
 		for _, role := range request.Roles {
 			if strings.EqualFold(role, string(authz.StaffRoleSuperAdmin)) {
-				ctx.JSON(http.StatusForbidden, gin.H{
-					"code": http.StatusForbidden,
-					"msg":  "super admin role can only be assigned by super admin",
-				})
+				writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "super admin role can only be assigned by super admin")
 				return
 			}
 		}
@@ -334,21 +261,15 @@ func (us *userServer) ReplaceUserStaffRoles(ctx *gin.Context) {
 		Actor:  actor,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "replace user staff roles failed",
-		})
+		writeUserRPCError(ctx, err, "replace user staff roles failed")
 		return
 	}
 	if _, err = us.tokenVersions.Bump(ctx.Request.Context(), userID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code": http.StatusInternalServerError,
-			"msg":  "role update token invalidation failed",
-		})
+		writePublicError(ctx, errcode.ErrUnknown, apperrors.KindInternal, "role update token invalidation failed")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"user_id":     response.GetUserId(),
 		"roles":       response.GetRoles(),
 		"permissions": response.GetPermissions(),
@@ -362,10 +283,7 @@ func parseUserID(ctx *gin.Context) (uint64, bool) {
 	value := ctx.Param("id")
 	userID, err := strconv.ParseUint(value, 10, 64)
 	if err != nil || userID == 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "invalid user id",
-		})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "invalid user id")
 		return 0, false
 	}
 	return userID, true

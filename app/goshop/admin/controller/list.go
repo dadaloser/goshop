@@ -1,20 +1,19 @@
 package controller
 
 import (
-	"net/http"
 	"strconv"
 
 	upbv1 "goshop/api/user/v1"
+	"goshop/gmicro/errcode"
+	"goshop/pkg/common/core"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (us *userServer) List(ctx *gin.Context) {
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user rpc client is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 
@@ -36,14 +35,11 @@ func (us *userServer) List(ctx *gin.Context) {
 		PSize: pageSize,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "list users failed",
-		})
+		writeUserRPCError(ctx, err, "list users failed")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"total": response.GetTotal(),
 		"items": response.GetData(),
 	})

@@ -1,13 +1,15 @@
 package controller
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/pkg/authz"
+	"goshop/gmicro/errcode"
+	"goshop/pkg/common/core"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,23 +24,17 @@ func (us *userServer) GetByID(ctx *gin.Context) {
 		return
 	}
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user rpc client is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 
 	response, err := us.users.GetUserById(ctx.Request.Context(), &upbv1.IdRequest{Id: int32(userID)})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "get user failed",
-		})
+		writeUserRPCError(ctx, err, "get user failed")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"user": response,
 	})
 }
@@ -49,19 +45,13 @@ func (us *userServer) UpdateStatus(ctx *gin.Context) {
 		return
 	}
 	if us == nil || us.users == nil || us.tokenVersions == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user status backend is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user status backend is temporarily unavailable")
 		return
 	}
 
 	var request updateUserStatusRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "invalid request",
-		})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "invalid request")
 		return
 	}
 	actor, ok := currentActor(ctx)
@@ -69,27 +59,18 @@ func (us *userServer) UpdateStatus(ctx *gin.Context) {
 		return
 	}
 	if uint64(actor.GetActorUserId()) == userID && strings.ToLower(strings.TrimSpace(request.Status)) != string(authz.AccountStatusActive) {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "current staff account cannot disable itself",
-		})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "current staff account cannot disable itself")
 		return
 	}
 	if !hasCurrentRole(ctx, authz.StaffRoleSuperAdmin) {
 		targetRoles, err := us.users.GetUserStaffRoles(ctx.Request.Context(), &upbv1.IdRequest{Id: int32(userID)})
 		if err != nil {
-			ctx.JSON(http.StatusBadGateway, gin.H{
-				"code": http.StatusBadGateway,
-				"msg":  "get user staff roles failed",
-			})
+			writeUserRPCError(ctx, err, "get user staff roles failed")
 			return
 		}
 		for _, role := range targetRoles.GetRoles() {
 			if strings.EqualFold(role, string(authz.StaffRoleSuperAdmin)) {
-				ctx.JSON(http.StatusForbidden, gin.H{
-					"code": http.StatusForbidden,
-					"msg":  "super admin status can only be changed by super admin",
-				})
+				writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "super admin status can only be changed by super admin")
 				return
 			}
 		}
@@ -101,21 +82,15 @@ func (us *userServer) UpdateStatus(ctx *gin.Context) {
 		Actor:  actor,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "update user status failed",
-		})
+		writeUserRPCError(ctx, err, "update user status failed")
 		return
 	}
 	if _, err = us.tokenVersions.Bump(ctx.Request.Context(), userID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code": http.StatusInternalServerError,
-			"msg":  "user status token invalidation failed",
-		})
+		writePublicError(ctx, errcode.ErrUnknown, apperrors.KindInternal, "user status token invalidation failed")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"user": response,
 		"session": gin.H{
 			"invalidated": true,
@@ -129,10 +104,7 @@ func (us *userServer) ListAuditLogs(ctx *gin.Context) {
 		return
 	}
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user rpc client is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 
@@ -160,14 +132,11 @@ func (us *userServer) ListAuditLogs(ctx *gin.Context) {
 		CreatedBefore:      parseQueryUnix(ctx.Query("created_before")),
 	})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "list user audit logs failed",
-		})
+		writeUserRPCError(ctx, err, "list user audit logs failed")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"total": response.GetTotal(),
 		"items": response.GetData(),
 	})
@@ -175,10 +144,7 @@ func (us *userServer) ListAuditLogs(ctx *gin.Context) {
 
 func (us *userServer) ListAdminAuditLogs(ctx *gin.Context) {
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user rpc client is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 
@@ -206,14 +172,11 @@ func (us *userServer) ListAdminAuditLogs(ctx *gin.Context) {
 		CreatedBefore:      parseQueryUnix(ctx.Query("created_before")),
 	})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "list admin audit logs failed",
-		})
+		writeUserRPCError(ctx, err, "list admin audit logs failed")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"total": response.GetTotal(),
 		"items": response.GetData(),
 	})

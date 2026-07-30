@@ -1,11 +1,13 @@
 package controller
 
 import (
-	"net/http"
 	"strings"
 
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/pkg/authz"
+	"goshop/gmicro/errcode"
+	"goshop/pkg/common/core"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,7 +15,7 @@ import (
 
 func (us *userServer) ListStaffSessions(ctx *gin.Context) {
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable, "msg": "user rpc client is not initialized"})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 	page := uint32(1)
@@ -40,20 +42,20 @@ func (us *userServer) ListStaffSessions(ctx *gin.Context) {
 		PSize:          pageSize,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"code": http.StatusBadGateway, "msg": "list staff sessions failed"})
+		writeUserRPCError(ctx, err, "list staff sessions failed")
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"total": response.GetTotal(), "items": response.GetItems()})
+	core.WriteResponse(ctx, nil, gin.H{"total": response.GetTotal(), "items": response.GetItems()})
 }
 
 func (us *userServer) RevokeStaffSession(ctx *gin.Context) {
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable, "msg": "user rpc client is not initialized"})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 	sessionID := strings.TrimSpace(ctx.Param("session_id"))
 	if sessionID == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid session id"})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "invalid session id")
 		return
 	}
 	actor, ok := currentActor(ctx)
@@ -61,7 +63,7 @@ func (us *userServer) RevokeStaffSession(ctx *gin.Context) {
 		return
 	}
 	if _, err := us.users.RevokeStaffSession(ctx.Request.Context(), &upbv1.RevokeStaffSessionRequest{SessionId: sessionID}); err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"code": http.StatusBadGateway, "msg": "revoke staff session failed"})
+		writeUserRPCError(ctx, err, "revoke staff session failed")
 		return
 	}
 	_, _ = us.users.CreateAdminAuditLog(ctx.Request.Context(), &upbv1.CreateAdminAuditLogRequest{Log: &upbv1.AdminAuditLog{
@@ -75,12 +77,12 @@ func (us *userServer) RevokeStaffSession(ctx *gin.Context) {
 		TargetId:           sessionID,
 		Domain:             string(authz.BusinessDomainPlatform),
 	}})
-	ctx.JSON(http.StatusOK, gin.H{"ok": true, "session_id": sessionID})
+	core.WriteResponse(ctx, nil, gin.H{"ok": true, "session_id": sessionID})
 }
 
 func (us *userServer) RevokeStaffUserSessions(ctx *gin.Context) {
 	if us == nil || us.users == nil || us.tokenVersions == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable, "msg": "user session backend is not initialized"})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user session backend is temporarily unavailable")
 		return
 	}
 	userID, ok := parseUserID(ctx)
@@ -92,11 +94,11 @@ func (us *userServer) RevokeStaffUserSessions(ctx *gin.Context) {
 		return
 	}
 	if _, err := us.users.RevokeStaffUserSessions(ctx.Request.Context(), &upbv1.RevokeStaffUserSessionsRequest{UserId: int32(userID)}); err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"code": http.StatusBadGateway, "msg": "revoke staff sessions failed"})
+		writeUserRPCError(ctx, err, "revoke staff sessions failed")
 		return
 	}
 	if _, err := us.tokenVersions.Bump(ctx.Request.Context(), userID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": http.StatusInternalServerError, "msg": "staff session token invalidation failed"})
+		writePublicError(ctx, errcode.ErrUnknown, apperrors.KindInternal, "staff session token invalidation failed")
 		return
 	}
 	_, _ = us.users.CreateAdminAuditLog(ctx.Request.Context(), &upbv1.CreateAdminAuditLogRequest{Log: &upbv1.AdminAuditLog{
@@ -111,7 +113,7 @@ func (us *userServer) RevokeStaffUserSessions(ctx *gin.Context) {
 		TargetId:           strings.TrimSpace(ctx.Param("id")),
 		Domain:             string(authz.BusinessDomainPlatform),
 	}})
-	ctx.JSON(http.StatusOK, gin.H{"ok": true, "user_id": userID})
+	core.WriteResponse(ctx, nil, gin.H{"ok": true, "user_id": userID})
 }
 
 func headerRequestID(ctx *gin.Context) string {

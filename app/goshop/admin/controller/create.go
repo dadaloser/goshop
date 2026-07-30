@@ -1,11 +1,13 @@
 package controller
 
 import (
-	"net/http"
 	"strings"
 
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/pkg/authz"
+	"goshop/gmicro/errcode"
+	"goshop/pkg/common/core"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -23,19 +25,13 @@ type createStaffUserRequest struct {
 
 func (us *userServer) CreateStaff(ctx *gin.Context) {
 	if us == nil || us.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "user rpc client is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 		return
 	}
 
 	var request createStaffUserRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "invalid request",
-		})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "invalid request")
 		return
 	}
 	actor, ok := currentActor(ctx)
@@ -44,26 +40,17 @@ func (us *userServer) CreateStaff(ctx *gin.Context) {
 	}
 	roleCatalog, err := us.users.ListStaffRoles(ctx.Request.Context(), &emptypb.Empty{})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "list staff roles failed",
-		})
+		writeUserRPCError(ctx, err, "list staff roles failed")
 		return
 	}
 	if !canManageRoleNamesWithCatalog(currentRoles(ctx), request.Roles, roleCatalog.GetRoles()) {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"code": http.StatusForbidden,
-			"msg":  "cross-domain role assignment denied",
-		})
+		writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "cross-domain role assignment denied")
 		return
 	}
 	if !hasCurrentRole(ctx, authz.StaffRoleSuperAdmin) {
 		for _, role := range request.Roles {
 			if strings.EqualFold(role, string(authz.StaffRoleSuperAdmin)) {
-				ctx.JSON(http.StatusForbidden, gin.H{
-					"code": http.StatusForbidden,
-					"msg":  "super admin role can only be assigned by super admin",
-				})
+				writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, "super admin role can only be assigned by super admin")
 				return
 			}
 		}
@@ -82,14 +69,11 @@ func (us *userServer) CreateStaff(ctx *gin.Context) {
 		Actor:  actor,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "create staff user failed",
-		})
+		writeUserRPCError(ctx, err, "create staff user failed")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
+	core.WriteResponse(ctx, nil, gin.H{
 		"user":        response.GetUser(),
 		"roles":       response.GetRoles(),
 		"permissions": response.GetPermissions(),

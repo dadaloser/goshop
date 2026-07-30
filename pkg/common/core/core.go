@@ -18,11 +18,6 @@ type ErrResponse struct {
 	// Message contains the detail of this message.
 	// This message is suitable to be exposed to external
 	Message string `json:"msg"`
-
-	Detail string `json:"detail,omitempty"`
-
-	// Reference returns the reference document which maybe useful to solve this error.
-	Reference string `json:"reference,omitempty"`
 }
 
 // WriteResponse writes an error or response data into the HTTP response body.
@@ -32,9 +27,8 @@ func WriteResponse(c *gin.Context, err error, data interface{}) {
 	if err != nil {
 		response := httperror.ResponseFor(err)
 		c.JSON(response.Status, ErrResponse{
-			Code:      response.Code,
-			Message:   response.Message,
-			Reference: response.Reference,
+			Code:    response.Code,
+			Message: response.Message,
 		})
 
 		return

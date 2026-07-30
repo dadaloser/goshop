@@ -22,6 +22,15 @@ const (
 
 	// ErrPageNotFound - 404: Page not found.
 	ErrPageNotFound
+
+	// ErrConflict - 409: Request conflicts with the current resource state.
+	ErrConflict
+
+	// ErrServiceUnavailable - 503: A required downstream service is unavailable.
+	ErrServiceUnavailable
+
+	// ErrTimeout - 504: A required downstream service did not respond in time.
+	ErrTimeout
 )
 
 // common: database errors.

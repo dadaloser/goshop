@@ -1,9 +1,10 @@
 package controller
 
 import (
-	"net/http"
-
 	upbv1 "goshop/api/user/v1"
+	"goshop/gmicro/errcode"
+	"goshop/pkg/common/core"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,7 +20,7 @@ func (us *userServer) ReplaceResourceScopes(ctx *gin.Context) {
 	}
 	var request replaceResourceScopesRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid resource scopes"})
+		writePublicError(ctx, errcode.ErrValidation, apperrors.KindInvalidArgument, "invalid resource scopes")
 		return
 	}
 	actor, ok := currentActor(ctx)
@@ -28,12 +29,12 @@ func (us *userServer) ReplaceResourceScopes(ctx *gin.Context) {
 	}
 	resp, err := us.users.ReplaceUserResourceScopes(ctx, &upbv1.ReplaceUserResourceScopesRequest{UserId: int32(userID), Scopes: request.Scopes, Actor: actor})
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"code": http.StatusBadGateway, "msg": "replace resource scopes failed"})
+		writeUserRPCError(ctx, err, "replace resource scopes failed")
 		return
 	}
 	if _, err = us.tokenVersions.Bump(ctx, userID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": http.StatusInternalServerError, "msg": "resource scope token invalidation failed"})
+		writePublicError(ctx, errcode.ErrUnknown, apperrors.KindInternal, "resource scope token invalidation failed")
 		return
 	}
-	ctx.JSON(http.StatusOK, resp)
+	core.WriteResponse(ctx, nil, resp)
 }

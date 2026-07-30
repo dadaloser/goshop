@@ -114,6 +114,9 @@ func TestRegisterResetsSmsFailuresOnSuccess(t *testing.T) {
 	if users.created.Username != "user_001" {
 		t.Fatalf("Register() username = %q, want user_001", users.created.Username)
 	}
+	if !users.created.MobileVerified {
+		t.Fatal("Register() did not mark mobile as verified after SMS verification")
+	}
 	if attempts.resetMobile != "13800138000" {
 		t.Fatalf("reset mobile = %q, want 13800138000", attempts.resetMobile)
 	}

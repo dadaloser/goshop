@@ -11,8 +11,24 @@ import (
 	"goshop/pkg/errors"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+func TestUserRPCErrorPreservesValidationCodeForCreate(t *testing.T) {
+	err := userRPCError(status.Error(codes.InvalidArgument, "password is too weak"), errcode.ErrValidation)
+	if !errors.IsCode(err, errcode.ErrValidation) {
+		t.Fatalf("userRPCError(InvalidArgument) = %v, want code %d", err, errcode.ErrValidation)
+	}
+}
+
+func TestUserRPCErrorMapsAbortedToUserConflict(t *testing.T) {
+	err := userRPCError(status.Error(codes.Aborted, "duplicate username"), errcode.ErrValidation)
+	if !errors.IsCode(err, bizcode.ErrUserAlreadyExists) {
+		t.Fatalf("userRPCError(Aborted) = %v, want code %d", err, bizcode.ErrUserAlreadyExists)
+	}
+}
 
 func TestUsersRejectInvalidInputBeforeRPC(t *testing.T) {
 	client := &fakeUserClient{}
@@ -161,7 +177,7 @@ func TestUsersHandleNilRPCResponses(t *testing.T) {
 				_, err := store.Create(context.Background(), &data.UserCreate{Mobile: "13800138000"})
 				return err
 			},
-			code: bizcode.ErrUserAlreadyExists,
+			code: bizcode.ErrConnectGRPC,
 		},
 		{
 			name: "get nil response",

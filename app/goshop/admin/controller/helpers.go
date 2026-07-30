@@ -1,13 +1,15 @@
 package controller
 
 import (
-	"net/http"
 	"sort"
 	"strings"
 
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/pkg/authz"
+	"goshop/gmicro/errcode"
 	"goshop/gmicro/server/restserver/middlewares"
+	"goshop/pkg/common/core"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
@@ -20,27 +22,18 @@ func currentActor(ctx *gin.Context) (*upbv1.AuditActor, bool) {
 	}
 	raw, ok := ctx.Get(middlewares.JWTPayloadKey)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"code": http.StatusUnauthorized,
-			"msg":  "authenticated principal is required",
-		})
+		writePublicError(ctx, errcode.ErrTokenInvalid, apperrors.KindUnauthenticated, "authenticated principal is required")
 		return nil, false
 	}
 	payload, ok := raw.(map[string]any)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"code": http.StatusUnauthorized,
-			"msg":  "authenticated principal is required",
-		})
+		writePublicError(ctx, errcode.ErrTokenInvalid, apperrors.KindUnauthenticated, "authenticated principal is required")
 		return nil, false
 	}
 
 	userID, ok := uint64Claim(payload["user_id"])
 	if !ok || userID == 0 {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"code": http.StatusUnauthorized,
-			"msg":  "token user id invalid",
-		})
+		writePublicError(ctx, errcode.ErrTokenInvalid, apperrors.KindUnauthenticated, "token user id invalid")
 		return nil, false
 	}
 	principalType, _ := payload["principal_type"].(string)
@@ -305,26 +298,33 @@ func writeUserRPCError(ctx *gin.Context, err error, fallback string) {
 		return
 	}
 
-	httpCode := http.StatusBadGateway
 	switch status.Code(err) {
 	case codes.InvalidArgument, codes.FailedPrecondition:
-		httpCode = http.StatusBadRequest
+		message := strings.TrimSpace(status.Convert(err).Message())
+		if message == "" {
+			message = fallback
+		}
+		core.WriteResponse(ctx, errcode.NewValidationError(message), nil)
 	case codes.NotFound:
-		httpCode = http.StatusNotFound
-	case codes.AlreadyExists:
-		httpCode = http.StatusConflict
+		writePublicError(ctx, errcode.ErrPageNotFound, apperrors.KindNotFound, fallback)
+	case codes.Aborted, codes.AlreadyExists:
+		writePublicError(ctx, errcode.ErrConflict, apperrors.KindConflict, fallback)
 	case codes.PermissionDenied:
-		httpCode = http.StatusForbidden
+		writePublicError(ctx, errcode.ErrPermissionDenied, apperrors.KindPermissionDenied, fallback)
 	case codes.Unauthenticated:
-		httpCode = http.StatusUnauthorized
+		writePublicError(ctx, errcode.ErrTokenInvalid, apperrors.KindUnauthenticated, fallback)
+	case codes.DeadlineExceeded:
+		writePublicError(ctx, errcode.ErrTimeout, apperrors.KindTimeout, "user service response timed out")
+	default:
+		writePublicError(ctx, errcode.ErrServiceUnavailable, apperrors.KindUnavailable, "user service is temporarily unavailable")
 	}
+}
 
-	body := gin.H{
-		"code": httpCode,
-		"msg":  fallback,
+// writePublicError is the only error response helper for admin controllers.
+// It ensures all responses use the shared code/msg contract.
+func writePublicError(ctx *gin.Context, code int, kind apperrors.Kind, message string) {
+	if ctx == nil {
+		return
 	}
-	if detail := strings.TrimSpace(status.Convert(err).Message()); detail != "" && detail != fallback {
-		body["detail"] = detail
-	}
-	ctx.JSON(httpCode, body)
+	core.WriteResponse(ctx, apperrors.NewSpec(apperrors.Spec{Code: code, Kind: kind, Message: message}, message), nil)
 }

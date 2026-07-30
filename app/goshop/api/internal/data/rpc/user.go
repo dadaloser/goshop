@@ -98,7 +98,7 @@ func (u *users) CheckPassWord(ctx context.Context, password, encryptedPwd string
 
 func (u *users) Create(ctx context.Context, user *data.UserCreate) (data.User, error) {
 	if user == nil {
-		return data.User{}, errors.NewCode(errcode.ErrValidation, "用户信息不能为空")
+		return data.User{}, errcode.NewValidationError("用户信息不能为空")
 	}
 
 	protoUser := &upbv1.CreateUserInfo{
@@ -112,17 +112,17 @@ func (u *users) Create(ctx context.Context, user *data.UserCreate) (data.User, e
 	}
 	userRsp, err := u.uc.CreateUser(ctx, protoUser)
 	if err != nil {
-		return data.User{}, userRPCError(err, bizcode.ErrUserAlreadyExists)
+		return data.User{}, userRPCError(err, errcode.ErrValidation)
 	}
 	if userRsp == nil {
-		return data.User{}, errors.NewCode(bizcode.ErrUserAlreadyExists, "用户创建失败")
+		return data.User{}, errors.NewCode(bizcode.ErrConnectGRPC, "用户服务未返回创建结果")
 	}
 	return publicUserFromResponse(userRsp), nil
 }
 
 func (u *users) Update(ctx context.Context, user *data.User) error {
 	if user == nil || user.ID == 0 {
-		return errors.NewCode(errcode.ErrValidation, "用户信息不能为空")
+		return errcode.NewValidationError("用户信息不能为空")
 	}
 
 	protoUser := &upbv1.UpdateUserInfo{
@@ -269,10 +269,14 @@ func userRPCError(err error, invalidArgumentCode int) error {
 	switch status.Code(err) {
 	case codes.NotFound:
 		return errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
-	case codes.AlreadyExists:
+	case codes.Aborted, codes.AlreadyExists:
 		return errors.NewCode(bizcode.ErrUserAlreadyExists, "用户已经存在")
 	case codes.InvalidArgument:
-		return errors.NewCode(invalidArgumentCode, status.Convert(err).Message())
+		message := status.Convert(err).Message()
+		if invalidArgumentCode == errcode.ErrValidation && message != "" {
+			return errcode.NewValidationError(message)
+		}
+		return errors.NewCode(invalidArgumentCode, message)
 	default:
 		return err
 	}

@@ -254,12 +254,13 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 	}
 
 	var user = &data.UserCreate{
-		Username:       username,
-		Mobile:         mobile,
-		Email:          email,
-		NickName:       nickName,
-		PassWord:       password,
-		MobileVerified: true,
+		Username: username,
+		Mobile:   mobile,
+		Email:    email,
+		NickName: nickName,
+		PassWord: password,
+		// 只有注册短信验证码被成功消费后，才可标记手机号已验证。
+		MobileVerified: us.smsRegistrationVerificationEnabled,
 	}
 	users, err := us.usersData()
 	if err != nil {

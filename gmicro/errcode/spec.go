@@ -2,6 +2,17 @@ package errcode
 
 import "goshop/pkg/errors"
 
+// NewValidationError creates a validation error whose message has been
+// deliberately selected as safe for API clients. Do not pass database, RPC,
+// or other operational diagnostics to this function.
+func NewValidationError(message string) error {
+	return errors.NewSpec(errors.Spec{
+		Code:    ErrValidation,
+		Kind:    errors.KindInvalidArgument,
+		Message: message,
+	}, message)
+}
+
 // ValidationSpec describes invalid caller input shared by RPC services.
 var ValidationSpec = errors.Spec{
 	Code:    ErrValidation,
