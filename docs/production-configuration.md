@@ -40,6 +40,7 @@ make release-check
 3. `/metrics`、`/livez`、`/readyz`、`/healthz` 只允许来自 `built-in-route-cidrs`、私有入口或受信任代理的访问。
 4. `mysql.auto-migrate` 为 `false`；schema 仅通过审核过的 migration 变更。
 5. 跨主机 RPC 使用 TLS 或 mTLS；若临时使用明文，必须限制在私有网络并记录风险边界。
+6. 事件总线使用受管 NATS JetStream、TLS 与最小主题权限；账号注销事件配置见 [NATS JetStream 与账号注销事件](nats-jetstream.md)。
 
 ## 库存真实数据库集成测试
 

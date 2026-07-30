@@ -9,6 +9,7 @@
 3. [生产配置](production-configuration.md)：配置来源、密钥、TLS、可观测性和上线前检查。
 4. [Proto 生成](proto-generation.md)：修改接口定义后的生成与校验流程。
 5. [依赖韧性](dependency-resilience.md)：gRPC、Redis 与 MySQL 的超时、隔离、熔断和指标。
+6. [NATS JetStream 与账号注销事件](nats-jetstream.md)：本地启动、Outbox 投递、上线要求与故障处理。
 
 ## 架构、研发与业务
 
@@ -21,5 +22,4 @@
 ## 运维与发布
 - [Schema 迁移记录](schema-migrations.md)：`schema_migrations` 的核验、已有库迁移和回滚边界。
 - [运维、发布与历史演练](operations-and-release.md)
-
 
