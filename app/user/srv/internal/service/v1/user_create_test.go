@@ -47,6 +47,9 @@ func TestUserService_CreateNormalizesOptionalIdentifiers(t *testing.T) {
 	if store.created.Status != string(authz.AccountStatusActive) {
 		t.Fatalf("created status = %q, want %q", store.created.Status, authz.AccountStatusActive)
 	}
+	if got, want := store.created.Gender, defaultGender; got != want {
+		t.Fatalf("created gender = %q, want %q", got, want)
+	}
 }
 
 func TestUserService_CreateRejectsDuplicateEmailAfterNormalization(t *testing.T) {

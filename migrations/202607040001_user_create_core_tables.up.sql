@@ -8,7 +8,7 @@ CREATE TABLE `user` (
   `password` varchar(100) NOT NULL,
   `nick_name` varchar(20) NOT NULL DEFAULT '',
   `birthday` datetime NULL DEFAULT NULL,
-  `gender` varchar(6) NOT NULL DEFAULT 'male',
+  `gender` varchar(7) NOT NULL DEFAULT 'unknown',
   `role` int NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_mobile` (`mobile`),

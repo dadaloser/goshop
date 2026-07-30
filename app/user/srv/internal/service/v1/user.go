@@ -284,6 +284,7 @@ var (
 const (
 	minPasswordLength = 8
 	maxPasswordBytes  = 72
+	defaultGender     = "unknown"
 )
 
 func (u *userService) Create(ctx context.Context, user *UserDTO) error {
@@ -341,6 +342,9 @@ func (u *userService) prepareNewUser(ctx context.Context, user *UserDTO, legacyR
 	}
 	if strings.TrimSpace(user.Status) == "" {
 		user.Status = defaultStatus
+	}
+	if strings.TrimSpace(user.Gender) == "" {
+		user.Gender = defaultGender
 	}
 
 	// 按注册标识的优先级校验：用户名、手机号、邮箱。

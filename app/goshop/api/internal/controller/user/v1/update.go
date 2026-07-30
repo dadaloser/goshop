@@ -17,7 +17,7 @@ import (
 
 type UpdateUserForm struct {
 	Name     string `form:"name" json:"name" binding:"required,min=3,max=10"`
-	Gender   string `form:"gender" json:"gender" binding:"required,oneof=female male"`
+	Gender   string `form:"gender" json:"gender" binding:"required,oneof=unknown female male"`
 	Birthday string `form:"birthday" json:"birthday" binding:"required,datetime=2006-01-02"`
 	Email    string `form:"email" json:"email" binding:"omitempty,email"`
 }

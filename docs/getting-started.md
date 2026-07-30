@@ -75,10 +75,10 @@ cp configs/api/api.yaml ../goshop-local-configs/api.yaml
 - `goshop_inventory_srv`
 - `goshop_review_srv`
 
-执行前使用具备建库和 DDL/DML 权限的专用迁移账户：
+执行前使用具备建库和 DDL/DML 权限的专用迁移账户(空库使用)：
 
 ```bash
-cd .. #切到主目录
+cd .. 
 
 MYSQL_HOST=192.168.1.139 MYSQL_PORT=5488 \
 MYSQL_USERNAME=admin MYSQL_PASSWORD='admin@admin' \
@@ -92,7 +92,7 @@ bash deploy/mysql/initialize.sh
 若 MySQL 只在 Docker 容器中运行：
 
 ```bash
-cd .. #切到主目录
+cd .. 
 
 MYSQL_CLIENT="$PWD/deploy/mysql/docker-mysql-client.sh" \
 MYSQL_DOCKER_CONTAINER=mysql-server \
