@@ -23,7 +23,7 @@ type RegisterForm struct {
 	ConfirmPassword string `form:"confirm_password" json:"confirm_password"`
 	Captcha         string `form:"captcha" json:"captcha"`
 	CaptchaID       string `form:"captcha_id" json:"captcha_id"`
-	Code            string `form:"code" json:"code"`
+	SmsCode         string `form:"sms_code" json:"sms_code"`
 }
 
 func (us *userServer) Register(ctx *gin.Context) {
@@ -33,7 +33,7 @@ func (us *userServer) Register(ctx *gin.Context) {
 		return
 	}
 	if us.smsRegistrationVerificationEnabled {
-		if len(regForm.Code) != 6 {
+		if len(regForm.SmsCode) != 6 {
 			core.WriteResponse(ctx, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "sms verification code must be 6 digits"), nil)
 			return
 		}
@@ -53,7 +53,7 @@ func (us *userServer) Register(ctx *gin.Context) {
 		core.WriteResponse(ctx, err, nil)
 		return
 	}
-	userDTO, err := userSrv.Register(ctx, regForm.Mobile, regForm.Email, regForm.Username, regForm.PassWord, regForm.NickName, regForm.Code)
+	userDTO, err := userSrv.Register(ctx, regForm.Mobile, regForm.Email, regForm.Username, regForm.PassWord, regForm.NickName, regForm.SmsCode)
 	if err != nil {
 		core.WriteResponse(ctx, err, nil)
 		return

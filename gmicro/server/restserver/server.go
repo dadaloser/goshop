@@ -16,7 +16,6 @@ import (
 
 	mws "goshop/gmicro/server/restserver/middlewares"
 	"goshop/gmicro/server/restserver/pprof"
-	"goshop/gmicro/server/restserver/validation"
 	"goshop/pkg/errors"
 	"goshop/pkg/host"
 	"goshop/pkg/log"
@@ -246,9 +245,6 @@ func (s *Server) Start(ctx context.Context) error {
 		log.Errorf("initTrans error %s", err.Error())
 		return err
 	}
-
-	//注册mobile验证码
-	validation.RegisterMobile(s.trans)
 
 	s.registerBuiltInRoutes()
 

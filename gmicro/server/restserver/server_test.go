@@ -42,6 +42,37 @@ func TestReadyzReturnsUnavailableAfterStop(t *testing.T) {
 	}
 }
 
+func TestInitTransSupportsConcurrentServers(t *testing.T) {
+	servers := []*Server{
+		NewServer(WithTransNames("zh")),
+		NewServer(WithTransNames("en")),
+	}
+
+	errs := make(chan error, len(servers))
+	var wg sync.WaitGroup
+	for _, srv := range servers {
+		srv := srv
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- srv.initTrans(srv.transName)
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Errorf("initTrans() error = %v, want nil", err)
+		}
+	}
+	for _, srv := range servers {
+		if srv.Translator() == nil {
+			t.Errorf("initTrans(%q) translator = nil, want initialized translator", srv.transName)
+		}
+	}
+}
+
 func TestReadyzReturnsUnavailableWhenDependencyFails(t *testing.T) {
 	srv := NewServer(WithHealthCheck(true), WithReadinessCheck(func() error {
 		return errors.New("redis unavailable")

@@ -35,8 +35,8 @@ func TestNewUsesServiceRegistrationVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildInstance() error = %v", err)
 	}
-	if instance.Version != "2026.07.29" {
-		t.Fatalf("instance.Version = %q, want %q", instance.Version, "2026.07.29")
+	if instance.Version != "latest" {
+		t.Fatalf("instance.Version = %q, want %q", instance.Version, "latest")
 	}
 }
 
