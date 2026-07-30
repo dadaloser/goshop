@@ -330,30 +330,30 @@ func (u *userService) prepareNewUser(ctx context.Context, user *UserDTO, legacyR
 		return newValidationError("手机号格式错误")
 	}
 	if !isStrongPassword(user.Password) {
-		return newValidationError("密码必须为8-72字节，并包含大小写字母、数字和特殊字符")
+		return newValidationError("密码长度必须为8-24，并包含大小写字母、数字和特殊字符")
 	}
 	if strings.TrimSpace(user.Status) == "" {
 		user.Status = defaultStatus
 	}
 
-	//先判断用户是否存在
+	// 按注册标识的优先级校验：用户名、手机号、邮箱。
+	if user.Username != nil {
+		if _, err := u.userStore.GetByUsername(ctx, *user.Username); err == nil {
+			return errors.NewCode(bizcode.ErrUsernameAlreadyExists, "用户名已存在")
+		} else if !errors.IsCode(err, bizcode.ErrUserNotFound) {
+			return err
+		}
+	}
+
 	if _, err := u.userStore.GetByMobile(ctx, user.Mobile); err == nil {
-		return errors.NewCode(bizcode.ErrUserAlreadyExists, "用户已经存在")
+		return errors.NewCode(bizcode.ErrUserMobileAlreadyExists, "手机号已存在")
 	} else if !errors.IsCode(err, bizcode.ErrUserNotFound) {
 		return err
 	}
 
 	if user.Email != nil {
 		if _, err := u.userStore.GetByUsername(ctx, *user.Email); err == nil {
-			return errors.NewCode(bizcode.ErrUserAlreadyExists, "邮箱已经存在")
-		} else if !errors.IsCode(err, bizcode.ErrUserNotFound) {
-			return err
-		}
-	}
-
-	if user.Username != nil {
-		if _, err := u.userStore.GetByUsername(ctx, *user.Username); err == nil {
-			return errors.NewCode(bizcode.ErrUserAlreadyExists, "用户名已经存在")
+			return errors.NewCode(bizcode.ErrUserEmailAlreadyExists, "邮箱已存在")
 		} else if !errors.IsCode(err, bizcode.ErrUserNotFound) {
 			return err
 		}

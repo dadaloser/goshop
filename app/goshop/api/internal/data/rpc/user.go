@@ -7,6 +7,7 @@ import (
 	"goshop/app/pkg/bizcode"
 	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
+	"goshop/pkg/transport/httperror"
 	"strings"
 	"time"
 
@@ -266,11 +267,17 @@ func authUserFromResponse(user *upbv1.UserAuthResponse) data.UserAuth {
 }
 
 func userRPCError(err error, invalidArgumentCode int) error {
+	if spec, ok := httperror.SpecFromGRPC(err); ok {
+		if spec.Code == errcode.ErrValidation {
+			return errors.NewPublicSpec(spec, "user service validation failed")
+		}
+		return errors.NewSpec(spec, "user service request failed")
+	}
 	switch status.Code(err) {
 	case codes.NotFound:
 		return errors.NewCode(bizcode.ErrUserNotFound, "用户不存在")
 	case codes.Aborted, codes.AlreadyExists:
-		return errors.NewCode(bizcode.ErrUserAlreadyExists, "用户已经存在")
+		return errors.NewCode(bizcode.ErrUserAlreadyExists, "user service reported a duplicate user")
 	case codes.InvalidArgument:
 		message := status.Convert(err).Message()
 		if invalidArgumentCode == errcode.ErrValidation && message != "" {

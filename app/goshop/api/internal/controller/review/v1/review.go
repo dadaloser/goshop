@@ -1,13 +1,14 @@
 package review
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 
 	rpb "goshop/api/review/v1"
+	"goshop/gmicro/errcode"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/common/core"
+	"goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,7 +30,7 @@ type appendForm struct {
 func (c *Controller) Create(ctx *gin.Context) {
 	var f createForm
 	if err := ctx.ShouldBindJSON(&f); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"msg": "invalid review"})
+		core.WriteResponse(ctx, errcode.NewValidationError("评价请求参数无效"), nil)
 		return
 	}
 	id, ok := userID(ctx)
@@ -42,7 +43,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 func (c *Controller) Append(ctx *gin.Context) {
 	var f appendForm
 	if err := ctx.ShouldBindJSON(&f); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"msg": "invalid append"})
+		core.WriteResponse(ctx, errcode.NewValidationError("追评请求参数无效"), nil)
 		return
 	}
 	id, ok := userID(ctx)
@@ -51,7 +52,7 @@ func (c *Controller) Append(ctx *gin.Context) {
 	}
 	reviewID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil || reviewID <= 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"msg": "invalid review id"})
+		core.WriteResponse(ctx, errcode.NewValidationError("评价编号无效"), nil)
 		return
 	}
 	resp, err := c.client.AppendReview(ctx, &rpb.AppendReviewRequest{UserId: id, ReviewId: reviewID, Content: strings.TrimSpace(f.Content)})
@@ -71,7 +72,7 @@ func userID(ctx *gin.Context) (int32, bool) {
 	raw, ok := ctx.Get(middlewares.KeyUserID)
 	value, valid := raw.(float64)
 	if !ok || !valid || value <= 0 {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"msg": "user id missing"})
+		core.WriteResponse(ctx, errors.NewCode(errcode.ErrTokenInvalid, "review request user id missing"), nil)
 		return 0, false
 	}
 	return int32(value), true

@@ -91,12 +91,22 @@ func SpecForCode(code int) Spec {
 	return spec
 }
 
-// NewSpec returns an error with a public business-error contract and internal
-// diagnostic text. Error always returns the public message; diagnostics are
-// available only through explicit detailed formatting for controlled logs.
+// NewSpec returns an error using the registered public contract when code is
+// known. This makes the catalog the single source of public messages and
+// transport kinds for normal business errors.
 func NewSpec(spec Spec, internal string) error {
 	return &withSpec{
-		spec:  safeSpec(spec),
+		spec:  catalogSpec(spec),
+		err:   stderrors.New(internal),
+		stack: callers(),
+	}
+}
+
+// NewPublicSpec creates an explicitly reviewed public variant. It is reserved
+// for safe, request-specific messages such as validation feedback.
+func NewPublicSpec(spec Spec, internal string) error {
+	return &withSpec{
+		spec:  catalogSpec(spec),
 		err:   stderrors.New(internal),
 		stack: callers(),
 	}
@@ -126,6 +136,13 @@ func safeSpec(spec Spec) Spec {
 		return spec
 	}
 	return SpecForCode(unknownCoder.Code())
+}
+
+func catalogSpec(spec Spec) Spec {
+	if _, ok := lookupCoder(spec.Code); ok {
+		return SpecForCode(spec.Code)
+	}
+	return safeSpec(spec)
 }
 
 // SpecOf returns the first business-error specification in err's tree.

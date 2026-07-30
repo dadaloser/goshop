@@ -36,4 +36,13 @@ const (
 
 	// ErrEmailVerificationUnavailable - 503: Email verification dependency is unavailable.
 	ErrEmailVerificationUnavailable
+
+	// ErrUserMobileAlreadyExists - 409: Mobile number already exists.
+	ErrUserMobileAlreadyExists
+
+	// ErrUserEmailAlreadyExists - 409: Email already exists.
+	ErrUserEmailAlreadyExists
+
+	// ErrUsernameAlreadyExists - 409: Username already exists.
+	ErrUsernameAlreadyExists
 )

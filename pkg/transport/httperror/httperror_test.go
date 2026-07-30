@@ -71,10 +71,8 @@ func TestResponseForGRPCDomainErrorsNeverUseUnknownCode(t *testing.T) {
 			if response.Code == 1 {
 				t.Errorf("ResponseFor(%s) code = %d, want a public non-unknown code", tt.grpcCode, response.Code)
 			}
-			if tt.grpcCode == codes.InvalidArgument || tt.grpcCode == codes.FailedPrecondition {
-				if response.Message != tt.message {
-					t.Errorf("ResponseFor(%s) message = %q, want %q", tt.grpcCode, response.Message, tt.message)
-				}
+			if response.Message == tt.message {
+				t.Errorf("ResponseFor(%s) exposed untrusted gRPC message %q", tt.grpcCode, tt.message)
 			}
 		})
 	}

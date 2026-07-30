@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	upbv1 "goshop/api/user/v1"
@@ -10,6 +11,7 @@ import (
 	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,11 +25,42 @@ func TestUserRPCErrorPreservesValidationCodeForCreate(t *testing.T) {
 	}
 }
 
-func TestUserRPCErrorMapsAbortedToUserConflict(t *testing.T) {
-	err := userRPCError(status.Error(codes.Aborted, "duplicate username"), errcode.ErrValidation)
-	if !errors.IsCode(err, bizcode.ErrUserAlreadyExists) {
-		t.Fatalf("userRPCError(Aborted) = %v, want code %d", err, bizcode.ErrUserAlreadyExists)
+func TestUserRPCErrorMapsAbortedToSpecificUserConflict(t *testing.T) {
+	tests := []struct {
+		message string
+		code    int
+	}{
+		{message: "手机号已存在", code: bizcode.ErrUserMobileAlreadyExists},
+		{message: "邮箱已存在", code: bizcode.ErrUserEmailAlreadyExists},
+		{message: "用户名已存在", code: bizcode.ErrUsernameAlreadyExists},
 	}
+	for _, tt := range tests {
+		err := userRPCError(newBusinessGRPCError(t, codes.Aborted, tt.code, tt.message), errcode.ErrValidation)
+		if !errors.IsCode(err, tt.code) {
+			t.Errorf("userRPCError(Aborted, %q) = %v, want code %d", tt.message, err, tt.code)
+		}
+		spec, ok := errors.SpecOf(err)
+		if !ok || spec.Message != tt.message {
+			t.Errorf("userRPCError(Aborted, %q) public message = %q, want %q", tt.message, spec.Message, tt.message)
+		}
+	}
+}
+
+func newBusinessGRPCError(t *testing.T, grpcCode codes.Code, businessCode int, message string) error {
+	t.Helper()
+	grpcStatus := status.New(grpcCode, message)
+	withDetails, err := grpcStatus.WithDetails(&errdetails.ErrorInfo{
+		Reason: "GOSHOP_BUSINESS_ERROR",
+		Domain: "goshop",
+		Metadata: map[string]string{
+			"business_code":  strconv.Itoa(businessCode),
+			"public_message": message,
+		},
+	})
+	if err != nil {
+		t.Fatalf("status.WithDetails() error = %v", err)
+	}
+	return withDetails.Err()
 }
 
 func TestUsersRejectInvalidInputBeforeRPC(t *testing.T) {

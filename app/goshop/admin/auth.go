@@ -78,19 +78,13 @@ func newStaffAuthHandler(
 
 func (h *staffAuthHandler) Login(ctx *gin.Context) {
 	if h == nil || h.users == nil || h.jwtOpts == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "staff auth is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "staff auth is temporarily unavailable")
 		return
 	}
 
 	var request staffLoginRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "invalid request",
-		})
+		writeValidationError(ctx, "invalid request")
 		return
 	}
 
@@ -98,37 +92,22 @@ func (h *staffAuthHandler) Login(ctx *gin.Context) {
 	authUser, err := h.users.GetUserAuthByMobile(ctx.Request.Context(), &upbv1.MobileRequest{Mobile: identifier})
 	if err != nil {
 		if status.Code(err) == codes.NotFound || status.Code(err) == codes.InvalidArgument {
-			ctx.JSON(http.StatusUnauthorized, gin.H{
-				"code": http.StatusUnauthorized,
-				"msg":  "账号或密码错误",
-			})
+			writePublicError(ctx, errcode.ErrTokenInvalid, errors.KindUnauthenticated, "账号或密码错误")
 			return
 		}
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "staff auth backend unavailable",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "staff auth backend is temporarily unavailable")
 		return
 	}
 	if authUser == nil || authUser.GetUser() == nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"code": http.StatusUnauthorized,
-			"msg":  "账号或密码错误",
-		})
+		writePublicError(ctx, errcode.ErrTokenInvalid, errors.KindUnauthenticated, "账号或密码错误")
 		return
 	}
 	if authz.NormalizeAccountStatus(authUser.GetUser().GetStatus()) != authz.AccountStatusActive {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"code": http.StatusForbidden,
-			"msg":  "staff account is not active",
-		})
+		writePublicError(ctx, errcode.ErrPermissionDenied, errors.KindPermissionDenied, "staff account is not active")
 		return
 	}
 	if len(authUser.GetStaffRoles()) == 0 || len(authUser.GetPermissions()) == 0 {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"code": http.StatusForbidden,
-			"msg":  "staff role is required",
-		})
+		writePublicError(ctx, errcode.ErrPermissionDenied, errors.KindPermissionDenied, "staff role is required")
 		return
 	}
 
@@ -137,27 +116,18 @@ func (h *staffAuthHandler) Login(ctx *gin.Context) {
 		EncryptedPassword: authUser.GetPasswordHash(),
 	})
 	if err != nil || check == nil || !check.GetSuccess() {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"code": http.StatusUnauthorized,
-			"msg":  "账号或密码错误",
-		})
+		writePublicError(ctx, errcode.ErrTokenInvalid, errors.KindUnauthenticated, "账号或密码错误")
 		return
 	}
 
 	sessionID, err := h.createStaffSession(ctx, authUser.GetUser().GetId())
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "staff session create failed",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "staff session service is temporarily unavailable")
 		return
 	}
 	token, expiresAt, err := h.createToken(ctx.Request.Context(), authUser, sessionID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code": http.StatusInternalServerError,
-			"msg":  "create staff token failed",
-		})
+		writePublicError(ctx, errcode.ErrUnknown, errors.KindInternal, "create staff token failed")
 		return
 	}
 	if err = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{
@@ -167,10 +137,7 @@ func (h *staffAuthHandler) Login(ctx *gin.Context) {
 		Action:             "staff_login_succeeded",
 		Detail:             fmt.Sprintf("roles:%s session_id:%s", strings.Join(authUser.GetStaffRoles(), ","), sessionID),
 	}); err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "staff login audit failed",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "staff audit service is temporarily unavailable")
 		return
 	}
 
@@ -185,36 +152,24 @@ func (h *staffAuthHandler) Login(ctx *gin.Context) {
 
 func (h *staffAuthHandler) Logout(ctx *gin.Context) {
 	if h == nil || h.revokedTokens == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "staff revocation store is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "staff revocation service is temporarily unavailable")
 		return
 	}
 
 	token, err := gauth.GetToken(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"code": http.StatusUnauthorized,
-			"msg":  "token not found",
-		})
+		writePublicError(ctx, errcode.ErrTokenInvalid, errors.KindUnauthenticated, "token not found")
 		return
 	}
 
 	expiresAt, err := jwtExpiresAt(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"code": http.StatusUnauthorized,
-			"msg":  "token exp invalid",
-		})
+		writePublicError(ctx, errcode.ErrTokenInvalid, errors.KindUnauthenticated, "token exp invalid")
 		return
 	}
 
 	if err = h.revokedTokens.Revoke(ctx.Request.Context(), token, expiresAt); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code": http.StatusInternalServerError,
-			"msg":  "staff logout failed",
-		})
+		writePublicError(ctx, errcode.ErrUnknown, errors.KindInternal, "staff logout failed")
 		return
 	}
 	if claims := gauth.ExtractClaims(ctx); claims != nil && h.users != nil {
@@ -228,27 +183,18 @@ func (h *staffAuthHandler) Logout(ctx *gin.Context) {
 
 func (h *staffAuthHandler) LogoutAll(ctx *gin.Context) {
 	if h == nil || h.tokenVersions == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "staff token version store is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "员工令牌服务暂不可用")
 		return
 	}
 
 	userID, err := userIDFromClaims(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"code": http.StatusUnauthorized,
-			"msg":  "token user id invalid",
-		})
+		writePublicError(ctx, errcode.ErrTokenInvalid, errors.KindUnauthenticated, "令牌中的用户编号无效")
 		return
 	}
 
 	if _, err = h.tokenVersions.Bump(ctx.Request.Context(), userID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code": http.StatusInternalServerError,
-			"msg":  "staff logout_all failed",
-		})
+		writePublicError(ctx, errcode.ErrUnknown, errors.KindInternal, "退出全部登录失败")
 		return
 	}
 	if h.users != nil {
@@ -260,28 +206,19 @@ func (h *staffAuthHandler) LogoutAll(ctx *gin.Context) {
 
 func (h *staffAuthHandler) Me(ctx *gin.Context) {
 	if h == nil || h.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "staff auth backend is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "员工认证服务暂不可用")
 		return
 	}
 
 	userID, err := userIDFromClaims(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"code": http.StatusUnauthorized,
-			"msg":  "token user id invalid",
-		})
+		writePublicError(ctx, errcode.ErrTokenInvalid, errors.KindUnauthenticated, "令牌中的用户编号无效")
 		return
 	}
 
 	authUser, err := h.users.GetUserAuthById(ctx.Request.Context(), &upbv1.IdRequest{Id: int32(userID)})
 	if err != nil || authUser == nil || authUser.GetUser() == nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "staff profile lookup failed",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "员工资料服务暂不可用")
 		return
 	}
 
@@ -295,18 +232,12 @@ func (h *staffAuthHandler) Me(ctx *gin.Context) {
 
 func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 	if h == nil || h.jwtOpts == nil || h.adminAuth == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{
-			"code": http.StatusServiceUnavailable,
-			"msg":  "bootstrap auth is not initialized",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "紧急授权服务暂不可用")
 		return
 	}
 	var request breakGlassSessionRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code": http.StatusBadRequest,
-			"msg":  "invalid break-glass request",
-		})
+		writeValidationError(ctx, "紧急授权请求参数无效")
 		return
 	}
 	approval, err := h.users.ConsumeBreakGlassApproval(ctx.Request.Context(), &upbv1.ConsumeBreakGlassApprovalRequest{
@@ -316,10 +247,7 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 	})
 	if err != nil || approval == nil {
 		breakGlassEvents.Inc("approval_missing")
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"code": http.StatusForbidden,
-			"msg":  "break-glass approval is required",
-		})
+		writePublicError(ctx, errcode.ErrPermissionDenied, errors.KindPermissionDenied, "需要有效的紧急授权审批")
 		return
 	}
 
@@ -342,10 +270,7 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 		},
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code": http.StatusInternalServerError,
-			"msg":  "create bootstrap session failed",
-		})
+		writePublicError(ctx, errcode.ErrUnknown, errors.KindInternal, "创建紧急会话失败")
 		return
 	}
 	if err = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{
@@ -360,10 +285,7 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 		Domain:             string(authz.BusinessDomainPlatform),
 	}); err != nil {
 		breakGlassEvents.Inc("audit_failed")
-		ctx.JSON(http.StatusBadGateway, gin.H{
-			"code": http.StatusBadGateway,
-			"msg":  "create bootstrap session audit failed",
-		})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "紧急授权审计服务暂不可用")
 		return
 	}
 	breakGlassEvents.Inc("issued")
@@ -380,12 +302,12 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 
 func (h *staffAuthHandler) CreateBreakGlassApproval(ctx *gin.Context) {
 	if h == nil || h.users == nil || h.adminAuth == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable, "msg": "break-glass approval backend is not initialized"})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "紧急授权审批服务暂不可用")
 		return
 	}
 	var request breakGlassApprovalRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid break-glass approval request"})
+		writeValidationError(ctx, "紧急授权审批请求参数无效")
 		return
 	}
 	ttl := time.Duration(request.TTLSeconds) * time.Second
@@ -400,7 +322,7 @@ func (h *staffAuthHandler) CreateBreakGlassApproval(ctx *gin.Context) {
 	})
 	if err != nil || approval == nil {
 		breakGlassEvents.Inc("request_failed")
-		ctx.JSON(http.StatusBadGateway, gin.H{"code": http.StatusBadGateway, "msg": "create break-glass approval failed"})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "创建紧急授权审批失败")
 		return
 	}
 	_ = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{
@@ -420,12 +342,12 @@ func (h *staffAuthHandler) CreateBreakGlassApproval(ctx *gin.Context) {
 
 func (h *staffAuthHandler) ApproveBreakGlassApproval(ctx *gin.Context) {
 	if h == nil || h.users == nil {
-		ctx.JSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable, "msg": "break-glass approval backend is not initialized"})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "紧急授权审批服务暂不可用")
 		return
 	}
 	var request breakGlassApproveRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid break-glass approval confirmation"})
+		writeValidationError(ctx, "紧急授权审批确认参数无效")
 		return
 	}
 	approval, err := h.users.ApproveBreakGlassApproval(ctx.Request.Context(), &upbv1.ApproveBreakGlassApprovalRequest{
@@ -435,7 +357,7 @@ func (h *staffAuthHandler) ApproveBreakGlassApproval(ctx *gin.Context) {
 	})
 	if err != nil || approval == nil {
 		breakGlassEvents.Inc("approve_failed")
-		ctx.JSON(http.StatusBadGateway, gin.H{"code": http.StatusBadGateway, "msg": "approve break-glass request failed"})
+		writePublicError(ctx, errcode.ErrServiceUnavailable, errors.KindUnavailable, "确认紧急授权审批失败")
 		return
 	}
 	_ = h.createAdminAuditLog(ctx.Request.Context(), &upbv1.AdminAuditLog{

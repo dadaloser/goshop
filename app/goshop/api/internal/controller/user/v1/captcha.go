@@ -4,6 +4,9 @@ import (
 	"net/http"
 
 	"goshop/app/goshop/api/internal/captcha"
+	"goshop/gmicro/errcode"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errors"
 	"goshop/pkg/log"
 
 	"github.com/gin-gonic/gin"
@@ -14,9 +17,7 @@ func GetCaptcha(ctx *gin.Context) {
 	id, b64s, _, err := cp.Generate()
 	if err != nil {
 		log.Errorf("生成验证码错误: %s", err.Error())
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"msg": "生成验证码错误",
-		})
+		core.WriteResponse(ctx, errors.NewCode(errcode.ErrUnknown, "generate captcha failed"), nil)
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{

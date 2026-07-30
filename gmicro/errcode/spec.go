@@ -6,7 +6,7 @@ import "goshop/pkg/errors"
 // deliberately selected as safe for API clients. Do not pass database, RPC,
 // or other operational diagnostics to this function.
 func NewValidationError(message string) error {
-	return errors.NewSpec(errors.Spec{
+	return errors.NewPublicSpec(errors.Spec{
 		Code:    ErrValidation,
 		Kind:    errors.KindInvalidArgument,
 		Message: message,

@@ -3,9 +3,11 @@ package serverinterceptors
 import (
 	"context"
 	stderrors "errors"
+	"strconv"
 
 	apperrors "goshop/pkg/errors"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,7 +28,19 @@ func toGRPCError(err error) error {
 		spec = apperrors.SpecForCode(apperrors.ParseCoder(err).Code())
 	}
 
-	return status.Error(grpcCodeForKind(spec.Kind), spec.Message)
+	grpcStatus := status.New(grpcCodeForKind(spec.Kind), spec.Message)
+	withDetails, detailErr := grpcStatus.WithDetails(&errdetails.ErrorInfo{
+		Reason: "GOSHOP_BUSINESS_ERROR",
+		Domain: "goshop",
+		Metadata: map[string]string{
+			"business_code":  strconv.Itoa(spec.Code),
+			"public_message": spec.Message,
+		},
+	})
+	if detailErr != nil {
+		return grpcStatus.Err()
+	}
+	return withDetails.Err()
 }
 
 func grpcCodeForKind(kind apperrors.Kind) codes.Code {

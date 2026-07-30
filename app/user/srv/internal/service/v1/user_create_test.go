@@ -64,8 +64,8 @@ func TestUserService_CreateRejectsDuplicateEmailAfterNormalization(t *testing.T)
 			Password: "Secret123!",
 		},
 	})
-	if !errors.IsCode(err, bizcode.ErrUserAlreadyExists) {
-		t.Fatalf("Create() error = %v, want ErrUserAlreadyExists", err)
+	if !errors.IsCode(err, bizcode.ErrUserEmailAlreadyExists) {
+		t.Fatalf("Create() error = %v, want ErrUserEmailAlreadyExists", err)
 	}
 }
 
@@ -84,8 +84,29 @@ func TestUserService_CreateRejectsDuplicateUsername(t *testing.T) {
 			Password: "Secret123!",
 		},
 	})
-	if !errors.IsCode(err, bizcode.ErrUserAlreadyExists) {
-		t.Fatalf("Create() error = %v, want ErrUserAlreadyExists", err)
+	if !errors.IsCode(err, bizcode.ErrUsernameAlreadyExists) {
+		t.Fatalf("Create() error = %v, want ErrUsernameAlreadyExists", err)
+	}
+}
+
+func TestUserService_CreateChecksUsernameBeforeOtherDuplicateIdentifiers(t *testing.T) {
+	store := &fakeUserStore{
+		usersByIdentifier: map[string]*dv1.UserDO{
+			"user_001":         {Username: stringPtr("user_001")},
+			"13800138000":      {Mobile: "13800138000"},
+			"user@example.com": {Email: stringPtr("user@example.com")},
+		},
+	}
+	svc := NewUserService(store)
+
+	err := svc.Create(context.Background(), &UserDTO{UserDO: dv1.UserDO{
+		Username: stringPtr("user_001"),
+		Mobile:   "13800138000",
+		Email:    stringPtr("user@example.com"),
+		Password: "Secret123!",
+	}})
+	if !errors.IsCode(err, bizcode.ErrUsernameAlreadyExists) {
+		t.Fatalf("Create() error = %v, want ErrUsernameAlreadyExists", err)
 	}
 }
 

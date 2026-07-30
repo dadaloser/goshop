@@ -3,10 +3,12 @@ package httperror
 
 import (
 	"net/http"
+	"strconv"
 
 	"goshop/gmicro/errcode"
 	apperrors "goshop/pkg/errors"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -22,7 +24,7 @@ type Response struct {
 func ResponseFor(err error) Response {
 	spec, ok := apperrors.SpecOf(err)
 	if !ok || spec.Kind == "" {
-		if grpcSpec, grpcOK := publicGRPCSpec(err); grpcOK {
+		if grpcSpec, grpcOK := SpecFromGRPC(err); grpcOK {
 			spec = grpcSpec
 		} else {
 			spec = apperrors.SpecForCode(apperrors.ParseCoder(err).Code())
@@ -36,23 +38,39 @@ func ResponseFor(err error) Response {
 	}
 }
 
-// publicGRPCSpec converts gRPC transport errors that reached the HTTP
-// boundary without a domain adapter. Validation messages are safe only when
-// authored by our services; all other categories use fixed public messages.
-func publicGRPCSpec(err error) (apperrors.Spec, bool) {
+// SpecFromGRPC restores a public business specification carried by a trusted
+// GOSHOP_BUSINESS_ERROR detail. Unmarked gRPC errors use only generic catalog
+// contracts and never expose their transport message.
+func SpecFromGRPC(err error) (apperrors.Spec, bool) {
 	grpcStatus, ok := status.FromError(err)
 	if !ok {
 		return apperrors.Spec{}, false
+	}
+	for _, detail := range grpcStatus.Details() {
+		info, ok := detail.(*errdetails.ErrorInfo)
+		if !ok || info.GetDomain() != "goshop" || info.GetReason() != "GOSHOP_BUSINESS_ERROR" {
+			continue
+		}
+		code, parseErr := strconv.Atoi(info.GetMetadata()["business_code"])
+		if parseErr != nil || code <= 0 {
+			break
+		}
+		spec := apperrors.SpecForCode(code)
+		if spec.Code == 1 {
+			break
+		}
+		if spec.Code == errcode.ErrValidation {
+			if message := info.GetMetadata()["public_message"]; message != "" {
+				spec.Message = message
+			}
+		}
+		return spec, true
 	}
 
 	spec := apperrors.Spec{}
 	switch grpcStatus.Code() {
 	case codes.InvalidArgument, codes.FailedPrecondition, codes.OutOfRange:
-		message := grpcStatus.Message()
-		if message == "" {
-			message = "Validation failed"
-		}
-		spec = apperrors.Spec{Code: errcode.ErrValidation, Kind: apperrors.KindInvalidArgument, Message: message}
+		spec = apperrors.SpecForCode(errcode.ErrValidation)
 	case codes.NotFound:
 		spec = apperrors.SpecForCode(errcode.ErrPageNotFound)
 	case codes.Aborted, codes.AlreadyExists:

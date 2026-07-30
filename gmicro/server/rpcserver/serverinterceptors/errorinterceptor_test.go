@@ -6,6 +6,7 @@ import (
 
 	apperrors "goshop/pkg/errors"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -88,6 +89,13 @@ func TestToGRPCErrorKeepsLegacyCodeMapping(t *testing.T) {
 	}
 	if status.Convert(err).Message() != "User not found" {
 		t.Fatalf("toGRPCError() message = %q, want User not found", status.Convert(err).Message())
+	}
+	if len(status.Convert(err).Details()) != 1 {
+		t.Fatalf("toGRPCError() details = %#v, want one business detail", status.Convert(err).Details())
+	}
+	info, ok := status.Convert(err).Details()[0].(*errdetails.ErrorInfo)
+	if !ok || info.GetReason() != "GOSHOP_BUSINESS_ERROR" || info.GetMetadata()["business_code"] != "990404" {
+		t.Fatalf("toGRPCError() ErrorInfo = %#v, want GOSHOP_BUSINESS_ERROR code 990404", status.Convert(err).Details()[0])
 	}
 }
 
