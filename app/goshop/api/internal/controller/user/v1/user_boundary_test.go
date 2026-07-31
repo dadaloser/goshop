@@ -118,6 +118,32 @@ func TestUpdateUserReturnsFriendlyValidationAndSuccessMessages(t *testing.T) {
 		}
 	})
 
+	t.Run("missing name", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodPatch, "/user/update", strings.NewReader(`{"gender":"female","birthday":"2000-01-02"}`))
+		ctx.Request.Header.Set("Content-Type", "application/json")
+
+		(&userServer{}).UpdateUser(ctx)
+
+		if !strings.Contains(recorder.Body.String(), "昵称长度应为 3 到 10 个字符") {
+			t.Fatalf("UpdateUser() validation body = %s, want friendly name message", recorder.Body.String())
+		}
+	})
+
+	t.Run("malformed json", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodPatch, "/user/update", strings.NewReader(`{"name":`))
+		ctx.Request.Header.Set("Content-Type", "application/json")
+
+		(&userServer{}).UpdateUser(ctx)
+
+		if !strings.Contains(recorder.Body.String(), "请求内容格式不正确") {
+			t.Fatalf("UpdateUser() validation body = %s, want safe JSON message", recorder.Body.String())
+		}
+	})
+
 	t.Run("success", func(t *testing.T) {
 		userSrv := &fakeUserSrv{user: &userv1.UserDTO{}}
 		server := &userServer{sf: &fakeUserServiceFactory{users: userSrv}}
