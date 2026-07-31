@@ -12,7 +12,17 @@ type Session struct {
 	UserID     uint64
 	DeviceID   string
 	DeviceName string
+	ClientIP   string
+	Location   string
+	CreatedAt  stdtime.Time
+	LastUsedAt stdtime.Time
 	ExpiresAt  stdtime.Time
+	RevokedAt  *stdtime.Time
+	Active     bool
+}
+type SessionList struct {
+	TotalCount int64
+	Items      []Session
 }
 
 type User struct {
@@ -62,4 +72,20 @@ type UserData interface {
 	GetAuth(ctx context.Context, userID uint64) (UserAuth, error)
 	GetAuthByUsername(ctx context.Context, username string) (UserAuth, error)
 	CheckPassWord(ctx context.Context, password, encryptedPwd string) error
+}
+
+type DeviceBlacklistData interface {
+	ListDeviceBlacklist(ctx context.Context, page, pageSize int) (DeviceBlacklistList, error)
+	AddDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error
+	DeleteDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error
+}
+
+type DeviceBlacklist struct {
+	UserID    uint64
+	DeviceID  string
+	CreatedAt stdtime.Time
+}
+type DeviceBlacklistList struct {
+	TotalCount int64
+	Items      []DeviceBlacklist
 }

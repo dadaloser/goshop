@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"crypto/subtle"
 	"net/http"
+	"os"
 
 	"goshop/app/goshop/api/config"
 	"goshop/app/goshop/api/internal/controller/goods/v1"
@@ -97,6 +99,11 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 		uGroup.PATCH("update", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionUserProfileUpdateSelf), uController.UpdateUser)
 		uGroup.POST("logout", jwtAuth.AuthFunc(), uController.Logout)
 		uGroup.POST("logout_all", jwtAuth.AuthFunc(), uController.LogoutAll)
+		uGroup.GET("devices", jwtAuth.AuthFunc(), uController.ListDevices)
+		uGroup.POST("devices/:session_id/logout", jwtAuth.AuthFunc(), uController.LogoutDevice)
+		uGroup.GET("device_blacklist", jwtAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authz.RequirePermission(authz.PermissionUserReadAny), uController.ListDeviceBlacklist)
+		uGroup.POST("device_blacklist", jwtAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authz.RequirePermission(authz.PermissionUserDisableAny), requireDeviceBlacklistConfirmation(), uController.AddDeviceBlacklist)
+		uGroup.DELETE("device_blacklist/:device_id", jwtAuth.AuthFunc(), authz.RequirePrincipalTypes(authz.PrincipalStaff), authz.RequirePermission(authz.PermissionUserDisableAny), requireDeviceBlacklistConfirmation(), uController.DeleteDeviceBlacklist)
 		uGroup.DELETE("account", jwtAuth.AuthFunc(), authz.RequirePermission(authz.PermissionUserAccountDeleteSelf), uController.DeleteAccount)
 
 		orderController := orderv1.NewOrderController(serviceFactory, g.Translator())
@@ -136,6 +143,17 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	}
 
 	return nil
+}
+
+func requireDeviceBlacklistConfirmation() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		expected := os.Getenv("GOSHOP_ADMIN_CONFIRMATION_TOKEN")
+		if expected == "" || subtle.ConstantTimeCompare([]byte(expected), []byte(ctx.GetHeader("X-Admin-Confirm-Token"))) != 1 {
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "admin confirmation required"})
+			return
+		}
+		ctx.Next()
+	}
 }
 
 func registerBusinessLivez(g *restserver.Server) {

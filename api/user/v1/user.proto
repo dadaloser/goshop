@@ -66,6 +66,10 @@ service User{
     rpc RevokeSession(RevokeSessionRequest) returns (google.protobuf.Empty);
     rpc RevokeAllSessions(IdRequest) returns (google.protobuf.Empty);
     rpc ValidateSession(ValidateSessionRequest) returns (SessionValidationResponse);
+    rpc ListUserSessions(ListUserSessionsRequest) returns (ListUserSessionsResponse);
+    rpc AddDeviceBlacklist(DeviceBlacklistRequest) returns (google.protobuf.Empty);
+    rpc DeleteDeviceBlacklist(DeviceBlacklistRequest) returns (google.protobuf.Empty);
+    rpc ListDeviceBlacklist(ListDeviceBlacklistRequest) returns (ListDeviceBlacklistResponse);
     rpc ListStaffSessions(ListStaffSessionsRequest) returns (ListStaffSessionsResponse);
     rpc RevokeStaffSession(RevokeStaffSessionRequest) returns (google.protobuf.Empty);
     rpc RevokeStaffUserSessions(RevokeStaffUserSessionsRequest) returns (google.protobuf.Empty);
@@ -97,6 +101,8 @@ message CreateSessionRequest {
     bytes refreshTokenHash = 4;
     uint64 expiresAt = 5;
     string principalType = 6;
+    string clientIp = 7;
+    string location = 8;
 }
 
 message RefreshSessionRequest {
@@ -127,6 +133,26 @@ message SessionResponse {
 message SessionValidationResponse {
     bool active = 1;
 }
+
+message UserSessionRecord {
+    string id = 1;
+    string deviceId = 2;
+    string deviceName = 3;
+    uint64 createdAt = 4;
+    uint64 lastUsedAt = 5;
+    uint64 expiresAt = 6;
+    uint64 revokedAt = 7;
+    bool active = 8;
+    string clientIp = 9;
+    string location = 10;
+}
+
+message ListUserSessionsRequest { int32 userId = 1; uint32 pn = 2; uint32 pSize = 3; }
+message ListUserSessionsResponse { int32 total = 1; repeated UserSessionRecord items = 2; }
+message DeviceBlacklistRequest { int32 userId = 1; string deviceId = 2; }
+message ListDeviceBlacklistRequest { uint32 pn = 1; uint32 pSize = 2; }
+message DeviceBlacklistRecord { int32 userId = 1; string deviceId = 2; uint64 createdAt = 3; }
+message ListDeviceBlacklistResponse { int32 total = 1; repeated DeviceBlacklistRecord items = 2; }
 
 message StaffSessionRecord {
     string id = 1;

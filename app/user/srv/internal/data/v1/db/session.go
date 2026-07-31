@@ -40,10 +40,79 @@ func (u *users) CreateSession(ctx context.Context, session *dv1.UserSessionDO) e
 	if strings.TrimSpace(session.PrincipalType) == "" {
 		session.PrincipalType = string(authz.PrincipalCustomer)
 	}
+	var blocked int64
+	if err := u.db.WithContext(ctx).Model(&dv1.DeviceBlacklistDO{}).Where("user_id = ? AND device_id = ?", session.UserID, session.DeviceID).Count(&blocked).Error; err != nil {
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
+	}
+	if blocked > 0 {
+		return errors.NewCode(bizcode.ErrUserAccountInactive, "device is blocked")
+	}
 	if err := u.db.WithContext(ctx).Create(session).Error; err != nil {
 		return errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return nil
+}
+
+func (u *users) ListUserSessions(ctx context.Context, userID uint64, offset, limit int) ([]dv1.UserSessionRecordDO, int64, error) {
+	if userID == 0 {
+		return nil, 0, errors.NewCode(bizcode.ErrUserNotFound, "user not found")
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	base := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).Where("user_id = ? AND principal_type = ?", userID, string(authz.PrincipalCustomer))
+	var total int64
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
+	}
+	rows := make([]dv1.UserSessionRecordDO, 0, limit)
+	if err := base.Select("id, device_id, device_name, client_ip, location, created_at, last_used_at, expires_at, revoked_at").Order("last_used_at DESC").Offset(offset).Limit(limit).Find(&rows).Error; err != nil {
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
+	}
+	return rows, total, nil
+}
+
+func (u *users) AddDeviceBlacklist(ctx context.Context, userID int32, deviceID string, at time.Time) error {
+	deviceID = strings.TrimSpace(deviceID)
+	if userID <= 0 || deviceID == "" {
+		return errors.NewCode(errcode.ErrValidation, "user id and device id are required")
+	}
+	return u.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		entry := &dv1.DeviceBlacklistDO{UserID: userID, DeviceID: deviceID, CreatedAt: at.UTC()}
+		if err := tx.Clauses(clause.OnConflict{UpdateAll: true}).Create(entry).Error; err != nil {
+			return errors.NewCode(errcode.ErrDatabase, err.Error())
+		}
+		if err := tx.Model(&dv1.UserSessionDO{}).Where("user_id = ? AND device_id = ? AND revoked_at IS NULL", userID, deviceID).Update("revoked_at", at.UTC()).Error; err != nil {
+			return errors.NewCode(errcode.ErrDatabase, err.Error())
+		}
+		return nil
+	})
+}
+
+func (u *users) DeleteDeviceBlacklist(ctx context.Context, userID int32, deviceID string) error {
+	if userID <= 0 || strings.TrimSpace(deviceID) == "" {
+		return errors.NewCode(errcode.ErrValidation, "user id and device id are required")
+	}
+	if err := u.db.WithContext(ctx).Delete(&dv1.DeviceBlacklistDO{}, "user_id = ? AND device_id = ?", userID, strings.TrimSpace(deviceID)).Error; err != nil {
+		return errors.NewCode(errcode.ErrDatabase, err.Error())
+	}
+	return nil
+}
+
+func (u *users) ListDeviceBlacklist(ctx context.Context, offset, limit int) ([]dv1.DeviceBlacklistDO, int64, error) {
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	base := u.db.WithContext(ctx).Model(&dv1.DeviceBlacklistDO{})
+	var total int64
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
+	}
+	items := make([]dv1.DeviceBlacklistDO, 0, limit)
+	if err := base.Order("created_at DESC").Offset(offset).Limit(limit).Find(&items).Error; err != nil {
+		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
+	}
+	return items, total, nil
 }
 
 func (u *users) RotateSession(ctx context.Context, sessionID string, currentHash, nextHash []byte, expiresAt, usedAt time.Time) (*dv1.UserSessionDO, error) {

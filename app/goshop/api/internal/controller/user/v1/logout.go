@@ -2,6 +2,7 @@ package user
 
 import (
 	"encoding/json"
+	"net/http"
 	"time"
 
 	"goshop/gmicro/errcode"
@@ -11,6 +12,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+/*
+注销当前会话
+*/
 
 func (us *userServer) Logout(ctx *gin.Context) {
 	userID, userErr := userIDFromContext(ctx)
@@ -42,8 +47,12 @@ func (us *userServer) Logout(ctx *gin.Context) {
 		}
 	}
 
-	core.WriteResponse(ctx, nil, gin.H{"ok": true})
+	core.WriteResponse(ctx, nil, gin.H{"code": http.StatusOK, "msg": "退出成功!"})
 }
+
+/*
+注销该用户的全部会话
+*/
 
 func (us *userServer) LogoutAll(ctx *gin.Context) {
 	userID, err := userIDFromContext(ctx)
@@ -60,7 +69,7 @@ func (us *userServer) LogoutAll(ctx *gin.Context) {
 		core.WriteResponse(ctx, err, nil)
 		return
 	}
-	core.WriteResponse(ctx, nil, gin.H{"ok": true})
+	core.WriteResponse(ctx, nil, gin.H{"code": http.StatusOK, "msg": "退出成功!"})
 }
 
 func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {

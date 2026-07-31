@@ -14,16 +14,6 @@ CREATE TABLE schema_migrations (
 
 `deploy/mysql/initialize.sh` 会先检查迁移文件名（去掉 `.up.sql` 后缀）是否已存在于该表中：存在则跳过，不存在才执行 SQL，并在成功后写入版本。因此同一迁移可安全地重复执行初始化脚本；失败的迁移不会被记录为已完成。
 
-## 数据库归属
-
-| 服务数据库 | 迁移示例 |
-| --- | --- |
-| `goshop_user_srv` | `202607300002_user_default_gender_unknown` |
-| `goshop_order_srv` | `202607300002_order_add_account_deletion_events` |
-| `goshop_goods_srv` | 商品及商品 Outbox 迁移 |
-| `goshop_inventory_srv` | 库存迁移 |
-| `goshop_review_srv` | 评价及评价 Outbox 迁移 |
-
 不要把用户库的版本写入订单库，或反过来执行迁移文件；迁移必须按服务所属数据库执行。
 
 ## 执行已有数据库的缺失迁移
@@ -67,12 +57,13 @@ ORDER BY applied_at, version;
 SELECT version, applied_at
 FROM schema_migrations
 WHERE version IN (
-  '202607300002_user_default_gender_unknown',
+  '202607310001_user_device_blacklist',
+  '202607310002_user_session_client_metadata',
   '202607300002_order_add_account_deletion_events'
 );
 ```
 
-注意：上述两条记录分别应出现在 `goshop_user_srv` 和 `goshop_order_srv`，不能在同一个库中同时期待它们。
+注意：前两条记录应出现在 `goshop_user_srv`，账号注销事件迁移应出现在 `goshop_order_srv`。
 
 ## 执行后核验
 

@@ -26,7 +26,8 @@ func (u *users) RecordLogin(ctx context.Context, userID uint64, at time.Time) er
 
 func (u *users) CreateSession(ctx context.Context, userID uint64, deviceID, deviceName, refreshToken string, expiresAt time.Time) (data.Session, error) {
 	hash := sha256.Sum256([]byte(refreshToken))
-	resp, err := u.uc.CreateSession(ctx, &upbv1.CreateSessionRequest{UserId: int32(userID), DeviceId: deviceID, DeviceName: deviceName, RefreshTokenHash: hash[:], ExpiresAt: uint64(expiresAt.Unix()), PrincipalType: string(authz.PrincipalCustomer)})
+	clientIP, location := sessionClientMetadata(ctx)
+	resp, err := u.uc.CreateSession(ctx, &upbv1.CreateSessionRequest{UserId: int32(userID), DeviceId: deviceID, DeviceName: deviceName, ClientIp: clientIP, Location: location, RefreshTokenHash: hash[:], ExpiresAt: uint64(expiresAt.Unix()), PrincipalType: string(authz.PrincipalCustomer)})
 	if err != nil {
 		return data.Session{}, err
 	}
@@ -59,6 +60,62 @@ func (u *users) ValidateSession(ctx context.Context, userID uint64, sessionID st
 		return false, err
 	}
 	return resp.GetActive(), nil
+}
+
+func (u *users) ListUserSessions(ctx context.Context, userID uint64, page, pageSize int) (data.SessionList, error) {
+	resp, err := u.uc.ListUserSessions(ctx, &upbv1.ListUserSessionsRequest{UserId: int32(userID), Pn: uint32(page), PSize: uint32(pageSize)})
+	if err != nil {
+		return data.SessionList{}, err
+	}
+	result := data.SessionList{TotalCount: int64(resp.GetTotal()), Items: make([]data.Session, 0, len(resp.GetItems()))}
+	for _, item := range resp.GetItems() {
+		session := data.Session{ID: item.GetId(), UserID: userID, DeviceID: item.GetDeviceId(), DeviceName: item.GetDeviceName(), ClientIP: item.GetClientIp(), Location: item.GetLocation(), CreatedAt: time.Unix(int64(item.GetCreatedAt()), 0), LastUsedAt: time.Unix(int64(item.GetLastUsedAt()), 0), ExpiresAt: time.Unix(int64(item.GetExpiresAt()), 0), Active: item.GetActive()}
+		if item.GetRevokedAt() != 0 {
+			revokedAt := time.Unix(int64(item.GetRevokedAt()), 0)
+			session.RevokedAt = &revokedAt
+		}
+		result.Items = append(result.Items, session)
+	}
+	return result, nil
+}
+
+func (u *users) ListDeviceBlacklist(ctx context.Context, page, pageSize int) (data.DeviceBlacklistList, error) {
+	resp, err := u.uc.ListDeviceBlacklist(ctx, &upbv1.ListDeviceBlacklistRequest{Pn: uint32(page), PSize: uint32(pageSize)})
+	if err != nil {
+		return data.DeviceBlacklistList{}, err
+	}
+	result := data.DeviceBlacklistList{TotalCount: int64(resp.GetTotal()), Items: make([]data.DeviceBlacklist, 0, len(resp.GetItems()))}
+	for _, item := range resp.GetItems() {
+		result.Items = append(result.Items, data.DeviceBlacklist{UserID: uint64(item.GetUserId()), DeviceID: item.GetDeviceId(), CreatedAt: time.Unix(int64(item.GetCreatedAt()), 0)})
+	}
+	return result, nil
+}
+func (u *users) AddDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error {
+	_, err := u.uc.AddDeviceBlacklist(ctx, &upbv1.DeviceBlacklistRequest{UserId: int32(userID), DeviceId: deviceID})
+	return err
+}
+func (u *users) DeleteDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error {
+	_, err := u.uc.DeleteDeviceBlacklist(ctx, &upbv1.DeviceBlacklistRequest{UserId: int32(userID), DeviceId: deviceID})
+	return err
+}
+
+func sessionClientMetadata(ctx context.Context) (string, string) {
+	headers, ok := ctx.(interface{ GetHeader(string) string })
+	if !ok {
+		return "", ""
+	}
+	clientIP := strings.TrimSpace(headers.GetHeader("X-Real-IP"))
+	if forwarded := strings.TrimSpace(headers.GetHeader("X-Forwarded-For")); forwarded != "" {
+		clientIP = strings.TrimSpace(strings.Split(forwarded, ",")[0])
+	}
+	location := strings.TrimSpace(headers.GetHeader("X-Device-Location"))
+	if len(clientIP) > 45 {
+		clientIP = clientIP[:45]
+	}
+	if len(location) > 255 {
+		location = location[:255]
+	}
+	return clientIP, location
 }
 
 func sessionFromResponse(resp *upbv1.SessionResponse) data.Session {

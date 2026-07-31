@@ -20,6 +20,8 @@ type SessionDTO struct {
 	RefreshTokenHash []byte
 	DeviceID         string
 	DeviceName       string
+	ClientIP         string
+	Location         string
 	ExpiresAt        time.Time
 }
 
@@ -30,9 +32,90 @@ type sessionStore interface {
 	RevokeSession(ctx context.Context, userID uint64, sessionID string, at time.Time) error
 	RevokeAllSessions(ctx context.Context, userID uint64, at time.Time) error
 	SessionActive(ctx context.Context, userID uint64, sessionID string, at time.Time) (bool, error)
+	ListUserSessions(ctx context.Context, userID uint64, offset, limit int) ([]dv1.UserSessionRecordDO, int64, error)
+	AddDeviceBlacklist(ctx context.Context, userID int32, deviceID string, at time.Time) error
+	DeleteDeviceBlacklist(ctx context.Context, userID int32, deviceID string) error
+	ListDeviceBlacklist(ctx context.Context, offset, limit int) ([]dv1.DeviceBlacklistDO, int64, error)
 	ListStaffSessions(ctx context.Context, filters dv1.StaffSessionFilters) ([]dv1.StaffSessionRecordDO, int64, error)
 	RevokeStaffSession(ctx context.Context, sessionID string, at time.Time) error
 	RevokeStaffUserSessions(ctx context.Context, userID uint64, at time.Time) error
+}
+
+type UserSessionDTO struct {
+	ID, DeviceID, DeviceName, ClientIP, Location string
+	CreatedAt, LastUsedAt, ExpiresAt             time.Time
+	RevokedAt                                    *time.Time
+}
+type UserSessionDTOList struct {
+	TotalCount int64
+	Items      []UserSessionDTO
+}
+type DeviceBlacklistDTO struct {
+	UserID    int32
+	DeviceID  string
+	CreatedAt time.Time
+}
+type DeviceBlacklistDTOList struct {
+	TotalCount int64
+	Items      []DeviceBlacklistDTO
+}
+
+func (u *userService) ListUserSessions(ctx context.Context, userID uint64, page, pageSize int) (*UserSessionDTOList, error) {
+	store, err := u.sessions()
+	if err != nil {
+		return nil, err
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	rows, total, err := store.ListUserSessions(ctx, userID, (page-1)*pageSize, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	result := &UserSessionDTOList{TotalCount: total, Items: make([]UserSessionDTO, 0, len(rows))}
+	for _, row := range rows {
+		result.Items = append(result.Items, UserSessionDTO{ID: row.ID, DeviceID: row.DeviceID, DeviceName: row.DeviceName, ClientIP: row.ClientIP, Location: row.Location, CreatedAt: row.CreatedAt, LastUsedAt: row.LastUsedAt, ExpiresAt: row.ExpiresAt, RevokedAt: row.RevokedAt})
+	}
+	return result, nil
+}
+
+func (u *userService) AddDeviceBlacklist(ctx context.Context, userID int32, deviceID string) error {
+	store, err := u.sessions()
+	if err != nil {
+		return err
+	}
+	return store.AddDeviceBlacklist(ctx, userID, deviceID, time.Now().UTC())
+}
+func (u *userService) DeleteDeviceBlacklist(ctx context.Context, userID int32, deviceID string) error {
+	store, err := u.sessions()
+	if err != nil {
+		return err
+	}
+	return store.DeleteDeviceBlacklist(ctx, userID, deviceID)
+}
+func (u *userService) ListDeviceBlacklist(ctx context.Context, page, pageSize int) (*DeviceBlacklistDTOList, error) {
+	store, err := u.sessions()
+	if err != nil {
+		return nil, err
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	items, total, err := store.ListDeviceBlacklist(ctx, (page-1)*pageSize, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	result := &DeviceBlacklistDTOList{TotalCount: total, Items: make([]DeviceBlacklistDTO, 0, len(items))}
+	for _, item := range items {
+		result.Items = append(result.Items, DeviceBlacklistDTO{UserID: item.UserID, DeviceID: item.DeviceID, CreatedAt: item.CreatedAt})
+	}
+	return result, nil
 }
 
 func (u *userService) RecordLogin(ctx context.Context, userID uint64, at time.Time) error {
@@ -52,7 +135,7 @@ func (u *userService) CreateSession(ctx context.Context, session SessionDTO) (*S
 	model := &dv1.UserSessionDO{
 		ID: uuid.NewString(), UserID: session.UserID, PrincipalType: principalType,
 		RefreshTokenHash: append([]byte(nil), session.RefreshTokenHash...),
-		DeviceID:         session.DeviceID, DeviceName: session.DeviceName,
+		DeviceID:         session.DeviceID, DeviceName: session.DeviceName, ClientIP: session.ClientIP, Location: session.Location,
 		CreatedAt: now, LastUsedAt: now, ExpiresAt: session.ExpiresAt.UTC(),
 	}
 	store, err := u.sessions()

@@ -18,7 +18,7 @@ func (s *userServer) RecordLogin(ctx context.Context, req *upbv1.RecordLoginRequ
 }
 
 func (s *userServer) CreateSession(ctx context.Context, req *upbv1.CreateSessionRequest) (*upbv1.SessionResponse, error) {
-	session, err := s.srv.CreateSession(ctx, srvv1.SessionDTO{UserID: req.GetUserId(), PrincipalType: req.GetPrincipalType(), DeviceID: req.GetDeviceId(), DeviceName: req.GetDeviceName(), RefreshTokenHash: req.GetRefreshTokenHash(), ExpiresAt: time.Unix(int64(req.GetExpiresAt()), 0)})
+	session, err := s.srv.CreateSession(ctx, srvv1.SessionDTO{UserID: req.GetUserId(), PrincipalType: req.GetPrincipalType(), DeviceID: req.GetDeviceId(), DeviceName: req.GetDeviceName(), ClientIP: req.GetClientIp(), Location: req.GetLocation(), RefreshTokenHash: req.GetRefreshTokenHash(), ExpiresAt: time.Unix(int64(req.GetExpiresAt()), 0)})
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +53,46 @@ func (s *userServer) ValidateSession(ctx context.Context, req *upbv1.ValidateSes
 		return nil, err
 	}
 	return &upbv1.SessionValidationResponse{Active: active}, nil
+}
+
+func (s *userServer) ListUserSessions(ctx context.Context, req *upbv1.ListUserSessionsRequest) (*upbv1.ListUserSessionsResponse, error) {
+	result, err := s.srv.ListUserSessions(ctx, uint64(req.GetUserId()), int(req.GetPn()), int(req.GetPSize()))
+	if err != nil {
+		return nil, err
+	}
+	resp := &upbv1.ListUserSessionsResponse{Total: int32(result.TotalCount), Items: make([]*upbv1.UserSessionRecord, 0, len(result.Items))}
+	now := time.Now().UTC()
+	for _, item := range result.Items {
+		record := &upbv1.UserSessionRecord{Id: item.ID, DeviceId: item.DeviceID, DeviceName: item.DeviceName, ClientIp: item.ClientIP, Location: item.Location, CreatedAt: uint64(item.CreatedAt.Unix()), LastUsedAt: uint64(item.LastUsedAt.Unix()), ExpiresAt: uint64(item.ExpiresAt.Unix()), Active: item.RevokedAt == nil && item.ExpiresAt.After(now)}
+		if item.RevokedAt != nil {
+			record.RevokedAt = uint64(item.RevokedAt.Unix())
+		}
+		resp.Items = append(resp.Items, record)
+	}
+	return resp, nil
+}
+func (s *userServer) AddDeviceBlacklist(ctx context.Context, req *upbv1.DeviceBlacklistRequest) (*emptypb.Empty, error) {
+	if err := s.srv.AddDeviceBlacklist(ctx, req.GetUserId(), req.GetDeviceId()); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+func (s *userServer) DeleteDeviceBlacklist(ctx context.Context, req *upbv1.DeviceBlacklistRequest) (*emptypb.Empty, error) {
+	if err := s.srv.DeleteDeviceBlacklist(ctx, req.GetUserId(), req.GetDeviceId()); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+func (s *userServer) ListDeviceBlacklist(ctx context.Context, req *upbv1.ListDeviceBlacklistRequest) (*upbv1.ListDeviceBlacklistResponse, error) {
+	result, err := s.srv.ListDeviceBlacklist(ctx, int(req.GetPn()), int(req.GetPSize()))
+	if err != nil {
+		return nil, err
+	}
+	resp := &upbv1.ListDeviceBlacklistResponse{Total: int32(result.TotalCount), Items: make([]*upbv1.DeviceBlacklistRecord, 0, len(result.Items))}
+	for _, item := range result.Items {
+		resp.Items = append(resp.Items, &upbv1.DeviceBlacklistRecord{UserId: item.UserID, DeviceId: item.DeviceID, CreatedAt: uint64(item.CreatedAt.Unix())})
+	}
+	return resp, nil
 }
 
 func (s *userServer) ListStaffSessions(ctx context.Context, req *upbv1.ListStaffSessionsRequest) (*upbv1.ListStaffSessionsResponse, error) {

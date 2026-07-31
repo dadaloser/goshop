@@ -46,6 +46,10 @@ const (
 	User_RevokeSession_FullMethodName             = "/User/RevokeSession"
 	User_RevokeAllSessions_FullMethodName         = "/User/RevokeAllSessions"
 	User_ValidateSession_FullMethodName           = "/User/ValidateSession"
+	User_ListUserSessions_FullMethodName          = "/User/ListUserSessions"
+	User_AddDeviceBlacklist_FullMethodName        = "/User/AddDeviceBlacklist"
+	User_DeleteDeviceBlacklist_FullMethodName     = "/User/DeleteDeviceBlacklist"
+	User_ListDeviceBlacklist_FullMethodName       = "/User/ListDeviceBlacklist"
 	User_ListStaffSessions_FullMethodName         = "/User/ListStaffSessions"
 	User_RevokeStaffSession_FullMethodName        = "/User/RevokeStaffSession"
 	User_RevokeStaffUserSessions_FullMethodName   = "/User/RevokeStaffUserSessions"
@@ -85,6 +89,10 @@ type UserClient interface {
 	RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RevokeAllSessions(ctx context.Context, in *IdRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ValidateSession(ctx context.Context, in *ValidateSessionRequest, opts ...grpc.CallOption) (*SessionValidationResponse, error)
+	ListUserSessions(ctx context.Context, in *ListUserSessionsRequest, opts ...grpc.CallOption) (*ListUserSessionsResponse, error)
+	AddDeviceBlacklist(ctx context.Context, in *DeviceBlacklistRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	DeleteDeviceBlacklist(ctx context.Context, in *DeviceBlacklistRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListDeviceBlacklist(ctx context.Context, in *ListDeviceBlacklistRequest, opts ...grpc.CallOption) (*ListDeviceBlacklistResponse, error)
 	ListStaffSessions(ctx context.Context, in *ListStaffSessionsRequest, opts ...grpc.CallOption) (*ListStaffSessionsResponse, error)
 	RevokeStaffSession(ctx context.Context, in *RevokeStaffSessionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RevokeStaffUserSessions(ctx context.Context, in *RevokeStaffUserSessionsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -362,6 +370,46 @@ func (c *userClient) ValidateSession(ctx context.Context, in *ValidateSessionReq
 	return out, nil
 }
 
+func (c *userClient) ListUserSessions(ctx context.Context, in *ListUserSessionsRequest, opts ...grpc.CallOption) (*ListUserSessionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListUserSessionsResponse)
+	err := c.cc.Invoke(ctx, User_ListUserSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) AddDeviceBlacklist(ctx context.Context, in *DeviceBlacklistRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, User_AddDeviceBlacklist_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) DeleteDeviceBlacklist(ctx context.Context, in *DeviceBlacklistRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, User_DeleteDeviceBlacklist_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userClient) ListDeviceBlacklist(ctx context.Context, in *ListDeviceBlacklistRequest, opts ...grpc.CallOption) (*ListDeviceBlacklistResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDeviceBlacklistResponse)
+	err := c.cc.Invoke(ctx, User_ListDeviceBlacklist_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userClient) ListStaffSessions(ctx context.Context, in *ListStaffSessionsRequest, opts ...grpc.CallOption) (*ListStaffSessionsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListStaffSessionsResponse)
@@ -462,6 +510,10 @@ type UserServer interface {
 	RevokeSession(context.Context, *RevokeSessionRequest) (*emptypb.Empty, error)
 	RevokeAllSessions(context.Context, *IdRequest) (*emptypb.Empty, error)
 	ValidateSession(context.Context, *ValidateSessionRequest) (*SessionValidationResponse, error)
+	ListUserSessions(context.Context, *ListUserSessionsRequest) (*ListUserSessionsResponse, error)
+	AddDeviceBlacklist(context.Context, *DeviceBlacklistRequest) (*emptypb.Empty, error)
+	DeleteDeviceBlacklist(context.Context, *DeviceBlacklistRequest) (*emptypb.Empty, error)
+	ListDeviceBlacklist(context.Context, *ListDeviceBlacklistRequest) (*ListDeviceBlacklistResponse, error)
 	ListStaffSessions(context.Context, *ListStaffSessionsRequest) (*ListStaffSessionsResponse, error)
 	RevokeStaffSession(context.Context, *RevokeStaffSessionRequest) (*emptypb.Empty, error)
 	RevokeStaffUserSessions(context.Context, *RevokeStaffUserSessionsRequest) (*emptypb.Empty, error)
@@ -556,6 +608,18 @@ func (UnimplementedUserServer) RevokeAllSessions(context.Context, *IdRequest) (*
 }
 func (UnimplementedUserServer) ValidateSession(context.Context, *ValidateSessionRequest) (*SessionValidationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ValidateSession not implemented")
+}
+func (UnimplementedUserServer) ListUserSessions(context.Context, *ListUserSessionsRequest) (*ListUserSessionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListUserSessions not implemented")
+}
+func (UnimplementedUserServer) AddDeviceBlacklist(context.Context, *DeviceBlacklistRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddDeviceBlacklist not implemented")
+}
+func (UnimplementedUserServer) DeleteDeviceBlacklist(context.Context, *DeviceBlacklistRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteDeviceBlacklist not implemented")
+}
+func (UnimplementedUserServer) ListDeviceBlacklist(context.Context, *ListDeviceBlacklistRequest) (*ListDeviceBlacklistResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListDeviceBlacklist not implemented")
 }
 func (UnimplementedUserServer) ListStaffSessions(context.Context, *ListStaffSessionsRequest) (*ListStaffSessionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListStaffSessions not implemented")
@@ -1067,6 +1131,78 @@ func _User_ValidateSession_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _User_ListUserSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListUserSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).ListUserSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_ListUserSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).ListUserSessions(ctx, req.(*ListUserSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_AddDeviceBlacklist_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeviceBlacklistRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).AddDeviceBlacklist(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_AddDeviceBlacklist_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).AddDeviceBlacklist(ctx, req.(*DeviceBlacklistRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_DeleteDeviceBlacklist_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeviceBlacklistRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).DeleteDeviceBlacklist(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_DeleteDeviceBlacklist_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).DeleteDeviceBlacklist(ctx, req.(*DeviceBlacklistRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _User_ListDeviceBlacklist_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDeviceBlacklistRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServer).ListDeviceBlacklist(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: User_ListDeviceBlacklist_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServer).ListDeviceBlacklist(ctx, req.(*ListDeviceBlacklistRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _User_ListStaffSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListStaffSessionsRequest)
 	if err := dec(in); err != nil {
@@ -1303,6 +1439,22 @@ var User_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ValidateSession",
 			Handler:    _User_ValidateSession_Handler,
+		},
+		{
+			MethodName: "ListUserSessions",
+			Handler:    _User_ListUserSessions_Handler,
+		},
+		{
+			MethodName: "AddDeviceBlacklist",
+			Handler:    _User_AddDeviceBlacklist_Handler,
+		},
+		{
+			MethodName: "DeleteDeviceBlacklist",
+			Handler:    _User_DeleteDeviceBlacklist_Handler,
+		},
+		{
+			MethodName: "ListDeviceBlacklist",
+			Handler:    _User_ListDeviceBlacklist_Handler,
 		},
 		{
 			MethodName: "ListStaffSessions",

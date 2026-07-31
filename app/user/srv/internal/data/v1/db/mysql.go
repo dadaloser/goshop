@@ -88,7 +88,7 @@ func migrateUserSchema(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("user schema migration failed: nil db")
 	}
-	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.UserSessionDO{}, &dv1.AccountDeletionOutboxEventDO{}, &dv1.VerificationCodeDO{}, &dv1.UserResourceScopeDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}, &dv1.RoleDomainDO{}, &dv1.UserAuditLogDO{}, &dv1.AdminAuditLogDO{}, &dv1.BreakGlassApprovalDO{}); err != nil {
+	if err := db.AutoMigrate(&dv1.UserDO{}, &dv1.UserSessionDO{}, &dv1.DeviceBlacklistDO{}, &dv1.AccountDeletionOutboxEventDO{}, &dv1.VerificationCodeDO{}, &dv1.UserResourceScopeDO{}, &dv1.RoleDO{}, &dv1.UserRoleDO{}, &dv1.RolePermissionDO{}, &dv1.RoleDomainDO{}, &dv1.UserAuditLogDO{}, &dv1.AdminAuditLogDO{}, &dv1.BreakGlassApprovalDO{}); err != nil {
 		return fmt.Errorf("user schema migration failed: %w", err)
 	}
 	return nil

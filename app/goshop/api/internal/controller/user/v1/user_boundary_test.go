@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"goshop/app/goshop/api/internal/data"
 	goodsv1 "goshop/app/goshop/api/internal/service/goods/v1"
 	inventoryv1 "goshop/app/goshop/api/internal/service/inventory/v1"
 	orderv1 "goshop/app/goshop/api/internal/service/order/v1"
@@ -93,6 +94,48 @@ func TestUpdateUserRejectsNilUserResponse(t *testing.T) {
 	if userSrv.updateCalled {
 		t.Fatal("UpdateUser reached Update after nil Get response")
 	}
+}
+
+func TestUpdateUserReturnsFriendlyValidationAndSuccessMessages(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("invalid birthday", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodPatch, "/user/update", strings.NewReader(`{"name":"alice","gender":"female","birthday":"not-a-date"}`))
+		ctx.Request.Header.Set("Content-Type", "application/json")
+
+		(&userServer{}).UpdateUser(ctx)
+
+		if recorder.Code != http.StatusBadRequest {
+			t.Fatalf("UpdateUser() status = %d, want %d", recorder.Code, http.StatusBadRequest)
+		}
+		if strings.Contains(recorder.Body.String(), "UpdateUserForm") || strings.Contains(recorder.Body.String(), "datetime") {
+			t.Fatalf("UpdateUser() leaked validator details: %s", recorder.Body.String())
+		}
+		if !strings.Contains(recorder.Body.String(), "生日格式应为 YYYY-MM-DD") {
+			t.Fatalf("UpdateUser() validation body = %s, want friendly birthday message", recorder.Body.String())
+		}
+	})
+
+	t.Run("success", func(t *testing.T) {
+		userSrv := &fakeUserSrv{user: &userv1.UserDTO{}}
+		server := &userServer{sf: &fakeUserServiceFactory{users: userSrv}}
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodPatch, "/user/update", strings.NewReader(`{"name":"alice","gender":"female","birthday":"2000-01-02"}`))
+		ctx.Request.Header.Set("Content-Type", "application/json")
+		ctx.Set(middlewares.KeyUserID, float64(1))
+
+		server.UpdateUser(ctx)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("UpdateUser() status = %d, want %d body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+		}
+		if !strings.Contains(recorder.Body.String(), "修改成功") {
+			t.Fatalf("UpdateUser() body = %s, want success message", recorder.Body.String())
+		}
+	})
 }
 
 func TestLogoutAllCallsUserService(t *testing.T) {
@@ -191,6 +234,7 @@ func (f *fakeUserServiceFactory) Sms() smsv1.SmsSrv {
 }
 
 type fakeUserSrv struct {
+	user                  *userv1.UserDTO
 	updateCalled          bool
 	logoutAllUserID       uint64
 	deleteAccountUserID   uint64
@@ -215,7 +259,7 @@ func (f *fakeUserSrv) Update(context.Context, *userv1.UserDTO) error {
 }
 
 func (f *fakeUserSrv) Get(context.Context, uint64) (*userv1.UserDTO, error) {
-	return nil, nil
+	return f.user, nil
 }
 
 func (f *fakeUserSrv) GetByUsername(context.Context, string) (*userv1.UserDTO, error) {
@@ -232,6 +276,16 @@ func (f *fakeUserSrv) Logout(context.Context, uint64, string) error { return nil
 func (f *fakeUserSrv) Refresh(context.Context, string, string) (*userv1.UserDTO, error) {
 	return nil, nil
 }
+
+func (f *fakeUserSrv) ListDevices(context.Context, uint64, int, int) (data.SessionList, error) {
+	return data.SessionList{}, nil
+}
+func (f *fakeUserSrv) LogoutDevice(context.Context, uint64, string) error { return nil }
+func (f *fakeUserSrv) ListDeviceBlacklist(context.Context, int, int) (data.DeviceBlacklistList, error) {
+	return data.DeviceBlacklistList{}, nil
+}
+func (f *fakeUserSrv) AddDeviceBlacklist(context.Context, uint64, string) error    { return nil }
+func (f *fakeUserSrv) DeleteDeviceBlacklist(context.Context, uint64, string) error { return nil }
 
 func (f *fakeUserSrv) DeleteAccount(_ context.Context, userID uint64, password string) error {
 	f.deleteAccountUserID = userID

@@ -201,6 +201,10 @@ type UserSrv interface {
 	RevokeSession(ctx context.Context, userID uint64, sessionID string) error
 	RevokeAllSessions(ctx context.Context, userID uint64) error
 	ValidateSession(ctx context.Context, userID uint64, sessionID string) (bool, error)
+	ListUserSessions(ctx context.Context, userID uint64, page, pageSize int) (*UserSessionDTOList, error)
+	AddDeviceBlacklist(ctx context.Context, userID int32, deviceID string) error
+	DeleteDeviceBlacklist(ctx context.Context, userID int32, deviceID string) error
+	ListDeviceBlacklist(ctx context.Context, page, pageSize int) (*DeviceBlacklistDTOList, error)
 	ListStaffSessions(ctx context.Context, filters StaffSessionFilterDTO) (*StaffSessionDTOList, error)
 	RevokeStaffSession(ctx context.Context, sessionID string) error
 	RevokeStaffUserSessions(ctx context.Context, userID uint64) error

@@ -463,6 +463,74 @@ func (s *UserHttpServer) ValidateSession_0(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (s *UserHttpServer) ListUserSessions_0(c *gin.Context) {
+	var in ListUserSessionsRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListUserSessions(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) AddDeviceBlacklist_0(c *gin.Context) {
+	var in DeviceBlacklistRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.AddDeviceBlacklist(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) DeleteDeviceBlacklist_0(c *gin.Context) {
+	var in DeviceBlacklistRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.DeleteDeviceBlacklist(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (s *UserHttpServer) ListDeviceBlacklist_0(c *gin.Context) {
+	var in ListDeviceBlacklistRequest
+
+	if err := c.ShouldBindJSON(&in); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	out, err := s.server.ListDeviceBlacklist(c, &in)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, out)
+}
+
 func (s *UserHttpServer) ListStaffSessions_0(c *gin.Context) {
 	var in ListStaffSessionsRequest
 
@@ -635,6 +703,14 @@ func (s *UserHttpServer) RegisterService() {
 	s.router.Handle("POST", "", s.RevokeAllSessions_0)
 
 	s.router.Handle("POST", "", s.ValidateSession_0)
+
+	s.router.Handle("POST", "", s.ListUserSessions_0)
+
+	s.router.Handle("POST", "", s.AddDeviceBlacklist_0)
+
+	s.router.Handle("POST", "", s.DeleteDeviceBlacklist_0)
+
+	s.router.Handle("POST", "", s.ListDeviceBlacklist_0)
 
 	s.router.Handle("POST", "", s.ListStaffSessions_0)
 

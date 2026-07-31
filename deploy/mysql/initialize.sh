@@ -43,7 +43,7 @@ apply_fragment() {
 }
 
 for database in goshop_user_srv goshop_goods_srv goshop_order_srv goshop_inventory_srv goshop_review_srv; do ensure_database "${database}"; done
-
+#对于迁移文件需要在此处进行注册
 apply_file goshop_user_srv migrations/202607040001_user_create_core_tables.up.sql
 apply_file goshop_user_srv migrations/202607050001_user_add_identity_columns.up.sql
 apply_file goshop_user_srv migrations/202607200001_user_add_audit_logs.up.sql
@@ -57,6 +57,8 @@ apply_file goshop_user_srv migrations/202607240001_user_role_fk_constraints.up.s
 apply_file goshop_user_srv migrations/202607250001_auth_resource_scope_staff_sessions_break_glass.up.sql
 apply_file goshop_user_srv migrations/202607300001_user_add_account_deletion_outbox.up.sql
 apply_file goshop_user_srv migrations/202607300002_user_default_gender_unknown.up.sql
+apply_file goshop_user_srv migrations/202607310001_user_device_blacklist.up.sql
+apply_file goshop_user_srv migrations/202607310002_user_session_client_metadata.up.sql
 
 apply_file goshop_goods_srv migrations/202607070001_goods_create_core_tables.up.sql
 apply_file goshop_goods_srv migrations/202607080001_goods_add_outbox_events.up.sql

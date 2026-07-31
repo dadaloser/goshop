@@ -16,6 +16,7 @@ import (
 	"goshop/pkg/log"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type sessionData interface {
@@ -25,6 +26,55 @@ type sessionData interface {
 	RevokeSession(ctx context.Context, userID uint64, sessionID string) error
 	RevokeAllSessions(ctx context.Context, userID uint64) error
 	ValidateSession(ctx context.Context, userID uint64, sessionID string) (bool, error)
+	ListUserSessions(ctx context.Context, userID uint64, page, pageSize int) (data.SessionList, error)
+}
+
+func (us *userService) ListDevices(ctx context.Context, userID uint64, page, pageSize int) (data.SessionList, error) {
+	sessions, ok := us.sessionData()
+	if !ok {
+		return data.SessionList{}, errors.NewSpec(bizcode.ConnectGRPCSpec, "session store is not configured")
+	}
+	return sessions.ListUserSessions(ctx, userID, page, pageSize)
+}
+
+func (us *userService) LogoutDevice(ctx context.Context, userID uint64, sessionID string) error {
+	sessions, ok := us.sessionData()
+	if !ok {
+		return errors.NewSpec(bizcode.ConnectGRPCSpec, "session store is not configured")
+	}
+	if strings.TrimSpace(sessionID) == "" {
+		return errors.NewSpec(bizcode.UserAccountInactiveSpec, "session id is required")
+	}
+	return sessions.RevokeSession(ctx, userID, sessionID)
+}
+
+func (us *userService) ListDeviceBlacklist(ctx context.Context, page, pageSize int) (data.DeviceBlacklistList, error) {
+	store, ok := us.deviceBlacklistData()
+	if !ok {
+		return data.DeviceBlacklistList{}, errors.NewSpec(bizcode.ConnectGRPCSpec, "device blacklist store is not configured")
+	}
+	return store.ListDeviceBlacklist(ctx, page, pageSize)
+}
+func (us *userService) AddDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error {
+	store, ok := us.deviceBlacklistData()
+	if !ok {
+		return errors.NewSpec(bizcode.ConnectGRPCSpec, "device blacklist store is not configured")
+	}
+	return store.AddDeviceBlacklist(ctx, userID, deviceID)
+}
+func (us *userService) DeleteDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error {
+	store, ok := us.deviceBlacklistData()
+	if !ok {
+		return errors.NewSpec(bizcode.ConnectGRPCSpec, "device blacklist store is not configured")
+	}
+	return store.DeleteDeviceBlacklist(ctx, userID, deviceID)
+}
+func (us *userService) deviceBlacklistData() (data.DeviceBlacklistData, bool) {
+	if us == nil || us.data == nil {
+		return nil, false
+	}
+	store, ok := us.data.Users().(data.DeviceBlacklistData)
+	return store, ok
 }
 
 func (us *userService) Logout(ctx context.Context, userID uint64, sessionID string) error {
@@ -105,10 +155,10 @@ func loginDevice(ctx context.Context) (string, string) {
 	if !ok {
 		return "unknown", "unknown"
 	}
-	deviceID := strings.TrimSpace(headers.GetHeader("X-Device-ID"))
+	deviceID := strings.TrimSpace(headers.GetHeader("X-Device-Instance-ID"))
 	deviceName := strings.TrimSpace(headers.GetHeader("X-Device-Name"))
 	if deviceID == "" {
-		deviceID = "unknown"
+		deviceID = uuid.NewString()
 	}
 	if deviceName == "" {
 		deviceName = strings.TrimSpace(headers.GetHeader("User-Agent"))

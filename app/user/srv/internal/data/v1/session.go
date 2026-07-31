@@ -11,6 +11,8 @@ type UserSessionDO struct {
 	RefreshTokenHash []byte     `gorm:"column:refresh_token_hash;type:binary(32);not null;uniqueIndex"`
 	DeviceID         string     `gorm:"column:device_id;type:varchar(128);not null"`
 	DeviceName       string     `gorm:"column:device_name;type:varchar(128);not null"`
+	ClientIP         string     `gorm:"column:client_ip;type:varchar(45);not null"`
+	Location         string     `gorm:"column:location;type:varchar(255);not null"`
 	CreatedAt        time.Time  `gorm:"column:created_at;type:datetime(3);not null"`
 	LastUsedAt       time.Time  `gorm:"column:last_used_at;type:datetime(3);not null"`
 	ExpiresAt        time.Time  `gorm:"column:expires_at;type:datetime(3);not null"`
@@ -62,6 +64,26 @@ type StaffSessionFilters struct {
 	Offset         int
 	Limit          int
 }
+
+type UserSessionRecordDO struct {
+	ID         string
+	DeviceID   string
+	DeviceName string
+	ClientIP   string
+	Location   string
+	CreatedAt  time.Time
+	LastUsedAt time.Time
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+}
+
+type DeviceBlacklistDO struct {
+	UserID    int32     `gorm:"column:user_id;primaryKey"`
+	DeviceID  string    `gorm:"column:device_id;type:varchar(128);primaryKey"`
+	CreatedAt time.Time `gorm:"column:created_at;type:datetime(3);not null"`
+}
+
+func (*DeviceBlacklistDO) TableName() string { return "user_device_blacklist" }
 
 // VerificationCodeDO describes the reviewed verification-code schema used for
 // delivery audit and future database-backed channels. Usable codes remain hashed.

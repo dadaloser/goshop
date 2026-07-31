@@ -48,6 +48,17 @@ func (f fakeSessionUserStore) SessionActive(ctx context.Context, userID uint64, 
 	return f.sessionActive(ctx, userID, sessionID, at)
 }
 
+func (f fakeSessionUserStore) ListUserSessions(context.Context, uint64, int, int) ([]dv1.UserSessionRecordDO, int64, error) {
+	return nil, 0, nil
+}
+func (f fakeSessionUserStore) AddDeviceBlacklist(context.Context, int32, string, time.Time) error {
+	return nil
+}
+func (f fakeSessionUserStore) DeleteDeviceBlacklist(context.Context, int32, string) error { return nil }
+func (f fakeSessionUserStore) ListDeviceBlacklist(context.Context, int, int) ([]dv1.DeviceBlacklistDO, int64, error) {
+	return nil, 0, nil
+}
+
 func (f fakeSessionUserStore) ListStaffSessions(ctx context.Context, filters dv1.StaffSessionFilters) ([]dv1.StaffSessionRecordDO, int64, error) {
 	if f.listStaffSessions == nil {
 		return nil, 0, nil
