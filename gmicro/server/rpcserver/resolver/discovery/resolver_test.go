@@ -32,22 +32,23 @@ func (c *recordingClientConn) ParseServiceConfig(string) *serviceconfig.ParseRes
 	return nil
 }
 
-func TestUpdateWritesEmptyAddressState(t *testing.T) {
+func TestUpdateKeepsPreviousStateWhenNoValidEndpoint(t *testing.T) {
 	cc := &recordingClientConn{}
 	r := &discoveryResolver{cc: cc, insecure: true}
 
 	r.update([]*registry.ServiceInstance{
 		{
 			Name:      "goods",
-			Endpoints: []string{"http://127.0.0.1:8080"},
+			Endpoints: []string{"grpc://127.0.0.1:8080"},
 		},
 	})
+	r.update(nil)
 
 	if len(cc.states) != 1 {
 		t.Fatalf("UpdateState calls = %d, want 1", len(cc.states))
 	}
-	if len(cc.states[0].Addresses) != 0 {
-		t.Fatalf("UpdateState addresses = %v, want empty", cc.states[0].Addresses)
+	if len(cc.states[0].Addresses) != 1 || cc.states[0].Addresses[0].Addr != "127.0.0.1:8080" {
+		t.Fatalf("UpdateState addresses = %v, want the previous valid address", cc.states[0].Addresses)
 	}
 }
 
@@ -101,14 +102,14 @@ func (c *failingClientConn) UpdateState(state resolver.State) error {
 	return errors.New("update failed")
 }
 
-func TestUpdateStillCallsClientConnWhenNoEndpoints(t *testing.T) {
+func TestUpdateDoesNotCallClientConnWhenNoEndpoints(t *testing.T) {
 	cc := &failingClientConn{}
 	r := &discoveryResolver{cc: cc, insecure: true}
 
 	r.update(nil)
 
-	if len(cc.states) != 1 {
-		t.Fatalf("UpdateState calls = %d, want 1", len(cc.states))
+	if len(cc.states) != 0 {
+		t.Fatalf("UpdateState calls = %d, want 0", len(cc.states))
 	}
 }
 

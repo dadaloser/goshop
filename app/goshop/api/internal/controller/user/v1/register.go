@@ -1,7 +1,6 @@
 package user
 
 import (
-	"goshop/app/goshop/api/internal/captcha"
 	"goshop/app/pkg/bizcode"
 	gin2 "goshop/app/pkg/translator/gin"
 	"goshop/pkg/common/core"
@@ -39,13 +38,13 @@ func (us *userServer) Register(ctx *gin.Context) {
 		}
 	} else {
 		if regForm.PassWord != regForm.ConfirmPassword {
-			core.WriteResponse(ctx, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "password confirmation did not match"), nil)
+			core.WriteResponse(ctx, errors.NewSpec(bizcode.PasswordConfirmationMismatchSpec, "password confirmation did not match"), nil)
 			return
 		}
-		if regForm.CaptchaID == "" || !captcha.Verify(regForm.CaptchaID, regForm.Captcha, true) {
-			core.WriteResponse(ctx, errors.NewSpec(bizcode.SMSCodeIncorrectSpec, "captcha verification failed"), nil)
+		/*todo	if regForm.CaptchaID == "" || !captcha.Verify(regForm.CaptchaID, regForm.Captcha, true) {
+			core.WriteResponse(ctx, errors.NewSpec(bizcode.CaptchaVerificationFailedSpec, "captcha verification failed"), nil)
 			return
-		}
+		}*/
 	}
 
 	userSrv, err := us.usersService()

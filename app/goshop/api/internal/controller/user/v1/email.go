@@ -51,7 +51,7 @@ func SendEmailCode(sender emailcode.Sender) gin.HandlerFunc {
 			core.WriteResponse(ctx, errors.NewSpec(bizcode.EmailVerificationUnavailableSpec, "send email verification code"), nil)
 			return
 		}
-		core.WriteResponse(ctx, nil, gin.H{"ok": true})
+		core.WriteResponse(ctx, nil, gin.H{"msg": true})
 	}
 }
 

@@ -47,7 +47,7 @@ type UserSrv interface {
 	Refresh(ctx context.Context, sessionID, refreshToken string) (*UserDTO, error)
 	ListDevices(ctx context.Context, userID uint64, page, pageSize int) (data.SessionList, error)
 	LogoutDevice(ctx context.Context, userID uint64, sessionID string) error
-	ListDeviceBlacklist(ctx context.Context, page, pageSize int) (data.DeviceBlacklistList, error)
+	ListDeviceBlacklist(ctx context.Context, userID uint64, page, pageSize int) (data.DeviceBlacklistList, error)
 	AddDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error
 	DeleteDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error
 	DeleteAccount(ctx context.Context, userID uint64, password string) error

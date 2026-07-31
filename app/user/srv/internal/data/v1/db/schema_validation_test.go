@@ -31,7 +31,8 @@ func TestUserSchemaChecksRequireIdentitySessionsAndRBAC(t *testing.T) {
 	}
 
 	assertContainsAll(t, userCheck.required, []string{"username", "email", "account_status", "mobile_verified", "email_verified", "last_login_at"})
-	assertContainsAll(t, sessionCheck.required, []string{"refresh_token_hash", "device_id", "expires_at", "revoked_at"})
+	assertContainsAll(t, sessionCheck.required, []string{"principal_type", "refresh_token_hash", "device_id", "client_ip", "location", "expires_at", "revoked_at"})
+	assertContainsAll(t, sessionCheck.indexes, []string{"idx_user_sessions_principal_last_used"})
 	assertContainsAll(t, scopeCheck.required, []string{"user_id", "domain", "store_id", "team_id"})
 	assertContainsAll(t, outboxCheck.required, []string{"id", "event_type", "user_id", "payload", "status", "available_at", "published_at"})
 }

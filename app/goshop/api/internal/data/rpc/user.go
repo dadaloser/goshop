@@ -65,7 +65,7 @@ func (u *users) ValidateSession(ctx context.Context, userID uint64, sessionID st
 func (u *users) ListUserSessions(ctx context.Context, userID uint64, page, pageSize int) (data.SessionList, error) {
 	resp, err := u.uc.ListUserSessions(ctx, &upbv1.ListUserSessionsRequest{UserId: int32(userID), Pn: uint32(page), PSize: uint32(pageSize)})
 	if err != nil {
-		return data.SessionList{}, err
+		return data.SessionList{}, errors.NewSpec(bizcode.DeviceSessionUnavailableSpec, "list user sessions")
 	}
 	result := data.SessionList{TotalCount: int64(resp.GetTotal()), Items: make([]data.Session, 0, len(resp.GetItems()))}
 	for _, item := range resp.GetItems() {
@@ -79,8 +79,8 @@ func (u *users) ListUserSessions(ctx context.Context, userID uint64, page, pageS
 	return result, nil
 }
 
-func (u *users) ListDeviceBlacklist(ctx context.Context, page, pageSize int) (data.DeviceBlacklistList, error) {
-	resp, err := u.uc.ListDeviceBlacklist(ctx, &upbv1.ListDeviceBlacklistRequest{Pn: uint32(page), PSize: uint32(pageSize)})
+func (u *users) ListDeviceBlacklist(ctx context.Context, userID uint64, page, pageSize int) (data.DeviceBlacklistList, error) {
+	resp, err := u.uc.ListDeviceBlacklist(ctx, &upbv1.ListDeviceBlacklistRequest{Pn: uint32(page), PSize: uint32(pageSize), UserId: int32(userID)})
 	if err != nil {
 		return data.DeviceBlacklistList{}, err
 	}
@@ -107,6 +107,11 @@ func sessionClientMetadata(ctx context.Context) (string, string) {
 	clientIP := strings.TrimSpace(headers.GetHeader("X-Real-IP"))
 	if forwarded := strings.TrimSpace(headers.GetHeader("X-Forwarded-For")); forwarded != "" {
 		clientIP = strings.TrimSpace(strings.Split(forwarded, ",")[0])
+	}
+	if clientIP == "" {
+		if client, ok := ctx.(interface{ ClientIP() string }); ok {
+			clientIP = strings.TrimSpace(client.ClientIP())
+		}
 	}
 	location := strings.TrimSpace(headers.GetHeader("X-Device-Location"))
 	if len(clientIP) > 45 {

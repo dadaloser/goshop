@@ -45,4 +45,13 @@ const (
 
 	// ErrUsernameAlreadyExists - 409: Username already exists.
 	ErrUsernameAlreadyExists
+
+	// ErrPasswordConfirmationMismatch - 400: Password confirmation does not match.
+	ErrPasswordConfirmationMismatch
+
+	// ErrCaptchaVerificationFailed - 400: Captcha verification failed.
+	ErrCaptchaVerificationFailed
+
+	// ErrDeviceSessionUnavailable - 503: Device login records are temporarily unavailable.
+	ErrDeviceSessionUnavailable
 )

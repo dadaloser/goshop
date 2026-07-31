@@ -63,10 +63,16 @@ func (u *users) ListUserSessions(ctx context.Context, userID uint64, offset, lim
 	base := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).Where("user_id = ? AND principal_type = ?", userID, string(authz.PrincipalCustomer))
 	var total int64
 	if err := base.Count(&total).Error; err != nil {
+		if stderrors.Is(err, context.Canceled) || stderrors.Is(err, context.DeadlineExceeded) {
+			return nil, 0, err
+		}
 		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	rows := make([]dv1.UserSessionRecordDO, 0, limit)
 	if err := base.Select("id, device_id, device_name, client_ip, location, created_at, last_used_at, expires_at, revoked_at").Order("last_used_at DESC").Offset(offset).Limit(limit).Find(&rows).Error; err != nil {
+		if stderrors.Is(err, context.Canceled) || stderrors.Is(err, context.DeadlineExceeded) {
+			return nil, 0, err
+		}
 		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())
 	}
 	return rows, total, nil
@@ -99,11 +105,14 @@ func (u *users) DeleteDeviceBlacklist(ctx context.Context, userID int32, deviceI
 	return nil
 }
 
-func (u *users) ListDeviceBlacklist(ctx context.Context, offset, limit int) ([]dv1.DeviceBlacklistDO, int64, error) {
+func (u *users) ListDeviceBlacklist(ctx context.Context, userID int32, offset, limit int) ([]dv1.DeviceBlacklistDO, int64, error) {
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
 	base := u.db.WithContext(ctx).Model(&dv1.DeviceBlacklistDO{})
+	if userID > 0 {
+		base = base.Where("user_id = ?", userID)
+	}
 	var total int64
 	if err := base.Count(&total).Error; err != nil {
 		return nil, 0, errors.NewCode(errcode.ErrDatabase, err.Error())

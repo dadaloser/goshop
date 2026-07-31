@@ -75,7 +75,9 @@ type UserData interface {
 }
 
 type DeviceBlacklistData interface {
-	ListDeviceBlacklist(ctx context.Context, page, pageSize int) (DeviceBlacklistList, error)
+	// userID is zero for staff-wide listings and otherwise restricts results to
+	// the specified account.
+	ListDeviceBlacklist(ctx context.Context, userID uint64, page, pageSize int) (DeviceBlacklistList, error)
 	AddDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error
 	DeleteDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error
 }

@@ -939,6 +939,7 @@ type ListDeviceBlacklistRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Pn            uint32                 `protobuf:"varint,1,opt,name=pn,proto3" json:"pn,omitempty"`
 	PSize         uint32                 `protobuf:"varint,2,opt,name=pSize,proto3" json:"pSize,omitempty"`
+	UserId        int32                  `protobuf:"varint,3,opt,name=userId,proto3" json:"userId,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -983,6 +984,13 @@ func (x *ListDeviceBlacklistRequest) GetPn() uint32 {
 func (x *ListDeviceBlacklistRequest) GetPSize() uint32 {
 	if x != nil {
 		return x.PSize
+	}
+	return 0
+}
+
+func (x *ListDeviceBlacklistRequest) GetUserId() int32 {
+	if x != nil {
+		return x.UserId
 	}
 	return 0
 }
@@ -3794,10 +3802,11 @@ const file_user_proto_rawDesc = "" +
 	"\x05items\x18\x02 \x03(\v2\x12.UserSessionRecordR\x05items\"L\n" +
 	"\x16DeviceBlacklistRequest\x12\x16\n" +
 	"\x06userId\x18\x01 \x01(\x05R\x06userId\x12\x1a\n" +
-	"\bdeviceId\x18\x02 \x01(\tR\bdeviceId\"B\n" +
+	"\bdeviceId\x18\x02 \x01(\tR\bdeviceId\"Z\n" +
 	"\x1aListDeviceBlacklistRequest\x12\x0e\n" +
 	"\x02pn\x18\x01 \x01(\rR\x02pn\x12\x14\n" +
-	"\x05pSize\x18\x02 \x01(\rR\x05pSize\"i\n" +
+	"\x05pSize\x18\x02 \x01(\rR\x05pSize\x12\x16\n" +
+	"\x06userId\x18\x03 \x01(\x05R\x06userId\"i\n" +
 	"\x15DeviceBlacklistRecord\x12\x16\n" +
 	"\x06userId\x18\x01 \x01(\x05R\x06userId\x12\x1a\n" +
 	"\bdeviceId\x18\x02 \x01(\tR\bdeviceId\x12\x1c\n" +

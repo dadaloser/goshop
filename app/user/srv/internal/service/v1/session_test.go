@@ -55,7 +55,7 @@ func (f fakeSessionUserStore) AddDeviceBlacklist(context.Context, int32, string,
 	return nil
 }
 func (f fakeSessionUserStore) DeleteDeviceBlacklist(context.Context, int32, string) error { return nil }
-func (f fakeSessionUserStore) ListDeviceBlacklist(context.Context, int, int) ([]dv1.DeviceBlacklistDO, int64, error) {
+func (f fakeSessionUserStore) ListDeviceBlacklist(context.Context, int32, int, int) ([]dv1.DeviceBlacklistDO, int64, error) {
 	return nil, 0, nil
 }
 

@@ -40,6 +40,36 @@ func TestResiliencePluginRegistersCallbacks(t *testing.T) {
 	}
 }
 
+func TestResiliencePluginRestoresQueryChainContext(t *testing.T) {
+	db, err := gormio.Open(gormmysql.New(gormmysql.Config{
+		DSN:                       "user:password@tcp(127.0.0.1:3306)/test",
+		SkipInitializeWithVersion: true,
+	}), &gormio.Config{
+		DisableAutomaticPing: true,
+		DryRun:               true,
+	})
+	if err != nil {
+		t.Fatalf("gorm.Open() error = %v", err)
+	}
+	if err := db.Use(NewResiliencePlugin(resilience.NewOptions())); err != nil {
+		t.Fatalf("Use() error = %v", err)
+	}
+
+	query := db.WithContext(t.Context()).Model(&struct{ ID int }{})
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		t.Fatalf("Count() error = %v", err)
+	}
+	if err := query.Statement.Context.Err(); err != nil {
+		t.Fatalf("query context after Count() = %v, want active", err)
+	}
+
+	var rows []struct{ ID int }
+	if err := query.Find(&rows).Error; err != nil {
+		t.Fatalf("Find() after Count() error = %v", err)
+	}
+}
+
 func TestIsMySQLDependencyError(t *testing.T) {
 	tests := []struct {
 		name string

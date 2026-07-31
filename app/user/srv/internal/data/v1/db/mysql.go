@@ -107,6 +107,11 @@ func validateUserSchema(db *gorm.DB) error {
 				return fmt.Errorf("user schema validation failed: required column %q.%q does not exist", table.model.TableName(), column)
 			}
 		}
+		for _, index := range table.indexes {
+			if !db.Migrator().HasIndex(table.model, index) {
+				return fmt.Errorf("user schema validation failed: required index %q.%q does not exist", table.model.TableName(), index)
+			}
+		}
 	}
 	return nil
 }
@@ -114,6 +119,7 @@ func validateUserSchema(db *gorm.DB) error {
 type schemaTableCheck struct {
 	model    interface{ TableName() string }
 	required []string
+	indexes  []string
 }
 
 func userSchemaChecks() []schemaTableCheck {
@@ -142,7 +148,8 @@ func userSchemaChecks() []schemaTableCheck {
 		},
 		{
 			model:    &dv1.UserSessionDO{},
-			required: []string{"id", "user_id", "refresh_token_hash", "device_id", "device_name", "created_at", "last_used_at", "expires_at", "revoked_at"},
+			required: []string{"id", "user_id", "principal_type", "refresh_token_hash", "device_id", "device_name", "client_ip", "location", "created_at", "last_used_at", "expires_at", "revoked_at"},
+			indexes:  []string{"idx_user_sessions_principal_last_used"},
 		},
 		{
 			model:    &dv1.AccountDeletionOutboxEventDO{},

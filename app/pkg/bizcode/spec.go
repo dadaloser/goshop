@@ -73,6 +73,29 @@ var SMSCodeIncorrectSpec = errors.Spec{
 	Message: "Sms code incorrect",
 }
 
+// PasswordConfirmationMismatchSpec describes a registration request with
+// inconsistent password fields.
+var PasswordConfirmationMismatchSpec = errors.Spec{
+	Code:    ErrPasswordConfirmationMismatch,
+	Kind:    errors.KindInvalidArgument,
+	Message: "Password confirmation does not match",
+}
+
+// CaptchaVerificationFailedSpec describes an invalid or expired captcha.
+var CaptchaVerificationFailedSpec = errors.Spec{
+	Code:    ErrCaptchaVerificationFailed,
+	Kind:    errors.KindInvalidArgument,
+	Message: "Captcha verification failed",
+}
+
+// DeviceSessionUnavailableSpec describes a temporary failure retrieving device
+// login records without exposing the backing storage or service details.
+var DeviceSessionUnavailableSpec = errors.Spec{
+	Code:    ErrDeviceSessionUnavailable,
+	Kind:    errors.KindUnavailable,
+	Message: "Device login records are temporarily unavailable",
+}
+
 // SMSCodeNotExistSpec describes a missing or expired SMS verification code.
 var SMSCodeNotExistSpec = errors.Spec{
 	Code:    ErrCodeNotExist,

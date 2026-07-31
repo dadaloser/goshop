@@ -77,7 +77,7 @@ func (us *userServer) RevokeStaffSession(ctx *gin.Context) {
 		TargetId:           sessionID,
 		Domain:             string(authz.BusinessDomainPlatform),
 	}})
-	core.WriteResponse(ctx, nil, gin.H{"ok": true, "session_id": sessionID})
+	core.WriteResponse(ctx, nil, gin.H{"msg": "Device logged out successfully", "session_id": sessionID})
 }
 
 func (us *userServer) RevokeStaffUserSessions(ctx *gin.Context) {
@@ -113,7 +113,7 @@ func (us *userServer) RevokeStaffUserSessions(ctx *gin.Context) {
 		TargetId:           strings.TrimSpace(ctx.Param("id")),
 		Domain:             string(authz.BusinessDomainPlatform),
 	}})
-	core.WriteResponse(ctx, nil, gin.H{"ok": true, "user_id": userID})
+	core.WriteResponse(ctx, nil, gin.H{"msg": true, "user_id": userID})
 }
 
 func headerRequestID(ctx *gin.Context) string {

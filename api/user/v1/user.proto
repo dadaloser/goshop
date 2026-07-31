@@ -150,7 +150,7 @@ message UserSessionRecord {
 message ListUserSessionsRequest { int32 userId = 1; uint32 pn = 2; uint32 pSize = 3; }
 message ListUserSessionsResponse { int32 total = 1; repeated UserSessionRecord items = 2; }
 message DeviceBlacklistRequest { int32 userId = 1; string deviceId = 2; }
-message ListDeviceBlacklistRequest { uint32 pn = 1; uint32 pSize = 2; }
+message ListDeviceBlacklistRequest { uint32 pn = 1; uint32 pSize = 2; int32 userId = 3; }
 message DeviceBlacklistRecord { int32 userId = 1; string deviceId = 2; uint64 createdAt = 3; }
 message ListDeviceBlacklistResponse { int32 total = 1; repeated DeviceBlacklistRecord items = 2; }
 

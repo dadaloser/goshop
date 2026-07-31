@@ -12,6 +12,11 @@ import (
 
 const resilienceCallKey = "goshop:resilience:mysql:call"
 
+type resilienceCallState struct {
+	call          *resilience.Call
+	parentContext context.Context
+}
+
 // ResiliencePlugin applies Sentinel timeout, isolation, and circuit breaking to GORM operations.
 type ResiliencePlugin struct {
 	options *resilience.Options
@@ -98,13 +103,17 @@ func (p *ResiliencePlugin) Initialize(db *gormio.DB) error {
 
 func (p *ResiliencePlugin) before(resource string) func(*gormio.DB) {
 	return func(db *gormio.DB) {
-		call, err := p.guard.Start(db.Statement.Context, resource)
+		parentContext := db.Statement.Context
+		call, err := p.guard.Start(parentContext, resource)
 		if err != nil {
 			db.Error = db.AddError(err)
 			return
 		}
 		db.Statement.Context = call.Context()
-		db.Statement.Settings.Store(resilienceCallKey, call)
+		db.Statement.Settings.Store(resilienceCallKey, resilienceCallState{
+			call:          call,
+			parentContext: parentContext,
+		})
 	}
 }
 
@@ -113,11 +122,15 @@ func (p *ResiliencePlugin) after(db *gormio.DB) {
 	if !ok {
 		return
 	}
-	call, ok := value.(*resilience.Call)
-	if !ok {
+	state, ok := value.(resilienceCallState)
+	if !ok || state.call == nil {
 		return
 	}
-	call.Finish(db.Error)
+	state.call.Finish(db.Error)
+	// GORM query chains are reusable. Finish cancels the per-operation context,
+	// so leaving it on Statement would make the next operation on the same chain
+	// fail immediately with context.Canceled (for example Count followed by Find).
+	db.Statement.Context = state.parentContext
 }
 
 func (p *ResiliencePlugin) beforeName(resource string) string {

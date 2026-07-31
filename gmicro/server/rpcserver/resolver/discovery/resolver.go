@@ -72,7 +72,13 @@ func (r *discoveryResolver) update(ins []*registry.ServiceInstance) {
 		addrs = append(addrs, addr)
 	}
 	if len(addrs) == 0 {
-		log.Warnf("[resolver] zero endpoint found, updating empty state, instances: %v", ins)
+		// Discovery backends can transiently return an empty snapshot while a
+		// watch is being refreshed. Publishing that snapshot removes all current
+		// SubConns and cancels in-flight RPCs. Keep the last successfully
+		// published address set until discovery supplies at least one valid gRPC
+		// endpoint again.
+		log.Warnf("[resolver] zero valid endpoint found; keeping the last resolver state, instances: %v", ins)
+		return
 	}
 	err := r.cc.UpdateState(resolver.State{Addresses: addrs})
 	if err != nil {

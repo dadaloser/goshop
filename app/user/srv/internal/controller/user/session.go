@@ -84,7 +84,7 @@ func (s *userServer) DeleteDeviceBlacklist(ctx context.Context, req *upbv1.Devic
 	return &emptypb.Empty{}, nil
 }
 func (s *userServer) ListDeviceBlacklist(ctx context.Context, req *upbv1.ListDeviceBlacklistRequest) (*upbv1.ListDeviceBlacklistResponse, error) {
-	result, err := s.srv.ListDeviceBlacklist(ctx, int(req.GetPn()), int(req.GetPSize()))
+	result, err := s.srv.ListDeviceBlacklist(ctx, req.GetUserId(), int(req.GetPn()), int(req.GetPSize()))
 	if err != nil {
 		return nil, err
 	}

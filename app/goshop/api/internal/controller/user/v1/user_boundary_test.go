@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"goshop/app/goshop/api/internal/data"
 	goodsv1 "goshop/app/goshop/api/internal/service/goods/v1"
@@ -164,6 +165,131 @@ func TestUpdateUserReturnsFriendlyValidationAndSuccessMessages(t *testing.T) {
 	})
 }
 
+func TestOwnDeviceBlacklistUsesAuthenticatedUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userSrv := &fakeUserSrv{
+		blacklist: data.DeviceBlacklistList{
+			TotalCount: 1,
+			Items:      []data.DeviceBlacklist{{UserID: 42, DeviceID: "device-a"}},
+		},
+	}
+	server := &userServer{sf: &fakeUserServiceFactory{users: userSrv}}
+
+	t.Run("list", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodGet, "/user/device_blacklist/self", nil)
+		ctx.Set(middlewares.KeyUserID, float64(42))
+
+		server.ListOwnDeviceBlacklist(ctx)
+
+		if recorder.Code != http.StatusOK || userSrv.listBlacklistUserID != 42 {
+			t.Fatalf("ListOwnDeviceBlacklist() status=%d user_id=%d, want status=200 user_id=42", recorder.Code, userSrv.listBlacklistUserID)
+		}
+		if strings.Contains(recorder.Body.String(), `"user_id"`) {
+			t.Fatalf("ListOwnDeviceBlacklist() exposed a user identifier: %s", recorder.Body.String())
+		}
+	})
+
+	t.Run("add ignores client supplied user id", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/user/device_blacklist/self", strings.NewReader(`{"user_id":43,"device_id":"device-a"}`))
+		ctx.Request.Header.Set("Content-Type", "application/json")
+		ctx.Set(middlewares.KeyUserID, float64(42))
+
+		server.AddOwnDeviceBlacklist(ctx)
+
+		if recorder.Code != http.StatusOK || userSrv.addBlacklistUserID != 42 || userSrv.addBlacklistDeviceID != "device-a" {
+			t.Fatalf("AddOwnDeviceBlacklist() status=%d user_id=%d device_id=%q, want status=200 user_id=42 device_id=device-a", recorder.Code, userSrv.addBlacklistUserID, userSrv.addBlacklistDeviceID)
+		}
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		ctx.Request = httptest.NewRequest(http.MethodDelete, "/user/device_blacklist/self/device-a", nil)
+		ctx.Params = gin.Params{{Key: "device_id", Value: "device-a"}}
+		ctx.Set(middlewares.KeyUserID, float64(42))
+
+		server.DeleteOwnDeviceBlacklist(ctx)
+
+		if recorder.Code != http.StatusOK || userSrv.deleteBlacklistUserID != 42 || userSrv.deleteBlacklistDeviceID != "device-a" {
+			t.Fatalf("DeleteOwnDeviceBlacklist() status=%d user_id=%d device_id=%q, want status=200 user_id=42 device_id=device-a", recorder.Code, userSrv.deleteBlacklistUserID, userSrv.deleteBlacklistDeviceID)
+		}
+	})
+}
+
+func TestListDevicesReturnsDeviceIPAndLastOperationTime(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	lastOperation := time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC)
+	userSrv := &fakeUserSrv{sessions: data.SessionList{
+		TotalCount: 1,
+		Items: []data.Session{{
+			ID:         "session-a",
+			DeviceID:   "device-a",
+			DeviceName: "iPhone 16",
+			ClientIP:   "203.0.113.10",
+			LastUsedAt: lastOperation,
+			Active:     true,
+		}},
+	}}
+	server := &userServer{sf: &fakeUserServiceFactory{users: userSrv}}
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/user/devices", nil)
+	ctx.Set(middlewares.KeyUserID, float64(42))
+
+	server.ListDevices(ctx)
+
+	if recorder.Code != http.StatusOK || userSrv.listDevicesUserID != 42 {
+		t.Fatalf("ListDevices() status=%d user_id=%d, want status=200 user_id=42", recorder.Code, userSrv.listDevicesUserID)
+	}
+	for _, field := range []string{`"device":"iPhone 16"`, `"ip_address":"203.0.113.10"`, `"last_operation_at":"2026-07-31T12:00:00Z"`, `"session_id":"session-a"`} {
+		if !strings.Contains(recorder.Body.String(), field) {
+			t.Fatalf("ListDevices() body = %s, want %s", recorder.Body.String(), field)
+		}
+	}
+}
+
+func TestListDevicesHidesInternalFailure(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userSrv := &fakeUserSrv{
+		listDevicesErr: errors.NewSpec(bizcode.DeviceSessionUnavailableSpec, "unknown column client_ip"),
+	}
+	server := &userServer{sf: &fakeUserServiceFactory{users: userSrv}}
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/user/devices", nil)
+	ctx.Set(middlewares.KeyUserID, float64(42))
+
+	server.ListDevices(ctx)
+
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("ListDevices() status = %d, want %d body=%s", recorder.Code, http.StatusServiceUnavailable, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "设备获取失败，请稍后重试") || strings.Contains(recorder.Body.String(), "Database error") || strings.Contains(recorder.Body.String(), "unknown column") {
+		t.Fatalf("ListDevices() exposed an internal failure: %s", recorder.Body.String())
+	}
+}
+
+func TestLogoutDeviceUsesAuthenticatedUserID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	userSrv := &fakeUserSrv{}
+	server := &userServer{sf: &fakeUserServiceFactory{users: userSrv}}
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/user/devices/session-a/logout", nil)
+	ctx.Params = gin.Params{{Key: "session_id", Value: "session-a"}}
+	ctx.Set(middlewares.KeyUserID, float64(42))
+
+	server.LogoutDevice(ctx)
+
+	if recorder.Code != http.StatusOK || userSrv.logoutDeviceUserID != 42 || userSrv.logoutDeviceSessionID != "session-a" {
+		t.Fatalf("LogoutDevice() status=%d user_id=%d session_id=%q, want status=200 user_id=42 session_id=session-a", recorder.Code, userSrv.logoutDeviceUserID, userSrv.logoutDeviceSessionID)
+	}
+}
+
 func TestLogoutAllCallsUserService(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	userSrv := &fakeUserSrv{}
@@ -260,11 +386,22 @@ func (f *fakeUserServiceFactory) Sms() smsv1.SmsSrv {
 }
 
 type fakeUserSrv struct {
-	user                  *userv1.UserDTO
-	updateCalled          bool
-	logoutAllUserID       uint64
-	deleteAccountUserID   uint64
-	deleteAccountPassword string
+	user                    *userv1.UserDTO
+	updateCalled            bool
+	logoutAllUserID         uint64
+	deleteAccountUserID     uint64
+	deleteAccountPassword   string
+	sessions                data.SessionList
+	listDevicesErr          error
+	listDevicesUserID       uint64
+	logoutDeviceUserID      uint64
+	logoutDeviceSessionID   string
+	blacklist               data.DeviceBlacklistList
+	listBlacklistUserID     uint64
+	addBlacklistUserID      uint64
+	addBlacklistDeviceID    string
+	deleteBlacklistUserID   uint64
+	deleteBlacklistDeviceID string
 }
 
 func (f *fakeUserSrv) PasswordLogin(context.Context, string, string) (*userv1.UserDTO, error) {
@@ -303,15 +440,29 @@ func (f *fakeUserSrv) Refresh(context.Context, string, string) (*userv1.UserDTO,
 	return nil, nil
 }
 
-func (f *fakeUserSrv) ListDevices(context.Context, uint64, int, int) (data.SessionList, error) {
-	return data.SessionList{}, nil
+func (f *fakeUserSrv) ListDevices(_ context.Context, userID uint64, _ int, _ int) (data.SessionList, error) {
+	f.listDevicesUserID = userID
+	return f.sessions, f.listDevicesErr
 }
-func (f *fakeUserSrv) LogoutDevice(context.Context, uint64, string) error { return nil }
-func (f *fakeUserSrv) ListDeviceBlacklist(context.Context, int, int) (data.DeviceBlacklistList, error) {
-	return data.DeviceBlacklistList{}, nil
+func (f *fakeUserSrv) LogoutDevice(_ context.Context, userID uint64, sessionID string) error {
+	f.logoutDeviceUserID = userID
+	f.logoutDeviceSessionID = sessionID
+	return nil
 }
-func (f *fakeUserSrv) AddDeviceBlacklist(context.Context, uint64, string) error    { return nil }
-func (f *fakeUserSrv) DeleteDeviceBlacklist(context.Context, uint64, string) error { return nil }
+func (f *fakeUserSrv) ListDeviceBlacklist(_ context.Context, userID uint64, _ int, _ int) (data.DeviceBlacklistList, error) {
+	f.listBlacklistUserID = userID
+	return f.blacklist, nil
+}
+func (f *fakeUserSrv) AddDeviceBlacklist(_ context.Context, userID uint64, deviceID string) error {
+	f.addBlacklistUserID = userID
+	f.addBlacklistDeviceID = deviceID
+	return nil
+}
+func (f *fakeUserSrv) DeleteDeviceBlacklist(_ context.Context, userID uint64, deviceID string) error {
+	f.deleteBlacklistUserID = userID
+	f.deleteBlacklistDeviceID = deviceID
+	return nil
+}
 
 func (f *fakeUserSrv) DeleteAccount(_ context.Context, userID uint64, password string) error {
 	f.deleteAccountUserID = userID

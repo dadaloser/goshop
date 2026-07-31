@@ -96,7 +96,7 @@ func (h *CallbackHandler) Handle(c *gin.Context) {
 	} else {
 		metricPaymentCallbackHTTP.Inc("accepted")
 	}
-	c.JSON(http.StatusOK, gin.H{"ok": true, "duplicate": duplicate})
+	c.JSON(http.StatusOK, gin.H{"msg": true, "duplicate": duplicate})
 }
 func (h *CallbackHandler) verify(provider, timestamp, nonce, signature string, body []byte) bool {
 	unix, err := strconv.ParseInt(timestamp, 10, 64)

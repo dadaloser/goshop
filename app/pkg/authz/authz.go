@@ -35,19 +35,21 @@ const (
 type Permission string
 
 const (
-	PermissionUserProfileReadSelf    Permission = "user:profile:read:self"
-	PermissionUserProfileUpdateSelf  Permission = "user:profile:update:self"
-	PermissionUserAccountDeleteSelf  Permission = "user:account:delete:self"
-	PermissionCartReadSelf           Permission = "cart:read:self"
-	PermissionCartWriteSelf          Permission = "cart:write:self"
-	PermissionOrderCreateSelf        Permission = "order:create:self"
-	PermissionOrderReadSelf          Permission = "order:read:self"
-	PermissionOrderPaySelf           Permission = "order:pay:self"
-	PermissionOrderStatusLogReadSelf Permission = "order:status_log:read:self"
-	PermissionInventoryReadPublic    Permission = "inventory:read:public"
-	PermissionReviewCreateSelf       Permission = "review:create:self"
-	PermissionReviewAppendSelf       Permission = "review:append:self"
-	PermissionReviewReadPublic       Permission = "review:read:public"
+	PermissionUserProfileReadSelf          Permission = "user:profile:read:self"
+	PermissionUserProfileUpdateSelf        Permission = "user:profile:update:self"
+	PermissionUserAccountDeleteSelf        Permission = "user:account:delete:self"
+	PermissionUserDeviceBlacklistReadSelf  Permission = "user:device_blacklist:read:self"
+	PermissionUserDeviceBlacklistWriteSelf Permission = "user:device_blacklist:write:self"
+	PermissionCartReadSelf                 Permission = "cart:read:self"
+	PermissionCartWriteSelf                Permission = "cart:write:self"
+	PermissionOrderCreateSelf              Permission = "order:create:self"
+	PermissionOrderReadSelf                Permission = "order:read:self"
+	PermissionOrderPaySelf                 Permission = "order:pay:self"
+	PermissionOrderStatusLogReadSelf       Permission = "order:status_log:read:self"
+	PermissionInventoryReadPublic          Permission = "inventory:read:public"
+	PermissionReviewCreateSelf             Permission = "review:create:self"
+	PermissionReviewAppendSelf             Permission = "review:append:self"
+	PermissionReviewReadPublic             Permission = "review:read:public"
 
 	PermissionUserCreateAny           Permission = "user:create:any"
 	PermissionUserListAny             Permission = "user:list:any"
@@ -80,6 +82,8 @@ var customerPermissions = []Permission{
 	PermissionUserProfileReadSelf,
 	PermissionUserProfileUpdateSelf,
 	PermissionUserAccountDeleteSelf,
+	PermissionUserDeviceBlacklistReadSelf,
+	PermissionUserDeviceBlacklistWriteSelf,
 	PermissionCartReadSelf,
 	PermissionCartWriteSelf,
 	PermissionOrderCreateSelf,
@@ -95,6 +99,8 @@ var allPermissions = []Permission{
 	PermissionUserProfileReadSelf,
 	PermissionUserProfileUpdateSelf,
 	PermissionUserAccountDeleteSelf,
+	PermissionUserDeviceBlacklistReadSelf,
+	PermissionUserDeviceBlacklistWriteSelf,
 	PermissionCartReadSelf,
 	PermissionCartWriteSelf,
 	PermissionOrderCreateSelf,

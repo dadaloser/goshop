@@ -10,6 +10,8 @@ func TestPermissionsHaveExplicitScope(t *testing.T) {
 		PermissionUserProfileReadSelf,
 		PermissionUserProfileUpdateSelf,
 		PermissionUserAccountDeleteSelf,
+		PermissionUserDeviceBlacklistReadSelf,
+		PermissionUserDeviceBlacklistWriteSelf,
 		PermissionCartReadSelf,
 		PermissionCartWriteSelf,
 		PermissionOrderCreateSelf,

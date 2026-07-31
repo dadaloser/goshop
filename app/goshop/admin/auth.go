@@ -178,7 +178,7 @@ func (h *staffAuthHandler) Logout(ctx *gin.Context) {
 		}
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"ok": true})
+	ctx.JSON(http.StatusOK, gin.H{"msg": true})
 }
 
 func (h *staffAuthHandler) LogoutAll(ctx *gin.Context) {
@@ -201,7 +201,7 @@ func (h *staffAuthHandler) LogoutAll(ctx *gin.Context) {
 		_, _ = h.users.RevokeStaffUserSessions(ctx.Request.Context(), &upbv1.RevokeStaffUserSessionsRequest{UserId: int32(userID)})
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"ok": true})
+	ctx.JSON(http.StatusOK, gin.H{"msg": true})
 }
 
 func (h *staffAuthHandler) Me(ctx *gin.Context) {

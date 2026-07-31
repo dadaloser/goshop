@@ -35,7 +35,9 @@ type sessionStore interface {
 	ListUserSessions(ctx context.Context, userID uint64, offset, limit int) ([]dv1.UserSessionRecordDO, int64, error)
 	AddDeviceBlacklist(ctx context.Context, userID int32, deviceID string, at time.Time) error
 	DeleteDeviceBlacklist(ctx context.Context, userID int32, deviceID string) error
-	ListDeviceBlacklist(ctx context.Context, offset, limit int) ([]dv1.DeviceBlacklistDO, int64, error)
+	// userID is zero for staff-wide listings and otherwise restricts results to
+	// the specified account.
+	ListDeviceBlacklist(ctx context.Context, userID int32, offset, limit int) ([]dv1.DeviceBlacklistDO, int64, error)
 	ListStaffSessions(ctx context.Context, filters dv1.StaffSessionFilters) ([]dv1.StaffSessionRecordDO, int64, error)
 	RevokeStaffSession(ctx context.Context, sessionID string, at time.Time) error
 	RevokeStaffUserSessions(ctx context.Context, userID uint64, at time.Time) error
@@ -96,7 +98,10 @@ func (u *userService) DeleteDeviceBlacklist(ctx context.Context, userID int32, d
 	}
 	return store.DeleteDeviceBlacklist(ctx, userID, deviceID)
 }
-func (u *userService) ListDeviceBlacklist(ctx context.Context, page, pageSize int) (*DeviceBlacklistDTOList, error) {
+func (u *userService) ListDeviceBlacklist(ctx context.Context, userID int32, page, pageSize int) (*DeviceBlacklistDTOList, error) {
+	if userID < 0 {
+		return nil, errors.NewCode(errcode.ErrValidation, "user id is invalid")
+	}
 	store, err := u.sessions()
 	if err != nil {
 		return nil, err
@@ -107,7 +112,7 @@ func (u *userService) ListDeviceBlacklist(ctx context.Context, page, pageSize in
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	items, total, err := store.ListDeviceBlacklist(ctx, (page-1)*pageSize, pageSize)
+	items, total, err := store.ListDeviceBlacklist(ctx, userID, (page-1)*pageSize, pageSize)
 	if err != nil {
 		return nil, err
 	}

@@ -180,7 +180,7 @@ func (us *userServer) DeleteStaffRole(ctx *gin.Context) {
 	}
 
 	core.WriteResponse(ctx, nil, gin.H{
-		"ok": true,
+		"msg": true,
 	})
 }
 

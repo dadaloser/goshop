@@ -50,6 +50,9 @@ func TestUserService_CreateNormalizesOptionalIdentifiers(t *testing.T) {
 	if got, want := store.created.Gender, defaultGender; got != want {
 		t.Fatalf("created gender = %q, want %q", got, want)
 	}
+	if store.created.ID != 0 {
+		t.Fatalf("created user ID = %d, want database-generated auto-increment ID", store.created.ID)
+	}
 }
 
 func TestUserService_CreateRejectsDuplicateEmailAfterNormalization(t *testing.T) {

@@ -91,7 +91,7 @@ func (oc *orderController) CancelOrder(ctx *gin.Context) {
 		core.WriteResponse(ctx, err, nil)
 		return
 	}
-	core.WriteResponse(ctx, nil, gin.H{"ok": true})
+	core.WriteResponse(ctx, nil, gin.H{"msg": true})
 }
 
 func NewOrderController(sf service.ServiceFactory, trans ut.Translator) *orderController {
@@ -173,7 +173,7 @@ func (oc *orderController) UpdateCartItem(ctx *gin.Context) {
 		return
 	}
 
-	core.WriteResponse(ctx, nil, gin.H{"ok": true})
+	core.WriteResponse(ctx, nil, gin.H{"msg": true})
 }
 
 func (oc *orderController) DeleteCartItem(ctx *gin.Context) {
@@ -194,7 +194,7 @@ func (oc *orderController) DeleteCartItem(ctx *gin.Context) {
 		return
 	}
 
-	core.WriteResponse(ctx, nil, gin.H{"ok": true})
+	core.WriteResponse(ctx, nil, gin.H{"msg": true})
 }
 
 func (oc *orderController) SubmitOrder(ctx *gin.Context) {
@@ -360,7 +360,7 @@ func (oc *orderController) SimulatePayCallback(ctx *gin.Context) {
 		return
 	}
 
-	core.WriteResponse(ctx, nil, gin.H{"ok": true})
+	core.WriteResponse(ctx, nil, gin.H{"msg": true})
 }
 
 func (oc *orderController) authenticatedOrderService(ctx *gin.Context) (uint64, orderv1.OrderSrv, error) {

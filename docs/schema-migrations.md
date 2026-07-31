@@ -59,6 +59,7 @@ FROM schema_migrations
 WHERE version IN (
   '202607310001_user_device_blacklist',
   '202607310002_user_session_client_metadata',
+	'202607310003_user_session_schema_repair',
   '202607300002_order_add_account_deletion_events'
 );
 ```

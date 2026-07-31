@@ -46,6 +46,21 @@ func TestUserRPCErrorMapsAbortedToSpecificUserConflict(t *testing.T) {
 	}
 }
 
+func TestListUserSessionsHidesInternalServiceFailures(t *testing.T) {
+	bizcode.RegisterAll()
+	store := NewUsers(&fakeUserClient{
+		listUserSessionsErr: newBusinessGRPCError(t, codes.Unavailable, errcode.ErrDatabase, "unknown column client_ip"),
+	})
+
+	_, err := store.ListUserSessions(context.Background(), 1, 1, 20)
+	if !errors.IsCode(err, bizcode.ErrDeviceSessionUnavailable) {
+		t.Fatalf("ListUserSessions() error = %v, want code %d", err, bizcode.ErrDeviceSessionUnavailable)
+	}
+	if spec, ok := errors.SpecOf(err); !ok || spec.Message != "设备获取失败，请稍后重试" {
+		t.Fatalf("ListUserSessions() spec = %#v, want safe device-list message", spec)
+	}
+}
+
 func newBusinessGRPCError(t *testing.T, grpcCode codes.Code, businessCode int, message string) error {
 	t.Helper()
 	grpcStatus := status.New(grpcCode, message)
@@ -249,16 +264,25 @@ func TestUsersHandleNilRPCResponses(t *testing.T) {
 
 type fakeUserClient struct {
 	upbv1.UserClient
-	called         bool
-	returnNil      bool
-	mobileRequest  string
-	user           *upbv1.UserInfoResponse
-	authUser       *upbv1.UserAuthResponse
-	createRequest  *upbv1.CreateUserInfo
-	createResponse *upbv1.UserInfoResponse
-	updateRequest  *upbv1.UpdateUserInfo
-	statusRequest  *upbv1.UpdateUserStatusRequest
-	createStaffReq *upbv1.CreateStaffUserRequest
+	called              bool
+	returnNil           bool
+	mobileRequest       string
+	user                *upbv1.UserInfoResponse
+	authUser            *upbv1.UserAuthResponse
+	createRequest       *upbv1.CreateUserInfo
+	createResponse      *upbv1.UserInfoResponse
+	updateRequest       *upbv1.UpdateUserInfo
+	statusRequest       *upbv1.UpdateUserStatusRequest
+	createStaffReq      *upbv1.CreateStaffUserRequest
+	listUserSessionsErr error
+}
+
+func (f *fakeUserClient) ListUserSessions(context.Context, *upbv1.ListUserSessionsRequest, ...grpc.CallOption) (*upbv1.ListUserSessionsResponse, error) {
+	f.called = true
+	if f.listUserSessionsErr != nil {
+		return nil, f.listUserSessionsErr
+	}
+	return &upbv1.ListUserSessionsResponse{}, nil
 }
 
 func (f *fakeUserClient) GetUserList(context.Context, *upbv1.PageInfo, ...grpc.CallOption) (*upbv1.UserListResponse, error) {

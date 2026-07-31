@@ -1,0 +1,2 @@
+-- No rollback: this repair may be a no-op when the index was created by an
+-- earlier migration, so dropping it here could remove a pre-existing index.

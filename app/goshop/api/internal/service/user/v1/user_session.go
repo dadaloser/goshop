@@ -48,12 +48,12 @@ func (us *userService) LogoutDevice(ctx context.Context, userID uint64, sessionI
 	return sessions.RevokeSession(ctx, userID, sessionID)
 }
 
-func (us *userService) ListDeviceBlacklist(ctx context.Context, page, pageSize int) (data.DeviceBlacklistList, error) {
+func (us *userService) ListDeviceBlacklist(ctx context.Context, userID uint64, page, pageSize int) (data.DeviceBlacklistList, error) {
 	store, ok := us.deviceBlacklistData()
 	if !ok {
 		return data.DeviceBlacklistList{}, errors.NewSpec(bizcode.ConnectGRPCSpec, "device blacklist store is not configured")
 	}
-	return store.ListDeviceBlacklist(ctx, page, pageSize)
+	return store.ListDeviceBlacklist(ctx, userID, page, pageSize)
 }
 func (us *userService) AddDeviceBlacklist(ctx context.Context, userID uint64, deviceID string) error {
 	store, ok := us.deviceBlacklistData()
