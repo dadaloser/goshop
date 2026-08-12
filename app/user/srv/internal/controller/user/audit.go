@@ -13,7 +13,7 @@ import (
 
 func (u *userServer) ListUserAuditLogs(ctx context.Context, request *upbv1.UserAuditLogPageRequest) (*upbv1.UserAuditLogListResponse, error) {
 	if request == nil {
-		return nil, errors.NewSpec(errcode.ValidationSpec, "user audit log request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "user audit log request is required")
 	}
 
 	filters := v1.UserAuditLogFilterDTO{

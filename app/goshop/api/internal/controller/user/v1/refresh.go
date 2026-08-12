@@ -27,7 +27,7 @@ func (us *userServer) Refresh(ctx *gin.Context) {
 	}
 	user, err := userSrv.Refresh(ctx, form.SessionID, form.RefreshToken)
 	if err != nil {
-		core.WriteResponse(ctx, errors.NewSpec(errcode.TokenInvalidSpec, "refresh token invalid"), nil)
+		core.WriteResponse(ctx, errors.NewCode(errcode.ErrTokenInvalid, "refresh token invalid"), nil)
 		return
 	}
 	writeLoginResponse(ctx, user)

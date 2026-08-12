@@ -180,7 +180,7 @@ func New() *Config {
 		Server:    options.NewServerOptions(),
 		Registry:  options.NewRegistryOptions(),
 		RPC:       options.NewRPCSecurityOptions(),
-		Jwt:       options.NewJwtOptions(),
+		Jwt:       options.NewJwtOptions(options.JWTAdminAudience),
 		Redis:     options.NewRedisOptions(),
 		AdminAuth: NewAdminAuthOptions(),
 	}

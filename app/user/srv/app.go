@@ -4,11 +4,14 @@ import (
 	"context"
 
 	"goshop/app/pkg/errorcatalog"
+	"goshop/app/pkg/management"
 	"goshop/app/pkg/options"
 	"goshop/app/user/srv/config"
 	"goshop/app/user/srv/internal/data/v1/db"
 	userservice "goshop/app/user/srv/internal/service/v1"
 	gapp "goshop/gmicro/app"
+	"goshop/gmicro/registry"
+	"goshop/gmicro/registry/consul"
 	"goshop/gmicro/server/rpcserver"
 	"goshop/pkg/app"
 	"goshop/pkg/log"
@@ -16,9 +19,6 @@ import (
 	"github.com/google/wire"
 	"github.com/hashicorp/consul/api"
 	"golang.org/x/sync/errgroup"
-
-	"goshop/gmicro/registry"
-	"goshop/gmicro/registry/consul"
 )
 
 var ProviderSet = wire.NewSet(NewUserApp, NewRegistrar, NewUserRPCServer)
@@ -54,10 +54,16 @@ func NewUserApp(
 	rpcServer *rpcserver.Server,
 ) (*gapp.App, error) {
 	log.Infof("creating user application: name=%s", serverOpts.Name)
+	managementServer, err := management.NewServer(serverOpts)
+	if err != nil {
+		return nil, err
+	}
 	return gapp.New(
 		gapp.WithName(serverOpts.Name),
 		gapp.WithVersion(registryOpts.Version),
 		gapp.WithRPCServer(rpcServer),
+		gapp.WithServer(managementServer),
+		gapp.WithHealthCheckServer(managementServer),
 		gapp.WithRegistrar(register),
 	), nil
 }

@@ -64,13 +64,23 @@ type Coded interface {
 // New business code should prefer a named Spec and NewSpec; this helper keeps
 // existing numeric-code APIs on the same transport-independent contract.
 func NewCode(code int, internal string) error {
-	return NewSpec(SpecForCode(code), internal)
+	spec, registered := registeredSpecForCode(code)
+	if !registered {
+		spec = SpecForCode(unknownCoder.Code())
+		internal = fmt.Sprintf("unregistered error code %d: %s", code, internal)
+	}
+	return NewSpec(spec, internal)
 }
 
 // WrapCode attaches the public specification registered for code to err while
 // preserving err in the standard Go error chain. It returns nil when err is nil.
 func WrapCode(err error, code int, internal string) error {
-	return wrapSpec(err, SpecForCode(code), internal, callersSkip(0))
+	spec, registered := registeredSpecForCode(code)
+	if !registered {
+		spec = SpecForCode(unknownCoder.Code())
+		internal = fmt.Sprintf("unregistered error code %d: %s", code, internal)
+	}
+	return wrapSpec(err, spec, internal, callersSkip(0))
 }
 
 // SpecForCode returns the public specification registered for code. Unknown
@@ -91,9 +101,10 @@ func SpecForCode(code int) Spec {
 	return spec
 }
 
-// NewSpec returns an error using the registered public contract when code is
-// known. This makes the catalog the single source of public messages and
-// transport kinds for normal business errors.
+// NewSpec returns an error using the registered public contract. An
+// unregistered or invalid contract is reduced to the internal-error contract,
+// so normal business errors cannot define a second public contract at a call
+// site.
 func NewSpec(spec Spec, internal string) error {
 	return &withSpec{
 		spec:  catalogSpec(spec),
@@ -102,11 +113,17 @@ func NewSpec(spec Spec, internal string) error {
 	}
 }
 
-// NewPublicSpec creates an explicitly reviewed public variant. It is reserved
-// for safe, request-specific messages such as validation feedback.
+// NewPublicSpec creates an explicitly reviewed public variant. It preserves
+// the supplied public contract and is reserved for safe, request-specific
+// validation feedback selected by an API boundary.
 func NewPublicSpec(spec Spec, internal string) error {
+	registered, ok := registeredSpecForCode(spec.Code)
+	if !ok || spec.Kind != registered.Kind || spec.Message == "" {
+		return NewCode(unknownCoder.Code(), fmt.Sprintf("invalid public error contract for code %d: %s", spec.Code, internal))
+	}
+	spec.Reference = registered.Reference
 	return &withSpec{
-		spec:  catalogSpec(spec),
+		spec:  safeSpec(spec),
 		err:   stderrors.New(internal),
 		stack: callers(),
 	}
@@ -124,7 +141,7 @@ func wrapSpec(err error, spec Spec, internal string, stack *stack) error {
 	}
 
 	return &withSpec{
-		spec:  safeSpec(spec),
+		spec:  catalogSpec(spec),
 		err:   stderrors.New(internal),
 		cause: err,
 		stack: stack,
@@ -139,10 +156,10 @@ func safeSpec(spec Spec) Spec {
 }
 
 func catalogSpec(spec Spec) Spec {
-	if _, ok := lookupCoder(spec.Code); ok {
-		return SpecForCode(spec.Code)
+	if registered, ok := registeredSpecForCode(spec.Code); ok {
+		return registered
 	}
-	return safeSpec(spec)
+	return SpecForCode(unknownCoder.Code())
 }
 
 // SpecOf returns the first business-error specification in err's tree.

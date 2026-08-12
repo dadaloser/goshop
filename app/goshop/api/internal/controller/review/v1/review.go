@@ -1,6 +1,7 @@
 package review
 
 import (
+	"goshop/app/pkg/errorcatalog"
 	"strconv"
 	"strings"
 
@@ -30,7 +31,7 @@ type appendForm struct {
 func (c *Controller) Create(ctx *gin.Context) {
 	var f createForm
 	if err := ctx.ShouldBindJSON(&f); err != nil {
-		core.WriteResponse(ctx, errcode.NewValidationError("评价请求参数无效"), nil)
+		core.WriteResponse(ctx, errorcatalog.NewValidationError("评价请求参数无效"), nil)
 		return
 	}
 	id, ok := userID(ctx)
@@ -43,7 +44,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 func (c *Controller) Append(ctx *gin.Context) {
 	var f appendForm
 	if err := ctx.ShouldBindJSON(&f); err != nil {
-		core.WriteResponse(ctx, errcode.NewValidationError("追评请求参数无效"), nil)
+		core.WriteResponse(ctx, errorcatalog.NewValidationError("追评请求参数无效"), nil)
 		return
 	}
 	id, ok := userID(ctx)
@@ -52,7 +53,7 @@ func (c *Controller) Append(ctx *gin.Context) {
 	}
 	reviewID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil || reviewID <= 0 {
-		core.WriteResponse(ctx, errcode.NewValidationError("评价编号无效"), nil)
+		core.WriteResponse(ctx, errorcatalog.NewValidationError("评价编号无效"), nil)
 		return
 	}
 	resp, err := c.client.AppendReview(ctx, &rpb.AppendReviewRequest{UserId: id, ReviewId: reviewID, Content: strings.TrimSpace(f.Content)})

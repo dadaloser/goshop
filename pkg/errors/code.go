@@ -29,14 +29,30 @@ type Coder interface {
 // implementation and the process-wide registry.
 type Catalog []Spec
 
+// Validate verifies that every contract is valid and that no code is declared
+// more than once within the catalog.
+func (catalog Catalog) Validate() error {
+	seen := make(map[int]Spec, len(catalog))
+	for _, spec := range catalog {
+		if err := spec.Validate(); err != nil {
+			return err
+		}
+		if _, ok := seen[spec.Code]; ok {
+			return fmt.Errorf("duplicate error specification for code %d", spec.Code)
+		}
+		seen[spec.Code] = spec
+	}
+	return nil
+}
+
 // RegisterAll registers every specification in the catalog. Re-registering an
 // identical specification is safe, which lets multiple application components
 // explicitly request their required catalogs without depending on init order.
 func (catalog Catalog) RegisterAll() {
+	if err := catalog.Validate(); err != nil {
+		panic(fmt.Sprintf("invalid error catalog: %v", err))
+	}
 	for _, spec := range catalog {
-		if err := spec.Validate(); err != nil {
-			panic(fmt.Sprintf("invalid error specification: %v", err))
-		}
 		MustRegister(spec)
 	}
 }
@@ -156,4 +172,16 @@ func lookupCoder(code int) (Coder, bool) {
 
 	coder, ok := codes[code]
 	return coder, ok
+}
+
+func registeredSpecForCode(code int) (Spec, bool) {
+	if coder, ok := lookupCoder(code); ok {
+		return Spec{
+			Code:      coder.Code(),
+			Kind:      coder.Kind(),
+			Message:   coder.String(),
+			Reference: coder.Reference(),
+		}, true
+	}
+	return Spec{}, false
 }

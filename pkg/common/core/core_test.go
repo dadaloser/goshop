@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"goshop/gmicro/errcode"
+	"goshop/app/pkg/errorcatalog"
 	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
@@ -19,12 +19,14 @@ func TestWriteResponseUsesSpecPublicFields(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 
-	WriteResponse(ctx, apperrors.NewSpec(apperrors.Spec{
+	spec := apperrors.Spec{
 		Code:      990301,
 		Kind:      apperrors.KindNotFound,
 		Message:   "user not found",
 		Reference: "https://example.test/errors/user-not-found",
-	}, "select user: database connection string=secret"), nil)
+	}
+	apperrors.MustRegister(spec)
+	WriteResponse(ctx, apperrors.NewSpec(spec, "select user: database connection string=secret"), nil)
 
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("WriteResponse() status = %d, want %d", recorder.Code, http.StatusNotFound)
@@ -46,7 +48,7 @@ func TestWriteResponseUsesSpecPublicFields(t *testing.T) {
 }
 
 func TestWriteResponseMapsKnownGRPCServiceErrorsToPublicCodes(t *testing.T) {
-	errcode.RegisterAll()
+	errorcatalog.RegisterAll()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {

@@ -2,23 +2,19 @@
 
 GOLANGCI_LINT_VERSION ?= v2.12.2
 
-# Fixed protobuf workflow.
-#
-# Local development:
-#   1. Edit api/**/*.proto.
-#   2. Run `make proto`.
-#   3. Commit the .proto file and regenerated *.pb.go files together.
-#
-# First-time setup:
-#   make proto-tools
-#
-# CI drift check:
-#   make proto-check
-#
-# Notes:
-#   - Do not edit api/**/*.pb.go, *_grpc.pb.go, *_gin.pb.go or *_http.pb.go by hand.
-#   - protoc-gen-go-gin must be installed on PATH, or installed by setting
-#     PROTOC_GEN_GO_GIN_INSTALL=module@version before `make proto-tools`.
+# 本地开发：
+# 1. 编辑 api/**/*.proto 文件。
+# 2. 运行 make proto。
+# 3. 将 .proto 文件与重新生成的 *.pb.go 文件一并提交。
+#首次环境配置：
+# make proto-tools
+# CI 一致性检查：
+# make proto-check
+# 注意事项：
+# - 请勿手动编辑 api/**/.pb.go、_grpc.pb.go、*_gin.pb.go 或 *_http.pb.go 文件。
+# - protoc-gen-go-gin 必须已安装在 PATH 中，或者在执行 make proto-tools 前
+# 通过设置 PROTOC_GEN_GO_GIN_INSTALL=module@version 来自动安装。
+
 help:
 	@echo "Available targets:"
 	@echo "  make proto        Generate api/**/*.pb.go from api/**/*.proto"

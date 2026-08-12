@@ -88,7 +88,9 @@ func TestWalkErrorsCapsEntireJoinedTree(t *testing.T) {
 
 func TestIsCodeFindsCodesInJoinedAndAggregatedErrors(t *testing.T) {
 	const code = 991002
-	err := NewSpec(Spec{Code: code, Kind: KindUnavailable, Message: "dependency unavailable"}, "dial tcp: refused")
+	spec := Spec{Code: code, Kind: KindUnavailable, Message: "dependency unavailable"}
+	MustRegister(spec)
+	err := NewSpec(spec, "dial tcp: refused")
 
 	if !IsCode(stderrors.Join(stderrors.New("other failure"), err), code) {
 		t.Fatal("IsCode() did not find code in errors.Join branch")
@@ -120,6 +122,16 @@ func TestRegisterPanicsOnConflictingDuplicate(t *testing.T) {
 		Message:   "second coder",
 		Reference: "https://example.test/second",
 	})
+}
+
+func TestCatalogValidateRejectsDuplicateCode(t *testing.T) {
+	catalog := Catalog{
+		{Code: 991003, Kind: KindInternal, Message: "first"},
+		{Code: 991003, Kind: KindInternal, Message: "first"},
+	}
+	if err := catalog.Validate(); err == nil {
+		t.Fatal("Catalog.Validate() = nil, want duplicate-code error")
+	}
 }
 
 func TestSameCoder(t *testing.T) {

@@ -263,6 +263,7 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 		PrincipalType: string(authz.PrincipalAdminBootstrap),
 		AccountStatus: string(authz.AccountStatusActive),
 		RegisteredClaims: jwt.RegisteredClaims{
+			Audience:  h.jwtOpts.AudienceValues(),
 			ID:        correlationID,
 			NotBefore: jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(timeout)),
@@ -397,6 +398,7 @@ func (h *staffAuthHandler) createToken(ctx context.Context, authUser *upbv1.User
 		ResourceTeams:   append([]string(nil), authUser.GetResourceTeams()...),
 		ResourceScopes:  effectiveResourceScopes(authUser),
 		RegisteredClaims: jwt.RegisteredClaims{
+			Audience:  h.jwtOpts.AudienceValues(),
 			NotBefore: jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(h.jwtOpts.Timeout)),
 			Issuer:    h.jwtOpts.Realm,
@@ -509,7 +511,7 @@ func newStaffJWTAuth(
 	if opts == nil {
 		return nil, status.Error(codes.InvalidArgument, "jwt options are required")
 	}
-	return gauth.NewJWTStrategy([]byte(opts.Key), opts.Realm, middlewares.KeyUserID, func(_ interface{}, c *gin.Context) bool {
+	return gauth.NewJWTStrategy([]byte(opts.Key), opts.Realm, opts.Audience, middlewares.KeyUserID, func(_ interface{}, c *gin.Context) bool {
 		claims := gauth.ExtractClaims(c)
 		principalType, _ := claims["principal_type"].(string)
 		statusValue, _ := claims["status"].(string)
@@ -561,7 +563,7 @@ func newStaffJWTAuth(
 func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
 	exp, ok := gauth.ExtractClaims(ctx)["exp"]
 	if !ok {
-		return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token missing exp")
+		return time.Time{}, errors.NewCode(errcode.ErrTokenInvalid, "token missing exp")
 	}
 
 	var unix int64
@@ -571,7 +573,7 @@ func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
 	case json.Number:
 		v, err := value.Int64()
 		if err != nil {
-			return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token exp invalid")
+			return time.Time{}, errors.NewCode(errcode.ErrTokenInvalid, "token exp invalid")
 		}
 		unix = v
 	case int64:
@@ -579,10 +581,10 @@ func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
 	case int:
 		unix = int64(value)
 	default:
-		return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token exp invalid")
+		return time.Time{}, errors.NewCode(errcode.ErrTokenInvalid, "token exp invalid")
 	}
 	if unix <= 0 {
-		return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token exp invalid")
+		return time.Time{}, errors.NewCode(errcode.ErrTokenInvalid, "token exp invalid")
 	}
 	return time.Unix(unix, 0), nil
 }
@@ -611,7 +613,7 @@ func userIDFromClaims(ctx *gin.Context) (uint64, error) {
 			return uint64(value), nil
 		}
 	}
-	return 0, errors.NewSpec(errcode.TokenInvalidSpec, "token user id invalid")
+	return 0, errors.NewCode(errcode.ErrTokenInvalid, "token user id invalid")
 }
 
 func tokenVersionFromClaims(claims map[string]any) uint64 {

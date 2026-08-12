@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/bizcode"
+	"goshop/app/pkg/errorcatalog"
 	"goshop/gmicro/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/transport/httperror"
@@ -161,7 +162,7 @@ func (u *users) CheckPassWord(ctx context.Context, password, encryptedPwd string
 
 func (u *users) Create(ctx context.Context, user *data.UserCreate) (data.User, error) {
 	if user == nil {
-		return data.User{}, errcode.NewValidationError("用户信息不能为空")
+		return data.User{}, errorcatalog.NewValidationError("用户信息不能为空")
 	}
 
 	protoUser := &upbv1.CreateUserInfo{
@@ -185,7 +186,7 @@ func (u *users) Create(ctx context.Context, user *data.UserCreate) (data.User, e
 
 func (u *users) Update(ctx context.Context, user *data.User) error {
 	if user == nil || user.ID == 0 {
-		return errcode.NewValidationError("用户信息不能为空")
+		return errorcatalog.NewValidationError("用户信息不能为空")
 	}
 
 	protoUser := &upbv1.UpdateUserInfo{
@@ -331,7 +332,7 @@ func authUserFromResponse(user *upbv1.UserAuthResponse) data.UserAuth {
 func userRPCError(err error, invalidArgumentCode int) error {
 	if spec, ok := httperror.SpecFromGRPC(err); ok {
 		if spec.Code == errcode.ErrValidation {
-			return errors.NewPublicSpec(spec, "user service validation failed")
+			return errorcatalog.NewValidationError(spec.Message)
 		}
 		return errors.NewSpec(spec, "user service request failed")
 	}
@@ -343,7 +344,7 @@ func userRPCError(err error, invalidArgumentCode int) error {
 	case codes.InvalidArgument:
 		message := status.Convert(err).Message()
 		if invalidArgumentCode == errcode.ErrValidation && message != "" {
-			return errcode.NewValidationError(message)
+			return errorcatalog.NewValidationError(message)
 		}
 		return errors.NewCode(invalidArgumentCode, message)
 	default:

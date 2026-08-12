@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"goshop/app/pkg/errorcatalog"
 	"strconv"
 	"testing"
 
@@ -47,7 +48,7 @@ func TestUserRPCErrorMapsAbortedToSpecificUserConflict(t *testing.T) {
 }
 
 func TestListUserSessionsHidesInternalServiceFailures(t *testing.T) {
-	bizcode.RegisterAll()
+	errorcatalog.RegisterAll()
 	store := NewUsers(&fakeUserClient{
 		listUserSessionsErr: newBusinessGRPCError(t, codes.Unavailable, errcode.ErrDatabase, "unknown column client_ip"),
 	})

@@ -11,7 +11,7 @@ import (
 
 func (u *userServer) GetUserAuthByMobile(ctx context.Context, request *upbv1.MobileRequest) (*upbv1.UserAuthResponse, error) {
 	if request == nil {
-		return nil, errors.NewSpec(errcode.ValidationSpec, "mobile request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "mobile request is required")
 	}
 
 	log.Infof("get user auth by username function called.")

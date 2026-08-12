@@ -22,7 +22,7 @@ func newJWTAuth(opts *options.JwtOptions, revokedTokens tokenrevocation.Store, t
 		return nil, fmt.Errorf("jwt options are required")
 	}
 	parser := middlewares.NewJWT(opts.Key)
-	return auth.NewJWTStrategy([]byte(opts.Key), opts.Realm, middlewares.KeyUserID, func(_ interface{}, c *gin.Context) bool {
+	return auth.NewJWTStrategy([]byte(opts.Key), opts.Realm, opts.Audience, middlewares.KeyUserID, func(_ interface{}, c *gin.Context) bool {
 		rawToken, ok := c.Get(middlewares.JWTTokenKey)
 		if !ok {
 			return false

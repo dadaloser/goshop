@@ -1,7 +1,7 @@
 package admin
 
 import (
-	"goshop/gmicro/errcode"
+	"goshop/app/pkg/errorcatalog"
 	"goshop/pkg/common/core"
 	apperrors "goshop/pkg/errors"
 
@@ -24,5 +24,5 @@ func writeValidationError(ctx *gin.Context, message string) {
 	if ctx == nil {
 		return
 	}
-	core.WriteResponse(ctx, errcode.NewValidationError(message), nil)
+	core.WriteResponse(ctx, errorcatalog.NewValidationError(message), nil)
 }

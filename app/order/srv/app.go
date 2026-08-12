@@ -6,6 +6,7 @@ import (
 	"goshop/app/order/srv/config"
 	v1 "goshop/app/order/srv/internal/service/v1"
 	"goshop/app/pkg/errorcatalog"
+	"goshop/app/pkg/management"
 	"goshop/app/pkg/options"
 	gapp "goshop/gmicro/app"
 	"goshop/gmicro/registry"
@@ -63,11 +64,17 @@ func newOrderAppWithServiceFactory(cfg *config.Config, orderSrvFactory v1.Servic
 	if err != nil {
 		return nil, err
 	}
+	managementServer, err := management.NewServer(cfg.Server)
+	if err != nil {
+		return nil, err
+	}
 
 	return gapp.New(
 		gapp.WithName(cfg.Server.Name),
 		gapp.WithVersion(cfg.Registry.Version),
 		gapp.WithRPCServer(rpcServer),
+		gapp.WithServer(managementServer),
+		gapp.WithHealthCheckServer(managementServer),
 		gapp.WithRegistrar(register),
 	), nil
 }

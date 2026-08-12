@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"goshop/app/pkg/errorcatalog"
 	"sort"
 	"strings"
 
@@ -304,7 +305,7 @@ func writeUserRPCError(ctx *gin.Context, err error, fallback string) {
 		if message == "" {
 			message = fallback
 		}
-		core.WriteResponse(ctx, errcode.NewValidationError(message), nil)
+		core.WriteResponse(ctx, errorcatalog.NewValidationError(message), nil)
 	case codes.NotFound:
 		writePublicError(ctx, errcode.ErrPageNotFound, apperrors.KindNotFound, fallback)
 	case codes.Aborted, codes.AlreadyExists:

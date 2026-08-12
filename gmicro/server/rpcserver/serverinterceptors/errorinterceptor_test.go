@@ -48,21 +48,24 @@ func TestUnaryErrorInterceptorPreservesStatusError(t *testing.T) {
 func TestToGRPCErrorMapsSpecKinds(t *testing.T) {
 	tests := []struct {
 		name string
+		code int
 		kind apperrors.Kind
 		want codes.Code
 	}{
-		{name: "not found", kind: apperrors.KindNotFound, want: codes.NotFound},
-		{name: "conflict", kind: apperrors.KindConflict, want: codes.Aborted},
-		{name: "unavailable", kind: apperrors.KindUnavailable, want: codes.Unavailable},
+		{name: "not found", code: 990101, kind: apperrors.KindNotFound, want: codes.NotFound},
+		{name: "conflict", code: 990102, kind: apperrors.KindConflict, want: codes.Aborted},
+		{name: "unavailable", code: 990103, kind: apperrors.KindUnavailable, want: codes.Unavailable},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := apperrors.NewSpec(apperrors.Spec{
-				Code:    990101,
+			spec := apperrors.Spec{
+				Code:    tt.code,
 				Kind:    tt.kind,
 				Message: "safe message",
-			}, "database query failed")
+			}
+			apperrors.MustRegister(spec)
+			err := apperrors.NewSpec(spec, "database query failed")
 
 			got := toGRPCError(err)
 			if status.Code(got) != tt.want {
@@ -100,9 +103,11 @@ func TestToGRPCErrorKeepsLegacyCodeMapping(t *testing.T) {
 }
 
 func TestToGRPCErrorMapsAggregateSpec(t *testing.T) {
+	spec := apperrors.Spec{Code: 990405, Kind: apperrors.KindNotFound, Message: "safe message"}
+	apperrors.MustRegister(spec)
 	err := apperrors.NewAggregate([]error{
 		apperrors.New("other failure"),
-		apperrors.NewSpec(apperrors.Spec{Code: 990405, Kind: apperrors.KindNotFound, Message: "safe message"}, "query user"),
+		apperrors.NewSpec(spec, "query user"),
 	})
 
 	got := toGRPCError(err)

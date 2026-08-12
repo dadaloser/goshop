@@ -87,14 +87,14 @@ func (us *userService) Logout(ctx context.Context, userID uint64, sessionID stri
 func (us *userService) Refresh(ctx context.Context, sessionID, refreshToken string) (*UserDTO, error) {
 	sessions, ok := us.sessionData()
 	if !ok || strings.TrimSpace(sessionID) == "" || strings.TrimSpace(refreshToken) == "" {
-		return nil, errors.NewSpec(errcode.TokenInvalidSpec, "refresh token invalid")
+		return nil, errors.NewCode(errcode.ErrTokenInvalid, "refresh token invalid")
 	}
 	nextToken := secureToken()
 	now := time.Now()
 	refreshExpiresAt := now.Add(us.jwtOpts.MaxRefresh)
 	session, err := sessions.RefreshSession(ctx, sessionID, refreshToken, nextToken, refreshExpiresAt)
 	if err != nil {
-		return nil, errors.NewSpec(errcode.TokenInvalidSpec, "refresh token invalid")
+		return nil, errors.NewCode(errcode.ErrTokenInvalid, "refresh token invalid")
 	}
 	users, err := us.usersData()
 	if err != nil {
@@ -188,6 +188,7 @@ func (us *userService) issueAccessToken(ctx context.Context, user data.UserAuth,
 		TokenVersion:  us.currentTokenVersion(ctx, user.ID),
 		SessionID:     sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Audience:  us.jwtOpts.AudienceValues(),
 			NotBefore: jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(us.jwtOpts.Timeout)),
 			Issuer:    us.jwtOpts.Realm,

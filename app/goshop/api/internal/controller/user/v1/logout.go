@@ -32,7 +32,7 @@ func (us *userServer) Logout(ctx *gin.Context) {
 	if us.revokedTokens != nil {
 		token, err := gauth.GetToken(ctx)
 		if err != nil {
-			core.WriteResponse(ctx, errors.NewSpec(errcode.TokenInvalidSpec, "token not found"), nil)
+			core.WriteResponse(ctx, errors.NewCode(errcode.ErrTokenInvalid, "token not found"), nil)
 			return
 		}
 
@@ -42,7 +42,7 @@ func (us *userServer) Logout(ctx *gin.Context) {
 			return
 		}
 		if err = us.revokedTokens.Revoke(ctx.Request.Context(), token, expiresAt); err != nil {
-			core.WriteResponse(ctx, errors.NewSpec(errcode.UnknownSpec, "revoke current token"), nil)
+			core.WriteResponse(ctx, errors.NewCode(errcode.ErrUnknown, "revoke current token"), nil)
 			return
 		}
 	}
@@ -75,7 +75,7 @@ func (us *userServer) LogoutAll(ctx *gin.Context) {
 func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
 	exp, ok := gauth.ExtractClaims(ctx)["exp"]
 	if !ok {
-		return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token missing exp")
+		return time.Time{}, errors.NewCode(errcode.ErrTokenInvalid, "token missing exp")
 	}
 
 	var unix int64
@@ -85,7 +85,7 @@ func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
 	case json.Number:
 		v, err := value.Int64()
 		if err != nil {
-			return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token exp invalid")
+			return time.Time{}, errors.NewCode(errcode.ErrTokenInvalid, "token exp invalid")
 		}
 		unix = v
 	case int64:
@@ -93,10 +93,10 @@ func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
 	case int:
 		unix = int64(value)
 	default:
-		return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token exp invalid")
+		return time.Time{}, errors.NewCode(errcode.ErrTokenInvalid, "token exp invalid")
 	}
 	if unix <= 0 {
-		return time.Time{}, errors.NewSpec(errcode.TokenInvalidSpec, "token exp invalid")
+		return time.Time{}, errors.NewCode(errcode.ErrTokenInvalid, "token exp invalid")
 	}
 	return time.Unix(unix, 0), nil
 }

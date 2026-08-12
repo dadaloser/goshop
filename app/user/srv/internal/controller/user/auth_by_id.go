@@ -11,7 +11,7 @@ import (
 
 func (u *userServer) GetUserAuthById(ctx context.Context, request *upbv1.IdRequest) (*upbv1.UserAuthResponse, error) {
 	if request == nil {
-		return nil, errors.NewSpec(errcode.ValidationSpec, "user id request is required")
+		return nil, errors.NewCode(errcode.ErrValidation, "user id request is required")
 	}
 
 	log.Infof("get user auth by id function called.")

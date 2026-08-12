@@ -94,7 +94,7 @@ func New() *Config {
 		Server:              options.NewServerOptions(),
 		Registry:            options.NewRegistryOptions(),
 		RPC:                 options.NewRPCSecurityOptions(),
-		Jwt:                 options.NewJwtOptions(),
+		Jwt:                 options.NewJwtOptions(options.JWTAPIAudience),
 		Sms:                 options.NewSmsOptions(),
 		Email:               options.NewEmailOptions(),
 		Payment:             options.NewPaymentOptions(),

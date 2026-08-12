@@ -14,6 +14,7 @@ func TestSpecOfFindsSpecInWrappedChain(t *testing.T) {
 		Message:   "user not found",
 		Reference: "https://example.test/errors/user-not-found",
 	}
+	MustRegister(spec)
 
 	cause := stderrors.New("record not found")
 	err := Wrap(WrapSpec(cause, spec, "query user"), "load profile")
@@ -29,6 +30,7 @@ func TestSpecOfFindsSpecInWrappedChain(t *testing.T) {
 
 func TestSpecOfFindsSpecInAggregate(t *testing.T) {
 	spec := Spec{Code: 990107, Kind: KindNotFound, Message: "user not found"}
+	MustRegister(spec)
 	err := NewAggregate([]error{stderrors.New("other failure"), NewSpec(spec, "query user")})
 
 	got, ok := SpecOf(err)
@@ -72,6 +74,16 @@ func TestNewSpecFallsBackForInvalidContract(t *testing.T) {
 	}
 }
 
+func TestNewCodeRecordsUnregisteredCodeInDiagnostic(t *testing.T) {
+	err := NewCode(991999, "dependency failed")
+	if got := ParseCoder(err).Code(); got != unknownCoder.Code() {
+		t.Fatalf("ParseCoder(NewCode(unregistered)) = %d, want %d", got, unknownCoder.Code())
+	}
+	if detail := fmt.Sprintf("%+v", err); !strings.Contains(detail, "unregistered error code 991999") {
+		t.Fatalf("NewCode(unregistered) diagnostic = %q, want missing-code context", detail)
+	}
+}
+
 func TestParseCoderAndIsCodeFindWrappedCode(t *testing.T) {
 	const code = 990102
 	MustRegister(Spec{Code: code, Kind: KindInternal, Message: "wrapped error"})
@@ -111,9 +123,15 @@ func TestWrapCodeUsesRegisteredSpecAndPreservesCause(t *testing.T) {
 }
 
 func TestDetailedFormatIncludesJoinedBranches(t *testing.T) {
-	left := NewSpec(Spec{Code: 990104, Kind: KindUnavailable, Message: "left unavailable"}, "left diagnostic")
-	right := NewSpec(Spec{Code: 990105, Kind: KindUnavailable, Message: "right unavailable"}, "right diagnostic")
-	err := WrapSpec(stderrors.Join(left, right), Spec{Code: 990106, Kind: KindUnavailable, Message: "combined unavailable"}, "combined diagnostic")
+	leftSpec := Spec{Code: 990104, Kind: KindUnavailable, Message: "left unavailable"}
+	rightSpec := Spec{Code: 990105, Kind: KindUnavailable, Message: "right unavailable"}
+	combinedSpec := Spec{Code: 990106, Kind: KindUnavailable, Message: "combined unavailable"}
+	MustRegister(leftSpec)
+	MustRegister(rightSpec)
+	MustRegister(combinedSpec)
+	left := NewSpec(leftSpec, "left diagnostic")
+	right := NewSpec(rightSpec, "right diagnostic")
+	err := WrapSpec(stderrors.Join(left, right), combinedSpec, "combined diagnostic")
 
 	detail := fmt.Sprintf("%+v", err)
 	for _, want := range []string{"combined diagnostic", "left diagnostic", "right diagnostic"} {

@@ -8,16 +8,15 @@ import (
 	"goshop/app/goods/srv/internal/data_search/v1/es"
 	v1 "goshop/app/goods/srv/internal/service/v1"
 	"goshop/app/pkg/errorcatalog"
+	"goshop/app/pkg/management"
 	"goshop/app/pkg/options"
 	gapp "goshop/gmicro/app"
+	"goshop/gmicro/registry"
+	"goshop/gmicro/registry/consul"
 	"goshop/pkg/app"
 	"goshop/pkg/log"
 
 	"github.com/hashicorp/consul/api"
-
-	"goshop/gmicro/registry"
-	"goshop/gmicro/registry/consul"
-
 	"golang.org/x/sync/errgroup"
 )
 
@@ -56,11 +55,17 @@ func NewGoodsApp(cfg *config.Config) (*gapp.App, error) {
 	if err != nil {
 		return nil, err
 	}
+	managementServer, err := management.NewServer(cfg.Server)
+	if err != nil {
+		return nil, err
+	}
 
 	return gapp.New(
 		gapp.WithName(cfg.Server.Name),
 		gapp.WithVersion(cfg.Registry.Version),
 		gapp.WithRPCServer(rpcServer),
+		gapp.WithServer(managementServer),
+		gapp.WithHealthCheckServer(managementServer),
 		gapp.WithRegistrar(register),
 	), nil
 }

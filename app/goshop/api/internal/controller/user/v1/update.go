@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	stderrors "errors"
 	"goshop/app/pkg/bizcode"
+	"goshop/app/pkg/errorcatalog"
 	"io"
 	"strings"
 	"time"
@@ -77,11 +78,7 @@ func (us *userServer) UpdateUser(ctx *gin.Context) {
 }
 
 func newUpdateValidationError(message string) error {
-	return pkgerrors.WrapSpec(stderrors.New(message), pkgerrors.Spec{
-		Code:    errcode.ErrValidation,
-		Kind:    pkgerrors.KindInvalidArgument,
-		Message: message,
-	}, message)
+	return errorcatalog.NewValidationError(message)
 }
 
 func updateUserValidationMessage(err error) string {

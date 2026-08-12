@@ -2,59 +2,19 @@ package errcode
 
 import (
 	"testing"
-
-	apperrors "goshop/pkg/errors"
 )
 
-func TestCommonCodesAreRegisteredWithSemanticKinds(t *testing.T) {
-	RegisterAll()
-
-	tests := []struct {
-		code int
-		kind apperrors.Kind
-	}{
-		{code: ErrValidation, kind: apperrors.KindInvalidArgument},
-		{code: ErrTokenInvalid, kind: apperrors.KindUnauthenticated},
-		{code: ErrPageNotFound, kind: apperrors.KindNotFound},
-		{code: ErrUnknown, kind: apperrors.KindInternal},
-	}
-
-	for _, tt := range tests {
-		err := apperrors.NewCode(tt.code, "internal detail")
-		if got := apperrors.ParseCoder(err).Code(); got != tt.code {
-			t.Fatalf("ParseCoder() code = %d, want %d", got, tt.code)
+func TestCatalogContainsCoreContracts(t *testing.T) {
+	contracts := map[int]Contract{}
+	for _, contract := range Catalog {
+		if _, exists := contracts[contract.Code]; exists {
+			t.Fatalf("Catalog declares duplicate code %d", contract.Code)
 		}
-		spec, ok := apperrors.SpecOf(err)
-		if !ok {
-			t.Fatal("SpecOf() found no specification")
+		contracts[contract.Code] = contract
+	}
+	for _, code := range []int{ErrValidation, ErrTokenInvalid, ErrPageNotFound, ErrUnknown} {
+		if _, exists := contracts[code]; !exists {
+			t.Fatalf("Catalog is missing code %d", code)
 		}
-		if spec.Kind != tt.kind {
-			t.Fatalf("SpecOf() kind = %q, want %q", spec.Kind, tt.kind)
-		}
-	}
-}
-
-func TestValidationSpecMatchesLegacyCode(t *testing.T) {
-	err := apperrors.NewSpec(ValidationSpec, "request payload is required")
-
-	if !apperrors.IsCode(err, ErrValidation) {
-		t.Fatal("validation specification did not preserve the legacy code")
-	}
-	if spec, ok := apperrors.SpecOf(err); !ok || spec.Kind != apperrors.KindInvalidArgument {
-		t.Fatalf("SpecOf() = %#v, %t; want invalid_argument specification", spec, ok)
-	}
-}
-
-func TestNewCodeUsesRegisteredSpecification(t *testing.T) {
-	RegisterAll()
-
-	err := apperrors.NewCode(ErrValidation, "request payload is required")
-
-	spec, ok := apperrors.SpecOf(err)
-	if !ok {
-		t.Fatal("SpecOf() found no specification")
-	}
-	if spec.Code != ErrValidation || spec.Kind != apperrors.KindInvalidArgument {
-		t.Fatalf("SpecOf() = %#v, want validation specification", spec)
 	}
 }

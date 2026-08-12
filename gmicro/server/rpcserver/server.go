@@ -94,11 +94,11 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 		applyServerTLSConfig(srv, tlsConfig)
 	}
 
-	// Always install crash/error interceptors first so callers inherit a safe
-	// baseline even when they do not configure custom interceptors.
+	// Keep crash recovery outermost. Metrics must wrap error conversion so it
+	// observes the final gRPC status instead of classifying project errors as
+	// codes.Unknown.
 	unaryInts := []grpc.UnaryServerInterceptor{
 		srvintc.UnaryCrashInterceptor,
-		srvintc.UnaryErrorInterceptor,
 	}
 	streamInts := []grpc.StreamServerInterceptor{
 		srvintc.StreamCrashInterceptor,
@@ -108,6 +108,7 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 	if srv.enableMetrics {
 		unaryInts = append(unaryInts, srvintc.UnaryPrometheusInterceptor)
 	}
+	unaryInts = append(unaryInts, srvintc.UnaryErrorInterceptor)
 
 	if srv.timeout > 0 {
 		unaryInts = append(unaryInts, srvintc.UnaryTimeoutInterceptor(srv.timeout))

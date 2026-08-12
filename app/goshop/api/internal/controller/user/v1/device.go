@@ -1,11 +1,11 @@
 package user
 
 import (
+	"goshop/app/pkg/errorcatalog"
 	"strconv"
 	"strings"
 	"time"
 
-	"goshop/gmicro/errcode"
 	"goshop/pkg/common/core"
 
 	"github.com/gin-gonic/gin"
@@ -161,7 +161,7 @@ func (us *userServer) DeleteOwnDeviceBlacklist(ctx *gin.Context) {
 	}
 	deviceID := strings.TrimSpace(ctx.Param("device_id"))
 	if deviceID == "" {
-		core.WriteResponse(ctx, errcode.NewValidationError("device_id is required"), nil)
+		core.WriteResponse(ctx, errorcatalog.NewValidationError("device_id is required"), nil)
 		return
 	}
 	service, err := us.usersService()
@@ -195,7 +195,7 @@ func (us *userServer) AddDeviceBlacklist(ctx *gin.Context) {
 func (us *userServer) DeleteDeviceBlacklist(ctx *gin.Context) {
 	userID, err := strconv.ParseUint(ctx.Query("user_id"), 10, 64)
 	if err != nil || userID == 0 {
-		core.WriteResponse(ctx, errcode.NewValidationError("user_id is required"), nil)
+		core.WriteResponse(ctx, errorcatalog.NewValidationError("user_id is required"), nil)
 		return
 	}
 	deviceID := strings.TrimSpace(ctx.Param("device_id"))

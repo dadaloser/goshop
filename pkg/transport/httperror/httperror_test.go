@@ -1,10 +1,10 @@
 package httperror
 
 import (
+	"goshop/app/pkg/errorcatalog"
 	"net/http"
 	"testing"
 
-	"goshop/gmicro/errcode"
 	apperrors "goshop/pkg/errors"
 
 	"google.golang.org/grpc/codes"
@@ -14,30 +14,33 @@ import (
 func TestResponseForSpec(t *testing.T) {
 	tests := []struct {
 		name string
+		code int
 		kind apperrors.Kind
 		want int
 	}{
-		{name: "invalid argument", kind: apperrors.KindInvalidArgument, want: http.StatusBadRequest},
-		{name: "not found", kind: apperrors.KindNotFound, want: http.StatusNotFound},
-		{name: "conflict", kind: apperrors.KindConflict, want: http.StatusConflict},
-		{name: "rate limited", kind: apperrors.KindRateLimited, want: http.StatusTooManyRequests},
-		{name: "unavailable", kind: apperrors.KindUnavailable, want: http.StatusServiceUnavailable},
+		{name: "invalid argument", code: 991201, kind: apperrors.KindInvalidArgument, want: http.StatusBadRequest},
+		{name: "not found", code: 991202, kind: apperrors.KindNotFound, want: http.StatusNotFound},
+		{name: "conflict", code: 991203, kind: apperrors.KindConflict, want: http.StatusConflict},
+		{name: "rate limited", code: 991204, kind: apperrors.KindRateLimited, want: http.StatusTooManyRequests},
+		{name: "unavailable", code: 991205, kind: apperrors.KindUnavailable, want: http.StatusServiceUnavailable},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			response := ResponseFor(apperrors.NewSpec(apperrors.Spec{
-				Code:      990201,
+			spec := apperrors.Spec{
+				Code:      tt.code,
 				Kind:      tt.kind,
 				Message:   "safe message",
 				Reference: "https://example.test/errors",
-			}, "database query failed"))
+			}
+			apperrors.MustRegister(spec)
+			response := ResponseFor(apperrors.NewSpec(spec, "database query failed"))
 
 			if response.Status != tt.want {
 				t.Fatalf("ResponseFor() status = %d, want %d", response.Status, tt.want)
 			}
-			if response.Code != 990201 {
-				t.Fatalf("ResponseFor() code = %d, want 990201", response.Code)
+			if response.Code != tt.code {
+				t.Fatalf("ResponseFor() code = %d, want %d", response.Code, tt.code)
 			}
 			if response.Message != "safe message" {
 				t.Fatalf("ResponseFor() message = %q, want safe message", response.Message)
@@ -47,7 +50,7 @@ func TestResponseForSpec(t *testing.T) {
 }
 
 func TestResponseForGRPCDomainErrorsNeverUseUnknownCode(t *testing.T) {
-	errcode.RegisterAll()
+	errorcatalog.RegisterAll()
 
 	tests := []struct {
 		name       string
@@ -96,9 +99,11 @@ func TestResponseForLegacyCode(t *testing.T) {
 }
 
 func TestResponseForAggregateSpec(t *testing.T) {
+	spec := apperrors.Spec{Code: 990203, Kind: apperrors.KindNotFound, Message: "safe message"}
+	apperrors.MustRegister(spec)
 	err := apperrors.NewAggregate([]error{
 		apperrors.New("other failure"),
-		apperrors.NewSpec(apperrors.Spec{Code: 990203, Kind: apperrors.KindNotFound, Message: "safe message"}, "query user"),
+		apperrors.NewSpec(spec, "query user"),
 	})
 
 	response := ResponseFor(err)

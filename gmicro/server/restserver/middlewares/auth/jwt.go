@@ -22,6 +22,7 @@ const AuthzAudience = "goshop.imooc.com"
 type JWTStrategy struct {
 	key          []byte
 	realm        string
+	audience     string
 	identityKey  string
 	authorizator func(interface{}, *gin.Context) bool
 }
@@ -29,10 +30,11 @@ type JWTStrategy struct {
 var _ middlewares.AuthStrategy = &JWTStrategy{}
 
 // NewJWTStrategy creates a jwt bearer strategy backed by golang-jwt/jwt/v5.
-func NewJWTStrategy(key []byte, realm, identityKey string, authorizator func(interface{}, *gin.Context) bool) JWTStrategy {
+func NewJWTStrategy(key []byte, realm, audience, identityKey string, authorizator func(interface{}, *gin.Context) bool) JWTStrategy {
 	return JWTStrategy{
 		key:          key,
 		realm:        realm,
+		audience:     audience,
 		identityKey:  identityKey,
 		authorizator: authorizator,
 	}
@@ -84,7 +86,7 @@ func (j JWTStrategy) Authorizator(identity interface{}, c *gin.Context) bool {
 	return j.authorizator(identity, c)
 }
 
-// GetToken extracts a bearer token from header, query, or cookie.
+// GetToken extracts a bearer token from the Authorization header or cookie.
 func GetToken(c *gin.Context) (string, error) {
 	if c == nil || c.Request == nil {
 		return "", fmt.Errorf("request is not initialized")
@@ -96,10 +98,6 @@ func GetToken(c *gin.Context) (string, error) {
 			return "", fmt.Errorf("authorization header format is wrong")
 		}
 		return strings.TrimSpace(parts[1]), nil
-	}
-
-	if token := strings.TrimSpace(c.Query("token")); token != "" {
-		return token, nil
 	}
 
 	cookie, err := c.Cookie("jwt")
@@ -135,6 +133,9 @@ func (j JWTStrategy) parseToken(tokenString string) (*middlewares.CustomClaims, 
 	}
 	if strings.TrimSpace(j.realm) != "" {
 		parserOptions = append(parserOptions, jwt.WithIssuer(j.realm))
+	}
+	if strings.TrimSpace(j.audience) != "" {
+		parserOptions = append(parserOptions, jwt.WithAudience(j.audience))
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &middlewares.CustomClaims{}, func(token *jwt.Token) (interface{}, error) {

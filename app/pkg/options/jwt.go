@@ -11,18 +11,37 @@ import (
 
 type JwtOptions struct {
 	Realm      string        `json:"realm"       mapstructure:"realm"`
+	Audience   string        `json:"audience"    mapstructure:"audience"`
 	Key        string        `json:"key"         mapstructure:"key"`
 	Timeout    time.Duration `json:"timeout"     mapstructure:"timeout"`
 	MaxRefresh time.Duration `json:"max-refresh" mapstructure:"max-refresh"`
 }
 
-func NewJwtOptions() *JwtOptions {
-	return &JwtOptions{
+const (
+	JWTAPIAudience   = "goshop-api"
+	JWTAdminAudience = "goshop-admin"
+)
+
+func NewJwtOptions(audience ...string) *JwtOptions {
+	opts := &JwtOptions{
 		Realm:      "imooc",
 		Key:        "imooc",
 		Timeout:    24 * time.Hour,
 		MaxRefresh: 24 * time.Hour,
 	}
+	if len(audience) > 0 {
+		opts.Audience = audience[0]
+	}
+	return opts
+}
+
+// AudienceValues returns the configured JWT audience as registered-claim
+// values. Production validation requires a non-empty audience.
+func (s *JwtOptions) AudienceValues() []string {
+	if s == nil || s.Audience == "" {
+		return nil
+	}
+	return []string{s.Audience}
 }
 
 func (s *JwtOptions) Validate() []error {
@@ -41,6 +60,9 @@ func (s *JwtOptions) ValidateStartup() error {
 	}
 	if s.Key == "imooc" {
 		return errors.New("jwt.key must not use the development default")
+	}
+	if s.Audience == "" {
+		return errors.New("jwt.audience is required")
 	}
 	if !govalidator.StringLength(s.Key, "32", "64") {
 		return errors.New("jwt.key must be between 32 and 64 characters for production startup")
@@ -61,6 +83,7 @@ func (s *JwtOptions) AddFlags(fs *pflag.FlagSet) {
 	}
 
 	fs.StringVar(&s.Realm, "jwt.realm", s.Realm, "Realm name to display to the user.")
+	fs.StringVar(&s.Audience, "jwt.audience", s.Audience, "Audience required in issued and accepted JWTs.")
 	fs.StringVar(&s.Key, "jwt.key", s.Key, "Private key used to sign jwt token.")
 	fs.DurationVar(&s.Timeout, "jwt.timeout", s.Timeout, "JWT token timeout.")
 

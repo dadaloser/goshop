@@ -31,6 +31,15 @@ func TestJwtOptionsValidateAllowsExternalSecretInjection(t *testing.T) {
 	}
 }
 
+func TestJwtOptionsValidateStartupRejectsMissingAudience(t *testing.T) {
+	opts := NewJwtOptions()
+	opts.Key = "01234567890123456789012345678901"
+
+	if err := opts.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want missing audience error")
+	}
+}
+
 func TestMySQLOptionsValidateStartup(t *testing.T) {
 	opts := NewMySQLOptions()
 	opts.Username = "user"
