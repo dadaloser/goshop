@@ -18,9 +18,14 @@ type ServerOptions struct {
 	//限流器
 	EnableLimit bool `json:"limit"      mapstructure:"limit"`
 
-	RateLimitRPS          float64 `json:"rate-limit-rps,omitempty"             mapstructure:"rate-limit-rps"`
-	RateLimitBurst        int     `json:"rate-limit-burst,omitempty"           mapstructure:"rate-limit-burst"`
-	MaxConcurrentRequests int     `json:"max-concurrent-requests,omitempty"    mapstructure:"max-concurrent-requests"`
+	RateLimitRPS            float64       `json:"rate-limit-rps,omitempty"             mapstructure:"rate-limit-rps"`
+	RateLimitBurst          int           `json:"rate-limit-burst,omitempty"           mapstructure:"rate-limit-burst"`
+	ClientRateLimitRPS      float64       `json:"client-rate-limit-rps,omitempty"      mapstructure:"client-rate-limit-rps"`
+	ClientRateLimitBurst    int           `json:"client-rate-limit-burst,omitempty"    mapstructure:"client-rate-limit-burst"`
+	ClientRateLimitKeys     int           `json:"client-rate-limit-keys,omitempty"     mapstructure:"client-rate-limit-keys"`
+	MaxConcurrentRequests   int           `json:"max-concurrent-requests,omitempty"    mapstructure:"max-concurrent-requests"`
+	RPCRequestTimeout       time.Duration `json:"rpc-request-timeout,omitempty" mapstructure:"rpc-request-timeout"`
+	RPCMaxConcurrentStreams int           `json:"rpc-max-concurrent-streams,omitempty" mapstructure:"rpc-max-concurrent-streams"`
 
 	//是否开启metrics
 	EnableMetrics bool `json:"enable-metrics" mapstructure:"enable-metrics"`
@@ -58,19 +63,24 @@ type ServerOptions struct {
 // NewServerOptions create a `zero` value instance.
 func NewServerOptions() *ServerOptions {
 	return &ServerOptions{
-		EnableHealthCheck:     true,
-		EnableProfiling:       false, //
-		ProfilingToken:        "",
-		EnableLimit:           false,
-		RateLimitRPS:          100,
-		RateLimitBurst:        200,
-		MaxConcurrentRequests: 200,
-		EnableMetrics:         true,
-		Host:                  "127.0.0.1",
-		Port:                  8078,
-		HttpPort:              8079,
-		ManagementPort:        0,
-		Name:                  "goshop-user-srv",
+		EnableHealthCheck:       true,
+		EnableProfiling:         false, //
+		ProfilingToken:          "",
+		EnableLimit:             false,
+		RateLimitRPS:            100,
+		RateLimitBurst:          200,
+		ClientRateLimitRPS:      20,
+		ClientRateLimitBurst:    40,
+		ClientRateLimitKeys:     10000,
+		MaxConcurrentRequests:   200,
+		RPCRequestTimeout:       15 * time.Second,
+		RPCMaxConcurrentStreams: 256,
+		EnableMetrics:           true,
+		Host:                    "127.0.0.1",
+		Port:                    8078,
+		HttpPort:                8079,
+		ManagementPort:          0,
+		Name:                    "goshop-user-srv",
 		BuiltInRouteCIDRs: []string{
 			"127.0.0.0/8",
 			"10.0.0.0/8",
@@ -123,6 +133,21 @@ func (so *ServerOptions) Validate() []error {
 		if so.MaxConcurrentRequests <= 0 {
 			errs = append(errs, fmt.Errorf("server.max-concurrent-requests must be positive when limit is enabled"))
 		}
+		if so.ClientRateLimitRPS <= 0 {
+			errs = append(errs, fmt.Errorf("server.client-rate-limit-rps must be positive when limit is enabled"))
+		}
+		if so.ClientRateLimitBurst <= 0 {
+			errs = append(errs, fmt.Errorf("server.client-rate-limit-burst must be positive when limit is enabled"))
+		}
+		if so.ClientRateLimitKeys <= 0 {
+			errs = append(errs, fmt.Errorf("server.client-rate-limit-keys must be positive when limit is enabled"))
+		}
+	}
+	if so.RPCRequestTimeout <= 0 {
+		errs = append(errs, fmt.Errorf("server.rpc-request-timeout must be positive"))
+	}
+	if so.RPCMaxConcurrentStreams <= 0 {
+		errs = append(errs, fmt.Errorf("server.rpc-max-concurrent-streams must be positive"))
 	}
 	return errs
 }
@@ -148,6 +173,20 @@ func (so *ServerOptions) ValidateStartup() error {
 	}
 	if so.ReadHeaderTimeout <= 0 || so.ReadTimeout <= 0 || so.WriteTimeout <= 0 || so.IdleTimeout <= 0 {
 		return errors.New("server.read-header-timeout, server.read-timeout, server.write-timeout and server.idle-timeout must be positive")
+	}
+	if so.RPCRequestTimeout <= 0 {
+		return errors.New("server.rpc-request-timeout must be positive")
+	}
+	if so.RPCMaxConcurrentStreams <= 0 {
+		return errors.New("server.rpc-max-concurrent-streams must be positive")
+	}
+	if so.EnableLimit {
+		if so.RateLimitRPS <= 0 || so.RateLimitBurst <= 0 || so.MaxConcurrentRequests <= 0 {
+			return errors.New("server global overload limits must be positive when limit is enabled")
+		}
+		if so.ClientRateLimitRPS <= 0 || so.ClientRateLimitBurst <= 0 || so.ClientRateLimitKeys <= 0 {
+			return errors.New("server client route limits must be positive when limit is enabled")
+		}
 	}
 	if slices.Contains(so.Middlewares, "cors") {
 		if len(so.CorsAllowOrigins) == 0 {
@@ -175,8 +214,18 @@ func (so *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 		"maximum accepted REST requests per second when limit is enabled")
 	fs.IntVar(&so.RateLimitBurst, "server.rate-limit-burst", so.RateLimitBurst,
 		"maximum REST rate limiter burst when limit is enabled")
+	fs.Float64Var(&so.ClientRateLimitRPS, "server.client-rate-limit-rps", so.ClientRateLimitRPS,
+		"maximum REST requests per second per client IP and route when limit is enabled")
+	fs.IntVar(&so.ClientRateLimitBurst, "server.client-rate-limit-burst", so.ClientRateLimitBurst,
+		"maximum per-client route limiter burst when limit is enabled")
+	fs.IntVar(&so.ClientRateLimitKeys, "server.client-rate-limit-keys", so.ClientRateLimitKeys,
+		"maximum in-memory client-route limiter keys per server instance")
 	fs.IntVar(&so.MaxConcurrentRequests, "server.max-concurrent-requests", so.MaxConcurrentRequests,
 		"maximum concurrent REST requests when limit is enabled")
+	fs.DurationVar(&so.RPCRequestTimeout, "server.rpc-request-timeout", so.RPCRequestTimeout,
+		"maximum lifetime of one inbound unary or streaming gRPC request")
+	fs.IntVar(&so.RPCMaxConcurrentStreams, "server.rpc-max-concurrent-streams", so.RPCMaxConcurrentStreams,
+		"maximum concurrent application-level inbound gRPC streams")
 	fs.BoolVar(&so.EnableMetrics, "server.enable-metrics", so.EnableMetrics,
 		"enable-metrics, if true, will add /metrics, default is true")
 

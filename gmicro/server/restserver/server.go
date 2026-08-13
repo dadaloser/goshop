@@ -1,6 +1,7 @@
 package restserver
 
 import (
+	"container/list"
 	"context"
 	"fmt"
 	"net"
@@ -60,22 +61,27 @@ type Server struct {
 	//是否开启metrics接口， 默认开启， 如果开启会自动添加 /metrics 接口
 	enableMetrics bool
 
-	readHeaderTimeout time.Duration
-	readTimeout       time.Duration
-	writeTimeout      time.Duration
-	idleTimeout       time.Duration
-	startupValidators []StartupValidator
-	readinessChecks   []func() error
-	rateLimit         rate.Limit
-	rateLimitBurst    int
-	maxConcurrentReqs int
-	profilingToken    string
-	builtInRouteCIDRs []*net.IPNet
-	builtInRouteErr   error
+	readHeaderTimeout      time.Duration
+	readTimeout            time.Duration
+	writeTimeout           time.Duration
+	idleTimeout            time.Duration
+	startupValidators      []StartupValidator
+	readinessChecks        []func() error
+	rateLimit              rate.Limit
+	rateLimitBurst         int
+	clientRateLimit        rate.Limit
+	clientRateLimitBurst   int
+	clientRateLimitMaxKeys int
+	maxConcurrentReqs      int
+	profilingToken         string
+	builtInRouteCIDRs      []*net.IPNet
+	builtInRouteErr        error
 
 	//中间件
-	middlewares []string
-	corsOptions *mws.CorsOptions
+	middlewares         []string
+	corsOptions         *mws.CorsOptions
+	customMiddlewares   map[string]gin.HandlerFunc
+	middlewareConfigErr error
 
 	//jwt配置信息
 	jwt           *JwtInfo
@@ -112,28 +118,35 @@ func NewServer(opts ...ServerOption) *Server {
 			7 * 24 * time.Hour,
 			7 * 24 * time.Hour,
 		},
-		Engine:            gin.Default(),
+		Engine:            gin.New(),
 		transName:         "zh",
 		serviceName:       "gmicro",
 		ready:             make(chan struct{}),
 		builtInRouteCIDRs: mustParseCIDRs(defaultBuiltInRouteCIDRs()),
+		customMiddlewares: make(map[string]gin.HandlerFunc),
 	}
 
 	for _, o := range opts {
 		o(srv)
 	}
 
-	srv.Use(mws.TracingHandler(srv.serviceName))
+	srv.Use(mws.TracingHandler(srv.serviceName), mws.RequestLogger(), mws.Recovery())
 	if srv.maxConcurrentReqs > 0 {
 		srv.Use(maxConcurrentRequestsMiddleware(srv.maxConcurrentReqs))
 	}
 	if srv.rateLimit > 0 && srv.rateLimitBurst > 0 {
-		srv.Use(rateLimitMiddleware(rate.NewLimiter(srv.rateLimit, srv.rateLimitBurst)))
+		srv.Use(globalRateLimitMiddleware(rate.NewLimiter(srv.rateLimit, srv.rateLimitBurst)))
+	}
+	if srv.clientRateLimit > 0 && srv.clientRateLimitBurst > 0 && srv.clientRateLimitMaxKeys > 0 {
+		srv.Use(clientRouteRateLimitMiddleware(newClientRouteLimiter(
+			srv.clientRateLimit,
+			srv.clientRateLimitBurst,
+			srv.clientRateLimitMaxKeys,
+		)))
 	}
 	for _, m := range srv.middlewares {
 		mw, ok := srv.middleware(m)
 		if !ok {
-			log.Warnf("can not find middleware: %s", m)
 			continue
 		}
 
@@ -148,17 +161,25 @@ func (s *Server) middleware(name string) (gin.HandlerFunc, bool) {
 	if name == "cors" && s.corsOptions != nil {
 		return mws.CorsWithOptions(*s.corsOptions), true
 	}
-	mw, ok := mws.Middlewares[name]
-	return mw, ok
+	if middleware, ok := s.customMiddlewares[name]; ok {
+		return middleware, true
+	}
+	return mws.Lookup(name)
 }
 
 // ValidateStartupConfig validates server configuration before startup.
 func (s *Server) ValidateStartupConfig() error {
+	if s.middlewareConfigErr != nil {
+		return s.middlewareConfigErr
+	}
 	if s.builtInRouteErr != nil {
 		return s.builtInRouteErr
 	}
 	if s.mode != gin.DebugMode && s.mode != gin.ReleaseMode && s.mode != gin.TestMode {
 		return errors.New("mode must be one of debug/release/test")
+	}
+	if err := s.validateMiddlewares(); err != nil {
+		return err
 	}
 	if s.mode == gin.ReleaseMode {
 		if err := s.validateProductionConfig(); err != nil {
@@ -171,6 +192,23 @@ func (s *Server) ValidateStartupConfig() error {
 		}
 		if err := validate(s); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) validateMiddlewares() error {
+	seen := make(map[string]struct{}, len(s.middlewares))
+	for _, name := range s.middlewares {
+		if name == "recovery" || name == "logger" {
+			return fmt.Errorf("middleware %q is built into restserver and must not be configured", name)
+		}
+		if _, exists := seen[name]; exists {
+			return fmt.Errorf("duplicate middleware %q", name)
+		}
+		seen[name] = struct{}{}
+		if _, ok := s.middleware(name); !ok {
+			return fmt.Errorf("unknown middleware %q", name)
 		}
 	}
 	return nil
@@ -339,9 +377,80 @@ func bearerTokenMiddleware(token string) gin.HandlerFunc {
 	}
 }
 
-func rateLimitMiddleware(limiter *rate.Limiter) gin.HandlerFunc {
+func globalRateLimitMiddleware(limiter *rate.Limiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !limiter.Allow() {
+			c.Header("Retry-After", "1")
+			c.AbortWithStatus(http.StatusTooManyRequests)
+			return
+		}
+		c.Next()
+	}
+}
+
+type clientRouteLimiterEntry struct {
+	key     string
+	limiter *rate.Limiter
+}
+
+type clientRouteLimiter struct {
+	mu      sync.Mutex
+	rate    rate.Limit
+	burst   int
+	maxKeys int
+	entries map[string]*list.Element
+	recent  *list.List
+}
+
+func newClientRouteLimiter(limit rate.Limit, burst, maxKeys int) *clientRouteLimiter {
+	return &clientRouteLimiter{
+		rate:    limit,
+		burst:   burst,
+		maxKeys: maxKeys,
+		entries: make(map[string]*list.Element, maxKeys),
+		recent:  list.New(),
+	}
+}
+
+func (l *clientRouteLimiter) allow(key string, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	element, ok := l.entries[key]
+	if !ok {
+		if len(l.entries) >= l.maxKeys {
+			l.evictOldest()
+		}
+		entry := &clientRouteLimiterEntry{key: key, limiter: rate.NewLimiter(l.rate, l.burst)}
+		element = l.recent.PushFront(entry)
+		l.entries[key] = element
+	} else {
+		l.recent.MoveToFront(element)
+	}
+	entry := element.Value.(*clientRouteLimiterEntry)
+	return entry.limiter.AllowN(now, 1)
+}
+
+func (l *clientRouteLimiter) evictOldest() {
+	element := l.recent.Back()
+	if element == nil {
+		return
+	}
+	entry := element.Value.(*clientRouteLimiterEntry)
+	delete(l.entries, entry.key)
+	l.recent.Remove(element)
+}
+
+func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		route := c.FullPath()
+		if route == "" {
+			route = "__unmatched__"
+		}
+		clientIP := clientIPFromRemoteAddr(c.Request.RemoteAddr)
+		key := clientIP.String() + "|" + c.Request.Method + "|" + route
+		if !limiter.allow(key, time.Now()) {
+			c.Header("Retry-After", "1")
 			c.AbortWithStatus(http.StatusTooManyRequests)
 			return
 		}

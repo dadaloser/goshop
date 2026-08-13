@@ -41,6 +41,8 @@ func NewGoodsRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	grpcServer, err := rpcserver.NewServerE(
 		rpcserver.WithAddress(rpcAddr),
 		rpcserver.WithMetrics(cfg.Server != nil && cfg.Server.EnableMetrics),
+		rpcserver.WithTimeout(cfg.Server.RPCRequestTimeout),
+		rpcserver.WithApplicationStreamConcurrency(cfg.Server.RPCMaxConcurrentStreams),
 		rpcserver.WithServerSecurityPolicy(cfg.RPC),
 	)
 	if err != nil {

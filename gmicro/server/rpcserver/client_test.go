@@ -24,6 +24,17 @@ func TestDefaultClientOptionsEnableProductionDefaults(t *testing.T) {
 	if opts.balancerName != "round_robin" {
 		t.Fatalf("balancerName = %q, want round_robin", opts.balancerName)
 	}
+	if !opts.enableMetrics {
+		t.Fatal("enableMetrics = false, want true by default")
+	}
+}
+
+func TestWithClientMetricsCanDisableMetrics(t *testing.T) {
+	opts := defaultClientOptions()
+	WithClientMetrics(false)(&opts)
+	if opts.enableMetrics {
+		t.Fatal("enableMetrics = true, want false after WithClientMetrics(false)")
+	}
 }
 
 func TestProductionClientDialOptionsIncludeKeepaliveAndBackoff(t *testing.T) {

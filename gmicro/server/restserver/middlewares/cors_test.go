@@ -50,4 +50,23 @@ func TestCorsWithOptionsAllowsCredentialsForExplicitOrigin(t *testing.T) {
 	if rec.Header().Get("Access-Control-Allow-Credentials") != "true" {
 		t.Fatal("CORS should allow credentials for explicit allowed origin")
 	}
+	if got := rec.Header().Values("Vary"); len(got) != 1 || got[0] != "Origin" {
+		t.Fatalf("Vary = %v, want [Origin]", got)
+	}
+}
+
+func TestCorsWildcardDoesNotVaryByOrigin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(Cors())
+	router.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Origin", "https://example.com")
+	router.ServeHTTP(rec, req)
+
+	if got := rec.Header().Values("Vary"); len(got) != 0 {
+		t.Fatalf("Vary = %v, want none for wildcard response", got)
+	}
 }

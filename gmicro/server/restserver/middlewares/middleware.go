@@ -1,16 +1,18 @@
 package middlewares
 
-import (
-	"github.com/gin-gonic/gin"
-)
+import "github.com/gin-gonic/gin"
 
-var Middlewares = defaultMiddlewares()
-
-func defaultMiddlewares() map[string]gin.HandlerFunc {
-	return map[string]gin.HandlerFunc{
-		"recovery":         gin.Recovery(),
-		"cors":             Cors(),
-		"context":          Context(),
-		"security-headers": SecurityHeaders(),
+// Lookup creates a configured middleware by name. The registry is intentionally
+// read-only to callers; framework middleware such as recovery and request
+// logging is installed by restserver itself, while CORS requires explicit
+// options and is handled separately.
+func Lookup(name string) (gin.HandlerFunc, bool) {
+	switch name {
+	case "context":
+		return Context(), true
+	case "security-headers":
+		return SecurityHeaders(), true
+	default:
+		return nil, false
 	}
 }

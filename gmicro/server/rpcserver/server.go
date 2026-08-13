@@ -27,12 +27,13 @@ type ServerOption func(o *Server)
 type Server struct {
 	*grpc.Server
 
-	address    string
-	unaryInts  []grpc.UnaryServerInterceptor
-	streamInts []grpc.StreamServerInterceptor
-	grpcOpts   []grpc.ServerOption
-	lis        net.Listener
-	timeout    time.Duration
+	address                         string
+	unaryInts                       []grpc.UnaryServerInterceptor
+	streamInts                      []grpc.StreamServerInterceptor
+	grpcOpts                        []grpc.ServerOption
+	lis                             net.Listener
+	timeout                         time.Duration
+	maxConcurrentApplicationStreams int
 
 	health         *health.Server
 	metadata       *apimd.Server
@@ -71,11 +72,12 @@ func NewServer(opts ...ServerOption) *Server {
 
 func NewServerE(opts ...ServerOption) (*Server, error) {
 	srv := &Server{
-		address:            ":0",
-		health:             health.NewServer(),
-		ready:              make(chan struct{}),
-		enableMetrics:      true,
-		productionDefaults: true,
+		address:                         ":0",
+		health:                          health.NewServer(),
+		ready:                           make(chan struct{}),
+		enableMetrics:                   true,
+		productionDefaults:              true,
+		maxConcurrentApplicationStreams: 256,
 		//timeout: 1 * time.Second,
 	}
 
@@ -100,18 +102,21 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 	unaryInts := []grpc.UnaryServerInterceptor{
 		srvintc.UnaryCrashInterceptor,
 	}
-	streamInts := []grpc.StreamServerInterceptor{
-		srvintc.StreamCrashInterceptor,
-		srvintc.StreamErrorInterceptor,
-	}
+	streamInts := []grpc.StreamServerInterceptor{srvintc.StreamCrashInterceptor}
 
 	if srv.enableMetrics {
 		unaryInts = append(unaryInts, srvintc.UnaryPrometheusInterceptor)
+		streamInts = append(streamInts, srvintc.StreamPrometheusInterceptor)
 	}
 	unaryInts = append(unaryInts, srvintc.UnaryErrorInterceptor)
+	streamInts = append(streamInts, srvintc.StreamErrorInterceptor)
 
 	if srv.timeout > 0 {
 		unaryInts = append(unaryInts, srvintc.UnaryTimeoutInterceptor(srv.timeout))
+		streamInts = append(streamInts, srvintc.StreamTimeoutInterceptor(srv.timeout))
+	}
+	if srv.maxConcurrentApplicationStreams > 0 {
+		streamInts = append(streamInts, srvintc.StreamConcurrencyInterceptor(srv.maxConcurrentApplicationStreams))
 	}
 
 	if len(srv.unaryInts) > 0 {
@@ -188,6 +193,17 @@ func WithReflection(enable bool) ServerOption {
 func WithTimeout(timeout time.Duration) ServerOption {
 	return func(s *Server) {
 		s.timeout = timeout
+	}
+}
+
+// WithApplicationStreamConcurrency applies a fail-fast bulkhead before stream
+// handlers start. This complements gRPC's transport-level concurrent stream
+// limit with an explicit application capacity limit.
+func WithApplicationStreamConcurrency(maxConcurrent int) ServerOption {
+	return func(s *Server) {
+		if maxConcurrent > 0 {
+			s.maxConcurrentApplicationStreams = maxConcurrent
+		}
 	}
 }
 

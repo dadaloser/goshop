@@ -27,6 +27,7 @@ func CorsWithOptions(opts CorsOptions) gin.HandlerFunc {
 		origin := c.Request.Header.Get("Origin")
 		allowOrigin := "*"
 		if _, ok := allowedOrigins["*"]; !ok {
+			c.Writer.Header().Add("Vary", "Origin")
 			allowOrigin = ""
 			if _, ok := allowedOrigins[origin]; ok {
 				allowOrigin = origin

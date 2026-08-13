@@ -101,6 +101,40 @@ func TestServerOptionsValidateStartupRejectsManagementPortEqualHTTPPort(t *testi
 	}
 }
 
+func TestServerOptionsValidateStartupRejectsInvalidClientRateLimit(t *testing.T) {
+	opts := NewServerOptions()
+	opts.EnableLimit = true
+	opts.ClientRateLimitRPS = 0
+
+	if err := opts.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want client route limit error")
+	}
+}
+
+func TestServerOptionsValidateStartupRejectsInvalidRPCRequestTimeout(t *testing.T) {
+	opts := NewServerOptions()
+	opts.RPCRequestTimeout = 0
+
+	if err := opts.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want RPC request timeout error")
+	}
+}
+
+func TestNewServerOptionsSetsRPCRequestTimeout(t *testing.T) {
+	if got := NewServerOptions().RPCRequestTimeout; got != 15*time.Second {
+		t.Fatalf("RPCRequestTimeout = %s, want 15s", got)
+	}
+}
+
+func TestServerOptionsValidateStartupRejectsInvalidRPCStreamConcurrency(t *testing.T) {
+	opts := NewServerOptions()
+	opts.RPCMaxConcurrentStreams = 0
+
+	if err := opts.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want RPC stream concurrency error")
+	}
+}
+
 func TestRPCSecurityOptionsValidateStartup(t *testing.T) {
 	opts := NewRPCSecurityOptions()
 	opts.CertFile = "client.crt"

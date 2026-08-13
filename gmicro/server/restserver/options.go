@@ -1,8 +1,10 @@
 package restserver
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 	mws "goshop/gmicro/server/restserver/middlewares"
 )
@@ -62,6 +64,31 @@ func WithHost(host string) ServerOption {
 func WithMiddlewares(middlewares []string) ServerOption {
 	return func(s *Server) {
 		s.middlewares = middlewares
+	}
+}
+
+// WithNamedMiddleware registers middleware on one server instance. It avoids
+// process-global mutable registries and makes extension ownership explicit.
+// Add name to WithMiddlewares to control its position in the configured chain.
+func WithNamedMiddleware(name string, middleware gin.HandlerFunc) ServerOption {
+	return func(s *Server) {
+		if name == "" || middleware == nil {
+			s.middlewareConfigErr = fmt.Errorf("named middleware requires a non-empty name and handler")
+			return
+		}
+		if name == "recovery" || name == "logger" || name == "cors" {
+			s.middlewareConfigErr = fmt.Errorf("middleware name %q is reserved", name)
+			return
+		}
+		if _, exists := s.customMiddlewares[name]; exists {
+			s.middlewareConfigErr = fmt.Errorf("duplicate named middleware %q", name)
+			return
+		}
+		if _, builtIn := mws.Lookup(name); builtIn {
+			s.middlewareConfigErr = fmt.Errorf("middleware name %q is built in", name)
+			return
+		}
+		s.customMiddlewares[name] = middleware
 	}
 }
 
@@ -134,6 +161,18 @@ func WithRateLimit(rps float64, burst int) ServerOption {
 		if rps > 0 && burst > 0 {
 			s.rateLimit = rate.Limit(rps)
 			s.rateLimitBurst = burst
+		}
+	}
+}
+
+// WithClientRouteRateLimit limits each client IP independently for each HTTP
+// method and route template. maxKeys bounds the in-memory limiter cache.
+func WithClientRouteRateLimit(rps float64, burst, maxKeys int) ServerOption {
+	return func(s *Server) {
+		if rps > 0 && burst > 0 && maxKeys > 0 {
+			s.clientRateLimit = rate.Limit(rps)
+			s.clientRateLimitBurst = burst
+			s.clientRateLimitMaxKeys = maxKeys
 		}
 	}
 }

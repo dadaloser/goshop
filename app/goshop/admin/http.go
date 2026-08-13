@@ -41,6 +41,7 @@ func NewUserHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Ser
 	if cfg.Server.EnableLimit {
 		opts = append(opts,
 			restserver.WithRateLimit(cfg.Server.RateLimitRPS, cfg.Server.RateLimitBurst),
+			restserver.WithClientRouteRateLimit(cfg.Server.ClientRateLimitRPS, cfg.Server.ClientRateLimitBurst, cfg.Server.ClientRateLimitKeys),
 			restserver.WithMaxConcurrentRequests(cfg.Server.MaxConcurrentRequests),
 		)
 	}

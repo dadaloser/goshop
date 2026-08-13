@@ -50,7 +50,15 @@ func defaultClientOptions() clientOptions {
 		connectTimeout:     5 * time.Second,
 		balancerName:       "round_robin",
 		enableTracing:      true,
+		enableMetrics:      true,
 		productionDefaults: true,
+	}
+}
+
+// WithClientMetrics controls Prometheus metrics for outbound unary RPCs.
+func WithClientMetrics(enable bool) ClientOption {
+	return func(o *clientOptions) {
+		o.enableMetrics = enable
 	}
 }
 

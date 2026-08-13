@@ -60,3 +60,21 @@ func UnaryPrometheusInterceptor(ctx context.Context, req interface{}, info *grpc
 	metricServerReqCodeTotal.Inc(info.FullMethod, strconv.Itoa(int(status.Code(err))))
 	return resp, err
 }
+
+// StreamPrometheusInterceptor records one observation for the complete stream
+// lifetime. Method names are bounded by the registered RPC surface.
+func StreamPrometheusInterceptor(
+	srv interface{},
+	stream grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+	handler grpc.StreamHandler,
+) error {
+	startTime := time.Now()
+	metricServerReqInflight.Inc(info.FullMethod)
+	defer metricServerReqInflight.Add(-1, info.FullMethod)
+
+	err := handler(srv, stream)
+	metricServerReqDur.Observe(int64(time.Since(startTime)/time.Millisecond), info.FullMethod)
+	metricServerReqCodeTotal.Inc(info.FullMethod, strconv.Itoa(int(status.Code(err))))
+	return err
+}

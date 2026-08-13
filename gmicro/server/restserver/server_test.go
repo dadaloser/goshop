@@ -279,6 +279,121 @@ func TestValidateStartupConfigRejectsInvalidBuiltInRouteCIDR(t *testing.T) {
 	}
 }
 
+func TestValidateStartupConfigRejectsUnknownMiddleware(t *testing.T) {
+	srv := NewServer(WithMiddlewares([]string{"does-not-exist"}))
+
+	if err := srv.ValidateStartupConfig(); err == nil {
+		t.Fatal("ValidateStartupConfig() error = nil, want unknown middleware error")
+	}
+}
+
+func TestValidateStartupConfigRejectsDuplicateMiddleware(t *testing.T) {
+	srv := NewServer(WithMiddlewares([]string{"recovery", "recovery"}))
+
+	if err := srv.ValidateStartupConfig(); err == nil {
+		t.Fatal("ValidateStartupConfig() error = nil, want duplicate middleware error")
+	}
+}
+
+func TestValidateStartupConfigRejectsBuiltInRecoveryMiddleware(t *testing.T) {
+	srv := NewServer(WithMiddlewares([]string{"recovery"}))
+
+	if err := srv.ValidateStartupConfig(); err == nil {
+		t.Fatal("ValidateStartupConfig() error = nil, want built-in middleware error")
+	}
+}
+
+func TestWithNamedMiddlewareIsServerLocal(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	custom := func(c *gin.Context) {
+		c.Header("X-Custom-Middleware", "installed")
+		c.Next()
+	}
+	configured := NewServer(
+		WithMode(gin.TestMode),
+		WithNamedMiddleware("custom", custom),
+		WithMiddlewares([]string{"custom"}),
+	)
+	configured.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	rec := httptest.NewRecorder()
+	configured.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if got := rec.Header().Get("X-Custom-Middleware"); got != "installed" {
+		t.Fatalf("custom middleware header = %q, want installed", got)
+	}
+
+	unconfigured := NewServer(WithMode(gin.TestMode), WithMiddlewares([]string{"custom"}))
+	if err := unconfigured.ValidateStartupConfig(); err == nil {
+		t.Fatal("custom middleware leaked into another server instance")
+	}
+}
+
+func TestServerProvidesRequestIDAndRecoversPanic(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	srv := NewServer(WithMode(gin.TestMode))
+	srv.GET("/panic", func(*gin.Context) { panic("boom") })
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("panic status = %d, want 500", rec.Code)
+	}
+	if got := rec.Header().Get("X-Request-ID"); got == "" {
+		t.Fatal("X-Request-ID is empty")
+	}
+}
+
+func TestClientRouteRateLimitIsolatesClientsAndRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	srv := NewServer(WithMode(gin.TestMode), WithClientRouteRateLimit(0.0001, 1, 100))
+	srv.GET("/users/:id", func(c *gin.Context) { c.Status(http.StatusOK) })
+	srv.GET("/orders/:id", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	request := func(path, remoteAddr string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.RemoteAddr = remoteAddr
+		srv.ServeHTTP(rec, req)
+		return rec
+	}
+
+	if got := request("/users/1", "192.0.2.1:1234").Code; got != http.StatusOK {
+		t.Fatalf("first request status = %d, want 200", got)
+	}
+	limited := request("/users/2", "192.0.2.1:1234")
+	if limited.Code != http.StatusTooManyRequests {
+		t.Fatalf("same client and route template status = %d, want 429", limited.Code)
+	}
+	if got := limited.Header().Get("Retry-After"); got != "1" {
+		t.Fatalf("Retry-After = %q, want 1", got)
+	}
+	if got := request("/orders/1", "192.0.2.1:1234").Code; got != http.StatusOK {
+		t.Fatalf("different route status = %d, want 200", got)
+	}
+	if got := request("/users/3", "192.0.2.2:1234").Code; got != http.StatusOK {
+		t.Fatalf("different client status = %d, want 200", got)
+	}
+}
+
+func TestClientRouteLimiterBoundsKeysWithLRUEviction(t *testing.T) {
+	limiter := newClientRouteLimiter(1, 1, 2)
+	now := time.Now()
+
+	limiter.allow("first", now)
+	limiter.allow("second", now)
+	limiter.allow("first", now)
+	limiter.allow("third", now)
+
+	if got := len(limiter.entries); got != 2 {
+		t.Fatalf("limiter entries = %d, want 2", got)
+	}
+	if _, ok := limiter.entries["second"]; ok {
+		t.Fatal("least recently used entry was not evicted")
+	}
+}
+
 func TestReadyzAllowsInternalAndRejectsPublicClients(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	srv := NewServer(WithHealthCheck(true))
