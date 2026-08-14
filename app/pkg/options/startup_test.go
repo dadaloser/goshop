@@ -111,18 +111,31 @@ func TestServerOptionsValidateStartupRejectsInvalidClientRateLimit(t *testing.T)
 	}
 }
 
-func TestServerOptionsValidateStartupRejectsInvalidRPCRequestTimeout(t *testing.T) {
+func TestServerOptionsValidateStartupRejectsInvalidRPCUnaryTimeout(t *testing.T) {
 	opts := NewServerOptions()
-	opts.RPCRequestTimeout = 0
+	opts.RPCUnaryTimeout = 0
 
 	if err := opts.ValidateStartup(); err == nil {
-		t.Fatal("ValidateStartup() error = nil, want RPC request timeout error")
+		t.Fatal("ValidateStartup() error = nil, want RPC unary timeout error")
 	}
 }
 
-func TestNewServerOptionsSetsRPCRequestTimeout(t *testing.T) {
-	if got := NewServerOptions().RPCRequestTimeout; got != 15*time.Second {
-		t.Fatalf("RPCRequestTimeout = %s, want 15s", got)
+func TestNewServerOptionsSetsSeparateRPCTimeouts(t *testing.T) {
+	opts := NewServerOptions()
+	if got := opts.RPCUnaryTimeout; got != 15*time.Second {
+		t.Fatalf("RPCUnaryTimeout = %s, want 15s", got)
+	}
+	if got := opts.RPCStreamMaxLifetime; got != 5*time.Minute {
+		t.Fatalf("RPCStreamMaxLifetime = %s, want 5m", got)
+	}
+}
+
+func TestServerOptionsValidateStartupRejectsInvalidRPCStreamMaxLifetime(t *testing.T) {
+	opts := NewServerOptions()
+	opts.RPCStreamMaxLifetime = 0
+
+	if err := opts.ValidateStartup(); err == nil {
+		t.Fatal("ValidateStartup() error = nil, want RPC stream max lifetime error")
 	}
 }
 

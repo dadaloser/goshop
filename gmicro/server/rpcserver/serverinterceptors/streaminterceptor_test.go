@@ -20,18 +20,26 @@ func (s testServerStream) Context() context.Context     { return s.ctx }
 func (s testServerStream) SendMsg(any) error            { return nil }
 func (s testServerStream) RecvMsg(any) error            { return nil }
 
-func TestStreamTimeoutInterceptorReturnsDeadlineExceeded(t *testing.T) {
+func TestStreamTimeoutInterceptorDoesNotDetachHandler(t *testing.T) {
 	release := make(chan struct{})
 	interceptor := StreamTimeoutInterceptor(10 * time.Millisecond)
+	result := make(chan error, 1)
 
-	err := interceptor(nil, testServerStream{ctx: context.Background()},
-		&grpc.StreamServerInfo{FullMethod: "/test.Service/Slow"},
-		func(interface{}, grpc.ServerStream) error {
-			<-release
-			return nil
-		})
+	go func() {
+		result <- interceptor(nil, testServerStream{ctx: context.Background()},
+			&grpc.StreamServerInfo{FullMethod: "/test.Service/Slow"},
+			func(interface{}, grpc.ServerStream) error {
+				<-release
+				return nil
+			})
+	}()
+	select {
+	case err := <-result:
+		t.Fatalf("interceptor returned before handler exited: %v", err)
+	case <-time.After(30 * time.Millisecond):
+	}
 	close(release)
-
+	err := <-result
 	if got := status.Code(err); got != codes.DeadlineExceeded {
 		t.Fatalf("status.Code(err) = %v, want DeadlineExceeded", got)
 	}

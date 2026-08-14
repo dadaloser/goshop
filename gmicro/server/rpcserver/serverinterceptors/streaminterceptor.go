@@ -2,14 +2,11 @@ package serverinterceptors
 
 import (
 	"context"
-	"runtime/debug"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"goshop/pkg/log"
 )
 
 type contextServerStream struct {
@@ -25,42 +22,11 @@ func StreamTimeoutInterceptor(timeout time.Duration) grpc.StreamServerIntercepto
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx, cancel := context.WithTimeout(stream.Context(), timeout)
 		defer cancel()
-		type result struct {
-			err   error
-			panic interface{}
-			stack []byte
-		}
-		done := make(chan result, 1)
-		go func() {
-			out := result{}
-			defer func() {
-				if recovered := recover(); recovered != nil {
-					out.panic = recovered
-					out.stack = debug.Stack()
-				}
-				done <- out
-			}()
-			out.err = handler(srv, &contextServerStream{ServerStream: stream, ctx: ctx})
-		}()
-
-		select {
-		case out := <-done:
-			if out.panic != nil {
-				metricServerPanicTotal.Inc(info.FullMethod)
-				log.Error("grpc stream panic recovered",
-					log.String("method", info.FullMethod),
-					log.Any("panic", out.panic),
-					log.ByteString("stack", out.stack),
-				)
-				return status.Error(codes.Internal, "internal server error")
-			}
-			if ctx.Err() != nil {
-				return streamContextError(info.FullMethod, ctx.Err())
-			}
-			return out.err
-		case <-ctx.Done():
+		err := handler(srv, &contextServerStream{ServerStream: stream, ctx: ctx})
+		if ctx.Err() != nil {
 			return streamContextError(info.FullMethod, ctx.Err())
 		}
+		return err
 	}
 }
 

@@ -248,6 +248,51 @@ func TestWithMetricsCanDisableMetrics(t *testing.T) {
 	}
 }
 
+func TestUnaryAndStreamTimeoutsAreConfiguredIndependently(t *testing.T) {
+	srv, err := NewServerE(
+		WithAddress("127.0.0.1:0"),
+		WithUnaryTimeout(15*time.Second),
+		WithStreamMaxLifetime(5*time.Minute),
+	)
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	})
+
+	if got := srv.unaryTimeout; got != 15*time.Second {
+		t.Fatalf("unaryTimeout = %s, want 15s", got)
+	}
+	if got := srv.streamMaxLifetime; got != 5*time.Minute {
+		t.Fatalf("streamMaxLifetime = %s, want 5m", got)
+	}
+}
+
+func TestWithTimeoutOnlyConfiguresUnaryRPCs(t *testing.T) {
+	srv, err := NewServerE(
+		WithAddress("127.0.0.1:0"),
+		WithTimeout(15*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("NewServerE() error = %v, want nil", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Stop(ctx)
+	})
+
+	if got := srv.unaryTimeout; got != 15*time.Second {
+		t.Fatalf("unaryTimeout = %s, want 15s", got)
+	}
+	if got := srv.streamMaxLifetime; got != 0 {
+		t.Fatalf("streamMaxLifetime = %s, want zero", got)
+	}
+}
+
 func TestNewServerEMarksSecureEndpointWhenTLSEnabled(t *testing.T) {
 	serverTLS, _ := newTestMutualTLSConfigs(t, "goshop.internal")
 

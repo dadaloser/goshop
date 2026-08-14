@@ -24,7 +24,8 @@ type ServerOptions struct {
 	ClientRateLimitBurst    int           `json:"client-rate-limit-burst,omitempty"    mapstructure:"client-rate-limit-burst"`
 	ClientRateLimitKeys     int           `json:"client-rate-limit-keys,omitempty"     mapstructure:"client-rate-limit-keys"`
 	MaxConcurrentRequests   int           `json:"max-concurrent-requests,omitempty"    mapstructure:"max-concurrent-requests"`
-	RPCRequestTimeout       time.Duration `json:"rpc-request-timeout,omitempty" mapstructure:"rpc-request-timeout"`
+	RPCUnaryTimeout         time.Duration `json:"rpc-unary-timeout,omitempty" mapstructure:"rpc-unary-timeout"`
+	RPCStreamMaxLifetime    time.Duration `json:"rpc-stream-max-lifetime,omitempty" mapstructure:"rpc-stream-max-lifetime"`
 	RPCMaxConcurrentStreams int           `json:"rpc-max-concurrent-streams,omitempty" mapstructure:"rpc-max-concurrent-streams"`
 
 	//是否开启metrics
@@ -73,7 +74,8 @@ func NewServerOptions() *ServerOptions {
 		ClientRateLimitBurst:    40,
 		ClientRateLimitKeys:     10000,
 		MaxConcurrentRequests:   200,
-		RPCRequestTimeout:       15 * time.Second,
+		RPCUnaryTimeout:         15 * time.Second,
+		RPCStreamMaxLifetime:    5 * time.Minute,
 		RPCMaxConcurrentStreams: 256,
 		EnableMetrics:           true,
 		Host:                    "127.0.0.1",
@@ -143,8 +145,11 @@ func (so *ServerOptions) Validate() []error {
 			errs = append(errs, fmt.Errorf("server.client-rate-limit-keys must be positive when limit is enabled"))
 		}
 	}
-	if so.RPCRequestTimeout <= 0 {
-		errs = append(errs, fmt.Errorf("server.rpc-request-timeout must be positive"))
+	if so.RPCUnaryTimeout <= 0 {
+		errs = append(errs, fmt.Errorf("server.rpc-unary-timeout must be positive"))
+	}
+	if so.RPCStreamMaxLifetime <= 0 {
+		errs = append(errs, fmt.Errorf("server.rpc-stream-max-lifetime must be positive"))
 	}
 	if so.RPCMaxConcurrentStreams <= 0 {
 		errs = append(errs, fmt.Errorf("server.rpc-max-concurrent-streams must be positive"))
@@ -174,8 +179,11 @@ func (so *ServerOptions) ValidateStartup() error {
 	if so.ReadHeaderTimeout <= 0 || so.ReadTimeout <= 0 || so.WriteTimeout <= 0 || so.IdleTimeout <= 0 {
 		return errors.New("server.read-header-timeout, server.read-timeout, server.write-timeout and server.idle-timeout must be positive")
 	}
-	if so.RPCRequestTimeout <= 0 {
-		return errors.New("server.rpc-request-timeout must be positive")
+	if so.RPCUnaryTimeout <= 0 {
+		return errors.New("server.rpc-unary-timeout must be positive")
+	}
+	if so.RPCStreamMaxLifetime <= 0 {
+		return errors.New("server.rpc-stream-max-lifetime must be positive")
 	}
 	if so.RPCMaxConcurrentStreams <= 0 {
 		return errors.New("server.rpc-max-concurrent-streams must be positive")
@@ -222,8 +230,10 @@ func (so *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 		"maximum in-memory client-route limiter keys per server instance")
 	fs.IntVar(&so.MaxConcurrentRequests, "server.max-concurrent-requests", so.MaxConcurrentRequests,
 		"maximum concurrent REST requests when limit is enabled")
-	fs.DurationVar(&so.RPCRequestTimeout, "server.rpc-request-timeout", so.RPCRequestTimeout,
-		"maximum lifetime of one inbound unary or streaming gRPC request")
+	fs.DurationVar(&so.RPCUnaryTimeout, "server.rpc-unary-timeout", so.RPCUnaryTimeout,
+		"maximum duration of one inbound unary gRPC request")
+	fs.DurationVar(&so.RPCStreamMaxLifetime, "server.rpc-stream-max-lifetime", so.RPCStreamMaxLifetime,
+		"maximum total lifetime of one inbound streaming gRPC request")
 	fs.IntVar(&so.RPCMaxConcurrentStreams, "server.rpc-max-concurrent-streams", so.RPCMaxConcurrentStreams,
 		"maximum concurrent application-level inbound gRPC streams")
 	fs.BoolVar(&so.EnableMetrics, "server.enable-metrics", so.EnableMetrics,

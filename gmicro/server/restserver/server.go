@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/penglongli/gin-metrics/ginmetrics"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/time/rate"
 
 	mws "goshop/gmicro/server/restserver/middlewares"
@@ -58,8 +58,8 @@ type Server struct {
 	//是否开启pprof接口， 默认开启， 如果开启会自动添加 /debug/pprof 接口
 	enableProfiling bool
 
-	//是否开启metrics接口， 默认开启， 如果开启会自动添加 /metrics 接口
-	enableMetrics bool
+	collectMetrics bool
+	exposeMetrics  bool
 
 	readHeaderTimeout      time.Duration
 	readTimeout            time.Duration
@@ -131,6 +131,9 @@ func NewServer(opts ...ServerOption) *Server {
 	}
 
 	srv.Use(mws.TracingHandler(srv.serviceName), mws.RequestLogger(), mws.Recovery())
+	if srv.collectMetrics {
+		srv.Use(mws.Metrics(srv.serviceName))
+	}
 	if srv.maxConcurrentReqs > 0 {
 		srv.Use(maxConcurrentRequestsMiddleware(srv.maxConcurrentReqs))
 	}
@@ -328,17 +331,9 @@ func (s *Server) registerBuiltInRoutes() {
 			s.registerProfilingRoutes()
 		}
 
-		if s.enableMetrics {
-			// get global Monitor object
-			m := ginmetrics.GetMonitor()
-			// +optional set metric path, default /debug/metrics
-			m.SetMetricPath("/metrics")
-			// +optional set slow time, default 5s
-			// +optional set request duration, default {0.1, 0.3, 1.2, 5, 10}
-			// used to p95, p99
-			m.SetDuration([]float64{0.1, 0.3, 1.2, 5, 10})
-			m.UseWithoutExposingEndpoint(s)
-			m.Expose(s.Group("", s.builtInRouteMiddleware()))
+		if s.exposeMetrics {
+			group := s.Group("", s.builtInRouteMiddleware())
+			group.GET("/metrics", gin.WrapH(promhttp.Handler()))
 		}
 	})
 }

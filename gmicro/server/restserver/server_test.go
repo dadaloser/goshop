@@ -5,11 +5,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
 
 	mws "goshop/gmicro/server/restserver/middlewares"
 )
@@ -439,6 +441,83 @@ func TestMetricsAllowInternalAndRejectPublicClients(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("metrics internal client status = %d, want 200", rec.Code)
 	}
+}
+
+func TestMetricsCollectionDoesNotRequireMetricsEndpoint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	service := "metrics-collection-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	srv := NewServer(
+		WithMode(gin.TestMode),
+		WithServiceName(service),
+		WithMetricsCollection(true),
+		WithMetricsEndpoint(false),
+	)
+	srv.GET("/orders/:id", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	srv.registerBuiltInRoutes()
+
+	req := httptest.NewRequest(http.MethodGet, "/orders/42", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("business request status = %d, want 204", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("metrics endpoint status = %d, want 404", rec.Code)
+	}
+
+	if !hasHTTPMetric(t, service, "/orders/:id") {
+		t.Fatal("business request metric was not collected")
+	}
+}
+
+func TestMetricsEndpointDoesNotCollectManagementTraffic(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	service := "metrics-management-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	srv := NewServer(
+		WithMode(gin.TestMode),
+		WithServiceName(service),
+		WithMetricsCollection(false),
+		WithMetricsEndpoint(true),
+	)
+	srv.registerBuiltInRoutes()
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	req.RemoteAddr = "127.0.0.1:1234"
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("metrics endpoint status = %d, want 200", rec.Code)
+	}
+	if hasHTTPMetric(t, service, "/metrics") {
+		t.Fatal("management metrics scrape was recorded as business traffic")
+	}
+}
+
+func hasHTTPMetric(t *testing.T, service, route string) bool {
+	t.Helper()
+	families, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("gather metrics: %v", err)
+	}
+	for _, family := range families {
+		if family.GetName() != "goshop_http_server_requests_total" {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			labels := make(map[string]string, len(metric.GetLabel()))
+			for _, label := range metric.GetLabel() {
+				labels[label.GetName()] = label.GetValue()
+			}
+			if labels["service"] == service && labels["route"] == route {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func TestProfilingRequiresInternalClientAndBearerToken(t *testing.T) {

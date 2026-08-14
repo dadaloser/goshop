@@ -128,8 +128,20 @@ func WithTransNames(transName string) ServerOption {
 
 func WithMetrics(enable bool) ServerOption {
 	return func(o *Server) {
-		o.enableMetrics = enable
+		o.collectMetrics = enable
+		o.exposeMetrics = enable
 	}
+}
+
+// WithMetricsCollection controls HTTP request instrumentation independently
+// from the /metrics endpoint.
+func WithMetricsCollection(enable bool) ServerOption {
+	return func(s *Server) { s.collectMetrics = enable }
+}
+
+// WithMetricsEndpoint controls exposure of the process Prometheus registry.
+func WithMetricsEndpoint(enable bool) ServerOption {
+	return func(s *Server) { s.exposeMetrics = enable }
 }
 
 func WithReadHeaderTimeout(timeout time.Duration) ServerOption {

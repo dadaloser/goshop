@@ -32,7 +32,8 @@ type Server struct {
 	streamInts                      []grpc.StreamServerInterceptor
 	grpcOpts                        []grpc.ServerOption
 	lis                             net.Listener
-	timeout                         time.Duration
+	unaryTimeout                    time.Duration
+	streamMaxLifetime               time.Duration
 	maxConcurrentApplicationStreams int
 
 	health         *health.Server
@@ -111,9 +112,11 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 	unaryInts = append(unaryInts, srvintc.UnaryErrorInterceptor)
 	streamInts = append(streamInts, srvintc.StreamErrorInterceptor)
 
-	if srv.timeout > 0 {
-		unaryInts = append(unaryInts, srvintc.UnaryTimeoutInterceptor(srv.timeout))
-		streamInts = append(streamInts, srvintc.StreamTimeoutInterceptor(srv.timeout))
+	if srv.unaryTimeout > 0 {
+		unaryInts = append(unaryInts, srvintc.UnaryTimeoutInterceptor(srv.unaryTimeout))
+	}
+	if srv.streamMaxLifetime > 0 {
+		streamInts = append(streamInts, srvintc.StreamTimeoutInterceptor(srv.streamMaxLifetime))
 	}
 	if srv.maxConcurrentApplicationStreams > 0 {
 		streamInts = append(streamInts, srvintc.StreamConcurrencyInterceptor(srv.maxConcurrentApplicationStreams))
@@ -190,10 +193,20 @@ func WithReflection(enable bool) ServerOption {
 	}
 }
 
+// WithTimeout is retained for source compatibility and configures unary RPCs.
+// New code should use WithUnaryTimeout.
 func WithTimeout(timeout time.Duration) ServerOption {
+	return WithUnaryTimeout(timeout)
+}
+
+func WithUnaryTimeout(timeout time.Duration) ServerOption {
 	return func(s *Server) {
-		s.timeout = timeout
+		s.unaryTimeout = timeout
 	}
+}
+
+func WithStreamMaxLifetime(timeout time.Duration) ServerOption {
+	return func(s *Server) { s.streamMaxLifetime = timeout }
 }
 
 // WithApplicationStreamConcurrency applies a fail-fast bulkhead before stream
