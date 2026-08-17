@@ -59,10 +59,11 @@ func newTestSecurityPolicy(t *testing.T, serverName string) *SecurityPolicy {
 		t.Fatalf("write key file failed: %v", err)
 	}
 	return &SecurityPolicy{
-		CertFile:   certFile,
-		KeyFile:    keyFile,
-		CAFile:     certFile,
-		ServerName: serverName,
+		CertFile:                certFile,
+		KeyFile:                 keyFile,
+		CAFile:                  certFile,
+		ServerName:              serverName,
+		AllowedClientIdentities: []string{serverName},
 	}
 }
 

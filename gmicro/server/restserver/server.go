@@ -73,6 +73,10 @@ type Server struct {
 	clientRateLimitBurst   int
 	clientRateLimitMaxKeys int
 	maxConcurrentReqs      int
+	maxRequestBodyBytes    int64
+	handlerTimeout         time.Duration
+	trustedProxies         []string
+	trustedProxiesErr      error
 	profilingToken         string
 	builtInRouteCIDRs      []*net.IPNet
 	builtInRouteErr        error
@@ -104,14 +108,16 @@ type Server struct {
 
 func NewServer(opts ...ServerOption) *Server {
 	srv := &Server{
-		port:              8080,
-		mode:              gin.ReleaseMode,
-		healthCheck:       true,
-		enableProfiling:   false,
-		readHeaderTimeout: 5 * time.Second,
-		readTimeout:       15 * time.Second,
-		writeTimeout:      30 * time.Second,
-		idleTimeout:       60 * time.Second,
+		port:                8080,
+		mode:                gin.ReleaseMode,
+		healthCheck:         true,
+		enableProfiling:     false,
+		readHeaderTimeout:   5 * time.Second,
+		readTimeout:         15 * time.Second,
+		writeTimeout:        30 * time.Second,
+		idleTimeout:         60 * time.Second,
+		maxRequestBodyBytes: 1 << 20,
+		handlerTimeout:      25 * time.Second,
 		jwt: &JwtInfo{
 			"JWT",
 			"",
@@ -129,10 +135,19 @@ func NewServer(opts ...ServerOption) *Server {
 	for _, o := range opts {
 		o(srv)
 	}
+	if err := srv.SetTrustedProxies(srv.trustedProxies); err != nil {
+		srv.trustedProxiesErr = fmt.Errorf("configure trusted proxies: %w", err)
+	}
 
 	srv.Use(mws.TracingHandler(srv.serviceName), mws.RequestLogger(), mws.Recovery())
 	if srv.collectMetrics {
 		srv.Use(mws.Metrics(srv.serviceName))
+	}
+	if srv.maxRequestBodyBytes > 0 {
+		srv.Use(mws.RequestBodyLimit(srv.maxRequestBodyBytes))
+	}
+	if srv.handlerTimeout > 0 {
+		srv.Use(mws.RequestDeadline(srv.handlerTimeout))
 	}
 	if srv.maxConcurrentReqs > 0 {
 		srv.Use(maxConcurrentRequestsMiddleware(srv.maxConcurrentReqs))
@@ -177,6 +192,9 @@ func (s *Server) ValidateStartupConfig() error {
 	}
 	if s.builtInRouteErr != nil {
 		return s.builtInRouteErr
+	}
+	if s.trustedProxiesErr != nil {
+		return s.trustedProxiesErr
 	}
 	if s.mode != gin.DebugMode && s.mode != gin.ReleaseMode && s.mode != gin.TestMode {
 		return errors.New("mode must be one of debug/release/test")
@@ -226,8 +244,14 @@ func (s *Server) validateProductionConfig() error {
 			return errors.New("production rest server profiling requires explicit bearer token")
 		}
 	}
-	if s.readHeaderTimeout <= 0 || s.readTimeout <= 0 || s.writeTimeout <= 0 || s.idleTimeout <= 0 {
+	if s.readHeaderTimeout <= 0 || s.readTimeout <= 0 || s.writeTimeout <= 0 || s.idleTimeout <= 0 || s.handlerTimeout <= 0 {
 		return errors.New("production rest server requires positive http timeouts")
+	}
+	if s.handlerTimeout >= s.writeTimeout {
+		return errors.New("production rest server handler timeout must be shorter than write timeout")
+	}
+	if s.maxRequestBodyBytes <= 0 {
+		return errors.New("production rest server requires a positive request body limit")
 	}
 	if s.requireJWTKey && (s.jwt == nil || s.jwt.Key == "") {
 		return errors.New("production rest server requires explicit jwt key")
@@ -309,7 +333,6 @@ func (s *Server) Start(ctx context.Context) error {
 		WriteTimeout:      s.writeTimeout,
 		IdleTimeout:       s.idleTimeout,
 	}
-	_ = s.SetTrustedProxies(nil)
 	s.readyOnce.Do(func() {
 		close(s.ready)
 	})
@@ -442,8 +465,11 @@ func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter) gin.HandlerFunc
 		if route == "" {
 			route = "__unmatched__"
 		}
-		clientIP := clientIPFromRemoteAddr(c.Request.RemoteAddr)
-		key := clientIP.String() + "|" + c.Request.Method + "|" + route
+		clientIP := c.ClientIP()
+		if clientIP == "" {
+			clientIP = "__unknown__"
+		}
+		key := clientIP + "|" + c.Request.Method + "|" + route
 		if !limiter.allow(key, time.Now()) {
 			c.Header("Retry-After", "1")
 			c.AbortWithStatus(http.StatusTooManyRequests)

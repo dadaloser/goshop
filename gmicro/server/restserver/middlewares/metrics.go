@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"net/http"
 	"strconv"
 	"time"
 
@@ -40,15 +41,21 @@ func Metrics(service string) gin.HandlerFunc {
 		started := time.Now()
 		httpRequestsInflight.WithLabelValues(service).Inc()
 		defer httpRequestsInflight.WithLabelValues(service).Dec()
+		defer func() {
+			route := c.FullPath()
+			if route == "" {
+				route = "__unmatched__"
+			}
+			method := c.Request.Method
+			if recovered := recover(); recovered != nil {
+				httpRequestsTotal.WithLabelValues(service, method, route, strconv.Itoa(http.StatusInternalServerError)).Inc()
+				httpRequestDuration.WithLabelValues(service, method, route).Observe(time.Since(started).Seconds())
+				panic(recovered)
+			}
+			httpRequestsTotal.WithLabelValues(service, method, route, strconv.Itoa(c.Writer.Status())).Inc()
+			httpRequestDuration.WithLabelValues(service, method, route).Observe(time.Since(started).Seconds())
+		}()
 
 		c.Next()
-
-		route := c.FullPath()
-		if route == "" {
-			route = "__unmatched__"
-		}
-		method := c.Request.Method
-		httpRequestsTotal.WithLabelValues(service, method, route, strconv.Itoa(c.Writer.Status())).Inc()
-		httpRequestDuration.WithLabelValues(service, method, route).Observe(time.Since(started).Seconds())
 	}
 }

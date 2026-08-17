@@ -35,6 +35,7 @@ type Server struct {
 	unaryTimeout                    time.Duration
 	streamMaxLifetime               time.Duration
 	maxConcurrentApplicationStreams int
+	maxConcurrentUnaryRequests      int
 
 	health         *health.Server
 	metadata       *apimd.Server
@@ -79,6 +80,7 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 		enableMetrics:                   true,
 		productionDefaults:              true,
 		maxConcurrentApplicationStreams: 256,
+		maxConcurrentUnaryRequests:      256,
 		//timeout: 1 * time.Second,
 	}
 
@@ -111,6 +113,13 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 	}
 	unaryInts = append(unaryInts, srvintc.UnaryErrorInterceptor)
 	streamInts = append(streamInts, srvintc.StreamErrorInterceptor)
+	if srv.securityPolicy != nil {
+		unaryInts = append(unaryInts, srvintc.UnaryClientIdentityInterceptor(srv.securityPolicy.AllowedClientIdentities))
+		streamInts = append(streamInts, srvintc.StreamClientIdentityInterceptor(srv.securityPolicy.AllowedClientIdentities))
+	}
+	if srv.maxConcurrentUnaryRequests > 0 {
+		unaryInts = append(unaryInts, srvintc.UnaryConcurrencyInterceptor(srv.maxConcurrentUnaryRequests))
+	}
 
 	if srv.unaryTimeout > 0 {
 		unaryInts = append(unaryInts, srvintc.UnaryTimeoutInterceptor(srv.unaryTimeout))
@@ -216,6 +225,16 @@ func WithApplicationStreamConcurrency(maxConcurrent int) ServerOption {
 	return func(s *Server) {
 		if maxConcurrent > 0 {
 			s.maxConcurrentApplicationStreams = maxConcurrent
+		}
+	}
+}
+
+// WithApplicationUnaryConcurrency applies a process-wide fail-fast bulkhead
+// before unary handlers start.
+func WithApplicationUnaryConcurrency(maxConcurrent int) ServerOption {
+	return func(s *Server) {
+		if maxConcurrent > 0 {
+			s.maxConcurrentUnaryRequests = maxConcurrent
 		}
 	}
 }

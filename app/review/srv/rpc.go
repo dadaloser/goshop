@@ -50,6 +50,7 @@ func NewReviewRPCServer(cfg *config.Config, reviewService *Service) (*rpcserver.
 		rpcserver.WithAddress(rpcAddr),
 		rpcserver.WithMetrics(cfg.Server != nil && cfg.Server.EnableMetrics),
 		rpcserver.WithUnaryTimeout(cfg.Server.RPCUnaryTimeout),
+		rpcserver.WithApplicationUnaryConcurrency(cfg.Server.RPCMaxConcurrentUnary),
 		rpcserver.WithStreamMaxLifetime(cfg.Server.RPCStreamMaxLifetime),
 		rpcserver.WithApplicationStreamConcurrency(cfg.Server.RPCMaxConcurrentStreams),
 		rpcserver.WithServerSecurityPolicy(cfg.RPC),

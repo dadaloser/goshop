@@ -57,3 +57,30 @@ func TestUnaryTimeoutInterceptorCancelsContextForHandlerCleanup(t *testing.T) {
 		t.Fatalf("status.Code(err) = %v, want %v (err=%v)", got, codes.DeadlineExceeded, err)
 	}
 }
+
+func TestUnaryConcurrencyInterceptorRejectsExcessRequestAndReleasesSlot(t *testing.T) {
+	interceptor := UnaryConcurrencyInterceptor(1)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	done := make(chan error, 1)
+	go func() {
+		_, err := interceptor(context.Background(), nil, nil, func(context.Context, interface{}) (interface{}, error) {
+			close(entered)
+			<-release
+			return nil, nil
+		})
+		done <- err
+	}()
+	<-entered
+
+	if _, err := interceptor(context.Background(), nil, nil, func(context.Context, interface{}) (interface{}, error) { return nil, nil }); status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("saturated unary code = %v, want ResourceExhausted", status.Code(err))
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatalf("admitted unary error = %v, want nil", err)
+	}
+	if _, err := interceptor(context.Background(), nil, nil, func(context.Context, interface{}) (interface{}, error) { return nil, nil }); err != nil {
+		t.Fatalf("unary after release error = %v, want nil", err)
+	}
+}

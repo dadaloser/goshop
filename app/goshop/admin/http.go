@@ -35,6 +35,9 @@ func NewUserHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Ser
 		restserver.WithReadTimeout(cfg.Server.ReadTimeout),
 		restserver.WithWriteTimeout(cfg.Server.WriteTimeout),
 		restserver.WithIdleTimeout(cfg.Server.IdleTimeout),
+		restserver.WithHandlerTimeout(cfg.Server.HTTPHandlerTimeout),
+		restserver.WithMaxRequestBodyBytes(cfg.Server.MaxRequestBodyBytes),
+		restserver.WithTrustedProxies(cfg.Server.TrustedProxies),
 		restserver.WithCorsOptions(middlewares.CorsOptions{
 			AllowOrigins: cfg.Server.CorsAllowOrigins,
 		}),
@@ -112,5 +115,6 @@ func NewAdminManagementServer(cfg *config.Config) *restserver.Server {
 		restserver.WithReadTimeout(cfg.Server.ReadTimeout),
 		restserver.WithWriteTimeout(cfg.Server.WriteTimeout),
 		restserver.WithIdleTimeout(cfg.Server.IdleTimeout),
+		restserver.WithTrustedProxies(cfg.Server.TrustedProxies),
 	)
 }

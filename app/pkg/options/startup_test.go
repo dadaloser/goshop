@@ -128,6 +128,15 @@ func TestNewServerOptionsSetsSeparateRPCTimeouts(t *testing.T) {
 	if got := opts.RPCStreamMaxLifetime; got != 5*time.Minute {
 		t.Fatalf("RPCStreamMaxLifetime = %s, want 5m", got)
 	}
+	if got := opts.HTTPHandlerTimeout; got != 25*time.Second {
+		t.Fatalf("HTTPHandlerTimeout = %s, want 25s", got)
+	}
+	if got := opts.MaxRequestBodyBytes; got != 1<<20 {
+		t.Fatalf("MaxRequestBodyBytes = %d, want %d", got, 1<<20)
+	}
+	if got := opts.RPCMaxConcurrentUnary; got != 256 {
+		t.Fatalf("RPCMaxConcurrentUnary = %d, want 256", got)
+	}
 }
 
 func TestServerOptionsValidateStartupRejectsInvalidRPCStreamMaxLifetime(t *testing.T) {
@@ -165,9 +174,20 @@ func TestRPCSecurityOptionsValidateServerStartupAllowsMissingServerName(t *testi
 	opts.CertFile = "server.crt"
 	opts.KeyFile = "server.key"
 	opts.CAFile = "ca.crt"
+	opts.AllowedClientIdentities = []string{"spiffe://goshop/api"}
 
 	if err := opts.ValidateServerStartup(); err != nil {
 		t.Fatalf("ValidateServerStartup() error = %v", err)
+	}
+}
+
+func TestRPCSecurityOptionsValidateServerStartupRejectsMissingClientIdentities(t *testing.T) {
+	opts := NewRPCSecurityOptions()
+	opts.CertFile = "server.crt"
+	opts.KeyFile = "server.key"
+	opts.CAFile = "ca.crt"
+	if err := opts.ValidateServerStartup(); err == nil {
+		t.Fatal("ValidateServerStartup() error = nil, want missing client identities error")
 	}
 }
 

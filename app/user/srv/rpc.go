@@ -79,6 +79,7 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 	opts = append(opts, rpcserver.WithAddress(rpcAddr))
 	opts = append(opts, rpcserver.WithMetrics(serverOpts.EnableMetrics))
 	opts = append(opts, rpcserver.WithUnaryTimeout(serverOpts.RPCUnaryTimeout))
+	opts = append(opts, rpcserver.WithApplicationUnaryConcurrency(serverOpts.RPCMaxConcurrentUnary))
 	opts = append(opts, rpcserver.WithStreamMaxLifetime(serverOpts.RPCStreamMaxLifetime))
 	opts = append(opts, rpcserver.WithApplicationStreamConcurrency(serverOpts.RPCMaxConcurrentStreams))
 	opts = append(opts, rpcserver.WithServerSecurityPolicy(rpcSecurity))

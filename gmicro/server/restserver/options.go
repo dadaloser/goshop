@@ -2,6 +2,7 @@ package restserver
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -166,6 +167,23 @@ func WithIdleTimeout(timeout time.Duration) ServerOption {
 	return func(s *Server) {
 		s.idleTimeout = timeout
 	}
+}
+
+// WithHandlerTimeout sets the cooperative application deadline propagated to
+// request-scoped work. Handlers must honor request context cancellation.
+func WithHandlerTimeout(timeout time.Duration) ServerOption {
+	return func(s *Server) { s.handlerTimeout = timeout }
+}
+
+// WithMaxRequestBodyBytes applies a uniform hard cap to inbound HTTP bodies.
+func WithMaxRequestBodyBytes(maxBytes int64) ServerOption {
+	return func(s *Server) { s.maxRequestBodyBytes = maxBytes }
+}
+
+// WithTrustedProxies configures the only proxy addresses allowed to supply
+// forwarded client IP headers. An empty list trusts no proxy.
+func WithTrustedProxies(proxies []string) ServerOption {
+	return func(s *Server) { s.trustedProxies = slices.Clone(proxies) }
 }
 
 func WithRateLimit(rps float64, burst int) ServerOption {

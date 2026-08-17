@@ -24,7 +24,11 @@ type ServerOptions struct {
 	ClientRateLimitBurst    int           `json:"client-rate-limit-burst,omitempty"    mapstructure:"client-rate-limit-burst"`
 	ClientRateLimitKeys     int           `json:"client-rate-limit-keys,omitempty"     mapstructure:"client-rate-limit-keys"`
 	MaxConcurrentRequests   int           `json:"max-concurrent-requests,omitempty"    mapstructure:"max-concurrent-requests"`
+	MaxRequestBodyBytes     int64         `json:"max-request-body-bytes,omitempty"      mapstructure:"max-request-body-bytes"`
+	HTTPHandlerTimeout      time.Duration `json:"http-handler-timeout,omitempty"        mapstructure:"http-handler-timeout"`
+	TrustedProxies          []string      `json:"trusted-proxies,omitempty"             mapstructure:"trusted-proxies"`
 	RPCUnaryTimeout         time.Duration `json:"rpc-unary-timeout,omitempty" mapstructure:"rpc-unary-timeout"`
+	RPCMaxConcurrentUnary   int           `json:"rpc-max-concurrent-unary,omitempty" mapstructure:"rpc-max-concurrent-unary"`
 	RPCStreamMaxLifetime    time.Duration `json:"rpc-stream-max-lifetime,omitempty" mapstructure:"rpc-stream-max-lifetime"`
 	RPCMaxConcurrentStreams int           `json:"rpc-max-concurrent-streams,omitempty" mapstructure:"rpc-max-concurrent-streams"`
 
@@ -74,7 +78,10 @@ func NewServerOptions() *ServerOptions {
 		ClientRateLimitBurst:    40,
 		ClientRateLimitKeys:     10000,
 		MaxConcurrentRequests:   200,
+		MaxRequestBodyBytes:     1 << 20,
+		HTTPHandlerTimeout:      25 * time.Second,
 		RPCUnaryTimeout:         15 * time.Second,
+		RPCMaxConcurrentUnary:   256,
 		RPCStreamMaxLifetime:    5 * time.Minute,
 		RPCMaxConcurrentStreams: 256,
 		EnableMetrics:           true,
@@ -148,6 +155,15 @@ func (so *ServerOptions) Validate() []error {
 	if so.RPCUnaryTimeout <= 0 {
 		errs = append(errs, fmt.Errorf("server.rpc-unary-timeout must be positive"))
 	}
+	if so.RPCMaxConcurrentUnary <= 0 {
+		errs = append(errs, fmt.Errorf("server.rpc-max-concurrent-unary must be positive"))
+	}
+	if so.MaxRequestBodyBytes <= 0 {
+		errs = append(errs, fmt.Errorf("server.max-request-body-bytes must be positive"))
+	}
+	if so.HTTPHandlerTimeout <= 0 || so.HTTPHandlerTimeout >= so.WriteTimeout {
+		errs = append(errs, fmt.Errorf("server.http-handler-timeout must be positive and shorter than write-timeout"))
+	}
 	if so.RPCStreamMaxLifetime <= 0 {
 		errs = append(errs, fmt.Errorf("server.rpc-stream-max-lifetime must be positive"))
 	}
@@ -179,8 +195,17 @@ func (so *ServerOptions) ValidateStartup() error {
 	if so.ReadHeaderTimeout <= 0 || so.ReadTimeout <= 0 || so.WriteTimeout <= 0 || so.IdleTimeout <= 0 {
 		return errors.New("server.read-header-timeout, server.read-timeout, server.write-timeout and server.idle-timeout must be positive")
 	}
+	if so.HTTPHandlerTimeout <= 0 || so.HTTPHandlerTimeout >= so.WriteTimeout {
+		return errors.New("server.http-handler-timeout must be positive and shorter than server.write-timeout")
+	}
+	if so.MaxRequestBodyBytes <= 0 {
+		return errors.New("server.max-request-body-bytes must be positive")
+	}
 	if so.RPCUnaryTimeout <= 0 {
 		return errors.New("server.rpc-unary-timeout must be positive")
+	}
+	if so.RPCMaxConcurrentUnary <= 0 {
+		return errors.New("server.rpc-max-concurrent-unary must be positive")
 	}
 	if so.RPCStreamMaxLifetime <= 0 {
 		return errors.New("server.rpc-stream-max-lifetime must be positive")
@@ -230,8 +255,16 @@ func (so *ServerOptions) AddFlags(fs *pflag.FlagSet) {
 		"maximum in-memory client-route limiter keys per server instance")
 	fs.IntVar(&so.MaxConcurrentRequests, "server.max-concurrent-requests", so.MaxConcurrentRequests,
 		"maximum concurrent REST requests when limit is enabled")
+	fs.Int64Var(&so.MaxRequestBodyBytes, "server.max-request-body-bytes", so.MaxRequestBodyBytes,
+		"maximum accepted HTTP request body size in bytes")
+	fs.DurationVar(&so.HTTPHandlerTimeout, "server.http-handler-timeout", so.HTTPHandlerTimeout,
+		"cooperative application deadline for inbound HTTP requests")
+	fs.StringSliceVar(&so.TrustedProxies, "server.trusted-proxies", so.TrustedProxies,
+		"proxy IP addresses or CIDRs trusted to supply forwarded client IP headers")
 	fs.DurationVar(&so.RPCUnaryTimeout, "server.rpc-unary-timeout", so.RPCUnaryTimeout,
 		"maximum duration of one inbound unary gRPC request")
+	fs.IntVar(&so.RPCMaxConcurrentUnary, "server.rpc-max-concurrent-unary", so.RPCMaxConcurrentUnary,
+		"maximum concurrent application-level inbound unary gRPC requests")
 	fs.DurationVar(&so.RPCStreamMaxLifetime, "server.rpc-stream-max-lifetime", so.RPCStreamMaxLifetime,
 		"maximum total lifetime of one inbound streaming gRPC request")
 	fs.IntVar(&so.RPCMaxConcurrentStreams, "server.rpc-max-concurrent-streams", so.RPCMaxConcurrentStreams,

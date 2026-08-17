@@ -264,10 +264,11 @@ func newSmokeSecurityPolicy(t *testing.T, serverName string) *rpcserver.Security
 		t.Fatalf("write key file failed: %v", err)
 	}
 	return &rpcserver.SecurityPolicy{
-		CertFile:   certFile,
-		KeyFile:    keyFile,
-		CAFile:     certFile,
-		ServerName: serverName,
+		CertFile:                certFile,
+		KeyFile:                 keyFile,
+		CAFile:                  certFile,
+		ServerName:              serverName,
+		AllowedClientIdentities: []string{serverName},
 	}
 }
 

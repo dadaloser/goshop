@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"google.golang.org/grpc"
@@ -55,13 +56,14 @@ func UnaryPrometheusInterceptor(ctx context.Context, req interface{}, info *grpc
 	startTime := time.Now()
 	metricServerReqInflight.Inc(info.FullMethod)
 	defer metricServerReqInflight.Add(-1, info.FullMethod)
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			observeServerRequest(info.FullMethod, startTime, codes.Internal)
+			panic(recovered)
+		}
+		observeServerRequest(info.FullMethod, startTime, status.Code(err))
+	}()
 	resp, err = handler(ctx, req)
-
-	//记录了耗时
-	metricServerReqDur.Observe(int64(time.Since(startTime)/time.Millisecond), info.FullMethod)
-
-	//记录了状态码
-	metricServerReqCodeTotal.Inc(info.FullMethod, strconv.Itoa(int(status.Code(err))))
 	return resp, err
 }
 
@@ -72,13 +74,23 @@ func StreamPrometheusInterceptor(
 	stream grpc.ServerStream,
 	info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler,
-) error {
+) (err error) {
 	startTime := time.Now()
 	metricServerReqInflight.Inc(info.FullMethod)
 	defer metricServerReqInflight.Add(-1, info.FullMethod)
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			observeServerRequest(info.FullMethod, startTime, codes.Internal)
+			panic(recovered)
+		}
+		observeServerRequest(info.FullMethod, startTime, status.Code(err))
+	}()
 
-	err := handler(srv, stream)
-	metricServerReqDur.Observe(int64(time.Since(startTime)/time.Millisecond), info.FullMethod)
-	metricServerReqCodeTotal.Inc(info.FullMethod, strconv.Itoa(int(status.Code(err))))
+	err = handler(srv, stream)
 	return err
+}
+
+func observeServerRequest(method string, started time.Time, code codes.Code) {
+	metricServerReqDur.Observe(int64(time.Since(started)/time.Millisecond), method)
+	metricServerReqCodeTotal.Inc(method, strconv.Itoa(int(code)))
 }

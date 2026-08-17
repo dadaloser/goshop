@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/pflag"
 )
@@ -13,10 +14,11 @@ import (
 // SecurityPolicy defines the certificate and server identity requirements for
 // internal gRPC mTLS.
 type SecurityPolicy struct {
-	CertFile   string `json:"cert-file,omitempty" mapstructure:"cert-file"`
-	KeyFile    string `json:"key-file,omitempty" mapstructure:"key-file"`
-	CAFile     string `json:"ca-file,omitempty" mapstructure:"ca-file"`
-	ServerName string `json:"server-name,omitempty" mapstructure:"server-name"`
+	CertFile                string   `json:"cert-file,omitempty" mapstructure:"cert-file"`
+	KeyFile                 string   `json:"key-file,omitempty" mapstructure:"key-file"`
+	CAFile                  string   `json:"ca-file,omitempty" mapstructure:"ca-file"`
+	ServerName              string   `json:"server-name,omitempty" mapstructure:"server-name"`
+	AllowedClientIdentities []string `json:"allowed-client-identities,omitempty" mapstructure:"allowed-client-identities"`
 }
 
 func NewSecurityPolicy() *SecurityPolicy {
@@ -48,7 +50,24 @@ func (p *SecurityPolicy) ValidateStartup() error {
 
 // ValidateServerStartup validates a server-side policy for production startup.
 func (p *SecurityPolicy) ValidateServerStartup() error {
-	return p.validateFiles()
+	if err := p.validateFiles(); err != nil {
+		return err
+	}
+	if len(p.AllowedClientIdentities) == 0 {
+		return errors.New("rpc-security.allowed-client-identities is required for server startup")
+	}
+	seen := make(map[string]struct{}, len(p.AllowedClientIdentities))
+	for _, identity := range p.AllowedClientIdentities {
+		identity = strings.TrimSpace(identity)
+		if identity == "" {
+			return errors.New("rpc-security.allowed-client-identities must not contain empty identities")
+		}
+		if _, ok := seen[identity]; ok {
+			return fmt.Errorf("rpc-security.allowed-client-identities contains duplicate %q", identity)
+		}
+		seen[identity] = struct{}{}
+	}
+	return nil
 }
 
 func (p *SecurityPolicy) validateFiles() error {
@@ -75,6 +94,8 @@ func (p *SecurityPolicy) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&p.KeyFile, "rpc-security.key-file", p.KeyFile, "client/server private key file for internal RPC mTLS")
 	fs.StringVar(&p.CAFile, "rpc-security.ca-file", p.CAFile, "trusted CA certificate file for internal RPC mTLS")
 	fs.StringVar(&p.ServerName, "rpc-security.server-name", p.ServerName, "expected TLS server name for internal RPC clients")
+	fs.StringSliceVar(&p.AllowedClientIdentities, "rpc-security.allowed-client-identities", p.AllowedClientIdentities,
+		"exact URI SAN or DNS SAN identities authorized to call this gRPC server")
 }
 
 func (p *SecurityPolicy) LoadServerTLSConfig() (*tls.Config, error) {

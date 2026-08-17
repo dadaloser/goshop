@@ -1,8 +1,10 @@
 package restserver
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -347,6 +349,94 @@ func TestServerProvidesRequestIDAndRecoversPanic(t *testing.T) {
 	}
 }
 
+func TestRequestBodyLimitRejectsKnownOversizedBody(t *testing.T) {
+	srv := NewServer(WithMode(gin.TestMode), WithMaxRequestBodyBytes(4))
+	called := false
+	srv.POST("/body", func(c *gin.Context) { called = true; c.Status(http.StatusNoContent) })
+
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/body", bytes.NewBufferString("12345")))
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized body status = %d, want 413", rec.Code)
+	}
+	if called {
+		t.Fatal("oversized body handler called = true, want false")
+	}
+}
+
+func TestRequestBodyLimitCapsUnknownLengthBody(t *testing.T) {
+	srv := NewServer(WithMode(gin.TestMode), WithMaxRequestBodyBytes(4))
+	var readErr error
+	srv.POST("/body", func(c *gin.Context) {
+		_, readErr = io.ReadAll(c.Request.Body)
+		c.Status(http.StatusNoContent)
+	})
+	req := httptest.NewRequest(http.MethodPost, "/body", bytes.NewBufferString("12345"))
+	req.ContentLength = -1
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var maxBytesErr *http.MaxBytesError
+	if !errors.As(readErr, &maxBytesErr) {
+		t.Fatalf("io.ReadAll(over-limit body) error = %v, want *http.MaxBytesError", readErr)
+	}
+}
+
+func TestRequestDeadlinePropagatesAndReturnsGatewayTimeout(t *testing.T) {
+	srv := NewServer(WithMode(gin.TestMode), WithHandlerTimeout(10*time.Millisecond))
+	srv.GET("/slow", func(c *gin.Context) { <-c.Request.Context().Done() })
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/slow", nil))
+	if rec.Code != http.StatusGatewayTimeout {
+		t.Fatalf("deadline status = %d, want 504", rec.Code)
+	}
+}
+
+func TestClientRouteRateLimitUsesForwardedIPOnlyFromTrustedProxy(t *testing.T) {
+	request := func(srv *Server, forwarded string) int {
+		req := httptest.NewRequest(http.MethodGet, "/limited", nil)
+		req.RemoteAddr = "10.0.0.2:1234"
+		req.Header.Set("X-Forwarded-For", forwarded)
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	trusted := NewServer(WithMode(gin.TestMode), WithTrustedProxies([]string{"10.0.0.0/8"}), WithClientRouteRateLimit(0.0001, 1, 10))
+	trusted.GET("/limited", func(c *gin.Context) { c.Status(http.StatusOK) })
+	if got := request(trusted, "192.0.2.1"); got != http.StatusOK {
+		t.Fatalf("trusted proxy first client status = %d, want 200", got)
+	}
+	if got := request(trusted, "192.0.2.2"); got != http.StatusOK {
+		t.Fatalf("trusted proxy second client status = %d, want 200", got)
+	}
+
+	untrusted := NewServer(WithMode(gin.TestMode), WithClientRouteRateLimit(0.0001, 1, 10))
+	untrusted.GET("/limited", func(c *gin.Context) { c.Status(http.StatusOK) })
+	if got := request(untrusted, "192.0.2.1"); got != http.StatusOK {
+		t.Fatalf("untrusted proxy first request status = %d, want 200", got)
+	}
+	if got := request(untrusted, "192.0.2.2"); got != http.StatusTooManyRequests {
+		t.Fatalf("untrusted proxy spoofed request status = %d, want 429", got)
+	}
+}
+
+func TestPanicIsRecordedAsHTTP500Metric(t *testing.T) {
+	service := "panic-metrics-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	srv := NewServer(WithMode(gin.TestMode), WithServiceName(service), WithMetricsCollection(true))
+	srv.GET("/panic", func(*gin.Context) { panic("boom") })
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/panic", nil))
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("panic response status = %d, want 500", rec.Code)
+	}
+	if got := httpCounterValue(t, service, "/panic", "500"); got != 1 {
+		t.Fatalf("panic HTTP counter = %v, want 1", got)
+	}
+	if got := httpHistogramCount(t, service, "/panic"); got != 1 {
+		t.Fatalf("panic HTTP latency count = %v, want 1", got)
+	}
+}
+
 func TestClientRouteRateLimitIsolatesClientsAndRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	srv := NewServer(WithMode(gin.TestMode), WithClientRouteRateLimit(0.0001, 1, 100))
@@ -518,6 +608,52 @@ func hasHTTPMetric(t *testing.T, service, route string) bool {
 		}
 	}
 	return false
+}
+
+func httpCounterValue(t *testing.T, service, route, code string) float64 {
+	t.Helper()
+	families, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("prometheus Gather() error = %v", err)
+	}
+	for _, family := range families {
+		if family.GetName() != "goshop_http_server_requests_total" {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			labels := make(map[string]string, len(metric.GetLabel()))
+			for _, label := range metric.GetLabel() {
+				labels[label.GetName()] = label.GetValue()
+			}
+			if labels["service"] == service && labels["route"] == route && labels["code"] == code {
+				return metric.GetCounter().GetValue()
+			}
+		}
+	}
+	return 0
+}
+
+func httpHistogramCount(t *testing.T, service, route string) uint64 {
+	t.Helper()
+	families, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("prometheus Gather() error = %v", err)
+	}
+	for _, family := range families {
+		if family.GetName() != "goshop_http_server_request_duration_seconds" {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			labels := make(map[string]string, len(metric.GetLabel()))
+			for _, label := range metric.GetLabel() {
+				labels[label.GetName()] = label.GetValue()
+			}
+			if labels["service"] == service && labels["route"] == route {
+				return metric.GetHistogram().GetSampleCount()
+			}
+		}
+	}
+	return 0
 }
 
 func TestProfilingRequiresInternalClientAndBearerToken(t *testing.T) {

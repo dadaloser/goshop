@@ -47,6 +47,7 @@ func newOrderRPCServerWithFactory(cfg *config.Config, orderSrvFactory v13.Servic
 		rpcserver.WithAddress(rpcAddr),
 		rpcserver.WithMetrics(cfg.Server != nil && cfg.Server.EnableMetrics),
 		rpcserver.WithUnaryTimeout(cfg.Server.RPCUnaryTimeout),
+		rpcserver.WithApplicationUnaryConcurrency(cfg.Server.RPCMaxConcurrentUnary),
 		rpcserver.WithStreamMaxLifetime(cfg.Server.RPCStreamMaxLifetime),
 		rpcserver.WithApplicationStreamConcurrency(cfg.Server.RPCMaxConcurrentStreams),
 		rpcserver.WithServerSecurityPolicy(cfg.RPC),
