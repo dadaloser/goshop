@@ -17,6 +17,10 @@ const requestIDHeader = "X-Request-ID"
 // correlation when the caller did not supply one.
 func RequestLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if isLowNoiseManagementPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
 		requestID := c.GetHeader(requestIDHeader)
 		if requestID == "" || len(requestID) > 128 {
 			requestID = uuid.NewString()
@@ -39,6 +43,15 @@ func RequestLogger() gin.HandlerFunc {
 			log.Duration("duration", time.Since(started)),
 			log.String("client_ip", c.ClientIP()),
 		)
+	}
+}
+
+func isLowNoiseManagementPath(path string) bool {
+	switch path {
+	case "/metrics", "/livez", "/readyz", "/healthz":
+		return true
+	default:
+		return false
 	}
 }
 

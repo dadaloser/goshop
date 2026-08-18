@@ -19,20 +19,25 @@ const serverNamespace = "rpc_client"
 */
 
 var (
+	rpcClientDurationBuckets = []float64{
+		5, 10, 25, 50, 100, 250, 500, 1000,
+		2000, 3000, 5000, 10000, 15000, 30000,
+	}
+
 	metricServerReqDur = metric.NewHistogramVec(&metric.HistogramVecOpts{
 		Namespace: serverNamespace,
 		Subsystem: "requests",
 		Name:      "goshop_duration_ms",
-		Help:      "rpc server requests duration(ms).",
+		Help:      "rpc client requests duration(ms).",
 		Labels:    []string{"method"},
-		Buckets:   []float64{5, 10, 25, 50, 100, 250, 500, 1000},
+		Buckets:   rpcClientDurationBuckets,
 	})
 
 	metricServerReqCodeTotal = metric.NewCounterVec(&metric.CounterVecOpts{
 		Namespace: serverNamespace,
 		Subsystem: "requests",
 		Name:      "goshop_code_total",
-		Help:      "rpc server requests code count.",
+		Help:      "rpc client requests code count.",
 		Labels:    []string{"method", "code"},
 	})
 

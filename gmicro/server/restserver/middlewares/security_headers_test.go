@@ -32,6 +32,12 @@ func TestSecurityHeadersSetsDefaults(t *testing.T) {
 	if got := rec.Header().Get("Permissions-Policy"); got == "" {
 		t.Fatal("Permissions-Policy should be set")
 	}
+	if got := rec.Header().Get("Content-Security-Policy"); got != "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" {
+		t.Fatalf("Content-Security-Policy = %q, want restrictive default policy", got)
+	}
+	if got := rec.Header().Get("Strict-Transport-Security"); got != "max-age=31536000" {
+		t.Fatalf("Strict-Transport-Security = %q, want max-age=31536000", got)
+	}
 }
 
 func TestSecurityHeadersAllowsCustomCSP(t *testing.T) {
@@ -50,5 +56,23 @@ func TestSecurityHeadersAllowsCustomCSP(t *testing.T) {
 
 	if got := rec.Header().Get("Content-Security-Policy"); got != "default-src 'self'" {
 		t.Fatalf("Content-Security-Policy = %q, want custom policy", got)
+	}
+}
+
+func TestSecurityHeadersApplyToAbortedPreflight(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(SecurityHeaders(), CorsWithOptions(CorsOptions{AllowOrigins: []string{"https://shop.example.com"}}))
+	router.GET("/", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodOptions, "/", nil)
+	req.Header.Set("Origin", "https://shop.example.com")
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("preflight status = %d, want 204", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); got == "" {
+		t.Fatal("Content-Security-Policy is empty on preflight response")
 	}
 }

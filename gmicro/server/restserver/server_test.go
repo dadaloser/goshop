@@ -694,7 +694,11 @@ func TestProfilingRequiresInternalClientAndBearerToken(t *testing.T) {
 
 func TestRateLimiterRejectsRequestsBeyondBurst(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	srv := NewServer(WithRateLimit(1, 1))
+	srv := NewServer(
+		WithRateLimit(1, 1),
+		WithMiddlewares([]string{"cors", "security-headers"}),
+		WithCorsOptions(mws.CorsOptions{AllowOrigins: []string{"https://shop.example.com"}}),
+	)
 	srv.GET("/limited", func(c *gin.Context) {
 		c.Status(http.StatusNoContent)
 	})
@@ -707,16 +711,22 @@ func TestRateLimiterRejectsRequestsBeyondBurst(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/limited", nil)
+	req.Header.Set("Origin", "https://shop.example.com")
 	rec = httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("second request status = %d, want 429", rec.Code)
 	}
+	assertOverloadResponseHeaders(t, rec)
 }
 
 func TestMaxConcurrentRequestsRejectsWhenSaturated(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	srv := NewServer(WithMaxConcurrentRequests(1))
+	srv := NewServer(
+		WithMaxConcurrentRequests(1),
+		WithMiddlewares([]string{"cors", "security-headers"}),
+		WithCorsOptions(mws.CorsOptions{AllowOrigins: []string{"https://shop.example.com"}}),
+	)
 	block := make(chan struct{})
 	started := make(chan struct{})
 	var once sync.Once
@@ -741,11 +751,13 @@ func TestMaxConcurrentRequestsRejectsWhenSaturated(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/work", nil)
+	req.Header.Set("Origin", "https://shop.example.com")
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("second request status = %d, want 503", rec.Code)
 	}
+	assertOverloadResponseHeaders(t, rec)
 
 	close(block)
 	select {
@@ -755,5 +767,18 @@ func TestMaxConcurrentRequestsRejectsWhenSaturated(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("first request did not finish")
+	}
+}
+
+func assertOverloadResponseHeaders(t *testing.T, rec *httptest.ResponseRecorder) {
+	t.Helper()
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://shop.example.com" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want https://shop.example.com", got)
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); got == "" {
+		t.Error("Content-Security-Policy is empty on overload response")
+	}
+	if got := rec.Header().Get("Strict-Transport-Security"); got == "" {
+		t.Error("Strict-Transport-Security is empty on overload response")
 	}
 }

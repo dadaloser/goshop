@@ -143,6 +143,7 @@ func NewServer(opts ...ServerOption) *Server {
 	if srv.collectMetrics {
 		srv.Use(mws.Metrics(srv.serviceName))
 	}
+	srv.installConfiguredMiddlewares(true)
 	if srv.maxRequestBodyBytes > 0 {
 		srv.Use(mws.RequestBodyLimit(srv.maxRequestBodyBytes))
 	}
@@ -162,17 +163,41 @@ func NewServer(opts ...ServerOption) *Server {
 			srv.clientRateLimitMaxKeys,
 		)))
 	}
-	for _, m := range srv.middlewares {
-		mw, ok := srv.middleware(m)
-		if !ok {
-			continue
-		}
-
-		log.Infof("intall middleware: %s", m)
-		srv.Use(mw)
-	}
+	srv.installConfiguredMiddlewares(false)
 
 	return srv
+}
+
+func (s *Server) installConfiguredMiddlewares(early bool) {
+	if early {
+		// Security headers precede CORS so even an aborted preflight response is
+		// hardened. Both must run before overload protection responses.
+		for _, name := range []string{"security-headers", "cors"} {
+			if slices.Contains(s.middlewares, name) {
+				s.installConfiguredMiddleware(name)
+			}
+		}
+		return
+	}
+	for _, m := range s.middlewares {
+		if isEarlyResponseMiddleware(m) {
+			continue
+		}
+		s.installConfiguredMiddleware(m)
+	}
+}
+
+func (s *Server) installConfiguredMiddleware(name string) {
+	mw, ok := s.middleware(name)
+	if !ok {
+		return
+	}
+	log.Infof("install middleware: %s", name)
+	s.Use(mw)
+}
+
+func isEarlyResponseMiddleware(name string) bool {
+	return name == "cors" || name == "security-headers"
 }
 
 func (s *Server) middleware(name string) (gin.HandlerFunc, bool) {
