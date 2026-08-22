@@ -9,7 +9,7 @@ import (
 	datav1 "goshop/app/inventory/srv/internal/data/v1"
 	"goshop/app/inventory/srv/internal/domain/do"
 	"goshop/app/inventory/srv/internal/domain/dto"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	"gorm.io/gorm"

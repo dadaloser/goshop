@@ -7,7 +7,7 @@ import (
 
 	"goshop/app/goods/srv/internal/domain/do"
 	"goshop/app/goods/srv/internal/domain/dto"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	metav1 "goshop/pkg/common/meta/v1"

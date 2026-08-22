@@ -9,7 +9,7 @@ import (
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/pkg/bizcode"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	"google.golang.org/genproto/googleapis/rpc/errdetails"

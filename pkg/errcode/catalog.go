@@ -1,7 +1,7 @@
 package errcode
 
 // Contract describes a framework-level public error contract without coupling
-// gmicro to the application error implementation.
+// error codes to an application error implementation.
 type Contract struct {
 	Code    int
 	Kind    string
@@ -27,7 +27,7 @@ var Catalog = []Contract{
 	{Code: ErrPasswordIncorrect, Kind: "unauthenticated", Message: "Password was incorrect"},
 	{Code: ErrPermissionDenied, Kind: "permission_denied", Message: "Permission denied"},
 	{Code: ErrEncodingFailed, Kind: "internal", Message: "Encoding failed due to an error with the data"},
-	{Code: ErrDecodingFailed, Kind: "internal", Message: "Decoding failed due to an error with the data"},
+	{Code: ErrDecodingFailed, Kind: "internal", Message: "Encoding failed due to an error with the data"},
 	{Code: ErrInvalidJSON, Kind: "invalid_argument", Message: "Data is not valid JSON"},
 	{Code: ErrEncodingJSON, Kind: "internal", Message: "JSON data could not be encoded"},
 	{Code: ErrDecodingJSON, Kind: "invalid_argument", Message: "JSON data could not be decoded"},

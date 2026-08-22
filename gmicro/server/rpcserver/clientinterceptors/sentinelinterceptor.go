@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"goshop/gmicro/resilience"
+	"goshop/pkg/resilience"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

@@ -37,4 +37,3 @@
 | ErrInvalidYaml | 100306 | 500 | Data is not valid Yaml |
 | ErrEncodingYaml | 100307 | 500 | Yaml data could not be encoded |
 | ErrDecodingYaml | 100308 | 500 | Yaml data could not be decoded |
-

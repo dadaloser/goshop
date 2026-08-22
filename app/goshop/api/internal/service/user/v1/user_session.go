@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"strings"
 	"time"
 

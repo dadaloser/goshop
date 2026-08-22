@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"goshop/gmicro/resilience"
+	"goshop/pkg/resilience"
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
 	gormmysql "gorm.io/driver/mysql"

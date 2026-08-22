@@ -8,7 +8,7 @@ import (
 	"goshop/app/inventory/srv/internal/domain/do"
 	"goshop/app/inventory/srv/internal/domain/dto"
 	svcv1 "goshop/app/inventory/srv/internal/service/v1"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 )
 

@@ -6,8 +6,8 @@ import (
 	ipb "goshop/api/inventory/v1"
 	"goshop/app/pkg/client"
 	"goshop/app/pkg/options"
-	"goshop/gmicro/resilience"
 	"goshop/gmicro/server/rpcserver"
+	"goshop/pkg/resilience"
 )
 
 type InventoryItem struct {

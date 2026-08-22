@@ -5,7 +5,7 @@ import (
 	"goshop/app/goshop/api/internal/data"
 	"goshop/app/pkg/bizcode"
 	"goshop/app/pkg/options"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 	"testing"
 	"time"

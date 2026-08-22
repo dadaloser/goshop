@@ -6,7 +6,7 @@ import (
 
 	v1 "goshop/app/goods/srv/internal/data/v1"
 	"goshop/app/goods/srv/internal/domain/do"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	"gorm.io/gorm"

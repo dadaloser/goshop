@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"goshop/gmicro/resilience"
+	"goshop/pkg/resilience"
 
 	"github.com/spf13/pflag"
 )

@@ -5,7 +5,7 @@ import (
 	v1 "goshop/app/inventory/srv/internal/data/v1"
 	"goshop/app/pkg/bizcode"
 	"goshop/app/pkg/options"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 	"sort"
 	"strings"

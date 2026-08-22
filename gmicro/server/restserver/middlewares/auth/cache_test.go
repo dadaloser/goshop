@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	pkgerrors "goshop/pkg/errors"
 )
 

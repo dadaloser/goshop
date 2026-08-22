@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/errors"

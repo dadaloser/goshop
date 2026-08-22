@@ -7,7 +7,7 @@ import (
 	"goshop/app/inventory/srv/internal/domain/dto"
 	v1 "goshop/app/inventory/srv/internal/service/v1"
 	"goshop/app/pkg/bizcode"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 

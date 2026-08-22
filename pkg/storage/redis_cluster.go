@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"goshop/gmicro/resilience"
 	"goshop/pkg/errors"
+	"goshop/pkg/resilience"
 
 	"github.com/redis/go-redis/extra/redisotel/v9"
 

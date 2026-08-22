@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 
 	"goshop/app/pkg/options"
-	"goshop/gmicro/resilience"
 	"goshop/pkg/app"
+	"goshop/pkg/resilience"
 
 	cliflag "goshop/pkg/common/cli/flag"
 	"goshop/pkg/log"

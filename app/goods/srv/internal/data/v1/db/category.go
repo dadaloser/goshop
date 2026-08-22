@@ -3,7 +3,7 @@ package db
 import (
 	"context"
 	"goshop/app/pkg/bizcode"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	v1 "goshop/app/goods/srv/internal/data/v1"

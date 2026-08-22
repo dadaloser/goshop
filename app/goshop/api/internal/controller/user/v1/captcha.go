@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"goshop/app/goshop/api/internal/captcha"
-	"goshop/gmicro/errcode"
 	"goshop/pkg/common/core"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"goshop/app/inventory/srv/internal/domain/do"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 )
 

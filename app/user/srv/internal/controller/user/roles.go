@@ -5,7 +5,7 @@ import (
 
 	upbv1 "goshop/api/user/v1"
 	srvv1 "goshop/app/user/srv/internal/service/v1"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	"google.golang.org/protobuf/types/known/emptypb"

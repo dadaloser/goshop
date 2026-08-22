@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"goshop/app/order/srv/internal/domain/do"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	"gorm.io/gorm"

@@ -11,10 +11,10 @@ import (
 	"goshop/app/pkg/bizcode"
 	appclient "goshop/app/pkg/client"
 	"goshop/app/pkg/options"
-	"goshop/gmicro/resilience"
 	"goshop/gmicro/server/rpcserver"
 	"goshop/pkg/common/util/contextutil"
 	errors2 "goshop/pkg/errors"
+	"goshop/pkg/resilience"
 	"sync"
 	"time"
 )

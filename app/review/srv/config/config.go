@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 
 	"goshop/app/pkg/options"
-	"goshop/gmicro/resilience"
 	"goshop/pkg/app"
 	cliflag "goshop/pkg/common/cli/flag"
 	"goshop/pkg/log"
+	"goshop/pkg/resilience"
 )
 
 type Config struct {

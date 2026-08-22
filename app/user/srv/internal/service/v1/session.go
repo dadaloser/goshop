@@ -7,7 +7,7 @@ import (
 
 	"goshop/app/pkg/authz"
 	dv1 "goshop/app/user/srv/internal/data/v1"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	"github.com/google/uuid"

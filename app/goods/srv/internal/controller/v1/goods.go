@@ -9,7 +9,7 @@ import (
 
 	proto "goshop/api/goods/v1"
 	v1 "goshop/app/goods/srv/internal/service/v1"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 

@@ -8,7 +8,7 @@ import (
 	pb "goshop/api/order/v1"
 	"goshop/app/order/srv/internal/domain/do"
 	"goshop/app/order/srv/internal/domain/dto"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 )
 

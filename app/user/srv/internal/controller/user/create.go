@@ -5,7 +5,7 @@ import (
 	upbv1 "goshop/api/user/v1"
 	v12 "goshop/app/user/srv/internal/data/v1"
 	"goshop/app/user/srv/internal/service/v1"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
 )
@@ -29,14 +29,7 @@ func (u *userServer) CreateUser(ctx context.Context, request *upbv1.CreateUserIn
 	}
 	userDTO := v1.UserDTO{UserDO: userDO}
 
-	err := u.srv.Create(ctx, &userDTO)
-	if err != nil {
-		log.Errorf(
-			"create user failed: mobile=%s email=%s error=%v",
-			redactMobileForLog(userDTO.Mobile),
-			redactOptionalEmailForLog(userDTO.Email),
-			err,
-		)
+	if err := u.srv.Create(ctx, &userDTO); err != nil {
 		return nil, err
 	}
 
@@ -64,12 +57,6 @@ func (u *userServer) CreateStaffUser(ctx context.Context, request *upbv1.CreateS
 
 	created, err := u.srv.CreateStaff(ctx, &userDTO, request.Roles, request.Status, auditActorFromProto(request.Actor))
 	if err != nil {
-		log.Errorf(
-			"create staff user failed: mobile=%s email=%s error=%v",
-			redactMobileForLog(userDTO.Mobile),
-			redactOptionalEmailForLog(userDTO.Email),
-			err,
-		)
 		return nil, err
 	}
 

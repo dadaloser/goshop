@@ -16,7 +16,7 @@ import (
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/options"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/storage"
 )
 
@@ -272,7 +272,6 @@ func (us *userService) Register(ctx context.Context, mobile, email, username, pa
 	}
 	createdUser, err := users.Create(ctx, user)
 	if err != nil {
-		log.Errorf("user register failed: %v", err)
 		return nil, err
 	}
 

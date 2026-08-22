@@ -3,7 +3,7 @@ package errorcatalog
 import (
 	"testing"
 
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 )
 

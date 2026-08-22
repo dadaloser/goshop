@@ -4,7 +4,7 @@ import (
 	"context"
 	"goshop/app/pkg/bizcode"
 
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	v1 "goshop/app/order/srv/internal/data/v1"

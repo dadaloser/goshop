@@ -4,7 +4,7 @@ import (
 	"context"
 
 	upbv1 "goshop/api/user/v1"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	"goshop/pkg/log"

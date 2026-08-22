@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	apperrors "goshop/pkg/errors"
 
 	"google.golang.org/genproto/googleapis/rpc/errdetails"

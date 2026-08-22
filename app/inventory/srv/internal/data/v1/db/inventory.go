@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"goshop/app/inventory/srv/internal/domain/do"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	"goshop/app/inventory/srv/internal/data/v1"

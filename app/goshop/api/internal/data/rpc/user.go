@@ -6,7 +6,7 @@ import (
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/bizcode"
 	"goshop/app/pkg/errorcatalog"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/transport/httperror"
 	"strings"

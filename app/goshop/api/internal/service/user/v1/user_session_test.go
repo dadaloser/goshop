@@ -3,7 +3,7 @@ package v1
 import (
 	"context"
 	"goshop/app/pkg/bizcode"
-	"goshop/gmicro/errcode"
+	"goshop/pkg/errcode"
 	"testing"
 
 	"goshop/app/goshop/api/internal/data"

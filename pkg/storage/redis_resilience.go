@@ -6,7 +6,7 @@ import (
 	"net"
 	"strings"
 
-	"goshop/gmicro/resilience"
+	"goshop/pkg/resilience"
 
 	"github.com/redis/go-redis/v9"
 )

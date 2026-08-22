@@ -3,8 +3,8 @@ package user
 import (
 	"context"
 	"crypto/sha512"
-	"goshop/gmicro/errcode"
 	"goshop/pkg/common/auth"
+	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 	"strings"
 
