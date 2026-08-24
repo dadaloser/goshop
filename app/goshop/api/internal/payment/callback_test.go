@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -12,10 +13,18 @@ import (
 	"testing"
 	"time"
 
+	"goshop/app/pkg/errorcatalog"
 	"goshop/app/pkg/options"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errcode"
 
 	"github.com/gin-gonic/gin"
 )
+
+func TestMain(m *testing.M) {
+	errorcatalog.RegisterAll()
+	m.Run()
+}
 
 type fakeCallbackService struct {
 	calls     int
@@ -75,6 +84,15 @@ func TestCallbackHandlerRequiresValidSignature(t *testing.T) {
 			router.ServeHTTP(rec, req)
 			if rec.Code != tt.want {
 				t.Fatalf("status=%d want=%d", rec.Code, tt.want)
+			}
+			if tt.want != http.StatusOK {
+				var response core.ErrResponse
+				if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+					t.Fatalf("decode error response = %v", err)
+				}
+				if response.Code != errcode.ErrSignatureInvalid {
+					t.Fatalf("error code = %d, want %d", response.Code, errcode.ErrSignatureInvalid)
+				}
 			}
 			if service.calls != tt.calls {
 				t.Fatalf("calls=%d want=%d", service.calls, tt.calls)

@@ -14,6 +14,9 @@ import (
 	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver/middlewares"
 	gauth "goshop/gmicro/server/restserver/middlewares/auth"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errcode"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -75,14 +78,14 @@ func requireRole(allowed ...authz.StaffRole) gin.HandlerFunc {
 				return
 			}
 		}
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "role is not allowed for this operation"})
+		core.AbortWithError(c, apperrors.NewCode(errcode.ErrPermissionDenied, "role is not allowed for this operation"))
 	}
 }
 
 func requireResourceScope(domain authz.BusinessDomain) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !claimsAllowDomain(gauth.ExtractClaims(c), domain) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope denied"})
+			core.AbortWithError(c, apperrors.NewCode(errcode.ErrPermissionDenied, "resource scope denied"))
 			return
 		}
 		c.Next()
@@ -93,7 +96,7 @@ func requireTargetResourceScope(domain authz.BusinessDomain, resourceType, param
 	return func(c *gin.Context) {
 		resourceID := strings.TrimSpace(c.Param(param))
 		if resourceID == "" {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "resource id is required"})
+			core.AbortWithError(c, apperrors.NewCode(errcode.ErrValidation, "resource id is required"))
 			return
 		}
 		requireResourceScope(domain)(c)
@@ -273,7 +276,7 @@ func (h *operationsHandler) replayGoodsOutbox(c *gin.Context) {
 		Limit  int32   `json:"limit"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid request"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "invalid request"))
 		return
 	}
 	resp, err := h.goods.ReplayGoodsOutbox(c, &goodspb.ListGoodsOutboxReplayRequest{
@@ -296,7 +299,7 @@ func (h *operationsHandler) reindexGoods(c *gin.Context) {
 		All      bool    `json:"all"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid request"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "invalid request"))
 		return
 	}
 	if len(body.GoodsIDs) > 0 {
@@ -351,7 +354,7 @@ func (h *operationsHandler) adjustInventory(c *gin.Context) {
 	req.CorrelationId = fmt.Sprint(correlation)
 	req.RequestId = requestID(c)
 	if strings.TrimSpace(req.Reason) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "adjustment reason is required"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "adjustment reason is required"))
 		return
 	}
 	resp, err := h.inventory.SetStock(c, &req)
@@ -441,7 +444,7 @@ func (h *operationsHandler) refundOrder(c *gin.Context) {
 		Reason    string `json:"reason" binding:"required,max=255"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid refund request"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "invalid refund request"))
 		return
 	}
 	actor, err := userIDFromClaims(c)
@@ -536,7 +539,7 @@ func (h *operationsHandler) ready(c *gin.Context, ready bool) bool {
 	if ready {
 		return true
 	}
-	c.JSON(http.StatusServiceUnavailable, gin.H{"code": http.StatusServiceUnavailable, "msg": "business rpc client is not initialized"})
+	core.WriteError(c, apperrors.NewCode(errcode.ErrServiceUnavailable, "business rpc client is not initialized"))
 	return false
 }
 func (h *operationsHandler) bind(c *gin.Context, ready bool, dst any) bool {
@@ -544,7 +547,7 @@ func (h *operationsHandler) bind(c *gin.Context, ready bool, dst any) bool {
 		return false
 	}
 	if err := c.ShouldBindJSON(dst); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid request"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "invalid request"))
 		return false
 	}
 	return true
@@ -576,7 +579,7 @@ func requestID(c *gin.Context) string {
 func pathID(c *gin.Context, name string) (int32, bool) {
 	value, err := strconv.ParseInt(c.Param(name), 10, 32)
 	if err != nil || value <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid resource id"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "invalid resource id"))
 		return 0, false
 	}
 	return int32(value), true
@@ -585,7 +588,7 @@ func pathID(c *gin.Context, name string) (int32, bool) {
 func pathInt64(c *gin.Context, name string) (int64, bool) {
 	value, err := strconv.ParseInt(c.Param(name), 10, 64)
 	if err != nil || value <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": http.StatusBadRequest, "msg": "invalid resource id"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "invalid resource id"))
 		return 0, false
 	}
 	return value, true
@@ -611,7 +614,7 @@ func page(c *gin.Context) (int32, int32) {
 }
 func writeRPC(c *gin.Context, response any, err error) {
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"code": http.StatusBadGateway, "msg": "business operation failed"})
+		core.WriteError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, response)

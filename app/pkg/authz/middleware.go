@@ -1,9 +1,10 @@
 package authz
 
 import (
-	"net/http"
-
 	"goshop/gmicro/server/restserver/middlewares"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errcode"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,19 +15,12 @@ func RequirePermission(permission Permission) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		principal, ok := principalFromContext(c)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code": http.StatusUnauthorized,
-				"msg":  "authenticated principal is required",
-			})
+			core.AbortWithError(c, apperrors.NewCode(errcode.ErrTokenInvalid, "authenticated principal is required"))
 			return
 		}
 
 		if principal.status != AccountStatusActive || !principal.hasPermission(permission) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"code":       http.StatusForbidden,
-				"msg":        "permission denied",
-				"permission": permission,
-			})
+			core.AbortWithError(c, apperrors.NewCode(errcode.ErrPermissionDenied, "permission denied"))
 			return
 		}
 		c.Next()
@@ -44,18 +38,11 @@ func RequirePrincipalTypes(allowed ...PrincipalType) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		principal, ok := principalFromContext(c)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code": http.StatusUnauthorized,
-				"msg":  "authenticated principal is required",
-			})
+			core.AbortWithError(c, apperrors.NewCode(errcode.ErrTokenInvalid, "authenticated principal is required"))
 			return
 		}
 		if _, ok := allowedSet[principal.typeName]; !ok {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"code":           http.StatusForbidden,
-				"msg":            "principal type denied",
-				"principal_type": principal.typeName,
-			})
+			core.AbortWithError(c, apperrors.NewCode(errcode.ErrPermissionDenied, "principal type denied"))
 			return
 		}
 		c.Next()

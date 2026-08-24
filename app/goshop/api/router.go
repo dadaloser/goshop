@@ -27,6 +27,9 @@ import (
 	appclient "goshop/app/pkg/client"
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/rpcserver"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errcode"
+	apperrors "goshop/pkg/errors"
 	"goshop/pkg/log"
 
 	"github.com/gin-gonic/gin"
@@ -152,7 +155,7 @@ func requireDeviceBlacklistConfirmation() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		expected := os.Getenv("GOSHOP_ADMIN_CONFIRMATION_TOKEN")
 		if expected == "" || subtle.ConstantTimeCompare([]byte(expected), []byte(ctx.GetHeader("X-Admin-Confirm-Token"))) != 1 {
-			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "admin confirmation required"})
+			core.AbortWithError(ctx, apperrors.NewCode(errcode.ErrPermissionDenied, "admin confirmation required"))
 			return
 		}
 		ctx.Next()

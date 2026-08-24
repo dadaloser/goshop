@@ -1,14 +1,23 @@
 package authz
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"goshop/app/pkg/errorcatalog"
 	"goshop/gmicro/server/restserver/middlewares"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errcode"
 
 	"github.com/gin-gonic/gin"
 )
+
+func TestMain(m *testing.M) {
+	errorcatalog.RegisterAll()
+	m.Run()
+}
 
 func TestRequirePermission(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -125,6 +134,19 @@ func TestRequirePermission(t *testing.T) {
 			if recorder.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d", recorder.Code, tt.wantStatus)
 			}
+			if tt.wantStatus == http.StatusNoContent {
+				return
+			}
+			var response core.ErrResponse
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatalf("decode error response = %v", err)
+			}
+			if response.Code == http.StatusUnauthorized || response.Code == http.StatusForbidden || response.Code == 0 {
+				t.Fatalf("error code = %d, want a business error code", response.Code)
+			}
+			if response.Code != errcode.ErrTokenInvalid && response.Code != errcode.ErrPermissionDenied {
+				t.Fatalf("error code = %d, want authentication or permission error", response.Code)
+			}
 		})
 	}
 }
@@ -193,6 +215,16 @@ func TestRequirePrincipalTypes(t *testing.T) {
 
 			if recorder.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d", recorder.Code, tt.wantStatus)
+			}
+			if tt.wantStatus == http.StatusNoContent {
+				return
+			}
+			var response core.ErrResponse
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatalf("decode error response = %v", err)
+			}
+			if response.Code == http.StatusUnauthorized || response.Code == http.StatusForbidden || response.Code == 0 {
+				t.Fatalf("error code = %d, want a business error code", response.Code)
 			}
 		})
 	}

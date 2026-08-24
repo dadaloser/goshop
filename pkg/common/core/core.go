@@ -36,3 +36,14 @@ func WriteResponse(c *gin.Context, err error, data interface{}) {
 
 	c.JSON(http.StatusOK, data)
 }
+
+// WriteError writes a public error response using the shared HTTP adapter.
+func WriteError(c *gin.Context, err error) {
+	WriteResponse(c, err, nil)
+}
+
+// AbortWithError writes a public error response and stops the remaining Gin handlers.
+func AbortWithError(c *gin.Context, err error) {
+	WriteError(c, err)
+	c.Abort()
+}

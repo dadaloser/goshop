@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -14,6 +13,9 @@ import (
 	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver"
 	gauth "goshop/gmicro/server/restserver/middlewares/auth"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errcode"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -81,7 +83,7 @@ func (h *adminReviewHandler) list(c *gin.Context) {
 func (h *adminReviewHandler) moderate(c *gin.Context) {
 	var f moderateForm
 	if err := c.ShouldBindJSON(&f); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid moderation"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "invalid moderation"))
 		return
 	}
 	id, ok := reviewID(c)
@@ -113,7 +115,7 @@ func (h *adminReviewHandler) moderate(c *gin.Context) {
 func (h *adminReviewHandler) reply(c *gin.Context) {
 	var f replyForm
 	if err := c.ShouldBindJSON(&f); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid reply"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "invalid reply"))
 		return
 	}
 	id, ok := reviewID(c)
@@ -145,7 +147,7 @@ func (h *adminReviewHandler) reply(c *gin.Context) {
 func (h *adminReviewHandler) rebuild(c *gin.Context) {
 	goods, err := strconv.ParseInt(c.Param("goods_id"), 10, 32)
 	if err != nil || goods <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid goods id"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "invalid goods id"))
 		return
 	}
 	if h.goods != nil {
@@ -166,7 +168,7 @@ func (h *adminReviewHandler) rebuild(c *gin.Context) {
 func reviewID(c *gin.Context) (int64, bool) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid review id"})
+		core.WriteError(c, apperrors.NewCode(errcode.ErrValidation, "invalid review id"))
 		return 0, false
 	}
 	return id, true

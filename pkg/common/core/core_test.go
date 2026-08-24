@@ -82,3 +82,26 @@ func TestWriteResponseMapsKnownGRPCServiceErrorsToPublicCodes(t *testing.T) {
 		})
 	}
 }
+
+func TestAbortWithErrorWritesSharedErrorResponse(t *testing.T) {
+	errorcatalog.RegisterAll()
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	AbortWithError(ctx, apperrors.NewCode(100207, "permission denied"))
+
+	if !ctx.IsAborted() {
+		t.Fatal("AbortWithError() did not abort the Gin context")
+	}
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("AbortWithError() status = %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+	var response ErrResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("AbortWithError() decode response = %v", err)
+	}
+	if response.Code != 100207 {
+		t.Fatalf("AbortWithError() code = %d, want %d", response.Code, 100207)
+	}
+}

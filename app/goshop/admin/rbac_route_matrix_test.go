@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,6 +17,8 @@ import (
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/restserver/middlewares"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errcode"
 
 	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc"
@@ -77,8 +80,14 @@ func TestAdminRouteMatrixProtectedRoutesRequireDeclaredPermission(t *testing.T) 
 			if rec.Code != http.StatusForbidden && rec.Code != http.StatusUnauthorized {
 				t.Fatalf("route %s without permission status = %d, want 401 or 403", spec.routePath, rec.Code)
 			}
-			if rec.Code == http.StatusForbidden && !strings.Contains(rec.Body.String(), string(spec.permission)) {
-				t.Fatalf("route %s without permission body = %q, want declared permission %q", spec.routePath, rec.Body.String(), spec.permission)
+			if rec.Code == http.StatusForbidden {
+				var response core.ErrResponse
+				if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+					t.Fatalf("route %s without permission decode error response = %v", spec.routePath, err)
+				}
+				if response.Code != errcode.ErrPermissionDenied {
+					t.Fatalf("route %s without permission error code = %d, want %d", spec.routePath, response.Code, errcode.ErrPermissionDenied)
+				}
 			}
 
 			authorized := httptest.NewRequest(spec.method, spec.requestPath, nil)
@@ -87,8 +96,14 @@ func TestAdminRouteMatrixProtectedRoutesRequireDeclaredPermission(t *testing.T) 
 
 			authorizedRec := httptest.NewRecorder()
 			server.ServeHTTP(authorizedRec, authorized)
-			if authorizedRec.Code == http.StatusForbidden && strings.Contains(authorizedRec.Body.String(), string(spec.permission)) {
-				t.Fatalf("route %s with permission still denied by permission middleware: %s", spec.routePath, authorizedRec.Body.String())
+			if authorizedRec.Code == http.StatusForbidden {
+				var response core.ErrResponse
+				if err := json.Unmarshal(authorizedRec.Body.Bytes(), &response); err != nil {
+					t.Fatalf("route %s with permission decode error response = %v", spec.routePath, err)
+				}
+				if response.Code == errcode.ErrPermissionDenied {
+					t.Fatalf("route %s with permission still denied by permission middleware", spec.routePath)
+				}
 			}
 		})
 	}

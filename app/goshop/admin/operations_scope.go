@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -9,6 +8,9 @@ import (
 	orderpb "goshop/api/order/v1"
 	"goshop/app/pkg/authz"
 	gauth "goshop/gmicro/server/restserver/middlewares/auth"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errcode"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -49,7 +51,7 @@ func orderScope(item *orderpb.OrderInfoDetailResponse, domain authz.BusinessDoma
 }
 
 func denyScope(c *gin.Context) {
-	c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": http.StatusForbidden, "msg": "resource scope denied"})
+	core.AbortWithError(c, apperrors.NewCode(errcode.ErrPermissionDenied, "resource scope denied"))
 }
 
 func (h *operationsHandler) authorizeGoods(c *gin.Context, goodsID int32, domain authz.BusinessDomain) (*goodspb.GoodsInfoResponse, bool) {

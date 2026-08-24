@@ -15,6 +15,9 @@ import (
 	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver"
+	"goshop/pkg/common/core"
+	"goshop/pkg/errcode"
+	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -92,11 +95,7 @@ func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {
 			expected = opts.EffectiveToken()
 		}
 		if expected == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code":   http.StatusUnauthorized,
-				"msg":    "admin auth is not configured",
-				"detail": "set admin-auth.token or GOSHOP_ADMIN_TOKEN before exposing admin routes",
-			})
+			core.AbortWithError(c, apperrors.NewCode(errcode.ErrServiceUnavailable, "admin authentication is not configured"))
 			return
 		}
 
@@ -104,10 +103,7 @@ func requireAdminToken(opts *config.AdminAuthOptions) gin.HandlerFunc {
 		currentValid := adminTokenEqual(expected, provided)
 		previousValid := opts != nil && opts.PreviousTokenActive(time.Now()) && adminTokenEqual(opts.EffectivePreviousToken(), provided)
 		if !currentValid && !previousValid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"code": http.StatusUnauthorized,
-				"msg":  "invalid admin token",
-			})
+			core.AbortWithError(c, apperrors.NewCode(errcode.ErrTokenInvalid, "invalid admin token"))
 			return
 		}
 		c.Next()
@@ -123,18 +119,11 @@ func requireAdminConfirmation(opts *config.AdminAuthOptions) gin.HandlerFunc {
 			expected = opts.EffectiveConfirmationToken()
 		}
 		if expected == "" {
-			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
-				"code":   http.StatusServiceUnavailable,
-				"msg":    "admin confirmation is not configured",
-				"detail": "set admin-auth.confirmation-token or GOSHOP_ADMIN_CONFIRMATION_TOKEN before exposing high-risk admin write routes",
-			})
+			core.AbortWithError(c, apperrors.NewCode(errcode.ErrServiceUnavailable, "admin confirmation is not configured"))
 			return
 		}
 		if !adminTokenEqual(expected, c.GetHeader(headerName)) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"code": http.StatusForbidden,
-				"msg":  "admin confirmation required",
-			})
+			core.AbortWithError(c, apperrors.NewCode(errcode.ErrPermissionDenied, "admin confirmation required"))
 			return
 		}
 		c.Set(operationCorrelationKey, uuid.NewString())

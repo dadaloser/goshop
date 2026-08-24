@@ -20,12 +20,12 @@ func TestRequireAdminToken(t *testing.T) {
 	}{
 		{
 			name:       "nil options rejects",
-			wantStatus: http.StatusUnauthorized,
+			wantStatus: http.StatusServiceUnavailable,
 		},
 		{
 			name:       "missing configured token rejects",
 			opts:       &config.AdminAuthOptions{},
-			wantStatus: http.StatusUnauthorized,
+			wantStatus: http.StatusServiceUnavailable,
 		},
 		{
 			name:       "wrong token rejects",
