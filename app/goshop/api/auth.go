@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"goshop/app/goshop/api/internal/data"
+	"goshop/app/pkg/authresponse"
 	"goshop/app/pkg/authsession/tokenrevocation"
 	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
@@ -81,5 +82,5 @@ func newJWTAuth(opts *options.JwtOptions, revokedTokens tokenrevocation.Store, t
 			return false
 		}
 		return currentVersion == claims.TokenVersion
-	}), nil
+	}, auth.WithFailureResponder(authresponse.Write)), nil
 }

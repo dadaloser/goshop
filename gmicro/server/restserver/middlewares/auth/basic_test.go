@@ -1,24 +1,25 @@
 package auth
 
 import (
+	stdErrors "errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
-
-	"goshop/pkg/errcode"
-	pkgerrors "goshop/pkg/errors"
 )
 
 func TestBasicStrategyRejectsMalformedBase64Authorization(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
+	var failure error
 	router.Use(NewBasicStrategy(func(username string, password string) bool {
 		t.Fatalf("compare should not be called for malformed base64 credentials")
 		return true
-	}).AuthFunc())
+	}, WithFailureResponder(func(c *gin.Context, err error) {
+		failure = err
+		c.Status(http.StatusUnauthorized)
+	})).AuthFunc())
 	router.GET("/", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -31,8 +32,7 @@ func TestBasicStrategyRejectsMalformedBase64Authorization(t *testing.T) {
 	if rec.Code == http.StatusOK {
 		t.Fatalf("status = %d, want authentication failure", rec.Code)
 	}
-	body := rec.Body.String()
-	if !strings.Contains(body, pkgerrors.ParseCoder(pkgerrors.NewCode(errcode.ErrSignatureInvalid, "")).String()) {
-		t.Fatalf("response body = %q, want signature invalid code", body)
+	if !stdErrors.Is(failure, ErrInvalidCredentials) {
+		t.Fatalf("authentication failure = %v, want %v", failure, ErrInvalidCredentials)
 	}
 }

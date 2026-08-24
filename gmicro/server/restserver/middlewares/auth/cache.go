@@ -1,15 +1,12 @@
 package auth
 
 import (
+	stdErrors "errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"goshop/gmicro/server/restserver/middlewares"
-	"goshop/pkg/common/core"
-	"goshop/pkg/errcode"
-
-	"goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -17,8 +14,8 @@ import (
 
 // Defined errors.
 var (
-	ErrMissingKID    = errors.New("Invalid token format: missing kid field in claims")
-	ErrMissingSecret = errors.New("Can not obtain secret information from cache")
+	ErrMissingKID    = stdErrors.New("invalid token format: missing kid field in claims")
+	ErrMissingSecret = stdErrors.New("cannot obtain secret information from cache")
 )
 
 // Secret contains the basic information of the secret key.
@@ -32,14 +29,15 @@ type Secret struct {
 // CacheStrategy defines jwt bearer authentication strategy which called `cache strategy`.
 // Secrets are obtained through grpc api interface and cached in memory.
 type CacheStrategy struct {
-	get func(kid string) (Secret, error)
+	get              func(kid string) (Secret, error)
+	failureResponder FailureResponder
 }
 
 var _ middlewares.AuthStrategy = &CacheStrategy{}
 
 // NewCacheStrategy create cache strategy with function which can list and cache secrets.
-func NewCacheStrategy(get func(kid string) (Secret, error)) CacheStrategy {
-	return CacheStrategy{get}
+func NewCacheStrategy(get func(kid string) (Secret, error), options ...Option) CacheStrategy {
+	return CacheStrategy{get: get, failureResponder: resolveFailureResponder(options)}
 }
 
 // AuthFunc defines cache strategy as the gin authentication middleware.
@@ -47,16 +45,13 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.Request.Header.Get("Authorization")
 		if len(header) == 0 {
-			core.WriteResponse(c, errors.NewCode(errcode.ErrMissingHeader, "Authorization header cannot be empty."), nil)
-			c.Abort()
-
+			reject(c, cache.failureResponder, ErrMissingCredentials)
 			return
 		}
 
 		rawJWT, ok := strings.CutPrefix(strings.TrimSpace(header), "Bearer ")
 		if !ok || strings.TrimSpace(rawJWT) == "" {
-			core.WriteResponse(c, errors.NewCode(errcode.ErrMissingHeader, "Authorization header format is invalid."), nil)
-			c.Abort()
+			reject(c, cache.failureResponder, ErrInvalidAuthorization)
 			return
 		}
 
@@ -88,17 +83,12 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 			return []byte(secret.Key), nil
 		}, jwt.WithAudience(AuthzAudience))
 		if err != nil || !parsedT.Valid {
-			core.WriteResponse(c, errors.NewCode(errcode.ErrSignatureInvalid, "signature is invalid"), nil)
-			c.Abort()
-
+			reject(c, cache.failureResponder, ErrInvalidToken)
 			return
 		}
 
 		if KeyExpired(secret.Expires) {
-			tm := time.Unix(secret.Expires, 0).Format("2006-01-02 15:04:05")
-			core.WriteResponse(c, errors.NewCode(errcode.ErrExpired, fmt.Sprintf("expired at: %s", tm)), nil)
-			c.Abort()
-
+			reject(c, cache.failureResponder, ErrExpiredCredentials)
 			return
 		}
 

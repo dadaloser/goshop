@@ -7,9 +7,6 @@ import (
 	"strings"
 
 	"goshop/gmicro/server/restserver/middlewares"
-	"goshop/pkg/common/core"
-	"goshop/pkg/errcode"
-	"goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -20,23 +17,25 @@ const AuthzAudience = "goshop.imooc.com"
 
 // JWTStrategy defines jwt bearer authentication strategy.
 type JWTStrategy struct {
-	key          []byte
-	realm        string
-	audience     string
-	identityKey  string
-	authorizator func(interface{}, *gin.Context) bool
+	key              []byte
+	realm            string
+	audience         string
+	identityKey      string
+	authorizator     func(interface{}, *gin.Context) bool
+	failureResponder FailureResponder
 }
 
 var _ middlewares.AuthStrategy = &JWTStrategy{}
 
 // NewJWTStrategy creates a jwt bearer strategy backed by golang-jwt/jwt/v5.
-func NewJWTStrategy(key []byte, realm, audience, identityKey string, authorizator func(interface{}, *gin.Context) bool) JWTStrategy {
+func NewJWTStrategy(key []byte, realm, audience, identityKey string, authorizator func(interface{}, *gin.Context) bool, options ...Option) JWTStrategy {
 	return JWTStrategy{
-		key:          key,
-		realm:        realm,
-		audience:     audience,
-		identityKey:  identityKey,
-		authorizator: authorizator,
+		key:              key,
+		realm:            realm,
+		audience:         audience,
+		identityKey:      identityKey,
+		authorizator:     authorizator,
+		failureResponder: resolveFailureResponder(options),
 	}
 }
 
@@ -45,15 +44,13 @@ func (j JWTStrategy) AuthFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString, err := GetToken(c)
 		if err != nil {
-			core.WriteResponse(c, errors.NewCode(errcode.ErrMissingHeader, err.Error()), nil)
-			c.Abort()
+			reject(c, j.failureResponder, err)
 			return
 		}
 
 		claims, err := j.parseToken(tokenString)
 		if err != nil {
-			core.WriteResponse(c, errors.NewCode(errcode.ErrSignatureInvalid, "signature is invalid"), nil)
-			c.Abort()
+			reject(c, j.failureResponder, ErrInvalidToken)
 			return
 		}
 
@@ -69,8 +66,7 @@ func (j JWTStrategy) AuthFunc() gin.HandlerFunc {
 		}
 
 		if !j.Authorizator(identity, c) {
-			core.WriteResponse(c, errors.NewCode(errcode.ErrSignatureInvalid, "signature is invalid"), nil)
-			c.Abort()
+			reject(c, j.failureResponder, ErrUnauthorized)
 			return
 		}
 
@@ -89,13 +85,13 @@ func (j JWTStrategy) Authorizator(identity interface{}, c *gin.Context) bool {
 // GetToken extracts a bearer token from the Authorization header or cookie.
 func GetToken(c *gin.Context) (string, error) {
 	if c == nil || c.Request == nil {
-		return "", fmt.Errorf("request is not initialized")
+		return "", fmt.Errorf("request is not initialized: %w", ErrMissingCredentials)
 	}
 
 	if header := strings.TrimSpace(c.GetHeader("Authorization")); header != "" {
 		parts := strings.SplitN(header, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || strings.TrimSpace(parts[1]) == "" {
-			return "", fmt.Errorf("authorization header format is wrong")
+			return "", ErrInvalidAuthorization
 		}
 		return strings.TrimSpace(parts[1]), nil
 	}
@@ -108,7 +104,7 @@ func GetToken(c *gin.Context) (string, error) {
 		return "", err
 	}
 
-	return "", fmt.Errorf("authorization header cannot be empty")
+	return "", ErrMissingCredentials
 }
 
 // ExtractClaims returns the jwt payload map stored by the auth middleware.

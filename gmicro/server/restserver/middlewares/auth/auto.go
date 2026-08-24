@@ -1,13 +1,9 @@
 package auth
 
 import (
-	"goshop/pkg/common/core"
 	"strings"
 
 	"goshop/gmicro/server/restserver/middlewares"
-	"goshop/pkg/errcode"
-
-	"goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,17 +13,24 @@ const authHeaderCount = 2
 // AutoStrategy defines authentication strategy which can automatically choose between Basic and Bearer
 // according `Authorization` header.
 type AutoStrategy struct {
-	basic BasicStrategy
-	jwt   JWTStrategy
+	basic            BasicStrategy
+	jwt              JWTStrategy
+	failureResponder FailureResponder
 }
 
 var _ middlewares.AuthStrategy = &AutoStrategy{}
 
 // NewAutoStrategy create auto strategy with basic strategy and jwt strategy.
-func NewAutoStrategy(basic BasicStrategy, jwt JWTStrategy) AutoStrategy {
+func NewAutoStrategy(basic BasicStrategy, jwt JWTStrategy, options ...Option) AutoStrategy {
+	responder := resolveFailureResponder(options)
+	if responder != nil {
+		basic.failureResponder = responder
+		jwt.failureResponder = responder
+	}
 	return AutoStrategy{
-		basic: basic,
-		jwt:   jwt,
+		basic:            basic,
+		jwt:              jwt,
+		failureResponder: responder,
 	}
 }
 
@@ -38,13 +41,7 @@ func (a AutoStrategy) AuthFunc() gin.HandlerFunc {
 		authHeader := strings.SplitN(c.Request.Header.Get("Authorization"), " ", 2)
 
 		if len(authHeader) != authHeaderCount {
-			core.WriteResponse(
-				c,
-				errors.NewCode(errcode.ErrInvalidAuthHeader, "Authorization header format is wrong."),
-				nil,
-			)
-			c.Abort()
-
+			reject(c, a.failureResponder, ErrInvalidAuthorization)
 			return
 		}
 
@@ -55,9 +52,7 @@ func (a AutoStrategy) AuthFunc() gin.HandlerFunc {
 			operator.SetStrategy(a.jwt)
 			// a.JWT.MiddlewareFunc()(c)
 		default:
-			core.WriteResponse(c, errors.NewCode(errcode.ErrSignatureInvalid, "unrecognized Authorization header."), nil)
-			c.Abort()
-
+			reject(c, a.failureResponder, ErrInvalidCredentials)
 			return
 		}
 

@@ -2,28 +2,26 @@ package auth
 
 import (
 	"encoding/base64"
-	"goshop/pkg/common/core"
 	"strings"
 
 	"goshop/gmicro/server/restserver/middlewares"
-	"goshop/pkg/errcode"
-
-	"goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
 
 // BasicStrategy defines Basic authentication strategy.
 type BasicStrategy struct {
-	compare func(username string, password string) bool
+	compare          func(username string, password string) bool
+	failureResponder FailureResponder
 }
 
 var _ middlewares.AuthStrategy = &BasicStrategy{}
 
 // NewBasicStrategy create basic strategy with compare function.
-func NewBasicStrategy(compare func(username string, password string) bool) BasicStrategy {
+func NewBasicStrategy(compare func(username string, password string) bool, options ...Option) BasicStrategy {
 	return BasicStrategy{
-		compare: compare,
+		compare:          compare,
+		failureResponder: resolveFailureResponder(options),
 	}
 }
 
@@ -33,13 +31,7 @@ func (b BasicStrategy) AuthFunc() gin.HandlerFunc {
 		auth := strings.SplitN(c.Request.Header.Get("Authorization"), " ", 2)
 
 		if len(auth) != 2 || auth[0] != "Basic" {
-			core.WriteResponse(
-				c,
-				errors.NewCode(errcode.ErrSignatureInvalid, "Authorization header format is wrong."),
-				nil,
-			)
-			c.Abort()
-
+			reject(c, b.failureResponder, ErrInvalidCredentials)
 			return
 		}
 
@@ -47,13 +39,7 @@ func (b BasicStrategy) AuthFunc() gin.HandlerFunc {
 		pair := strings.SplitN(string(payload), ":", 2)
 
 		if len(pair) != 2 || !b.compare(pair[0], pair[1]) {
-			core.WriteResponse(
-				c,
-				errors.NewCode(errcode.ErrSignatureInvalid, "Authorization header format is wrong."),
-				nil,
-			)
-			c.Abort()
-
+			reject(c, b.failureResponder, ErrInvalidCredentials)
 			return
 		}
 

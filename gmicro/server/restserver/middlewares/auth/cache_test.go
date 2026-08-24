@@ -4,22 +4,22 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-
-	"goshop/pkg/errcode"
-	pkgerrors "goshop/pkg/errors"
 )
 
 func TestCacheStrategyDoesNotExposeInternalParseError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
+	var failure error
 	router.Use(NewCacheStrategy(func(kid string) (Secret, error) {
 		return Secret{}, errors.New("backend secret lookup failed")
-	}).AuthFunc())
+	}, WithFailureResponder(func(c *gin.Context, err error) {
+		failure = err
+		c.Status(http.StatusUnauthorized)
+	})).AuthFunc())
 	router.GET("/", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -38,11 +38,10 @@ func TestCacheStrategyDoesNotExposeInternalParseError(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+rawToken)
 	router.ServeHTTP(rec, req)
 
-	body := rec.Body.String()
-	if !strings.Contains(body, pkgerrors.ParseCoder(pkgerrors.NewCode(errcode.ErrSignatureInvalid, "")).String()) {
-		t.Fatalf("response body = %q, want signature invalid code", body)
+	if !errors.Is(failure, ErrInvalidToken) {
+		t.Fatalf("authentication failure = %v, want %v", failure, ErrInvalidToken)
 	}
-	if strings.Contains(body, "backend secret lookup failed") || strings.Contains(body, ErrMissingSecret.Error()) {
-		t.Fatalf("response body leaks internal auth error: %q", body)
+	if errors.Is(failure, ErrMissingSecret) {
+		t.Fatalf("authentication failure leaked internal cache error: %v", failure)
 	}
 }

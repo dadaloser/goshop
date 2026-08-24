@@ -12,6 +12,7 @@ import (
 
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/admin/config"
+	"goshop/app/pkg/authresponse"
 	"goshop/app/pkg/authsession/tokenrevocation"
 	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
@@ -557,7 +558,7 @@ func newStaffJWTAuth(
 			}
 		}
 		return true
-	}), nil
+	}, gauth.WithFailureResponder(authresponse.Write)), nil
 }
 
 func jwtExpiresAt(ctx *gin.Context) (time.Time, error) {
