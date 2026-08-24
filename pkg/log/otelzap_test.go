@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -421,7 +419,7 @@ func TestLoggerFormattedContextLevels(t *testing.T) {
 	}
 }
 
-func TestLoggerGinContextFields(t *testing.T) {
+func TestLoggerContextFields(t *testing.T) {
 	tests := []struct {
 		name      string
 		requestID string
@@ -443,7 +441,6 @@ func TestLoggerGinContextFields(t *testing.T) {
 		},
 	}
 
-	gin.SetMode(gin.TestMode)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			core, logs := observer.New(zap.InfoLevel)
@@ -455,11 +452,9 @@ func TestLoggerGinContextFields(t *testing.T) {
 				errorStatusLevel: zap.ErrorLevel,
 			}
 
-			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
-			ctx.Request = httptest.NewRequest("GET", "/", nil)
-			ctx.Set(KeyRequestID, tt.requestID)
+			ctx := context.WithValue(context.Background(), KeyRequestID, tt.requestID)
 			if tt.userID != nil {
-				ctx.Set(KeyUserID, tt.userID)
+				ctx = context.WithValue(ctx, KeyUserID, tt.userID)
 			}
 
 			logger.InfoContext(ctx, "hello")

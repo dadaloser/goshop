@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
@@ -200,17 +199,13 @@ func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, f
 		return fields
 	}
 
-	switch ginCtx := ctx.(type) {
-	case *gin.Context:
-		requestID := contextStringValue(ctx, KeyRequestID, "requestID")
-		userID := contextStringValue(ctx, KeyUserID, "userid", "username")
-		if requestID != "" {
-			fields = append(fields, zap.String(KeyRequestID, requestID))
-		}
-		if userID != "" {
-			fields = append(fields, zap.String(KeyUserID, userID))
-		}
-		ctx = ginCtx.Request.Context()
+	requestID := contextStringValue(ctx, KeyRequestID, "requestID")
+	userID := contextStringValue(ctx, KeyUserID, "userid", "username")
+	if requestID != "" {
+		fields = append(fields, zap.String(KeyRequestID, requestID))
+	}
+	if userID != "" {
+		fields = append(fields, zap.String(KeyUserID, userID))
 	}
 
 	span := trace.SpanFromContext(ctx)

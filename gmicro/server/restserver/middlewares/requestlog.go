@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"goshop/pkg/log"
+	ginlog "goshop/pkg/log/gin"
 )
 
 const requestIDHeader = "X-Request-ID"
@@ -35,7 +36,7 @@ func RequestLogger() gin.HandlerFunc {
 		if route == "" {
 			route = "__unmatched__"
 		}
-		log.InfoC(c, "http request completed",
+		log.InfoC(ginlog.Context(c), "http request completed",
 			log.String("http_method", c.Request.Method),
 			log.String("http_route", route),
 			log.Int("http_status", c.Writer.Status()),
@@ -59,7 +60,7 @@ func isLowNoiseManagementPath(path string) bool {
 // diagnostics through the application logger.
 func Recovery() gin.HandlerFunc {
 	return gin.CustomRecovery(func(c *gin.Context, recovered any) {
-		log.ErrorC(c, "http request panic recovered",
+		log.ErrorC(ginlog.Context(c), "http request panic recovered",
 			log.Any("panic", recovered),
 			log.ByteString("stack", debug.Stack()),
 		)
