@@ -41,8 +41,13 @@ var (
 )
 
 func NewJWT(signKey string) *JWT {
+	return NewJWTWithSigningKey([]byte(signKey))
+}
+
+// NewJWTWithSigningKey creates an HS256 JWT parser and signer from raw key bytes.
+func NewJWTWithSigningKey(signingKey []byte) *JWT {
 	return &JWT{
-		[]byte(signKey), //可以设置过期时间
+		SigningKey: append([]byte(nil), signingKey...),
 	}
 }
 
@@ -52,11 +57,27 @@ func (j *JWT) CreateToken(claims CustomClaims) (string, error) {
 	return token.SignedString(j.SigningKey)
 }
 
-// 解析 token
-func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (i interface{}, e error) {
+// ParseTokenWithOptions parses an HS256 token and applies the supplied claim validation options.
+func (j *JWT) ParseTokenWithOptions(tokenString string, options ...jwt.ParserOption) (*CustomClaims, error) {
+	parserOptions := append([]jwt.ParserOption{
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+	}, options...)
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(*jwt.Token) (any, error) {
 		return j.SigningKey, nil
-	})
+	}, parserOptions...)
+	if err != nil {
+		return nil, err
+	}
+	claims, ok := token.Claims.(*CustomClaims)
+	if !ok || !token.Valid {
+		return nil, ErrTokenInvalid
+	}
+	return claims, nil
+}
+
+// ParseToken parses an HS256 token.
+func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
+	claims, err := j.ParseTokenWithOptions(tokenString)
 	if errors.Is(err, jwt.ErrTokenMalformed) {
 		return nil, ErrTokenMalformed
 	}
@@ -70,58 +91,15 @@ func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 	if err != nil {
 		return nil, ErrTokenInvalid
 	}
-
-	if token != nil {
-		if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-			return claims, nil
-		}
-		return nil, ErrTokenInvalid
-
-	} else {
-		return nil, ErrTokenInvalid
-
-	}
-
+	return claims, nil
 }
 
-// RefreshToken 更新token
+// RefreshToken refreshes an HS256 token.
 func (j *JWT) RefreshToken(tokenString string) (string, error) {
-
-	/*jwt.TimeFunc = func() time.Time {
-		return time.Unix(0, 0)
-	}
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return j.SigningKey, nil
-	})
+	claims, err := j.ParseTokenWithOptions(tokenString, jwt.WithLeeway(0))
 	if err != nil {
 		return "", err
 	}
-	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		jwt.TimeFunc = time.Now
-		claims.RegisteredClaims.ExpiresAt = time.Now().Add(1 * time.Hour).Unix()
-		return j.CreateToken(*claims)
-	}*/
-
-	// 1. 解析 Token
-	// 使用 jwt.WithLeeway 替代 TimeFunc 来处理时间误差（如果需要）
-	// 如果你之前设置 TimeFunc 是为了测试，现在可以用 jwt.WithLeeway(0) 或自定义 Validator
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return j.SigningKey, nil
-	}, jwt.WithLeeway(0)) // 如果需要容错，可以设置例如 10*time.Second
-
-	if err != nil {
-		return "", err
-	}
-
-	// 2. 验证并刷新
-	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		// 3. 更新过期时间
-		// 必须使用 jwt.NewNumericDate 来包装时间
-		claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(1 * time.Hour))
-
-		// 4. 重新生成 Token
-		return j.CreateToken(*claims)
-	}
-
-	return "", ErrTokenInvalid
+	claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Hour))
+	return j.CreateToken(*claims)
 }

@@ -35,6 +35,26 @@ func TestJWTStrategyRequiresConfiguredAudience(t *testing.T) {
 	}
 }
 
+func TestJWTStrategyRejectsNonHS256Token(t *testing.T) {
+	const key = "01234567890123456789012345678901"
+	strategy := NewJWTStrategy([]byte(key), "test", "goshop-api", middlewares.KeyUserID, nil)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS384, middlewares.CustomClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Audience:  jwt.ClaimStrings{"goshop-api"},
+			Issuer:    "test",
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+	})
+	rawToken, err := token.SignedString([]byte(key))
+	if err != nil {
+		t.Fatalf("SignedString() error = %v", err)
+	}
+
+	if _, err := strategy.parseToken(rawToken); err == nil {
+		t.Error("parseToken(non-HS256) error = nil, want algorithm rejection")
+	}
+}
+
 func TestGetTokenRejectsQueryParameter(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 	ctx.Request = httptest.NewRequest("GET", "/?token=secret", nil)

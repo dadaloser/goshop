@@ -2,7 +2,6 @@ package auth
 
 import (
 	stdErrors "errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -61,11 +60,6 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 		claims := jwt.MapClaims{}
 		// Verify the token
 		parsedT, err := jwt.ParseWithClaims(rawJWT, claims, func(token *jwt.Token) (interface{}, error) {
-			// Validate the alg is HMAC signature
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-
 			kid, ok := token.Header["kid"].(string)
 			if !ok {
 				return nil, ErrMissingKID
@@ -81,7 +75,7 @@ func (cache CacheStrategy) AuthFunc() gin.HandlerFunc {
 			}
 
 			return []byte(secret.Key), nil
-		}, jwt.WithAudience(AuthzAudience))
+		}, jwt.WithAudience(AuthzAudience), jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 		if err != nil || !parsedT.Valid {
 			reject(c, cache.failureResponder, ErrInvalidToken)
 			return

@@ -124,9 +124,7 @@ func ExtractClaims(c *gin.Context) map[string]any {
 }
 
 func (j JWTStrategy) parseToken(tokenString string) (*middlewares.CustomClaims, error) {
-	parserOptions := []jwt.ParserOption{
-		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
-	}
+	parserOptions := []jwt.ParserOption{}
 	if strings.TrimSpace(j.realm) != "" {
 		parserOptions = append(parserOptions, jwt.WithIssuer(j.realm))
 	}
@@ -134,17 +132,7 @@ func (j JWTStrategy) parseToken(tokenString string) (*middlewares.CustomClaims, 
 		parserOptions = append(parserOptions, jwt.WithAudience(j.audience))
 	}
 
-	token, err := jwt.ParseWithClaims(tokenString, &middlewares.CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return j.key, nil
-	}, parserOptions...)
-	if err != nil {
-		return nil, err
-	}
-	claims, ok := token.Claims.(*middlewares.CustomClaims)
-	if !ok || !token.Valid {
-		return nil, fmt.Errorf("token is invalid")
-	}
-	return claims, nil
+	return middlewares.NewJWTWithSigningKey(j.key).ParseTokenWithOptions(tokenString, parserOptions...)
 }
 
 func claimsToMap(claims middlewares.CustomClaims) map[string]any {
