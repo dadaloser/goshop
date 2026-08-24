@@ -8,8 +8,8 @@ import (
 
 	"goshop/app/pkg/errorcatalog"
 	"goshop/gmicro/server/restserver/middlewares"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errcode"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )

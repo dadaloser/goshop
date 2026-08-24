@@ -4,9 +4,9 @@ import (
 	"strconv"
 
 	upbv1 "goshop/api/user/v1"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errcode"
 	apperrors "goshop/pkg/errors"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )

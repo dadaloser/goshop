@@ -15,9 +15,9 @@ import (
 	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errcode"
 	apperrors "goshop/pkg/errors"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

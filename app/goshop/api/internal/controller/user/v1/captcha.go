@@ -4,10 +4,10 @@ import (
 	"net/http"
 
 	"goshop/app/goshop/api/internal/captcha"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )

@@ -8,8 +8,8 @@ import (
 
 	"goshop/app/goshop/api/internal/emailcode"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )

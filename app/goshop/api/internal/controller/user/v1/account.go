@@ -2,7 +2,7 @@ package user
 
 import (
 	gin2 "goshop/app/pkg/translator/gin"
-	"goshop/pkg/common/core"
+	core "goshop/pkg/transport/httperror"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

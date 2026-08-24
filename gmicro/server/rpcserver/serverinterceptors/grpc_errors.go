@@ -3,16 +3,18 @@ package serverinterceptors
 import (
 	"context"
 	stderrors "errors"
-	"strconv"
 
-	apperrors "goshop/pkg/errors"
-
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func toGRPCError(err error) error {
+// ErrorMapper converts application errors into transport errors. Applications
+// inject their own mapper when they need a domain-specific wire protocol.
+type ErrorMapper func(error) error
+
+// DefaultErrorMapper converts only transport-independent errors. It deliberately
+// does not depend on an application's domain error model.
+func DefaultErrorMapper(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -22,46 +24,8 @@ func toGRPCError(err error) error {
 	if stderrors.Is(err, context.DeadlineExceeded) {
 		return status.Error(codes.DeadlineExceeded, context.DeadlineExceeded.Error())
 	}
-
-	spec, ok := apperrors.SpecOf(err)
-	if !ok || spec.Kind == "" {
-		spec = apperrors.SpecForCode(apperrors.ParseCoder(err).Code())
+	if _, ok := status.FromError(err); ok {
+		return err
 	}
-
-	grpcStatus := status.New(grpcCodeForKind(spec.Kind), spec.Message)
-	withDetails, detailErr := grpcStatus.WithDetails(&errdetails.ErrorInfo{
-		Reason: "GOSHOP_BUSINESS_ERROR",
-		Domain: "goshop",
-		Metadata: map[string]string{
-			"business_code":  strconv.Itoa(spec.Code),
-			"public_message": spec.Message,
-		},
-	})
-	if detailErr != nil {
-		return grpcStatus.Err()
-	}
-	return withDetails.Err()
-}
-
-func grpcCodeForKind(kind apperrors.Kind) codes.Code {
-	switch kind {
-	case apperrors.KindInvalidArgument:
-		return codes.InvalidArgument
-	case apperrors.KindUnauthenticated:
-		return codes.Unauthenticated
-	case apperrors.KindPermissionDenied:
-		return codes.PermissionDenied
-	case apperrors.KindNotFound:
-		return codes.NotFound
-	case apperrors.KindConflict:
-		return codes.Aborted
-	case apperrors.KindRateLimited:
-		return codes.ResourceExhausted
-	case apperrors.KindUnavailable:
-		return codes.Unavailable
-	case apperrors.KindTimeout:
-		return codes.DeadlineExceeded
-	default:
-		return codes.Internal
-	}
+	return status.Error(codes.Internal, "internal server error")
 }

@@ -3,6 +3,7 @@ package srv
 import (
 	"fmt"
 	upb "goshop/api/user/v1"
+	"goshop/app/pkg/grpcerror"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
@@ -77,6 +78,7 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 
 	var opts []rpcserver.ServerOption
 	opts = append(opts, rpcserver.WithAddress(rpcAddr))
+	opts = append(opts, rpcserver.WithErrorMapper(grpcerror.Map))
 	opts = append(opts, rpcserver.WithMetrics(serverOpts.EnableMetrics))
 	opts = append(opts, rpcserver.WithUnaryTimeout(serverOpts.RPCUnaryTimeout))
 	opts = append(opts, rpcserver.WithApplicationUnaryConcurrency(serverOpts.RPCMaxConcurrentUnary))

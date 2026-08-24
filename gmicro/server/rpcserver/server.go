@@ -50,6 +50,7 @@ type Server struct {
 	productionDefaults bool
 
 	securityPolicy *SecurityPolicy
+	errorMapper    srvintc.ErrorMapper
 }
 
 func (s *Server) Endpoint() *url.URL {
@@ -111,8 +112,8 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 		unaryInts = append(unaryInts, srvintc.UnaryPrometheusInterceptor)
 		streamInts = append(streamInts, srvintc.StreamPrometheusInterceptor)
 	}
-	unaryInts = append(unaryInts, srvintc.UnaryErrorInterceptor)
-	streamInts = append(streamInts, srvintc.StreamErrorInterceptor)
+	unaryInts = append(unaryInts, srvintc.UnaryErrorInterceptorWithMapper(srv.errorMapper))
+	streamInts = append(streamInts, srvintc.StreamErrorInterceptorWithMapper(srv.errorMapper))
 	if srv.securityPolicy != nil {
 		unaryInts = append(unaryInts, srvintc.UnaryClientIdentityInterceptor(srv.securityPolicy.AllowedClientIdentities))
 		streamInts = append(streamInts, srvintc.StreamClientIdentityInterceptor(srv.securityPolicy.AllowedClientIdentities))
@@ -180,6 +181,14 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 func WithAddress(address string) ServerOption {
 	return func(s *Server) {
 		s.address = address
+	}
+}
+
+// WithErrorMapper configures the application's gRPC error protocol. When it
+// is unset, rpcserver emits only standard gRPC status errors.
+func WithErrorMapper(mapper srvintc.ErrorMapper) ServerOption {
+	return func(s *Server) {
+		s.errorMapper = mapper
 	}
 }
 

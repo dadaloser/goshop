@@ -9,8 +9,8 @@ import (
 	"goshop/app/goshop/api/internal/captcha"
 	userv1 "goshop/app/goshop/api/internal/service/user/v1"
 	gin2 "goshop/app/pkg/translator/gin"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )

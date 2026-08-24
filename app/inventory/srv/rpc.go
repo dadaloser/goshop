@@ -7,6 +7,7 @@ import (
 	v12 "goshop/app/inventory/srv/internal/controller/v1"
 	db2 "goshop/app/inventory/srv/internal/data/v1/db"
 	v13 "goshop/app/inventory/srv/internal/service/v1"
+	"goshop/app/pkg/grpcerror"
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
 	"goshop/pkg/storage"
@@ -33,6 +34,7 @@ func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	grpcServer, err := rpcserver.NewServerE(
 		rpcserver.WithAddress(rpcAddr),
+		rpcserver.WithErrorMapper(grpcerror.Map),
 		rpcserver.WithMetrics(cfg.Server != nil && cfg.Server.EnableMetrics),
 		rpcserver.WithUnaryTimeout(cfg.Server.RPCUnaryTimeout),
 		rpcserver.WithApplicationUnaryConcurrency(cfg.Server.RPCMaxConcurrentUnary),

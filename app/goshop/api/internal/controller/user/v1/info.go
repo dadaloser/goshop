@@ -2,8 +2,8 @@ package user
 
 import (
 	"goshop/app/pkg/bizcode"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )

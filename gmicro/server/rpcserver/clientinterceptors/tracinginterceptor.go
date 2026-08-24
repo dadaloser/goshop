@@ -6,10 +6,8 @@ import (
 
 	trace2 "goshop/gmicro/core/trace"
 
-	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	gcodes "google.golang.org/grpc/codes"
@@ -165,22 +163,8 @@ func startSpan(ctx context.Context, method, target string) (context.Context, tra
 		md = metadata.MD{}
 	}
 
-	var tracer trace.Tracer
-	switch v := ctx.(type) {
-	case *gin.Context:
-		propagator := otel.GetTextMapPropagator()
-		ctx = propagator.Extract(ctx, propagation.HeaderCarrier(ctx.(*gin.Context).Request.Header))
-		if tracerin, ok := v.Get("otel-go-contrib-tracer"); ok {
-			tracer = tracerin.(trace.Tracer)
-		} else {
-			tracer = otel.Tracer(trace2.TraceName)
-		}
-	default:
-		tracer = otel.Tracer(trace2.TraceName)
-	}
-
 	name, attr := trace2.SpanInfo(method, target)
-	ctx, span := tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindClient),
+	ctx, span := otel.Tracer(trace2.TraceName).Start(ctx, name, trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(attr...))
 	trace2.Inject(ctx, otel.GetTextMapPropagator(), &md)
 	ctx = metadata.NewOutgoingContext(ctx, md)

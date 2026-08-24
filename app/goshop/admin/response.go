@@ -2,8 +2,8 @@ package admin
 
 import (
 	"goshop/app/pkg/errorcatalog"
-	"goshop/pkg/common/core"
 	apperrors "goshop/pkg/errors"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )

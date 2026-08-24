@@ -5,29 +5,26 @@ import (
 	"strconv"
 	"testing"
 
-	apperrors "goshop/pkg/errors"
-
 	prom "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func TestUnaryPrometheusInterceptorObservesConvertedProjectError(t *testing.T) {
+func TestUnaryPrometheusInterceptorObservesMappedError(t *testing.T) {
 	const (
-		method       = "/test.MetricsService/ConvertedNotFound"
-		businessCode = 991404
+		method = "/test.MetricsService/MappedNotFound"
 	)
-	spec := apperrors.Spec{Code: businessCode, Kind: apperrors.KindNotFound, Message: "not found"}
-	apperrors.MustRegister(spec)
 
 	_, _ = UnaryPrometheusInterceptor(
 		context.Background(),
 		nil,
 		&grpc.UnaryServerInfo{FullMethod: method},
 		func(ctx context.Context, req any) (any, error) {
-			return UnaryErrorInterceptor(ctx, req, &grpc.UnaryServerInfo{FullMethod: method}, func(context.Context, any) (any, error) {
-				return nil, apperrors.NewSpec(spec, "record missing")
+			return UnaryErrorInterceptorWithMapper(func(error) error {
+				return status.Error(codes.NotFound, "missing")
+			})(ctx, req, &grpc.UnaryServerInfo{FullMethod: method}, func(context.Context, any) (any, error) {
+				return nil, status.Error(codes.Internal, "storage failure")
 			})
 		},
 	)
@@ -36,13 +33,7 @@ func TestUnaryPrometheusInterceptorObservesConvertedProjectError(t *testing.T) {
 		"method": method,
 		"code":   strconv.Itoa(int(codes.NotFound)),
 	}); got < 1 {
-		t.Fatalf("gRPC converted status counter = %v, want at least 1", got)
-	}
-	if got := gatheredCounterValue(t, "rpc_server_requests_goshop_code_total", map[string]string{
-		"method": method,
-		"code":   strconv.Itoa(int(codes.Unknown)),
-	}); got != 0 {
-		t.Fatalf("gRPC unknown status counter = %v, want 0", got)
+		t.Fatalf("gRPC mapped status counter = %v, want at least 1", got)
 	}
 }
 

@@ -2,9 +2,9 @@ package user
 
 import (
 	gin2 "goshop/app/pkg/translator/gin"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )

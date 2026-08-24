@@ -5,8 +5,8 @@ import (
 	"goshop/app/goshop/api/internal/service"
 	"goshop/app/pkg/bizcode"
 	gin2 "goshop/app/pkg/translator/gin"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errors"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 	ut "github.com/go-playground/universal-translator"

@@ -17,8 +17,8 @@ import (
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/restserver/middlewares"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errcode"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc"

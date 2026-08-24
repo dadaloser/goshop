@@ -13,9 +13,9 @@ import (
 	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver"
 	gauth "goshop/gmicro/server/restserver/middlewares/auth"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errcode"
 	apperrors "goshop/pkg/errors"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )

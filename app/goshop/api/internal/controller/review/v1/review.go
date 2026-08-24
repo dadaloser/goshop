@@ -7,9 +7,9 @@ import (
 
 	rpb "goshop/api/review/v1"
 	"goshop/gmicro/server/restserver/middlewares"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )

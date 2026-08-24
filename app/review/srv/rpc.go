@@ -6,6 +6,7 @@ import (
 
 	rpb "goshop/api/review/v1"
 	"goshop/app/pkg/client"
+	"goshop/app/pkg/grpcerror"
 	"goshop/app/review/srv/config"
 	db2 "goshop/app/review/srv/internal/data/db"
 	"goshop/app/review/srv/internal/service"
@@ -48,6 +49,7 @@ func NewReviewRPCServer(cfg *config.Config, reviewService *Service) (*rpcserver.
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	grpcServer, err := rpcserver.NewServerE(
 		rpcserver.WithAddress(rpcAddr),
+		rpcserver.WithErrorMapper(grpcerror.Map),
 		rpcserver.WithMetrics(cfg.Server != nil && cfg.Server.EnableMetrics),
 		rpcserver.WithUnaryTimeout(cfg.Server.RPCUnaryTimeout),
 		rpcserver.WithApplicationUnaryConcurrency(cfg.Server.RPCMaxConcurrentUnary),

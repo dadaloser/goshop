@@ -27,10 +27,10 @@ import (
 	appclient "goshop/app/pkg/client"
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/rpcserver"
-	"goshop/pkg/common/core"
 	"goshop/pkg/errcode"
 	apperrors "goshop/pkg/errors"
 	"goshop/pkg/log"
+	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )
