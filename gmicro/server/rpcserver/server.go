@@ -18,8 +18,6 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
-
-	apimd "goshop/api/metadata"
 )
 
 type ServerOption func(o *Server)
@@ -38,7 +36,7 @@ type Server struct {
 	maxConcurrentUnaryRequests      int
 
 	health         *health.Server
-	metadata       *apimd.Server
+	registrars     []ServerRegistrar
 	endpoint       *url.URL
 	ready          chan struct{}
 	readyOnce      sync.Once
@@ -158,8 +156,9 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 
 	srv.Server = grpc.NewServer(grpcOpts...)
 
-	//注册metadata的Server
-	srv.metadata = apimd.NewServer(srv.Server)
+	for _, registrar := range srv.registrars {
+		registrar(srv.Server)
+	}
 
 	//解析address
 	err := srv.listenAndEndpoint()
@@ -169,13 +168,25 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 
 	//注册health
 	grpc_health_v1.RegisterHealthServer(srv.Server, srv.health)
-	apimd.RegisterMetadataServer(srv.Server, srv.metadata)
 	if srv.enableReflection {
 		reflection.Register(srv.Server)
 	}
 	//可以支持用户直接通过grpc的一个接口查看当前支持的所有的rpc服务
 
 	return srv, nil
+}
+
+// ServerRegistrar registers an application-owned service on a gRPC server.
+type ServerRegistrar func(*grpc.Server)
+
+// WithRegistrar registers an application-owned gRPC service after the server
+// is constructed. Framework code deliberately does not import application APIs.
+func WithRegistrar(registrar ServerRegistrar) ServerOption {
+	return func(s *Server) {
+		if registrar != nil {
+			s.registrars = append(s.registrars, registrar)
+		}
+	}
 }
 
 func WithAddress(address string) ServerOption {

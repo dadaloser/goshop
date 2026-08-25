@@ -7,6 +7,7 @@ import (
 	"goshop/gmicro/server/restserver"
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/pkg/storage"
+	"goshop/pkg/transport/httperror"
 )
 
 func NewAPIHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Server, error) {
@@ -15,6 +16,7 @@ func NewAPIHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Serv
 		restserver.WithPort(cfg.Server.HttpPort),
 		restserver.WithHost(cfg.Server.Host),
 		restserver.WithServiceName(cfg.Server.Name),
+		restserver.WithErrorResponder(httperror.AbortWithStatus),
 		restserver.WithMiddlewares(cfg.Server.Middlewares),
 		restserver.WithHealthCheck(enableBuiltInRoutes && cfg.Server.EnableHealthCheck),
 		restserver.WithReadinessCheck(storage.ReadinessCheck()),

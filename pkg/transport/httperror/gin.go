@@ -3,6 +3,9 @@ package httperror
 import (
 	"net/http"
 
+	"goshop/pkg/errcode"
+	apperrors "goshop/pkg/errors"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,5 +35,30 @@ func WriteError(c *gin.Context, err error) {
 // AbortWithError writes a public error response and stops remaining Gin handlers.
 func AbortWithError(c *gin.Context, err error) {
 	WriteError(c, err)
+	c.Abort()
+}
+
+// AbortWithStatus adapts framework-generated HTTP statuses to the application's
+// public JSON error envelope while preserving the original HTTP status.
+func AbortWithStatus(c *gin.Context, status int) {
+	code := errcode.ErrUnknown
+	switch status {
+	case http.StatusBadRequest, http.StatusRequestEntityTooLarge:
+		code = errcode.ErrBind
+	case http.StatusUnauthorized:
+		code = errcode.ErrTokenInvalid
+	case http.StatusForbidden:
+		code = errcode.ErrPermissionDenied
+	case http.StatusNotFound:
+		code = errcode.ErrPageNotFound
+	case http.StatusConflict:
+		code = errcode.ErrConflict
+	case http.StatusGatewayTimeout:
+		code = errcode.ErrTimeout
+	case http.StatusServiceUnavailable, http.StatusTooManyRequests:
+		code = errcode.ErrServiceUnavailable
+	}
+	spec := apperrors.SpecForCode(code)
+	c.JSON(status, ErrResponse{Code: spec.Code, Message: spec.Message})
 	c.Abort()
 }

@@ -2,6 +2,7 @@ package srv
 
 import (
 	"fmt"
+	apimd "goshop/api/metadata"
 	upb "goshop/api/user/v1"
 	"goshop/app/pkg/grpcerror"
 	"goshop/app/pkg/options"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/alibaba/sentinel-golang/pkg/adapters/grpc"
 	"github.com/alibaba/sentinel-golang/pkg/datasource/nacos"
+	grpcstd "google.golang.org/grpc"
 )
 
 func NewNacosDataSource(opts *options.NacosOptions) (*nacos.NacosDataSource, error) {
@@ -78,6 +80,7 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 
 	var opts []rpcserver.ServerOption
 	opts = append(opts, rpcserver.WithAddress(rpcAddr))
+	opts = append(opts, rpcserver.WithRegistrar(func(server *grpcstd.Server) { apimd.RegisterMetadataServer(server, apimd.NewServer(server)) }))
 	opts = append(opts, rpcserver.WithErrorMapper(grpcerror.Map))
 	opts = append(opts, rpcserver.WithMetrics(serverOpts.EnableMetrics))
 	opts = append(opts, rpcserver.WithUnaryTimeout(serverOpts.RPCUnaryTimeout))

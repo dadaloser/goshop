@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	apimd "goshop/api/metadata"
 	rpb "goshop/api/review/v1"
 	"goshop/app/pkg/client"
 	"goshop/app/pkg/grpcerror"
@@ -12,6 +13,8 @@ import (
 	"goshop/app/review/srv/internal/service"
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
+
+	"google.golang.org/grpc"
 )
 
 func initReviewTrace(cfg *config.Config) error {
@@ -49,6 +52,7 @@ func NewReviewRPCServer(cfg *config.Config, reviewService *Service) (*rpcserver.
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	grpcServer, err := rpcserver.NewServerE(
 		rpcserver.WithAddress(rpcAddr),
+		rpcserver.WithRegistrar(func(server *grpc.Server) { apimd.RegisterMetadataServer(server, apimd.NewServer(server)) }),
 		rpcserver.WithErrorMapper(grpcerror.Map),
 		rpcserver.WithMetrics(cfg.Server != nil && cfg.Server.EnableMetrics),
 		rpcserver.WithUnaryTimeout(cfg.Server.RPCUnaryTimeout),

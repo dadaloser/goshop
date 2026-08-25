@@ -2,12 +2,11 @@ package selector
 
 import (
 	"context"
-
-	"goshop/pkg/errors"
+	"errors"
 )
 
 // ErrNoAvailable is no available node.
-var ErrNoAvailable = errors.New("no_available_node")
+var ErrNoAvailable = errors.New("no available node")
 
 // Selector is node pick balancer.
 type Selector interface {

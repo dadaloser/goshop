@@ -86,6 +86,7 @@ type Server struct {
 	corsOptions         *mws.CorsOptions
 	customMiddlewares   map[string]gin.HandlerFunc
 	middlewareConfigErr error
+	errorResponder      mws.StatusResponder
 
 	//jwt配置信息
 	jwt           *JwtInfo
@@ -139,29 +140,29 @@ func NewServer(opts ...ServerOption) *Server {
 		srv.trustedProxiesErr = fmt.Errorf("configure trusted proxies: %w", err)
 	}
 
-	srv.Use(mws.TracingHandler(srv.serviceName), mws.RequestLogger(), mws.Recovery())
+	srv.Use(mws.TracingHandler(srv.serviceName), mws.RequestLogger(), mws.Recovery(srv.errorResponder))
 	if srv.collectMetrics {
 		srv.Use(mws.Metrics(srv.serviceName))
 	}
 	srv.installConfiguredMiddlewares(true)
 	if srv.maxRequestBodyBytes > 0 {
-		srv.Use(mws.RequestBodyLimit(srv.maxRequestBodyBytes))
+		srv.Use(mws.RequestBodyLimit(srv.maxRequestBodyBytes, srv.errorResponder))
 	}
 	if srv.handlerTimeout > 0 {
-		srv.Use(mws.RequestDeadline(srv.handlerTimeout))
+		srv.Use(mws.RequestDeadline(srv.handlerTimeout, srv.errorResponder))
 	}
 	if srv.maxConcurrentReqs > 0 {
-		srv.Use(maxConcurrentRequestsMiddleware(srv.maxConcurrentReqs))
+		srv.Use(maxConcurrentRequestsMiddleware(srv.maxConcurrentReqs, srv.errorResponder))
 	}
 	if srv.rateLimit > 0 && srv.rateLimitBurst > 0 {
-		srv.Use(globalRateLimitMiddleware(rate.NewLimiter(srv.rateLimit, srv.rateLimitBurst)))
+		srv.Use(globalRateLimitMiddleware(rate.NewLimiter(srv.rateLimit, srv.rateLimitBurst), srv.errorResponder))
 	}
 	if srv.clientRateLimit > 0 && srv.clientRateLimitBurst > 0 && srv.clientRateLimitMaxKeys > 0 {
 		srv.Use(clientRouteRateLimitMiddleware(newClientRouteLimiter(
 			srv.clientRateLimit,
 			srv.clientRateLimitBurst,
 			srv.clientRateLimitMaxKeys,
-		)))
+		), srv.errorResponder))
 	}
 	srv.installConfiguredMiddlewares(false)
 
@@ -420,11 +421,14 @@ func bearerTokenMiddleware(token string) gin.HandlerFunc {
 	}
 }
 
-func globalRateLimitMiddleware(limiter *rate.Limiter) gin.HandlerFunc {
+func globalRateLimitMiddleware(limiter *rate.Limiter, responder mws.StatusResponder) gin.HandlerFunc {
+	if responder == nil {
+		responder = mws.AbortWithStatus
+	}
 	return func(c *gin.Context) {
 		if !limiter.Allow() {
 			c.Header("Retry-After", "1")
-			c.AbortWithStatus(http.StatusTooManyRequests)
+			responder(c, http.StatusTooManyRequests)
 			return
 		}
 		c.Next()
@@ -484,7 +488,10 @@ func (l *clientRouteLimiter) evictOldest() {
 	l.recent.Remove(element)
 }
 
-func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter) gin.HandlerFunc {
+func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter, responder mws.StatusResponder) gin.HandlerFunc {
+	if responder == nil {
+		responder = mws.AbortWithStatus
+	}
 	return func(c *gin.Context) {
 		route := c.FullPath()
 		if route == "" {
@@ -497,14 +504,17 @@ func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter) gin.HandlerFunc
 		key := clientIP + "|" + c.Request.Method + "|" + route
 		if !limiter.allow(key, time.Now()) {
 			c.Header("Retry-After", "1")
-			c.AbortWithStatus(http.StatusTooManyRequests)
+			responder(c, http.StatusTooManyRequests)
 			return
 		}
 		c.Next()
 	}
 }
 
-func maxConcurrentRequestsMiddleware(limit int) gin.HandlerFunc {
+func maxConcurrentRequestsMiddleware(limit int, responder mws.StatusResponder) gin.HandlerFunc {
+	if responder == nil {
+		responder = mws.AbortWithStatus
+	}
 	sem := make(chan struct{}, limit)
 	return func(c *gin.Context) {
 		select {
@@ -512,7 +522,7 @@ func maxConcurrentRequestsMiddleware(limit int) gin.HandlerFunc {
 			defer func() { <-sem }()
 			c.Next()
 		default:
-			c.AbortWithStatus(http.StatusServiceUnavailable)
+			responder(c, http.StatusServiceUnavailable)
 		}
 	}
 }

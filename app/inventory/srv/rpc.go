@@ -3,6 +3,7 @@ package srv
 import (
 	"fmt"
 	gpb "goshop/api/inventory/v1"
+	apimd "goshop/api/metadata"
 	"goshop/app/inventory/srv/config"
 	v12 "goshop/app/inventory/srv/internal/controller/v1"
 	db2 "goshop/app/inventory/srv/internal/data/v1/db"
@@ -11,6 +12,8 @@ import (
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
 	"goshop/pkg/storage"
+
+	"google.golang.org/grpc"
 )
 
 func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
@@ -34,6 +37,7 @@ func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	grpcServer, err := rpcserver.NewServerE(
 		rpcserver.WithAddress(rpcAddr),
+		rpcserver.WithRegistrar(func(server *grpc.Server) { apimd.RegisterMetadataServer(server, apimd.NewServer(server)) }),
 		rpcserver.WithErrorMapper(grpcerror.Map),
 		rpcserver.WithMetrics(cfg.Server != nil && cfg.Server.EnableMetrics),
 		rpcserver.WithUnaryTimeout(cfg.Server.RPCUnaryTimeout),

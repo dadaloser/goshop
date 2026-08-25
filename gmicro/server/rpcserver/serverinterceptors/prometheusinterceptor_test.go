@@ -29,7 +29,7 @@ func TestUnaryPrometheusInterceptorObservesMappedError(t *testing.T) {
 		},
 	)
 
-	if got := gatheredCounterValue(t, "rpc_server_requests_goshop_code_total", map[string]string{
+	if got := gatheredCounterValue(t, "rpc_server_requests_code_total", map[string]string{
 		"method": method,
 		"code":   strconv.Itoa(int(codes.NotFound)),
 	}); got < 1 {
@@ -47,7 +47,7 @@ func TestPanicMetricsRecordInternalForUnaryAndStream(t *testing.T) {
 	if got := status.Code(unaryErr); got != codes.Internal {
 		t.Fatalf("unary panic code = %v, want Internal", got)
 	}
-	if got := gatheredCounterValue(t, "rpc_server_requests_goshop_code_total", map[string]string{"method": unaryMethod, "code": strconv.Itoa(int(codes.Internal))}); got != 1 {
+	if got := gatheredCounterValue(t, "rpc_server_requests_code_total", map[string]string{"method": unaryMethod, "code": strconv.Itoa(int(codes.Internal))}); got != 1 {
 		t.Fatalf("unary panic metric = %v, want 1", got)
 	}
 
@@ -60,13 +60,13 @@ func TestPanicMetricsRecordInternalForUnaryAndStream(t *testing.T) {
 	if got := status.Code(streamErr); got != codes.Internal {
 		t.Fatalf("stream panic code = %v, want Internal", got)
 	}
-	if got := gatheredCounterValue(t, "rpc_server_requests_goshop_code_total", map[string]string{"method": streamMethod, "code": strconv.Itoa(int(codes.Internal))}); got != 1 {
+	if got := gatheredCounterValue(t, "rpc_server_requests_code_total", map[string]string{"method": streamMethod, "code": strconv.Itoa(int(codes.Internal))}); got != 1 {
 		t.Fatalf("stream panic metric = %v, want 1", got)
 	}
-	if got := gatheredHistogramCount(t, "rpc_server_requests_goshop_duration_ms", unaryMethod); got != 1 {
+	if got := gatheredHistogramCount(t, "rpc_server_requests_duration_ms", unaryMethod); got != 1 {
 		t.Fatalf("unary panic latency count = %v, want 1", got)
 	}
-	if got := gatheredHistogramCount(t, "rpc_server_requests_goshop_duration_ms", streamMethod); got != 1 {
+	if got := gatheredHistogramCount(t, "rpc_server_requests_duration_ms", streamMethod); got != 1 {
 		t.Fatalf("stream panic latency count = %v, want 1", got)
 	}
 }

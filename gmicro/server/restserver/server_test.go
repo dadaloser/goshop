@@ -594,7 +594,7 @@ func hasHTTPMetric(t *testing.T, service, route string) bool {
 		t.Fatalf("gather metrics: %v", err)
 	}
 	for _, family := range families {
-		if family.GetName() != "goshop_http_server_requests_total" {
+		if family.GetName() != "gmicro_http_server_requests_total" {
 			continue
 		}
 		for _, metric := range family.GetMetric() {
@@ -617,7 +617,7 @@ func httpCounterValue(t *testing.T, service, route, code string) float64 {
 		t.Fatalf("prometheus Gather() error = %v", err)
 	}
 	for _, family := range families {
-		if family.GetName() != "goshop_http_server_requests_total" {
+		if family.GetName() != "gmicro_http_server_requests_total" {
 			continue
 		}
 		for _, metric := range family.GetMetric() {
@@ -640,7 +640,7 @@ func httpHistogramCount(t *testing.T, service, route string) uint64 {
 		t.Fatalf("prometheus Gather() error = %v", err)
 	}
 	for _, family := range families {
-		if family.GetName() != "goshop_http_server_request_duration_seconds" {
+		if family.GetName() != "gmicro_http_server_request_duration_seconds" {
 			continue
 		}
 		for _, metric := range family.GetMetric() {

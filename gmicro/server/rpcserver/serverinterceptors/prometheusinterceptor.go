@@ -23,7 +23,7 @@ var (
 	metricServerReqDur = metric.NewHistogramVec(&metric.HistogramVecOpts{
 		Namespace: serverNamespace,
 		Subsystem: "requests",
-		Name:      "goshop_duration_ms",
+		Name:      "duration_ms",
 		Help:      "rpc server requests duration(ms).",
 		Labels:    []string{"method"},
 		Buckets: []float64{
@@ -36,7 +36,7 @@ var (
 	metricServerReqCodeTotal = metric.NewCounterVec(&metric.CounterVecOpts{
 		Namespace: serverNamespace,
 		Subsystem: "requests",
-		Name:      "goshop_code_total",
+		Name:      "code_total",
 		Help:      "rpc server requests code count.",
 		Labels:    []string{"method", "code"},
 	})
@@ -44,7 +44,7 @@ var (
 	metricServerReqInflight = metric.NewGaugeVec(&metric.GaugeVecOpts{
 		Namespace: serverNamespace,
 		Subsystem: "requests",
-		Name:      "goshop_inflight",
+		Name:      "inflight",
 		Help:      "rpc server inflight requests.",
 		Labels:    []string{"method"},
 	})

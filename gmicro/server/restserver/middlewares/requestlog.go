@@ -58,12 +58,15 @@ func isLowNoiseManagementPath(path string) bool {
 
 // Recovery converts panics into a generic 500 response and records structured
 // diagnostics through the application logger.
-func Recovery() gin.HandlerFunc {
+func Recovery(responder StatusResponder) gin.HandlerFunc {
+	if responder == nil {
+		responder = AbortWithStatus
+	}
 	return gin.CustomRecovery(func(c *gin.Context, recovered any) {
 		log.ErrorC(ginlog.Context(c), "http request panic recovered",
 			log.Any("panic", recovered),
 			log.ByteString("stack", debug.Stack()),
 		)
-		c.AbortWithStatus(http.StatusInternalServerError)
+		responder(c, http.StatusInternalServerError)
 	})
 }

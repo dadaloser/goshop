@@ -134,6 +134,12 @@ func WithMetrics(enable bool) ServerOption {
 	}
 }
 
+// WithErrorResponder configures the application's public protocol for
+// framework-generated failures such as overload, timeout, and panic recovery.
+func WithErrorResponder(responder mws.StatusResponder) ServerOption {
+	return func(s *Server) { s.errorResponder = responder }
+}
+
 // WithMetricsCollection controls HTTP request instrumentation independently
 // from the /metrics endpoint.
 func WithMetricsCollection(enable bool) ServerOption {

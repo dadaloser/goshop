@@ -12,7 +12,7 @@ import (
 var metricServerTimeoutTotal = metric.NewCounterVec(&metric.CounterVecOpts{
 	Namespace: serverNamespace,
 	Subsystem: "requests",
-	Name:      "goshop_timeout_total",
+	Name:      "timeout_total",
 	Help:      "rpc server requests that exceeded configured timeout.",
 	Labels:    []string{"method"},
 })

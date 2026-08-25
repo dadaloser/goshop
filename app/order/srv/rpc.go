@@ -3,6 +3,7 @@ package srv
 import (
 	"context"
 	"fmt"
+	apimd "goshop/api/metadata"
 	gpb "goshop/api/order/v1"
 	"goshop/app/order/srv/config"
 	"goshop/app/order/srv/internal/boundary"
@@ -12,6 +13,8 @@ import (
 	"goshop/app/pkg/grpcerror"
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/server/rpcserver"
+
+	"google.golang.org/grpc"
 )
 
 func initOrderTrace(cfg *config.Config) error {
@@ -46,6 +49,7 @@ func newOrderRPCServerWithFactory(cfg *config.Config, orderSrvFactory v13.Servic
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	grpcServer, err := rpcserver.NewServerE(
 		rpcserver.WithAddress(rpcAddr),
+		rpcserver.WithRegistrar(func(server *grpc.Server) { apimd.RegisterMetadataServer(server, apimd.NewServer(server)) }),
 		rpcserver.WithErrorMapper(grpcerror.Map),
 		rpcserver.WithMetrics(cfg.Server != nil && cfg.Server.EnableMetrics),
 		rpcserver.WithUnaryTimeout(cfg.Server.RPCUnaryTimeout),

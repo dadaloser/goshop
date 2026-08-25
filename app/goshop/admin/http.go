@@ -11,6 +11,7 @@ import (
 	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/gmicro/server/rpcserver"
 	"goshop/pkg/storage"
+	"goshop/pkg/transport/httperror"
 )
 
 const adminStartupClientDialTimeout = 5 * time.Second
@@ -24,6 +25,7 @@ func NewUserHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Ser
 		restserver.WithPort(cfg.Server.HttpPort),
 		restserver.WithHost(cfg.Server.Host),
 		restserver.WithServiceName(cfg.Server.Name),
+		restserver.WithErrorResponder(httperror.AbortWithStatus),
 		restserver.WithMiddlewares(cfg.Server.Middlewares),
 		restserver.WithHealthCheck(enableBuiltInRoutes && cfg.Server.EnableHealthCheck),
 		restserver.WithReadinessCheck(storage.ReadinessCheck()),

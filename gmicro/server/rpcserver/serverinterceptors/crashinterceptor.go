@@ -15,7 +15,7 @@ import (
 var metricServerPanicTotal = metric.NewCounterVec(&metric.CounterVecOpts{
 	Namespace: serverNamespace,
 	Subsystem: "requests",
-	Name:      "goshop_panic_total",
+	Name:      "panic_total",
 	Help:      "rpc server panic count recovered by crash interceptor.",
 	Labels:    []string{"method"},
 })
