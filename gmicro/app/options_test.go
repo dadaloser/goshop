@@ -189,6 +189,73 @@ func TestStopContextIsIdempotent(t *testing.T) {
 	}
 }
 
+type lifecycleRegistrar struct {
+	registered   chan struct{}
+	deregistered chan struct{}
+}
+
+func (r *lifecycleRegistrar) Register(context.Context, *registry.ServiceInstance) error {
+	close(r.registered)
+	return nil
+}
+
+func (r *lifecycleRegistrar) Deregister(context.Context, *registry.ServiceInstance) error {
+	close(r.deregistered)
+	return nil
+}
+
+func TestRunContextDeregistersOnExternalCancellation(t *testing.T) {
+	if err := trace.InitAgent(trace.Options{Name: "external-cancellation", Sampler: 1}); err != nil {
+		t.Fatalf("InitAgent() error = %v", err)
+	}
+	server := &endpointFakeServer{
+		fakeServer: newFakeServer(),
+		endpoint:   &url.URL{Scheme: "grpc", Host: "127.0.0.1:9000"},
+	}
+	registrar := &lifecycleRegistrar{
+		registered:   make(chan struct{}),
+		deregistered: make(chan struct{}),
+	}
+	app := New(
+		WithName("server-1"),
+		WithRegistrar(registrar),
+		WithRegistrarTimeout(time.Second),
+		WithStopTimeout(time.Second),
+		WithServer(server),
+		WithEndpoints([]*url.URL{server.Endpoint()}),
+	)
+	ctx, cancel := context.WithCancel(context.Background())
+	runDone := make(chan error, 1)
+	go func() { runDone <- app.RunContext(ctx) }()
+
+	select {
+	case <-registrar.registered:
+	case <-time.After(time.Second):
+		t.Fatal("service was not registered")
+	}
+	cancel()
+
+	select {
+	case <-registrar.deregistered:
+	case <-time.After(time.Second):
+		t.Fatal("service was not deregistered after external cancellation")
+	}
+	select {
+	case err := <-runDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("RunContext() error = %v, want context canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("RunContext() did not return after external cancellation")
+	}
+	if atomic.LoadInt32(&server.stopped) != 1 {
+		t.Fatal("server was not stopped after external cancellation")
+	}
+	if providers := trace.ProviderCount(); providers != 0 {
+		t.Fatalf("trace providers = %d, want 0 after external cancellation", providers)
+	}
+}
+
 func TestStopFlushesTraceProviders(t *testing.T) {
 	traceAgents := make(map[string]struct{})
 	_ = traceAgents

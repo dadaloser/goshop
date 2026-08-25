@@ -47,7 +47,7 @@ func newOrderServiceFactory(ctx context.Context, cfg *config.Config) (v13.Servic
 func newOrderRPCServerWithFactory(cfg *config.Config, orderSrvFactory v13.ServiceFactory) (*rpcserver.Server, error) {
 	orderServer := order.NewOrderServer(orderSrvFactory)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	grpcServer, err := rpcserver.NewServerE(
+	grpcServer, err := rpcserver.NewServer(
 		rpcserver.WithAddress(rpcAddr),
 		rpcserver.WithRegistrar(func(server *grpc.Server) { apimd.RegisterMetadataServer(server, apimd.NewServer(server)) }),
 		rpcserver.WithErrorMapper(grpcerror.Map),

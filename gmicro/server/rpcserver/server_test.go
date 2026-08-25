@@ -2,9 +2,9 @@ package rpcserver
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
-	"strings"
 	"testing"
 	"time"
 
@@ -12,14 +12,62 @@ import (
 	reflectionv1 "google.golang.org/grpc/reflection/grpc_reflection_v1"
 )
 
-func TestNewServerEReturnsListenError(t *testing.T) {
-	_, err := NewServerE(WithAddress("127.0.0.1:-1"))
-	if err == nil {
-		t.Fatal("NewServerE() error = nil, want listen error")
+func TestNewServerDefersListenErrorsUntilStart(t *testing.T) {
+	srv, err := NewServer(WithAddress("127.0.0.1:-1"))
+	if err != nil {
+		t.Fatalf("NewServer() error = %v, want nil", err)
+	}
+	if endpoint := srv.Endpoint(); endpoint != nil {
+		t.Fatalf("Endpoint() = %v before Start, want nil", endpoint)
+	}
+	if err := srv.Start(t.Context()); err == nil {
+		t.Fatal("Start() error = nil, want listen error")
 	}
 }
 
-func TestNewServerEAddsStreamInterceptors(t *testing.T) {
+func TestStopClosesInjectedListenerBeforeStart(t *testing.T) {
+	lis := &trackedListener{}
+	srv, err := NewServer(WithLis(lis))
+	if err != nil {
+		t.Fatalf("NewServer() error = %v, want nil", err)
+	}
+	if err := srv.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop() error = %v, want nil", err)
+	}
+	if !lis.closed {
+		t.Fatal("injected listener was not closed")
+	}
+}
+
+func TestStopPreventsStart(t *testing.T) {
+	srv, err := NewServer(WithAddress("127.0.0.1:0"))
+	if err != nil {
+		t.Fatalf("NewServer() error = %v, want nil", err)
+	}
+	if err := srv.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop() error = %v, want nil", err)
+	}
+	if err := srv.Start(context.Background()); !errors.Is(err, errServerStopped) {
+		t.Fatalf("Start() error = %v, want errServerStopped", err)
+	}
+}
+
+type trackedListener struct {
+	closed bool
+}
+
+func (l *trackedListener) Accept() (net.Conn, error) { return nil, net.ErrClosed }
+
+func (l *trackedListener) Close() error {
+	l.closed = true
+	return nil
+}
+
+func (*trackedListener) Addr() net.Addr {
+	return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 1234}
+}
+
+func TestNewServerAddsStreamInterceptors(t *testing.T) {
 	streamInterceptor := func(
 		srv interface{},
 		stream grpc.ServerStream,
@@ -29,12 +77,12 @@ func TestNewServerEAddsStreamInterceptors(t *testing.T) {
 		return handler(srv, stream)
 	}
 
-	srv, err := NewServerE(
+	srv, err := NewServer(
 		WithAddress("127.0.0.1:0"),
 		WithStreamInterceptor(streamInterceptor),
 	)
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -51,9 +99,9 @@ func TestNewServerEAddsStreamInterceptors(t *testing.T) {
 }
 
 func TestServerReadyClosesAfterStart(t *testing.T) {
-	srv, err := NewServerE(WithAddress("127.0.0.1:0"))
+	srv, err := NewServer(WithAddress("127.0.0.1:0"))
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	go func() {
 		_ = srv.Start(context.Background())
@@ -71,10 +119,10 @@ func TestServerReadyClosesAfterStart(t *testing.T) {
 	}
 }
 
-func TestNewServerEDisablesReflectionByDefault(t *testing.T) {
-	srv, err := NewServerE(WithAddress("127.0.0.1:0"))
+func TestNewServerDisablesReflectionByDefault(t *testing.T) {
+	srv, err := NewServer(WithAddress("127.0.0.1:0"))
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	go func() {
 		_ = srv.Start(context.Background())
@@ -84,6 +132,11 @@ func TestNewServerEDisablesReflectionByDefault(t *testing.T) {
 		defer cancel()
 		_ = srv.Stop(ctx)
 	})
+	select {
+	case <-srv.Ready():
+	case <-time.After(time.Second):
+		t.Fatal("Ready() was not closed after Start")
+	}
 
 	conn, err := DialInsecure(
 		context.Background(),
@@ -121,14 +174,14 @@ func TestNewServerEDisablesReflectionByDefault(t *testing.T) {
 	}
 }
 
-func TestNewServerEEnablesReflectionWhenConfigured(t *testing.T) {
+func TestNewServerEnablesReflectionWhenConfigured(t *testing.T) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen tcp failed: %v", err)
 	}
-	srv, err := NewServerE(WithLis(lis), WithReflection(true))
+	srv, err := NewServer(WithLis(lis), WithReflection(true))
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	go func() {
 		_ = srv.Start(context.Background())
@@ -171,10 +224,10 @@ func TestNewServerEEnablesReflectionWhenConfigured(t *testing.T) {
 	}
 }
 
-func TestNewServerEAddsProductionGRPCOptions(t *testing.T) {
-	srv, err := NewServerE(WithAddress("127.0.0.1:0"))
+func TestNewServerAddsProductionGRPCOptions(t *testing.T) {
+	srv, err := NewServer(WithAddress("127.0.0.1:0"))
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -188,9 +241,9 @@ func TestNewServerEAddsProductionGRPCOptions(t *testing.T) {
 }
 
 func TestWithProductionDefaultsDoesNotDuplicateGRPCOptions(t *testing.T) {
-	defaultSrv, err := NewServerE(WithAddress("127.0.0.1:0"))
+	defaultSrv, err := NewServer(WithAddress("127.0.0.1:0"))
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -198,12 +251,12 @@ func TestWithProductionDefaultsDoesNotDuplicateGRPCOptions(t *testing.T) {
 		_ = defaultSrv.Stop(ctx)
 	})
 
-	explicitSrv, err := NewServerE(
+	explicitSrv, err := NewServer(
 		WithAddress("127.0.0.1:0"),
 		WithProductionDefaults(),
 	)
 	if err != nil {
-		t.Fatalf("NewServerE() with WithProductionDefaults error = %v, want nil", err)
+		t.Fatalf("NewServer() with WithProductionDefaults error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -216,10 +269,10 @@ func TestWithProductionDefaultsDoesNotDuplicateGRPCOptions(t *testing.T) {
 	}
 }
 
-func TestNewServerEEnablesMetricsByDefault(t *testing.T) {
-	srv, err := NewServerE(WithAddress("127.0.0.1:0"))
+func TestNewServerEnablesMetricsByDefault(t *testing.T) {
+	srv, err := NewServer(WithAddress("127.0.0.1:0"))
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -233,12 +286,12 @@ func TestNewServerEEnablesMetricsByDefault(t *testing.T) {
 }
 
 func TestWithMetricsCanDisableMetrics(t *testing.T) {
-	srv, err := NewServerE(
+	srv, err := NewServer(
 		WithAddress("127.0.0.1:0"),
 		WithMetrics(false),
 	)
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -252,13 +305,13 @@ func TestWithMetricsCanDisableMetrics(t *testing.T) {
 }
 
 func TestUnaryAndStreamTimeoutsAreConfiguredIndependently(t *testing.T) {
-	srv, err := NewServerE(
+	srv, err := NewServer(
 		WithAddress("127.0.0.1:0"),
 		WithUnaryTimeout(15*time.Second),
 		WithStreamMaxLifetime(5*time.Minute),
 	)
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -275,12 +328,12 @@ func TestUnaryAndStreamTimeoutsAreConfiguredIndependently(t *testing.T) {
 }
 
 func TestWithTimeoutOnlyConfiguresUnaryRPCs(t *testing.T) {
-	srv, err := NewServerE(
+	srv, err := NewServer(
 		WithAddress("127.0.0.1:0"),
 		WithTimeout(15*time.Second),
 	)
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -296,15 +349,15 @@ func TestWithTimeoutOnlyConfiguresUnaryRPCs(t *testing.T) {
 	}
 }
 
-func TestNewServerEMarksSecureEndpointWhenTLSEnabled(t *testing.T) {
+func TestNewServerMarksTLSEnabled(t *testing.T) {
 	serverTLS, _ := newTestMutualTLSConfigs(t, "goshop.internal")
 
-	srv, err := NewServerE(
+	srv, err := NewServer(
 		WithAddress("127.0.0.1:0"),
 		WithServerTLSConfig(serverTLS),
 	)
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -312,23 +365,20 @@ func TestNewServerEMarksSecureEndpointWhenTLSEnabled(t *testing.T) {
 		_ = srv.Stop(ctx)
 	})
 
-	if srv.Endpoint() == nil {
-		t.Fatal("Endpoint() = nil, want secure endpoint")
-	}
-	if !strings.Contains(srv.Endpoint().String(), "isSecure=true") {
-		t.Fatalf("Endpoint() = %s, want secure endpoint query", srv.Endpoint().String())
+	if !srv.tlsEnabled {
+		t.Fatal("tlsEnabled = false, want true")
 	}
 }
 
-func TestNewServerEWithServerSecurityPolicyMarksSecureEndpoint(t *testing.T) {
+func TestNewServerWithServerSecurityPolicyMarksTLSEnabled(t *testing.T) {
 	policy := newTestSecurityPolicy(t, "goshop.internal")
 
-	srv, err := NewServerE(
+	srv, err := NewServer(
 		WithAddress("127.0.0.1:0"),
 		WithServerSecurityPolicy(policy),
 	)
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -336,10 +386,7 @@ func TestNewServerEWithServerSecurityPolicyMarksSecureEndpoint(t *testing.T) {
 		_ = srv.Stop(ctx)
 	})
 
-	if srv.Endpoint() == nil {
-		t.Fatal("Endpoint() = nil, want secure endpoint")
-	}
-	if !strings.Contains(srv.Endpoint().String(), "isSecure=true") {
-		t.Fatalf("Endpoint() = %s, want secure endpoint query", srv.Endpoint().String())
+	if !srv.tlsEnabled {
+		t.Fatal("tlsEnabled = false, want true")
 	}
 }

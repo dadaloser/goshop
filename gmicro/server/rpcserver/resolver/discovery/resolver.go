@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"goshop/gmicro/registry"
@@ -24,7 +25,15 @@ type discoveryResolver struct {
 	cancel context.CancelFunc
 
 	insecure bool
+
+	stateMu                  sync.Mutex
+	emptyStateTimer          *time.Timer
+	emptyStatePublished      bool
+	closed                   bool
+	emptySnapshotGracePeriod time.Duration
 }
+
+const defaultEmptySnapshotGracePeriod = 5 * time.Second
 
 func (r *discoveryResolver) watch() {
 	for {
@@ -72,27 +81,79 @@ func (r *discoveryResolver) update(ins []*registry.ServiceInstance) {
 		addrs = append(addrs, addr)
 	}
 	if len(addrs) == 0 {
-		// Discovery backends can transiently return an empty snapshot while a
-		// watch is being refreshed. Publishing that snapshot removes all current
-		// SubConns and cancels in-flight RPCs. Keep the last successfully
-		// published address set until discovery supplies at least one valid gRPC
-		// endpoint again.
-		log.Warnf("[resolver] zero valid endpoint found; keeping the last resolver state, instances: %v", ins)
+		r.deferEmptyState(ins)
 		return
 	}
-	err := r.cc.UpdateState(resolver.State{Addresses: addrs})
-	if err != nil {
-		log.Errorf("[resolver] failed to update state: %s", err)
+
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
+	if r.closed {
+		return
 	}
+	if r.emptyStateTimer != nil {
+		r.emptyStateTimer.Stop()
+		r.emptyStateTimer = nil
+	}
+	r.emptyStatePublished = false
+	r.publishStateLocked(resolver.State{Addresses: addrs})
 	b, _ := json.Marshal(ins)
 	log.Infof("[resolver] update instances: %s", b)
 }
 
-func (r *discoveryResolver) Close() {
-	r.cancel()
-	err := r.w.Stop()
+func (r *discoveryResolver) deferEmptyState(ins []*registry.ServiceInstance) {
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
+	if r.closed || r.emptyStatePublished || r.emptyStateTimer != nil {
+		return
+	}
+
+	gracePeriod := r.emptySnapshotGracePeriod
+	if gracePeriod <= 0 {
+		gracePeriod = defaultEmptySnapshotGracePeriod
+	}
+	r.emptyStateTimer = time.AfterFunc(gracePeriod, r.publishEmptyState)
+	log.Warnf("[resolver] zero valid endpoint found; retaining the last resolver state for %s, instances: %v", gracePeriod, ins)
+}
+
+func (r *discoveryResolver) publishEmptyState() {
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
+	if r.closed || r.emptyStatePublished {
+		return
+	}
+	r.emptyStateTimer = nil
+	r.emptyStatePublished = true
+	r.publishStateLocked(resolver.State{})
+	log.Warn("[resolver] zero valid endpoints persisted past grace period; published empty resolver state")
+}
+
+func (r *discoveryResolver) publishStateLocked(state resolver.State) {
+	err := r.cc.UpdateState(state)
 	if err != nil {
-		log.Errorf("[resolver] failed to watch top: %s", err)
+		log.Errorf("[resolver] failed to update state: %s", err)
+	}
+}
+
+func (r *discoveryResolver) Close() {
+	r.stateMu.Lock()
+	if r.closed {
+		r.stateMu.Unlock()
+		return
+	}
+	r.closed = true
+	if r.emptyStateTimer != nil {
+		r.emptyStateTimer.Stop()
+		r.emptyStateTimer = nil
+	}
+	r.stateMu.Unlock()
+
+	if r.cancel != nil {
+		r.cancel()
+	}
+	if r.w != nil {
+		if err := r.w.Stop(); err != nil {
+			log.Errorf("[resolver] failed to watch top: %s", err)
+		}
 	}
 }
 

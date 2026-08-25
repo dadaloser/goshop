@@ -35,12 +35,12 @@ func TestRunContextConsulDiscoveryMTLSClosedLoop(t *testing.T) {
 	t.Parallel()
 
 	policy := newSmokeSecurityPolicy(t, "goshop.internal")
-	rpcServer, err := rpcserver.NewServerE(
+	rpcServer, err := rpcserver.NewServer(
 		rpcserver.WithAddress("127.0.0.1:0"),
 		rpcserver.WithServerSecurityPolicy(policy),
 	)
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v", err)
+		t.Fatalf("NewServer() error = %v", err)
 	}
 
 	fakeConsul := newFakeConsulServer(t)

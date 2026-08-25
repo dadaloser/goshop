@@ -35,7 +35,7 @@ func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	invService := v13.NewService(dataFactory, cfg.RedisOptions)
 	invServer := v12.NewInventoryServer(invService)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	grpcServer, err := rpcserver.NewServerE(
+	grpcServer, err := rpcserver.NewServer(
 		rpcserver.WithAddress(rpcAddr),
 		rpcserver.WithRegistrar(func(server *grpc.Server) { apimd.RegisterMetadataServer(server, apimd.NewServer(server)) }),
 		rpcserver.WithErrorMapper(grpcerror.Map),

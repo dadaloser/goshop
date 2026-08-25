@@ -42,7 +42,7 @@ func NewGoodsRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 	srvFactory := v1.NewService(dataFactory, searchFactory)
 	goodsServer := v12.NewGoodsServer(srvFactory)
 	rpcAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	grpcServer, err := rpcserver.NewServerE(
+	grpcServer, err := rpcserver.NewServer(
 		rpcserver.WithAddress(rpcAddr),
 		rpcserver.WithRegistrar(func(server *grpc.Server) { apimd.RegisterMetadataServer(server, apimd.NewServer(server)) }),
 		rpcserver.WithErrorMapper(grpcerror.Map),

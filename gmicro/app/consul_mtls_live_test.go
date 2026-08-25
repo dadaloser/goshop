@@ -23,12 +23,12 @@ func TestRunContextRealConsulDiscoveryMTLSClosedLoop(t *testing.T) {
 	consulScheme := getenvDefault("CONSUL_SMOKE_SCHEME", "http")
 
 	policy := newSmokeSecurityPolicy(t, "goshop.internal")
-	rpcServer, err := rpcserver.NewServerE(
+	rpcServer, err := rpcserver.NewServer(
 		rpcserver.WithAddress("0.0.0.0:0"),
 		rpcserver.WithServerSecurityPolicy(policy),
 	)
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v", err)
+		t.Fatalf("NewServer() error = %v", err)
 	}
 
 	cli, err := api.NewClient(&api.Config{

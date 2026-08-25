@@ -68,9 +68,14 @@ func New(opts ...Option) *App {
 
 // RunContext starts the app and propagates ctx through startup and server
 // lifecycles.
-func (a *App) RunContext(ctx context.Context) error {
+func (a *App) RunContext(ctx context.Context) (runErr error) {
 	ctx, releaseRoot := contextutil.OrProcess(ctx)
 	defer releaseRoot()
+	defer func() {
+		if err := a.StopContext(context.WithoutCancel(ctx)); err != nil && runErr == nil {
+			runErr = err
+		}
+	}()
 	servers := a.servers()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -183,6 +188,10 @@ func (a *App) Stop() error {
 // StopContext deregisters the app and shuts down tracing with bounded cleanup
 // contexts derived from ctx.
 func (a *App) StopContext(ctx context.Context) error {
+	return a.stopContext(ctx)
+}
+
+func (a *App) stopContext(ctx context.Context) error {
 	if ctx == nil {
 		ctx = contextutil.Root()
 	}

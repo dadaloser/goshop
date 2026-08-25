@@ -2,6 +2,8 @@ package rpcserver
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	"goshop/gmicro/server/rpcserver/resolver/discovery"
@@ -22,6 +24,11 @@ import (
 
 type ServerOption func(o *Server)
 
+var (
+	errServerAlreadyStarted = errors.New("grpc server already started")
+	errServerStopped        = errors.New("grpc server is stopped")
+)
+
 type Server struct {
 	*grpc.Server
 
@@ -37,7 +44,10 @@ type Server struct {
 
 	health         *health.Server
 	registrars     []ServerRegistrar
+	lifecycleMu    sync.Mutex
 	endpoint       *url.URL
+	started        bool
+	stopped        bool
 	ready          chan struct{}
 	readyOnce      sync.Once
 	readinessCheck func() error
@@ -52,7 +62,13 @@ type Server struct {
 }
 
 func (s *Server) Endpoint() *url.URL {
-	return s.endpoint
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if s.endpoint == nil {
+		return nil
+	}
+	endpoint := *s.endpoint
+	return &endpoint
 }
 
 func (s *Server) Address() string {
@@ -63,15 +79,9 @@ func (s *Server) Ready() <-chan struct{} {
 	return s.ready
 }
 
-func NewServer(opts ...ServerOption) *Server {
-	srv, err := NewServerE(opts...)
-	if err != nil {
-		panic(err)
-	}
-	return srv
-}
-
-func NewServerE(opts ...ServerOption) (*Server, error) {
+// NewServer builds a gRPC server without binding its listener. Configuration
+// errors are returned to the caller; network binding happens in Start.
+func NewServer(opts ...ServerOption) (*Server, error) {
 	srv := &Server{
 		address:                         ":0",
 		health:                          health.NewServer(),
@@ -160,12 +170,6 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 		registrar(srv.Server)
 	}
 
-	//解析address
-	err := srv.listenAndEndpoint()
-	if err != nil {
-		return nil, err
-	}
-
 	//注册health
 	grpc_health_v1.RegisterHealthServer(srv.Server, srv.health)
 	if srv.enableReflection {
@@ -174,6 +178,11 @@ func NewServerE(opts ...ServerOption) (*Server, error) {
 	//可以支持用户直接通过grpc的一个接口查看当前支持的所有的rpc服务
 
 	return srv, nil
+}
+
+// NewServerE is retained for source compatibility. Deprecated: use NewServer.
+func NewServerE(opts ...ServerOption) (*Server, error) {
+	return NewServer(opts...)
 }
 
 // ServerRegistrar registers an application-owned service on a gRPC server.
@@ -259,6 +268,8 @@ func WithApplicationUnaryConcurrency(maxConcurrent int) ServerOption {
 	}
 }
 
+// WithLis supplies a listener whose ownership is transferred to Server.
+// Stop closes it even when Start was never called.
 func WithLis(lis net.Listener) ServerOption {
 	return func(s *Server) {
 		s.lis = lis
@@ -323,26 +334,50 @@ func productionServerOptions() []grpc.ServerOption {
 	}
 }
 
-// 完成ip和端口的提取
+// listenAndEndpoint creates the listener immediately before serving and
+// records the endpoint that will be advertised through service discovery.
 func (s *Server) listenAndEndpoint() error {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if s.stopped {
+		return errServerStopped
+	}
+	if s.started {
+		return errServerAlreadyStarted
+	}
 	if s.lis == nil {
 		lis, err := net.Listen("tcp", s.address)
 		if err != nil {
-			return err
+			return fmt.Errorf("listen grpc server on %s: %w", s.address, err)
 		}
 		s.lis = lis
 	}
 	addr, err := host.Extract(s.address, s.lis)
 	if err != nil {
 		_ = s.lis.Close()
-		return err
+		s.lis = nil
+		return fmt.Errorf("extract grpc endpoint: %w", err)
 	}
 	s.endpoint = discovery.NewEndpoint("grpc", addr, s.tlsEnabled)
+	s.started = true
 	return nil
 }
 
-// Start 启动grpc的服务
+// Start binds the configured address and begins serving gRPC requests.
 func (s *Server) Start(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := s.listenAndEndpoint(); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		_ = s.Stop(context.Background())
+		return err
+	}
 	log.Infof("[grpc] server listening on: %s", s.lis.Addr().String())
 	s.health.Resume()
 	s.updateReadiness()
@@ -377,6 +412,29 @@ func (s *Server) updateReadiness() {
 }
 
 func (s *Server) Stop(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	s.lifecycleMu.Lock()
+	if s.stopped {
+		s.lifecycleMu.Unlock()
+		return nil
+	}
+	s.stopped = true
+	started := s.started
+	lis := s.lis
+	if !started {
+		s.lis = nil
+	}
+	s.lifecycleMu.Unlock()
+	if !started {
+		if lis != nil {
+			if err := lis.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+				return fmt.Errorf("close unstarted grpc listener: %w", err)
+			}
+		}
+		return nil
+	}
 	//设置服务的状态为not_serving，防止接收新的请求过来
 	s.health.Shutdown()
 	//GracefulStop() 现在会受 ctx 控制，超时后强制 Stop()，避免退出卡死
@@ -389,6 +447,11 @@ func (s *Server) Stop(ctx context.Context) error {
 	case <-done:
 	case <-ctx.Done():
 		s.Server.Stop()
+	}
+	if lis != nil {
+		if err := lis.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+			return fmt.Errorf("close grpc listener: %w", err)
+		}
 	}
 	log.Infof("[grpc] server stopped")
 	return nil

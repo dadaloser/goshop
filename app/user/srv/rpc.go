@@ -103,7 +103,7 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 		log.Infof("sentinel limit disabled; skip nacos data source initialization")
 	}
 	log.Infof("creating user rpc server: address=%s", rpcAddr)
-	uRpcServer, err := rpcserver.NewServerE(opts...)
+	uRpcServer, err := rpcserver.NewServer(opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -164,12 +164,12 @@ func TestDialSecureWithTLSConfigSucceedsWhenEndpointReady(t *testing.T) {
 func TestDialSecureWithSecurityPolicySucceedsWhenEndpointReady(t *testing.T) {
 	policy := newTestSecurityPolicy(t, "goshop.internal")
 
-	server, err := NewServerE(
+	server, err := NewServer(
 		WithAddress("127.0.0.1:0"),
 		WithServerSecurityPolicy(policy),
 	)
 	if err != nil {
-		t.Fatalf("NewServerE() error = %v, want nil", err)
+		t.Fatalf("NewServer() error = %v, want nil", err)
 	}
 	go func() {
 		_ = server.Start(context.Background())
@@ -179,6 +179,11 @@ func TestDialSecureWithSecurityPolicySucceedsWhenEndpointReady(t *testing.T) {
 		defer cancel()
 		_ = server.Stop(ctx)
 	})
+	select {
+	case <-server.Ready():
+	case <-time.After(time.Second):
+		t.Fatal("Ready() was not closed after Start")
+	}
 
 	conn, err := Dial(
 		context.Background(),
