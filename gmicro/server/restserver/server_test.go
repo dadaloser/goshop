@@ -564,6 +564,56 @@ func TestMetricsCollectionDoesNotRequireMetricsEndpoint(t *testing.T) {
 	}
 }
 
+func TestMetricsCollectionUsesConfiguredRegistry(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	registry := prometheus.NewRegistry()
+	srv := NewServer(
+		WithMode(gin.TestMode),
+		WithServiceName("isolated-metrics"),
+		WithMetricsCollection(true),
+		WithMetricsEndpoint(false),
+		WithMetricsRegistry(registry, "isolated"),
+	)
+	srv.GET("/orders/:id", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+
+	recorder := httptest.NewRecorder()
+	srv.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/orders/42", nil))
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("business request status = %d, want 204", recorder.Code)
+	}
+	families, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("gather isolated metrics: %v", err)
+	}
+	for _, family := range families {
+		if family.GetName() == "isolated_http_server_requests_total" {
+			return
+		}
+	}
+	t.Fatal("isolated registry did not receive HTTP metrics")
+}
+
+func TestRequestBodyLimitAlwaysAbortsAfterCustomResponder(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	called := false
+	srv := NewServer(
+		WithMode(gin.TestMode),
+		WithMaxRequestBodyBytes(1),
+		WithErrorResponder(func(c *gin.Context, status int) { c.Status(status) }),
+	)
+	srv.POST("/body", func(c *gin.Context) { called = true; c.Status(http.StatusNoContent) })
+
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/body", bytes.NewBufferString("too large"))
+	srv.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("body limit status = %d, want 413", recorder.Code)
+	}
+	if called {
+		t.Fatal("body handler ran after framework failure responder")
+	}
+}
+
 func TestMetricsEndpointDoesNotCollectManagementTraffic(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	service := "metrics-management-" + strconv.FormatInt(time.Now().UnixNano(), 10)

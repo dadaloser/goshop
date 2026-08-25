@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"goshop/app/pkg/errorcatalog"
+	"goshop/pkg/errcode"
 	apperrors "goshop/pkg/errors"
 
 	"github.com/gin-gonic/gin"
@@ -67,5 +68,23 @@ func TestAbortWithErrorWritesSharedErrorResponse(t *testing.T) {
 	AbortWithError(ctx, apperrors.NewCode(100207, "permission denied"))
 	if !ctx.IsAborted() || recorder.Code != http.StatusForbidden {
 		t.Fatalf("AbortWithError() aborted=%v status=%d, want true/%d", ctx.IsAborted(), recorder.Code, http.StatusForbidden)
+	}
+}
+
+func TestAbortWithStatusMapsRateLimitToRateLimitedCode(t *testing.T) {
+	errorcatalog.RegisterAll()
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	AbortWithStatus(ctx, http.StatusTooManyRequests)
+	if recorder.Code != http.StatusTooManyRequests {
+		t.Fatalf("AbortWithStatus() status = %d, want %d", recorder.Code, http.StatusTooManyRequests)
+	}
+	var response ErrResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.Code != errcode.ErrRateLimited {
+		t.Fatalf("AbortWithStatus() code = %d, want %d", response.Code, errcode.ErrRateLimited)
 	}
 }

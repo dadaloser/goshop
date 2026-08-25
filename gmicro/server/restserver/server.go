@@ -60,6 +60,7 @@ type Server struct {
 
 	collectMetrics bool
 	exposeMetrics  bool
+	metricsOptions mws.MetricsOptions
 
 	readHeaderTimeout      time.Duration
 	readTimeout            time.Duration
@@ -140,9 +141,18 @@ func NewServer(opts ...ServerOption) *Server {
 		srv.trustedProxiesErr = fmt.Errorf("configure trusted proxies: %w", err)
 	}
 
-	srv.Use(mws.TracingHandler(srv.serviceName), mws.RequestLogger(), mws.Recovery(srv.errorResponder))
+	var metricsHandler gin.HandlerFunc
 	if srv.collectMetrics {
-		srv.Use(mws.Metrics(srv.serviceName))
+		var err error
+		metricsHandler, err = mws.NewMetrics(srv.serviceName, srv.metricsOptions)
+		if err != nil {
+			srv.middlewareConfigErr = fmt.Errorf("configure HTTP metrics: %w", err)
+		}
+	}
+
+	srv.Use(mws.TracingHandler(srv.serviceName), mws.RequestLogger(), mws.Recovery(srv.errorResponder))
+	if metricsHandler != nil {
+		srv.Use(metricsHandler)
 	}
 	srv.installConfiguredMiddlewares(true)
 	if srv.maxRequestBodyBytes > 0 {
@@ -422,13 +432,10 @@ func bearerTokenMiddleware(token string) gin.HandlerFunc {
 }
 
 func globalRateLimitMiddleware(limiter *rate.Limiter, responder mws.StatusResponder) gin.HandlerFunc {
-	if responder == nil {
-		responder = mws.AbortWithStatus
-	}
 	return func(c *gin.Context) {
 		if !limiter.Allow() {
 			c.Header("Retry-After", "1")
-			responder(c, http.StatusTooManyRequests)
+			mws.Respond(c, responder, http.StatusTooManyRequests)
 			return
 		}
 		c.Next()
@@ -489,9 +496,6 @@ func (l *clientRouteLimiter) evictOldest() {
 }
 
 func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter, responder mws.StatusResponder) gin.HandlerFunc {
-	if responder == nil {
-		responder = mws.AbortWithStatus
-	}
 	return func(c *gin.Context) {
 		route := c.FullPath()
 		if route == "" {
@@ -504,7 +508,7 @@ func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter, responder mws.S
 		key := clientIP + "|" + c.Request.Method + "|" + route
 		if !limiter.allow(key, time.Now()) {
 			c.Header("Retry-After", "1")
-			responder(c, http.StatusTooManyRequests)
+			mws.Respond(c, responder, http.StatusTooManyRequests)
 			return
 		}
 		c.Next()
@@ -512,9 +516,6 @@ func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter, responder mws.S
 }
 
 func maxConcurrentRequestsMiddleware(limit int, responder mws.StatusResponder) gin.HandlerFunc {
-	if responder == nil {
-		responder = mws.AbortWithStatus
-	}
 	sem := make(chan struct{}, limit)
 	return func(c *gin.Context) {
 		select {
@@ -522,7 +523,7 @@ func maxConcurrentRequestsMiddleware(limit int, responder mws.StatusResponder) g
 			defer func() { <-sem }()
 			c.Next()
 		default:
-			responder(c, http.StatusServiceUnavailable)
+			mws.Respond(c, responder, http.StatusServiceUnavailable)
 		}
 	}
 }

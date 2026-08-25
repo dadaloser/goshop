@@ -20,6 +20,20 @@ func TestErrorDetailRedactsDiagnosticContent(t *testing.T) {
 	}
 }
 
+func TestPanicDetailRedactsDiagnosticContent(t *testing.T) {
+	field := PanicDetail(`authorization=Bearer top-secret-token password=db-password email=alice@example.com`)
+
+	if field.Key != "panic" {
+		t.Fatalf("PanicDetail() key = %q, want panic", field.Key)
+	}
+	if strings.Contains(field.String, "top-secret-token") || strings.Contains(field.String, "db-password") || strings.Contains(field.String, "alice@example.com") {
+		t.Fatalf("PanicDetail() = %q, want sensitive diagnostic content redacted", field.String)
+	}
+	if got := strings.Count(field.String, redactedFieldValue); got < 3 {
+		t.Fatalf("PanicDetail() redactions = %d, want at least 3: %q", got, field.String)
+	}
+}
+
 func TestSanitizeFieldRedactsDirectErrorDetail(t *testing.T) {
 	field := sanitizeField(zap.String(KeyErrorDetail, `token: direct-secret`))
 	if strings.Contains(field.String, "direct-secret") {

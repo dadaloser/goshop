@@ -55,8 +55,10 @@ func AbortWithStatus(c *gin.Context, status int) {
 		code = errcode.ErrConflict
 	case http.StatusGatewayTimeout:
 		code = errcode.ErrTimeout
-	case http.StatusServiceUnavailable, http.StatusTooManyRequests:
+	case http.StatusServiceUnavailable:
 		code = errcode.ErrServiceUnavailable
+	case http.StatusTooManyRequests:
+		code = errcode.ErrRateLimited
 	}
 	spec := apperrors.SpecForCode(code)
 	c.JSON(status, ErrResponse{Code: spec.Code, Message: spec.Message})

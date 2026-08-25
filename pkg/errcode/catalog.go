@@ -18,6 +18,7 @@ var Catalog = []Contract{
 	{Code: ErrConflict, Kind: "conflict", Message: "Request conflicts with the current resource state"},
 	{Code: ErrServiceUnavailable, Kind: "unavailable", Message: "Required service is temporarily unavailable"},
 	{Code: ErrTimeout, Kind: "timeout", Message: "Required service response timed out"},
+	{Code: ErrRateLimited, Kind: "rate_limited", Message: "Too many requests, please try again later"},
 	{Code: ErrDatabase, Kind: "unavailable", Message: "Database error"},
 	{Code: ErrEncrypt, Kind: "internal", Message: "Error occurred while encrypting the user password"},
 	{Code: ErrSignatureInvalid, Kind: "unauthenticated", Message: "Signature is invalid"},

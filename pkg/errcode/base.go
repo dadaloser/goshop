@@ -24,6 +24,8 @@ const (
 	ErrServiceUnavailable
 	// ErrTimeout - 504: A required downstream service did not respond in time.
 	ErrTimeout
+	// ErrRateLimited - 429: Request rate exceeded the configured limit.
+	ErrRateLimited
 )
 
 const (

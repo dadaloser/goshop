@@ -5,9 +5,11 @@ import (
 	"slices"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"golang.org/x/time/rate"
 	mws "goshop/gmicro/server/restserver/middlewares"
+
+	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/time/rate"
 )
 
 type ServerOption func(*Server)
@@ -131,6 +133,14 @@ func WithMetrics(enable bool) ServerOption {
 	return func(o *Server) {
 		o.collectMetrics = enable
 		o.exposeMetrics = enable
+	}
+}
+
+// WithMetricsRegistry configures ownership and naming for this server's HTTP
+// metrics. A nil registerer uses Prometheus's default process registry.
+func WithMetricsRegistry(registerer prometheus.Registerer, namespace string) ServerOption {
+	return func(s *Server) {
+		s.metricsOptions = mws.MetricsOptions{Registerer: registerer, Namespace: namespace}
 	}
 }
 

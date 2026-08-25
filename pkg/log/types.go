@@ -35,6 +35,12 @@ func ErrorDetail(err error) Field {
 	return zap.String(KeyErrorDetail, sanitizeDiagnostic(fmt.Sprintf("%+v", err)))
 }
 
+// PanicDetail returns a sanitized log-only field describing a recovered panic.
+// Never include this field in a client response.
+func PanicDetail(recovered any) Field {
+	return zap.String("panic", sanitizeDiagnostic(fmt.Sprint(recovered)))
+}
+
 // Field is an alias for the field structure in the underlying log frame.
 type Field = zapcore.Field
 

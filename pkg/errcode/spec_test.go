@@ -12,7 +12,7 @@ func TestCatalogContainsCoreContracts(t *testing.T) {
 		}
 		contracts[contract.Code] = contract
 	}
-	for _, code := range []int{ErrValidation, ErrTokenInvalid, ErrPageNotFound, ErrUnknown} {
+	for _, code := range []int{ErrValidation, ErrTokenInvalid, ErrPageNotFound, ErrRateLimited, ErrUnknown} {
 		if _, exists := contracts[code]; !exists {
 			t.Fatalf("Catalog is missing code %d", code)
 		}
