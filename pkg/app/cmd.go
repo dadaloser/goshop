@@ -1,12 +1,10 @@
 package app
 
 import (
-	"fmt"
 	"os"
 	"runtime"
 	"strings"
 
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -82,7 +80,7 @@ func (c *Command) cobraCommand() *cobra.Command {
 		}
 	}
 	if c.runFunc != nil {
-		cmd.Run = c.runCommand
+		cmd.RunE = c.runCommand
 	}
 	if c.options != nil {
 		for _, f := range c.options.Flags().FlagSets {
@@ -95,13 +93,11 @@ func (c *Command) cobraCommand() *cobra.Command {
 	return cmd
 }
 
-func (c *Command) runCommand(cmd *cobra.Command, args []string) {
+func (c *Command) runCommand(cmd *cobra.Command, args []string) error {
 	if c.runFunc != nil {
-		if err := c.runFunc(args); err != nil {
-			fmt.Printf("%v %v\n", color.RedString("Error:"), err)
-			os.Exit(1)
-		}
+		return c.runFunc(args)
 	}
+	return nil
 }
 
 // AddCommand adds sub command to the application.

@@ -50,7 +50,10 @@ func main() {
 		}),
 	)
 
-	appl.Run()
+	if err := appl.Run(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 func replayDeadOutbox(ctx context.Context, outboxStore interface {

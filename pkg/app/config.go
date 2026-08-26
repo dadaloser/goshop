@@ -2,76 +2,66 @@ package app
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"goshop/pkg/common/util/homedir"
 
 	"github.com/gosuri/uitable"
-	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 const configFlagName = "config"
 
-var cfgFile string
-
-// nolint: go check no inits
-func init() {
-	pflag.StringVarP(&cfgFile, "config", "c", cfgFile, "Read configuration from specified `FILE`, "+
-		"support JSON, TOML, YAML, HCL, or Java properties formats.")
+// addConfigFlag adds the per-App configuration flag to fs. It deliberately
+// never touches pflag.CommandLine.
+func (a *App) addConfigFlag(fs *pflag.FlagSet) {
+	if fs.Lookup(configFlagName) == nil {
+		fs.StringVarP(&a.configFile, configFlagName, "c", "", "Read configuration from specified `FILE`, "+
+			"support JSON, TOML, YAML, HCL, or Java properties formats.")
+	}
 }
 
-// addConfigFlag adds flags for a specific server to the specified FlagSet
-// object.
-func addConfigFlag(basename string, fs *pflag.FlagSet) {
-	fs.AddFlag(pflag.Lookup(configFlagName))
+func (a *App) loadConfig() error {
+	a.viper.AutomaticEnv()
+	a.viper.SetEnvPrefix(strings.ReplaceAll(strings.ToUpper(a.basename), "-", "_"))
+	a.viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 
-	viper.AutomaticEnv()
-	viper.SetEnvPrefix(strings.ReplaceAll(strings.ToUpper(basename), "-", "_"))
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
-
-	cobra.OnInitialize(func() {
-		if cfgFile != "" {
-			viper.SetConfigFile(cfgFile)
-		} else {
-			viper.AddConfigPath(".")
-
-			if names := strings.Split(basename, "-"); len(names) > 1 {
-				viper.AddConfigPath(filepath.Join(homedir.HomeDir(), "."+names[0]))
-			}
-
-			viper.SetConfigName(basename)
+	configFile := a.configFile
+	if flag := a.appFlags.Lookup(configFlagName); flag != nil {
+		configFile = flag.Value.String()
+	}
+	if configFile != "" {
+		a.viper.SetConfigFile(configFile)
+	} else {
+		a.viper.AddConfigPath(".")
+		if names := strings.Split(a.basename, "-"); len(names) > 1 {
+			a.viper.AddConfigPath(filepath.Join(homedir.HomeDir(), "."+names[0]))
 		}
+		a.viper.SetConfigName(a.basename)
+	}
 
-		if err := viper.ReadInConfig(); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Error: failed to read configuration file(%s): %v\n", cfgFile, err)
-			os.Exit(1)
-		} else {
-			printConfig()
-		}
-
-	})
+	if err := a.viper.ReadInConfig(); err != nil {
+		return fmt.Errorf("read configuration file %q: %w", configFile, err)
+	}
+	return nil
 }
 
-// nolint:unused
-func printConfig() {
-	keys := viper.AllKeys()
+func (a *App) printConfig() {
+	keys := a.viper.AllKeys()
 	if len(keys) > 0 {
-		fmt.Printf("%v Configuration items:\n", progressMessage)
+		_, _ = fmt.Fprintf(a.cmd.OutOrStdout(), "%v Configuration items:\n", progressMessage)
 		table := uitable.New()
 		table.Separator = " "
 		table.MaxColWidth = 80
 		table.RightAlign(0)
 		for _, k := range keys {
-			value := viper.Get(k)
+			value := a.viper.Get(k)
 			if isSensitiveKey(k) {
 				value = redactedValue
 			}
 			table.AddRow(fmt.Sprintf("%s:", k), value)
 		}
-		fmt.Printf("%v", table)
+		_, _ = fmt.Fprint(a.cmd.OutOrStdout(), table)
 	}
 }

@@ -12,7 +12,7 @@ const (
 	UserIP      = "ip"
 )
 
-// 为每个请求添加上下文, django
+// 为每个请求添加上下文
 func Context() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c == nil {

@@ -7,13 +7,13 @@ import (
 	"goshop/pkg/common/cli/globalflag"
 	"goshop/pkg/common/term"
 	"goshop/pkg/common/version"
-	"goshop/pkg/common/version/verflag"
 	"goshop/pkg/errors"
 	"os"
 
 	//controller(参数校验) ->service(具体的业务逻辑) -> data(数据库的接口)
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"goshop/pkg/log"
@@ -74,11 +74,35 @@ type App struct {
 	commands    []*Command
 	args        cobra.PositionalArgs
 	cmd         *cobra.Command
+	viper       *viper.Viper
+	appFlags    *pflag.FlagSet
+	configFile  string
+	versionFlag string
 }
 
 // Option defines optional parameters for initializing the application
 // structure.
 type Option func(*App)
+
+// WithViper injects the configuration instance used by App. Each App should
+// receive its own viper.New() instance when callers need explicit isolation.
+func WithViper(v *viper.Viper) Option {
+	return func(a *App) {
+		if v != nil {
+			a.viper = v
+		}
+	}
+}
+
+// WithFlagSet injects App-owned flags. The set must not be shared by multiple
+// App instances because Cobra and pflag mutate it while executing commands.
+func WithFlagSet(fs *pflag.FlagSet) Option {
+	return func(a *App) {
+		if fs != nil {
+			a.appFlags = fs
+		}
+	}
+}
 
 // WithOptions to open the application's function to read from the command line
 // or read parameters from the configuration file.
@@ -156,6 +180,8 @@ func NewApp(name string, basename string, opts ...Option) *App {
 	a := &App{
 		name:     name,
 		basename: basename,
+		viper:    viper.New(),
+		appFlags: pflag.NewFlagSet(basename, pflag.ContinueOnError),
 	}
 
 	for _, o := range opts {
@@ -177,6 +203,7 @@ func (a *App) buildCommand() {
 		SilenceErrors: true,
 		Args:          a.args,
 	}
+	cmd.PersistentPreRunE = a.initializeCommand
 	// cmd.SetUsageTemplate(usageTemplate)
 	cmd.SetOut(os.Stdout)
 	cmd.SetErr(os.Stderr)
@@ -196,11 +223,6 @@ func (a *App) buildCommand() {
 	var namedFlagSets cliflag.NamedFlagSets
 	if a.options != nil {
 		namedFlagSets = a.options.Flags()
-		fs := cmd.Flags()
-		for _, f := range namedFlagSets.FlagSets {
-			fs.AddFlagSet(f)
-		}
-
 		usageFmt := "Usage:\n  %s\n"
 		cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
 		cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
@@ -215,31 +237,28 @@ func (a *App) buildCommand() {
 		})
 	}
 
+	globalFlags := namedFlagSets.FlagSet("global")
 	if !a.noVersion {
-		verflag.AddFlags(namedFlagSets.FlagSet("global"))
+		a.addVersionFlag(globalFlags)
 	}
 
 	if !a.noConfig {
-		addConfigFlag(a.basename, namedFlagSets.FlagSet("global"))
+		a.addConfigFlag(a.appFlags)
 	}
+	globalFlags.AddFlagSet(a.appFlags)
 
-	globalflag.AddGlobalFlags(namedFlagSets.FlagSet("global"), cmd.Name())
+	globalflag.AddGlobalFlags(globalFlags, cmd.Name())
+	for _, flags := range namedFlagSets.FlagSets {
+		cmd.Flags().AddFlagSet(flags)
+	}
 
 	a.cmd = &cmd
 }
 
-// Run is used to launch the application.
-func (a *App) Run() {
-	/*if err := a.cmd.Execute(); err != nil {
-		fmt.Printf("%v %v\n", color.RedString("Error:"), err)
-		os.Exit(1)
-	}*/
-
-	err := a.cmd.Execute()
-	if err != nil {
-		fmt.Printf("%v %+v\n", color.RedString("Error:"), err)
-		os.Exit(1)
-	}
+// Run executes the command and returns configuration or application errors to
+// its caller. Process exit belongs to the composition root in cmd/.
+func (a *App) Run() error {
+	return a.cmd.Execute()
 }
 
 // Command returns cobra command instance inside the application.
@@ -251,18 +270,12 @@ func (a *App) runCommand(cmd *cobra.Command, args []string) error {
 	printWorkingDir()
 	cliflag.PrintFlags(cmd.Flags())
 	if !a.noVersion {
-		// display application version information
-		verflag.PrintAndExitIfRequested()
+		if a.versionRequested() {
+			return a.printVersion(cmd)
+		}
 	}
 
 	if !a.noConfig {
-		if err := viper.BindPFlags(cmd.Flags()); err != nil {
-			return err
-		}
-
-		if err := viper.Unmarshal(a.options); err != nil {
-			return err
-		}
 		if err := a.applyOptionRules(); err != nil {
 			return fmt.Errorf("configuration validation failed: %w", err)
 		}
@@ -274,7 +287,7 @@ func (a *App) runCommand(cmd *cobra.Command, args []string) error {
 			log.Infof("%v Version: `%s`", progressMessage, version.Get().ToJSON())
 		}
 		if !a.noConfig {
-			log.Infof("%v Config file used: `%s`", progressMessage, viper.ConfigFileUsed())
+			log.Infof("%v Config file used: `%s`", progressMessage, a.viper.ConfigFileUsed())
 		}
 	}
 	// run application
@@ -283,6 +296,49 @@ func (a *App) runCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func (a *App) initializeCommand(cmd *cobra.Command, _ []string) error {
+	if a.noConfig || a.versionRequested() {
+		return nil
+	}
+	if a.options == nil {
+		return fmt.Errorf("app options are required when configuration is enabled")
+	}
+	if err := a.viper.BindPFlags(cmd.Flags()); err != nil {
+		return fmt.Errorf("bind command flags: %w", err)
+	}
+	if err := a.loadConfig(); err != nil {
+		return err
+	}
+	if err := a.viper.Unmarshal(a.options); err != nil {
+		return fmt.Errorf("decode configuration: %w", err)
+	}
+	if !a.silence {
+		a.printConfig()
+	}
+	return nil
+}
+
+func (a *App) addVersionFlag(fs *pflag.FlagSet) {
+	if fs.Lookup("version") != nil {
+		return
+	}
+	fs.StringVar(&a.versionFlag, "version", "", "Print version information and quit.")
+	fs.Lookup("version").NoOptDefVal = "true"
+}
+
+func (a *App) versionRequested() bool {
+	return a.versionFlag == "true" || a.versionFlag == "raw"
+}
+
+func (a *App) printVersion(cmd *cobra.Command) error {
+	if a.versionFlag == "raw" {
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), "%#v\n", version.Get())
+		return err
+	}
+	_, err := fmt.Fprintf(cmd.OutOrStdout(), "%s\n", version.Get())
+	return err
 }
 
 func (a *App) applyOptionRules() error {

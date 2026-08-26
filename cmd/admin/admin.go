@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"goshop/app/goshop/admin"
 	"os"
 	"runtime"
@@ -11,5 +12,8 @@ func main() {
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
-	admin.NewApp("admin-server").Run()
+	if err := admin.NewApp("admin-server").Run(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }

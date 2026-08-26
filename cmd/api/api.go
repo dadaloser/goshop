@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"goshop/app/goshop/api"
 	"math/rand"
 	"os"
@@ -14,5 +15,8 @@ func main() {
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
-	api.NewApp("api-server").Run()
+	if err := api.NewApp("api-server").Run(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
