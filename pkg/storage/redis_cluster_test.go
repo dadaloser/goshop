@@ -1,7 +1,10 @@
 package storage
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
@@ -99,5 +102,90 @@ func TestRedisClusterCleanKey(t *testing.T) {
 				t.Errorf("cleanKey(%q) = %q, want %q", tt.key, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSortedSetOperationsReturnRedisDownWhenClientIsUnavailable(t *testing.T) {
+	DisableRedis(true)
+	t.Cleanup(func() { DisableRedis(false) })
+
+	cluster := RedisCluster{}
+	if _, _, err := cluster.GetSortedSetRange(context.Background(), "scores", "-inf", "+inf"); !errors.Is(err, ErrRedisIsDown) {
+		t.Fatalf("GetSortedSetRange() error = %v, want ErrRedisIsDown", err)
+	}
+	if err := cluster.RemoveSortedSetRange(context.Background(), "scores", "-inf", "+inf"); !errors.Is(err, ErrRedisIsDown) {
+		t.Fatalf("RemoveSortedSetRange() error = %v, want ErrRedisIsDown", err)
+	}
+}
+
+func TestRedisClusterConnectReflectsReadiness(t *testing.T) {
+	DisableRedis(true)
+	t.Cleanup(func() { DisableRedis(false) })
+
+	if (&RedisCluster{}).Connect() {
+		t.Fatal("Connect() = true, want false when Redis is disabled")
+	}
+}
+
+func TestRedisConfigValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *Config
+		wantErr string
+	}{
+		{
+			name:   "single node",
+			config: &Config{Host: "192.168.1.119", Port: 6888},
+		},
+		{
+			name:   "address list",
+			config: &Config{Address: []string{"127.0.0.1:6379"}},
+		},
+		{
+			name:    "missing address",
+			config:  &Config{},
+			wantErr: "host or address",
+		},
+		{
+			name:    "cluster database",
+			config:  &Config{Host: "127.0.0.1", Port: 6379, EnableCluster: true, Database: 1},
+			wantErr: "database must be 0",
+		},
+		{
+			name:    "invalid address",
+			config:  &Config{Address: []string{"not-an-address"}},
+			wantErr: "invalid redis address",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("Validate() error = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("Validate() error = %v, want containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCloseRedisClearsReadiness(t *testing.T) {
+	DisableRedis(false)
+	setRedisUp(true)
+	t.Cleanup(func() {
+		_ = CloseRedis()
+		DisableRedis(false)
+	})
+
+	if err := CloseRedis(); err != nil {
+		t.Fatalf("CloseRedis() error = %v, want nil", err)
+	}
+	if Connected() {
+		t.Fatal("Connected() = true after CloseRedis(), want false")
 	}
 }

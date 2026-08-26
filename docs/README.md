@@ -14,6 +14,7 @@
 ## 架构、研发与业务
 
 - [架构与服务边界](architecture.md)
+- [gmicro 框架边界与测试契约](gmicro-framework-boundary.md)
 - [开发规范](development-standards.md)
 - [安全与访问控制](security-and-access-control.md)
 - [业务规则与可观测性](business-and-observability.md)
@@ -22,4 +23,3 @@
 ## 运维与发布
 - [Schema 迁移记录](schema-migrations.md)：`schema_migrations` 的核验、已有库迁移和回滚边界。
 - [运维、发布与历史演练](operations-and-release.md)
-

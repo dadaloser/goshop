@@ -14,7 +14,7 @@ import (
 // Connect reports whether the storage backend can be used. Connections are
 // established and checked by ConnectToRedis.
 func (r *RedisCluster) Connect() bool {
-	return true
+	return r.up() == nil
 }
 
 // ReadinessCheck returns a dependency check for services that require Redis to

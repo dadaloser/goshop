@@ -28,6 +28,9 @@ func (r *RedisCluster) AddToSortedSet(ctx context.Context, keyName, value string
 
 // GetSortedSetRange gets sorted-set members and scores within the requested range.
 func (r *RedisCluster) GetSortedSetRange(ctx context.Context, keyName, scoreFrom, scoreTo string) ([]string, []float64, error) {
+	if err := r.up(); err != nil {
+		return nil, nil, err
+	}
 	fixedKey := r.fixKey(keyName)
 	args := redis.ZRangeBy{Min: scoreFrom, Max: scoreTo}
 	values, err := r.singleton().ZRangeByScoreWithScores(ctx, fixedKey, &args).Result()
@@ -49,6 +52,9 @@ func (r *RedisCluster) GetSortedSetRange(ctx context.Context, keyName, scoreFrom
 
 // RemoveSortedSetRange removes sorted-set members within the requested range.
 func (r *RedisCluster) RemoveSortedSetRange(ctx context.Context, keyName, scoreFrom, scoreTo string) error {
+	if err := r.up(); err != nil {
+		return err
+	}
 	fixedKey := r.fixKey(keyName)
 	if err := r.singleton().ZRemRangeByScore(ctx, fixedKey, scoreFrom, scoreTo).Err(); err != nil {
 		log.Debug("ZREMRANGEBYSCORE command failed", log.String("keyHash", redactedRedisKey(keyName)), log.String("fixedKeyHash", redactedRedisKey(fixedKey)), log.String("error", err.Error()))

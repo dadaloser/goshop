@@ -69,7 +69,10 @@ func NewAPIApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 		EnableTracing:         cfg.Redis.EnableTracing,
 		Resilience:            cfg.Redis.Resilience,
 	}
-	go storage.ConnectToRedis(ctx, redisConfig)
+	if err := redisConfig.Validate(); err != nil {
+		return nil, err
+	}
+	redisServer := storage.NewServer(redisConfig)
 
 	//生成http服务
 	rpcServer, err := NewAPIHTTPServer(ctx, cfg)
@@ -81,6 +84,7 @@ func NewAPIApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	opts := []gapp.Option{
 		gapp.WithName(cfg.Server.Name),
 		gapp.WithVersion(cfg.Registry.Version),
+		gapp.WithServer(redisServer),
 		gapp.WithRestServer(rpcServer),
 		gapp.WithRegistrar(register),
 	}

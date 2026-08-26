@@ -72,11 +72,10 @@ func NewUserApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 		EnableTracing:         cfg.Redis.EnableTracing,
 		Resilience:            cfg.Redis.Resilience,
 	}
-	// Redis connectivity is a process-scoped background dependency probe. It is
-	// intentionally tied to the application lifetime instead of an individual
-	// request, so we reuse the app run context rather than a detached
-	// detached root context.
-	go storage.ConnectToRedis(ctx, redisConfig)
+	if err := redisConfig.Validate(); err != nil {
+		return nil, err
+	}
+	redisServer := storage.NewServer(redisConfig)
 
 	//生成rpc服务
 	rpcServer, err := NewUserHTTPServer(ctx, cfg)
@@ -89,6 +88,7 @@ func NewUserApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	opts := []gapp.Option{
 		gapp.WithName(cfg.Server.Name),
 		gapp.WithVersion(cfg.Registry.Version),
+		gapp.WithServer(redisServer),
 		gapp.WithRestServer(rpcServer),
 		gapp.WithRegistrar(register),
 	}

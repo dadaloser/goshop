@@ -65,7 +65,10 @@ func NewInventoryApp(ctx context.Context, cfg *config.Config) (*gapp.App, error)
 		EnableTracing:         cfg.RedisOptions.EnableTracing,
 		Resilience:            cfg.RedisOptions.Resilience,
 	}
-	go storage.ConnectToRedis(ctx, redisConfig)
+	if err := redisConfig.Validate(); err != nil {
+		return nil, err
+	}
+	redisServer := storage.NewServer(redisConfig)
 
 	//生成rpc服务
 	rpcServer, err := NewInventoryRPCServer(cfg)
@@ -80,6 +83,7 @@ func NewInventoryApp(ctx context.Context, cfg *config.Config) (*gapp.App, error)
 	return gapp.New(
 		gapp.WithName(cfg.Server.Name),
 		gapp.WithVersion(cfg.Registry.Version),
+		gapp.WithServer(redisServer),
 		gapp.WithRPCServer(rpcServer),
 		gapp.WithServer(managementServer),
 		gapp.WithHealthCheckServer(managementServer),

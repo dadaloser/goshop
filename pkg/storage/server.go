@@ -20,11 +20,14 @@ func (s *Server) Start(ctx context.Context) error {
 	if s.config == nil {
 		return errors.New("redis config is required")
 	}
+	if err := s.config.Validate(); err != nil {
+		return err
+	}
 	ConnectToRedis(ctx, s.config)
 	return nil
 }
 
-// Stop is a no-op because Start exits when the application context is cancelled.
+// Stop closes pools after the application context has cancelled the probe loop.
 func (s *Server) Stop(context.Context) error {
-	return nil
+	return CloseRedis()
 }

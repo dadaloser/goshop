@@ -3,11 +3,12 @@ package storage
 import (
 	"context"
 	"crypto/tls"
+	stderrors "errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"goshop/pkg/errors"
@@ -55,12 +56,12 @@ const (
 )
 
 var (
-	singlePool      atomic.Value
-	singleCachePool atomic.Value
-	redisUp         atomic.Value
+	redisClientsMu  sync.RWMutex
+	singlePool      redis.UniversalClient
+	singleCachePool redis.UniversalClient
+	redisUp         bool
+	disableRedis    bool
 )
-
-var disableRedis atomic.Value
 
 var incrementWithExpireScript = redis.NewScript(`
 local value = redis.call("INCR", KEYS[1])
@@ -72,64 +73,83 @@ return value
 
 // DisableRedis very handy when testsing it allows to dynamically enable/disable talking with redisW.
 func DisableRedis(ok bool) {
-	if ok {
-		redisUp.Store(false)
-		disableRedis.Store(true)
+	redisClientsMu.Lock()
+	defer redisClientsMu.Unlock()
 
-		return
+	disableRedis = ok
+	if ok {
+		redisUp = false
 	}
-	redisUp.Store(true)
-	disableRedis.Store(false)
 }
 
 func shouldConnect() bool {
-	if v := disableRedis.Load(); v != nil {
-		return !v.(bool)
-	}
-
-	return true
+	redisClientsMu.RLock()
+	defer redisClientsMu.RUnlock()
+	return !disableRedis
 }
 
 // Connected returns true if we are connected to redis.
 func Connected() bool {
-	if v := redisUp.Load(); v != nil {
-		return v.(bool)
-	}
-
-	return false
+	redisClientsMu.RLock()
+	defer redisClientsMu.RUnlock()
+	return redisUp
 }
 
 func singleton(cache bool) redis.UniversalClient {
+	redisClientsMu.RLock()
+	defer redisClientsMu.RUnlock()
+
 	if cache {
-		v := singleCachePool.Load()
-		if v != nil {
-			return v.(redis.UniversalClient)
-		}
-
-		return nil
+		return singleCachePool
 	}
-	if v := singlePool.Load(); v != nil {
-		return v.(redis.UniversalClient)
-	}
-
-	return nil
+	return singlePool
 }
 
-// nolint: unparam
 func connectSingleton(cache bool, config *Config) bool {
-	if singleton(cache) == nil {
-		log.Debug("Connecting to redis cluster")
-		if cache {
-			singleCachePool.Store(NewRedisClusterPool(cache, config))
+	redisClientsMu.Lock()
+	defer redisClientsMu.Unlock()
 
-			return true
-		}
-		singlePool.Store(NewRedisClusterPool(cache, config))
-
+	if cache && singleCachePool != nil {
+		return true
+	}
+	if !cache && singlePool != nil {
 		return true
 	}
 
+	log.Debug("Connecting to redis cluster")
+	client := NewRedisClusterPool(cache, config)
+	if client == nil {
+		return false
+	}
+	if cache {
+		singleCachePool = client
+	} else {
+		singlePool = client
+	}
 	return true
+}
+
+// CloseRedis closes all process-scoped Redis clients. It is safe to call more
+// than once; subsequent storage operations return ErrRedisIsDown until the
+// lifecycle starts a new connection loop.
+func CloseRedis() error {
+	redisClientsMu.Lock()
+	clients := []redis.UniversalClient{singlePool, singleCachePool}
+	singlePool = nil
+	singleCachePool = nil
+	redisUp = false
+	redisClientsMu.Unlock()
+
+	var errs []error
+	for _, client := range clients {
+		if client == nil {
+			continue
+		}
+		if err := client.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return stderrors.Join(errs...)
 }
 
 // RedisCluster is a storage manager that uses the redis database.
@@ -164,6 +184,12 @@ func clusterConnectionIsOpen(ctx context.Context, cluster RedisCluster) bool {
 // ctx. Failures use capped exponential backoff with jitter; healthy clients are
 // probed at a low frequency.
 func ConnectToRedis(ctx context.Context, config *Config) {
+	if err := config.Validate(); err != nil {
+		setRedisUp(false)
+		log.Errorf("invalid Redis configuration: %s", err)
+		return
+	}
+
 	clusters := []RedisCluster{
 		{}, {IsCache: true},
 	}
@@ -171,23 +197,39 @@ func ConnectToRedis(ctx context.Context, config *Config) {
 	delay := time.Duration(0)
 
 	for {
-		select {
-		case <-ctx.Done():
+		if !waitForRedisProbe(ctx, delay) {
 			return
-		case <-time.After(delay):
 		}
 
 		if shouldConnect() && redisConnectionIsOpen(ctx, config, clusters) {
-			redisUp.Store(true)
+			setRedisUp(true)
 			failures = 0
 			delay = redisHealthyProbeDelay
 			continue
 		}
 
-		redisUp.Store(false)
+		setRedisUp(false)
 		failures++
 		delay = redisRetryDelay(failures)
 	}
+}
+
+func waitForRedisProbe(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+func setRedisUp(up bool) {
+	redisClientsMu.Lock()
+	defer redisClientsMu.Unlock()
+	redisUp = up
 }
 
 func redisConnectionIsOpen(ctx context.Context, config *Config, clusters []RedisCluster) bool {
@@ -218,7 +260,9 @@ func redisRetryDelay(failures int) time.Duration {
 
 // NewRedisClusterPool create a redis cluster pool.
 func NewRedisClusterPool(isCache bool, config *Config) redis.UniversalClient {
-	// redisSingletonMu is locked and we know the singleton is nil
+	if config == nil {
+		return nil
+	}
 	log.Debug("Creating new Redis connection pool")
 
 	// poolSize applies per cluster node and not for the whole cluster.
@@ -281,6 +325,43 @@ func NewRedisClusterPool(isCache bool, config *Config) redis.UniversalClient {
 		client.AddHook(hook)
 	}
 	return client
+}
+
+// Validate verifies the Redis configuration before a connection loop starts.
+func (c *Config) Validate() error {
+	if c == nil {
+		return stderrors.New("redis config is required")
+	}
+	if c.MaxActive < 0 {
+		return fmt.Errorf("redis max active must not be negative: %d", c.MaxActive)
+	}
+	if c.MaxIdle < 0 {
+		return fmt.Errorf("redis max idle must not be negative: %d", c.MaxIdle)
+	}
+	if c.Timeout < 0 {
+		return fmt.Errorf("redis timeout must not be negative: %d", c.Timeout)
+	}
+	if c.EnableCluster && c.Database != 0 {
+		return stderrors.New("redis database must be 0 when cluster mode is enabled")
+	}
+	if c.MasterName != "" && c.EnableCluster {
+		return stderrors.New("redis sentinel and cluster modes cannot be enabled together")
+	}
+	if len(c.Address) == 0 {
+		if c.Host == "" {
+			return stderrors.New("redis host or address is required")
+		}
+		if c.Port < 1 || c.Port > 65535 {
+			return fmt.Errorf("redis port must be between 1 and 65535, got %d", c.Port)
+		}
+		return nil
+	}
+	for _, address := range c.Address {
+		if _, _, err := net.SplitHostPort(address); err != nil {
+			return fmt.Errorf("invalid redis address %q: %w", address, err)
+		}
+	}
+	return nil
 }
 
 func getRedisAddrs(config *Config) (addrs []string) {
@@ -404,9 +485,10 @@ func (r *RedisCluster) GetKey(ctx context.Context, keyName string) (string, erro
 
 	value, err := cluster.Get(ctx, r.fixKey(keyName)).Result()
 	if err != nil {
-		log.Debugf("Error trying to get value: %s", err.Error())
-
-		return "", ErrKeyNotFound
+		if errors.Is(err, redis.Nil) {
+			return "", ErrKeyNotFound
+		}
+		return "", fmt.Errorf("get redis key: %w", err)
 	}
 
 	return value, nil
@@ -488,9 +570,10 @@ func (r *RedisCluster) GetRawKey(ctx context.Context, keyName string) (string, e
 	}
 	value, err := r.singleton().Get(ctx, keyName).Result()
 	if err != nil {
-		log.Debugf("Error trying to get value: %s", err.Error())
-
-		return "", ErrKeyNotFound
+		if errors.Is(err, redis.Nil) {
+			return "", ErrKeyNotFound
+		}
+		return "", fmt.Errorf("get raw redis key: %w", err)
 	}
 
 	return value, nil
@@ -505,9 +588,7 @@ func (r *RedisCluster) GetExp(ctx context.Context, keyName string) (int64, error
 
 	value, err := r.singleton().TTL(ctx, r.fixKey(keyName)).Result()
 	if err != nil {
-		log.Errorf("Error trying to get TTL: ", err.Error())
-
-		return 0, ErrKeyNotFound
+		return 0, fmt.Errorf("get redis key ttl: %w", err)
 	}
 
 	return int64(value.Seconds()), nil
@@ -1117,8 +1198,9 @@ func (r *RedisCluster) SetRollingWindow(
 	var zrange *redis.StringSliceCmd
 
 	pipeFn := func(pipe redis.Pipeliner) error {
-		pipe.ZRemRangeByScore(ctx, keyName, "-inf", strconv.Itoa(int(onePeriodAgo.UnixNano())))
-		zrange = pipe.ZRange(ctx, keyName, 0, -1)
+		fixedKey := r.fixKey(keyName)
+		pipe.ZRemRangeByScore(ctx, fixedKey, "-inf", strconv.FormatInt(onePeriodAgo.UnixNano(), 10))
+		zrange = pipe.ZRange(ctx, fixedKey, 0, -1)
 
 		element := redis.Z{
 			Score: float64(now.UnixNano()),
@@ -1130,8 +1212,8 @@ func (r *RedisCluster) SetRollingWindow(
 			element.Member = strconv.Itoa(int(now.UnixNano()))
 		}
 
-		pipe.ZAdd(ctx, keyName, element)
-		pipe.Expire(ctx, keyName, time.Duration(per)*time.Second)
+		pipe.ZAdd(ctx, fixedKey, element)
+		pipe.Expire(ctx, fixedKey, time.Duration(per)*time.Second)
 
 		return nil
 	}
@@ -1182,8 +1264,9 @@ func (r *RedisCluster) GetRollingWindow(ctx context.Context, keyName string, per
 	var zrange *redis.StringSliceCmd
 
 	pipeFn := func(pipe redis.Pipeliner) error {
-		pipe.ZRemRangeByScore(ctx, keyName, "-inf", strconv.Itoa(int(onePeriodAgo.UnixNano())))
-		zrange = pipe.ZRange(ctx, keyName, 0, -1)
+		fixedKey := r.fixKey(keyName)
+		pipe.ZRemRangeByScore(ctx, fixedKey, "-inf", strconv.FormatInt(onePeriodAgo.UnixNano(), 10))
+		zrange = pipe.ZRange(ctx, fixedKey, 0, -1)
 
 		return nil
 	}
