@@ -78,12 +78,12 @@ func NewUserApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	redisServer := storage.NewServer(redisConfig)
 
 	//生成rpc服务
-	rpcServer, err := NewUserHTTPServer(ctx, cfg)
+	rpcServer, err := NewUserHTTPServer(ctx, cfg, redisServer.Client())
 	if err != nil {
 		return nil, err
 	}
 
-	managementServer := NewAdminManagementServer(cfg)
+	managementServer := NewAdminManagementServer(cfg, redisServer.Client())
 
 	opts := []gapp.Option{
 		gapp.WithName(cfg.Server.Name),

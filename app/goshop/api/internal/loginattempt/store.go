@@ -37,15 +37,15 @@ type RedisStore struct {
 	lockTTL     time.Duration
 }
 
-func NewRedisStore() *RedisStore {
-	return NewRedisStoreWithOptions(defaultMaxFailures, defaultWindow, defaultLockTTL)
+func NewRedisStore(client ...*storage.Client) *RedisStore {
+	return NewRedisStoreWithOptions(defaultMaxFailures, defaultWindow, defaultLockTTL, client...)
 }
 
-func NewIPRedisStore() *RedisStore {
-	return NewRedisStoreWithOptions(defaultIPFailures, defaultWindow, defaultLockTTL)
+func NewIPRedisStore(client ...*storage.Client) *RedisStore {
+	return NewRedisStoreWithOptions(defaultIPFailures, defaultWindow, defaultLockTTL, client...)
 }
 
-func NewRedisStoreWithOptions(maxFailures int, window, lockTTL time.Duration) *RedisStore {
+func NewRedisStoreWithOptions(maxFailures int, window, lockTTL time.Duration, client ...*storage.Client) *RedisStore {
 	if maxFailures <= 0 {
 		maxFailures = defaultMaxFailures
 	}
@@ -56,7 +56,7 @@ func NewRedisStoreWithOptions(maxFailures int, window, lockTTL time.Duration) *R
 		lockTTL = defaultLockTTL
 	}
 	return &RedisStore{
-		client:      &storage.RedisCluster{},
+		client:      storage.NewRedisCluster(client...),
 		maxFailures: maxFailures,
 		window:      window,
 		lockTTL:     lockTTL,
@@ -88,7 +88,7 @@ func (s *RedisStore) RecordFailure(ctx context.Context, identifier string) (bool
 		return false, err
 	}
 
-	if !storage.Connected() {
+	if !s.client.Connect() {
 		return false, storage.ErrRedisIsDown
 	}
 	client := s.client.GetClient()

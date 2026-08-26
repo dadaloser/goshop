@@ -75,12 +75,12 @@ func NewAPIApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	redisServer := storage.NewServer(redisConfig)
 
 	//生成http服务
-	rpcServer, err := NewAPIHTTPServer(ctx, cfg)
+	rpcServer, err := NewAPIHTTPServer(ctx, cfg, redisServer.Client())
 	if err != nil {
 		return nil, err
 	}
 
-	managementServer := NewAPIManagementServer(cfg)
+	managementServer := NewAPIManagementServer(cfg, redisServer.Client())
 	opts := []gapp.Option{
 		gapp.WithName(cfg.Server.Name),
 		gapp.WithVersion(cfg.Registry.Version),

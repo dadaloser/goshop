@@ -30,13 +30,14 @@ import (
 	"goshop/pkg/errcode"
 	apperrors "goshop/pkg/errors"
 	"goshop/pkg/log"
+	"goshop/pkg/storage"
 	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )
 
 // 初始化路由
-func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) error {
+func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config, clients ...*storage.Client) error {
 	if cfg != nil && cfg.Server != nil && cfg.Server.ManagementPort > 0 {
 		registerBusinessLivez(g)
 	}
@@ -57,16 +58,20 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 	v1.GET("goods/:goods_id/reviews", reviewController.List)
 	v1.GET("goods/:goods_id/rating", reviewController.Rating)
 
-	codeStore := smscode.NewRedisStore()
-	emailCodeStore := emailcode.NewRedisStore()
+	var redisClient *storage.Client
+	if len(clients) > 0 {
+		redisClient = clients[0]
+	}
+	codeStore := smscode.NewRedisStore(redisClient)
+	emailCodeStore := emailcode.NewRedisStore(redisClient)
 	emailSender := emailcode.NewSMTPSender(cfg.Email, emailCodeStore)
-	loginAttempts := loginattempt.NewRedisStore()
-	smsAttempts := smsattempt.NewRedisStore()
-	smsLimiter := smslimit.NewRedisStore()
-	revokedTokens := tokenrevocation.NewRedisStore()
-	tokenVersions := tokenversion.NewRedisStore()
+	loginAttempts := loginattempt.NewRedisStore(redisClient)
+	smsAttempts := smsattempt.NewRedisStore(redisClient)
+	smsLimiter := smslimit.NewRedisStore(redisClient)
+	revokedTokens := tokenrevocation.NewRedisStore(redisClient)
+	tokenVersions := tokenversion.NewRedisStore(redisClient)
 	//原来的过程其实很复杂
-	serviceFactory := service.NewServiceWithPayment(data, cfg.Sms, cfg.Jwt, cfg.Payment, codeStore, loginAttempts, smsAttempts, tokenVersions)
+	serviceFactory := service.NewServiceWithPaymentAndRedis(data, cfg.Sms, cfg.Jwt, cfg.Payment, codeStore, loginAttempts, smsAttempts, tokenVersions, redisClient)
 	if cfg.Payment != nil && cfg.Payment.Enabled {
 		worker := paymenthandler.NewWorker(data.Orders(), paymenthandler.NewProvider(cfg.Payment), cfg.Payment)
 		go func() {
@@ -78,7 +83,7 @@ func initRouter(ctx context.Context, g *restserver.Server, cfg *config.Config) e
 		}()
 	}
 	if callbackService, ok := serviceFactory.Orders().(paymenthandler.CallbackService); ok {
-		v1.POST("/internal/payment/callback/:provider", paymenthandler.NewCallbackHandler(cfg.Payment, callbackService).Handle)
+		v1.POST("/internal/payment/callback/:provider", paymenthandler.NewCallbackHandlerWithNonceStore(cfg.Payment, callbackService, paymenthandler.NewRedisNonceStore(redisClient)).Handle)
 	}
 	uController := user.NewUserController(
 		g.Translator(),

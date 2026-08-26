@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
+func NewInventoryRPCServer(cfg *config.Config, clients ...*storage.Client) (*rpcserver.Server, error) {
 	//初始化open-telemetry的exporter
 	if err := trace.InitAgent(trace.Options{
 		Name:     cfg.Telemetry.Name,
@@ -25,6 +25,10 @@ func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 		Batcher:  cfg.Telemetry.Batcher,
 	}); err != nil {
 		return nil, err
+	}
+	readinessCheck := storage.UnavailableReadinessCheck()
+	if len(clients) > 0 && clients[0] != nil {
+		readinessCheck = clients[0].ReadinessCheck()
 	}
 
 	//有点繁琐，wire， ioc-golang
@@ -45,7 +49,7 @@ func NewInventoryRPCServer(cfg *config.Config) (*rpcserver.Server, error) {
 		rpcserver.WithStreamMaxLifetime(cfg.Server.RPCStreamMaxLifetime),
 		rpcserver.WithApplicationStreamConcurrency(cfg.Server.RPCMaxConcurrentStreams),
 		rpcserver.WithServerSecurityPolicy(cfg.RPC),
-		rpcserver.WithReadinessCheck(storage.ReadinessCheck()),
+		rpcserver.WithReadinessCheck(readinessCheck),
 	)
 	if err != nil {
 		return nil, err

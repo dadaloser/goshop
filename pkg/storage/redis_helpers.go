@@ -17,19 +17,17 @@ func (r *RedisCluster) Connect() bool {
 	return r.up() == nil
 }
 
-// ReadinessCheck returns a dependency check for services that require Redis to
-// serve traffic. Services that can degrade Redis-backed features should omit it.
-func ReadinessCheck() func() error {
-	return func() error {
-		if Connected() {
-			return nil
-		}
-		return ErrRedisIsDown
-	}
+// UnavailableReadinessCheck reports an explicit missing Redis dependency. It
+// is used only when a caller has not been supplied an application Client.
+func UnavailableReadinessCheck() func() error {
+	return func() error { return ErrRedisIsDown }
 }
 
 func (r *RedisCluster) singleton() redis.UniversalClient {
-	return singleton(r.IsCache)
+	if r != nil && r.client != nil {
+		return r.client.singleton()
+	}
+	return nil
 }
 
 // GetClient returns the Redis client associated with this storage instance.
@@ -70,7 +68,10 @@ func (r *RedisCluster) cleanKey(keyName string) string {
 }
 
 func (r *RedisCluster) up() error {
-	if !Connected() || r.singleton() == nil {
+	if r == nil {
+		return ErrRedisIsDown
+	}
+	if r.client == nil || !r.client.Connected() || r.singleton() == nil {
 		return ErrRedisIsDown
 	}
 

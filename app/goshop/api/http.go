@@ -10,7 +10,11 @@ import (
 	"goshop/pkg/transport/httperror"
 )
 
-func NewAPIHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Server, error) {
+func NewAPIHTTPServer(ctx context.Context, cfg *config.Config, clients ...*storage.Client) (*restserver.Server, error) {
+	readinessCheck := storage.UnavailableReadinessCheck()
+	if len(clients) > 0 && clients[0] != nil {
+		readinessCheck = clients[0].ReadinessCheck()
+	}
 	enableBuiltInRoutes := cfg.Server.ManagementPort == 0
 	opts := []restserver.ServerOption{
 		restserver.WithPort(cfg.Server.HttpPort),
@@ -19,7 +23,7 @@ func NewAPIHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Serv
 		restserver.WithErrorResponder(httperror.AbortWithStatus),
 		restserver.WithMiddlewares(cfg.Server.Middlewares),
 		restserver.WithHealthCheck(enableBuiltInRoutes && cfg.Server.EnableHealthCheck),
-		restserver.WithReadinessCheck(storage.ReadinessCheck()),
+		restserver.WithReadinessCheck(readinessCheck),
 		restserver.WithEnableProfiling(enableBuiltInRoutes && cfg.Server.EnableProfiling),
 		restserver.WithProfilingToken(cfg.Server.ProfilingToken),
 		restserver.WithMetricsCollection(cfg.Server.EnableMetrics),
@@ -51,24 +55,28 @@ func NewAPIHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Serv
 	aRestServer := restserver.NewServer(opts...)
 
 	//配置好路由
-	if err := initRouter(ctx, aRestServer, cfg); err != nil {
+	if err := initRouter(ctx, aRestServer, cfg, clients...); err != nil {
 		return nil, err
 	}
 
 	return aRestServer, nil
 }
 
-func NewAPIManagementServer(cfg *config.Config) *restserver.Server {
+func NewAPIManagementServer(cfg *config.Config, clients ...*storage.Client) *restserver.Server {
 	if cfg == nil || cfg.Server == nil || cfg.Server.ManagementPort <= 0 {
 		return nil
 	}
 
+	readinessCheck := storage.UnavailableReadinessCheck()
+	if len(clients) > 0 && clients[0] != nil {
+		readinessCheck = clients[0].ReadinessCheck()
+	}
 	return restserver.NewServer(
 		restserver.WithPort(cfg.Server.ManagementPort),
 		restserver.WithHost(cfg.Server.Host),
 		restserver.WithServiceName(cfg.Server.Name+"-management"),
 		restserver.WithHealthCheck(cfg.Server.EnableHealthCheck),
-		restserver.WithReadinessCheck(storage.ReadinessCheck()),
+		restserver.WithReadinessCheck(readinessCheck),
 		restserver.WithEnableProfiling(cfg.Server.EnableProfiling),
 		restserver.WithProfilingToken(cfg.Server.ProfilingToken),
 		restserver.WithMetricsCollection(false),

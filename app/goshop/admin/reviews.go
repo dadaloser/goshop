@@ -15,13 +15,14 @@ import (
 	gauth "goshop/gmicro/server/restserver/middlewares/auth"
 	"goshop/pkg/errcode"
 	apperrors "goshop/pkg/errors"
+	"goshop/pkg/storage"
 	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
 )
 
-func registerAdminReviewRoutes(server *restserver.Server, cfg *config.Config, users upb.UserClient, goods goodspb.GoodsClient, reviews rpb.ReviewClient) error {
-	return registerAdminReviewRoutesWithStores(server, cfg, users, goods, reviews, tokenrevocation.NewRedisStore(), tokenversion.NewRedisStore())
+func registerAdminReviewRoutes(server *restserver.Server, cfg *config.Config, users upb.UserClient, goods goodspb.GoodsClient, reviews rpb.ReviewClient, clients ...*storage.Client) error {
+	return registerAdminReviewRoutesWithStores(server, cfg, users, goods, reviews, tokenrevocation.NewRedisStore(clients...), tokenversion.NewRedisStore(clients...))
 }
 
 func registerAdminReviewRoutesWithStores(

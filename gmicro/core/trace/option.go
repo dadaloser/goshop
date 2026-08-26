@@ -1,7 +1,5 @@
 package trace
 
-const TraceName = "goshop"
-
 type Options struct {
 	Name     string  `json:"name"`
 	Endpoint string  `json:"endpoint"`

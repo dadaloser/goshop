@@ -106,10 +106,7 @@ func TestRedisClusterCleanKey(t *testing.T) {
 }
 
 func TestSortedSetOperationsReturnRedisDownWhenClientIsUnavailable(t *testing.T) {
-	DisableRedis(true)
-	t.Cleanup(func() { DisableRedis(false) })
-
-	cluster := RedisCluster{}
+	cluster := NewRedisCluster(nil)
 	if _, _, err := cluster.GetSortedSetRange(context.Background(), "scores", "-inf", "+inf"); !errors.Is(err, ErrRedisIsDown) {
 		t.Fatalf("GetSortedSetRange() error = %v, want ErrRedisIsDown", err)
 	}
@@ -119,10 +116,7 @@ func TestSortedSetOperationsReturnRedisDownWhenClientIsUnavailable(t *testing.T)
 }
 
 func TestRedisClusterConnectReflectsReadiness(t *testing.T) {
-	DisableRedis(true)
-	t.Cleanup(func() { DisableRedis(false) })
-
-	if (&RedisCluster{}).Connect() {
+	if NewRedisCluster(nil).Connect() {
 		t.Fatal("Connect() = true, want false when Redis is disabled")
 	}
 }
@@ -174,18 +168,59 @@ func TestRedisConfigValidate(t *testing.T) {
 	}
 }
 
-func TestCloseRedisClearsReadiness(t *testing.T) {
-	DisableRedis(false)
-	setRedisUp(true)
-	t.Cleanup(func() {
-		_ = CloseRedis()
-		DisableRedis(false)
-	})
-
-	if err := CloseRedis(); err != nil {
-		t.Fatalf("CloseRedis() error = %v, want nil", err)
+func TestClientCloseClearsReadiness(t *testing.T) {
+	client, err := NewClient(&Config{Host: "127.0.0.1", Port: 6379})
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
 	}
-	if Connected() {
-		t.Fatal("Connected() = true after CloseRedis(), want false")
+	client.pool = NewRedisClusterPool(false, &Config{Host: "127.0.0.1", Port: 6379})
+	client.setUp(true)
+
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close() error = %v, want nil", err)
+	}
+	if client.Connected() {
+		t.Fatal("Connected() = true after Close(), want false")
+	}
+	if client.connect() {
+		t.Fatal("connect() = true after Close(), want false")
+	}
+}
+
+func TestClientsOwnIndependentPools(t *testing.T) {
+	first, err := NewClient(&Config{Host: "127.0.0.1", Port: 6379})
+	if err != nil {
+		t.Fatalf("NewClient(first) error = %v", err)
+	}
+	second, err := NewClient(&Config{Host: "127.0.0.2", Port: 6379})
+	if err != nil {
+		t.Fatalf("NewClient(second) error = %v", err)
+	}
+	t.Cleanup(func() { _ = first.Close() })
+	t.Cleanup(func() { _ = second.Close() })
+
+	if !first.connect() || !second.connect() {
+		t.Fatal("connect() = false, want independent pools to be created")
+	}
+	if first.singleton() == second.singleton() {
+		t.Fatal("clients share a pool, want isolated pools")
+	}
+}
+
+func TestRedisClusterCacheModeSharesPrimaryClient(t *testing.T) {
+	client, err := NewClient(&Config{Host: "127.0.0.1", Port: 6379})
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	t.Cleanup(func() { _ = client.Close() })
+	pool := NewRedisClusterPool(false, &Config{Host: "127.0.0.1", Port: 6379})
+	client.pool = pool
+	client.setUp(true)
+
+	if got := NewRedisCluster(client).GetClient(); got != pool {
+		t.Fatalf("primary GetClient() = %p, want %p", got, pool)
+	}
+	if got := NewRedisCluster(client).GetClient(); got != pool {
+		t.Fatalf("cache GetClient() = %p, want %p", got, pool)
 	}
 }

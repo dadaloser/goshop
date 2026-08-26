@@ -23,8 +23,8 @@ type RedisStore struct {
 	client *storage.RedisCluster
 }
 
-func NewRedisStore() *RedisStore {
-	return &RedisStore{client: &storage.RedisCluster{}}
+func NewRedisStore(client ...*storage.Client) *RedisStore {
+	return &RedisStore{client: storage.NewRedisCluster(client...)}
 }
 
 func (s *RedisStore) CurrentVersion(ctx context.Context, userID uint64) (uint64, error) {
@@ -54,7 +54,7 @@ func (s *RedisStore) Bump(ctx context.Context, userID uint64) (uint64, error) {
 		return 0, err
 	}
 
-	if !storage.Connected() {
+	if !s.client.Connect() {
 		return 0, storage.ErrRedisIsDown
 	}
 	client := s.client.GetClient()

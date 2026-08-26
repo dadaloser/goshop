@@ -83,6 +83,14 @@ func NewUserServiceWithIPAttempts(data data.DataFactory, jwtOpts *options.JwtOpt
 // NewUserServiceWithIPAttemptsAndSMSRegistrationVerification configures
 // whether registration must consume a SMS verification code.
 func NewUserServiceWithIPAttemptsAndSMSRegistrationVerification(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts, loginIPAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store, smsRegistrationVerificationEnabled bool) UserSrv {
+	return NewUserServiceWithIPAttemptsAndSMSRegistrationVerificationAndRedis(
+		data, jwtOpts, codeStore, loginAttempts, loginIPAttempts, smsAttempts, tokenVersions, smsRegistrationVerificationEnabled, nil,
+	)
+}
+
+// NewUserServiceWithIPAttemptsAndSMSRegistrationVerificationAndRedis binds
+// internally created Redis stores to the application-owned Redis client.
+func NewUserServiceWithIPAttemptsAndSMSRegistrationVerificationAndRedis(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts, loginIPAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store, smsRegistrationVerificationEnabled bool, redisClient *storage.Client) UserSrv {
 	return &userService{
 		data:                               data,
 		jwtOpts:                            jwtOpts,
@@ -92,7 +100,7 @@ func NewUserServiceWithIPAttemptsAndSMSRegistrationVerification(data data.DataFa
 		smsAttempts:                        smsAttempts,
 		smsRegistrationVerificationEnabled: smsRegistrationVerificationEnabled,
 		tokenVersions:                      tokenVersions,
-		emailCodes:                         emailcode.NewRedisStore(),
+		emailCodes:                         emailcode.NewRedisStore(redisClient),
 	}
 }
 

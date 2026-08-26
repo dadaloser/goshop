@@ -71,11 +71,11 @@ func NewInventoryApp(ctx context.Context, cfg *config.Config) (*gapp.App, error)
 	redisServer := storage.NewServer(redisConfig)
 
 	//生成rpc服务
-	rpcServer, err := NewInventoryRPCServer(cfg)
+	rpcServer, err := NewInventoryRPCServer(cfg, redisServer.Client())
 	if err != nil {
 		return nil, err
 	}
-	managementServer, err := management.NewServer(cfg.Server, storage.ReadinessCheck())
+	managementServer, err := management.NewServer(cfg.Server, redisServer.Client().ReadinessCheck())
 	if err != nil {
 		return nil, err
 	}

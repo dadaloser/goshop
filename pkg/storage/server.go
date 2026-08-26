@@ -2,32 +2,43 @@ package storage
 
 import (
 	"context"
-	"errors"
 )
 
 // Server runs the Redis connection loop under the application lifecycle.
 type Server struct {
-	config *Config
+	client  *Client
+	initErr error
 }
 
 // NewServer creates a lifecycle-managed Redis server.
 func NewServer(config *Config) *Server {
-	return &Server{config: config}
+	client, err := NewClient(config)
+	return &Server{client: client, initErr: err}
+}
+
+// Client returns the Client owned by this lifecycle server.
+func (s *Server) Client() *Client {
+	if s == nil {
+		return nil
+	}
+	return s.client
 }
 
 // Start connects to Redis and retries until ctx is cancelled.
 func (s *Server) Start(ctx context.Context) error {
-	if s.config == nil {
-		return errors.New("redis config is required")
+	if s == nil {
+		return ErrRedisIsDown
 	}
-	if err := s.config.Validate(); err != nil {
-		return err
+	if s.initErr != nil {
+		return s.initErr
 	}
-	ConnectToRedis(ctx, s.config)
-	return nil
+	return s.client.Start(ctx)
 }
 
 // Stop closes pools after the application context has cancelled the probe loop.
 func (s *Server) Stop(context.Context) error {
-	return CloseRedis()
+	if s == nil {
+		return nil
+	}
+	return s.client.Close()
 }

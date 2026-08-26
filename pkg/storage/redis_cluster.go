@@ -55,13 +55,154 @@ const (
 	redisHealthyProbeDelay = 30 * time.Second
 )
 
-var (
-	redisClientsMu  sync.RWMutex
-	singlePool      redis.UniversalClient
-	singleCachePool redis.UniversalClient
-	redisUp         bool
-	disableRedis    bool
-)
+// Client owns one Redis pool and its readiness state. It is intended to be
+// created once per application instance and passed to its consumers.
+type Client struct {
+	config Config
+
+	mu      sync.RWMutex
+	pool    redis.UniversalClient
+	up      bool
+	stopped bool
+}
+
+// NewClient validates config and returns an unconnected Redis client. Start
+// owns connection retries and Close owns the pool lifetime.
+func NewClient(config *Config) (*Client, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+
+	configCopy := *config
+	configCopy.Address = append([]string(nil), config.Address...)
+	return &Client{config: configCopy}, nil
+}
+
+// Connected reports whether the latest probe succeeded.
+func (c *Client) Connected() bool {
+	if c == nil {
+		return false
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.up && c.pool != nil && !c.stopped
+}
+
+func (c *Client) singleton() redis.UniversalClient {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.pool
+}
+
+func (c *Client) connect() bool {
+	if c == nil {
+		return false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.stopped {
+		return false
+	}
+	if c.pool != nil {
+		return true
+	}
+
+	pool := NewRedisClusterPool(false, &c.config)
+	if pool == nil {
+		return false
+	}
+	c.pool = pool
+	return true
+}
+
+func (c *Client) setUp(up bool) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.stopped {
+		c.up = up
+	}
+}
+
+func (c *Client) connectionIsOpen(ctx context.Context) bool {
+	pool := c.singleton()
+	if pool == nil {
+		return false
+	}
+	testKey := "redis-test-" + uuid.Must(uuid.NewV4(), nil).String()
+	if err := pool.Set(ctx, testKey, "test", time.Second).Err(); err != nil {
+		log.Warnf("Error trying to set test key: %s", err.Error())
+		return false
+	}
+	if _, err := pool.Get(ctx, testKey).Result(); err != nil {
+		log.Warnf("Error trying to get test key: %s", err.Error())
+		return false
+	}
+	return true
+}
+
+// Start retries Redis probes until ctx is cancelled. The deferred Close makes
+// the probe loop and pool lifetime have one owner.
+func (c *Client) Start(ctx context.Context) error {
+	if c == nil {
+		return stderrors.New("redis client is required")
+	}
+	defer func() {
+		if err := c.Close(); err != nil {
+			log.Errorf("close redis client: %s", err)
+		}
+	}()
+
+	failures := 0
+	delay := time.Duration(0)
+	for {
+		if !waitForRedisProbe(ctx, delay) {
+			return nil
+		}
+		if c.connect() && c.connectionIsOpen(ctx) {
+			c.setUp(true)
+			failures = 0
+			delay = redisHealthyProbeDelay
+			continue
+		}
+		c.setUp(false)
+		failures++
+		delay = redisRetryDelay(failures)
+	}
+}
+
+// Close permanently stops this client. Once stopped, a concurrent probe loop
+// cannot allocate a replacement pool.
+func (c *Client) Close() error {
+	if c == nil {
+		return nil
+	}
+	c.mu.Lock()
+	pool := c.pool
+	c.pool = nil
+	c.up = false
+	c.stopped = true
+	c.mu.Unlock()
+	if pool == nil {
+		return nil
+	}
+	return pool.Close()
+}
+
+// ReadinessCheck binds a health check to one Client instance.
+func (c *Client) ReadinessCheck() func() error {
+	return func() error {
+		if c.Connected() {
+			return nil
+		}
+		return ErrRedisIsDown
+	}
+}
 
 var incrementWithExpireScript = redis.NewScript(`
 local value = redis.call("INCR", KEYS[1])
@@ -71,147 +212,24 @@ end
 return value
 `)
 
-// DisableRedis very handy when testsing it allows to dynamically enable/disable talking with redisW.
-func DisableRedis(ok bool) {
-	redisClientsMu.Lock()
-	defer redisClientsMu.Unlock()
-
-	disableRedis = ok
-	if ok {
-		redisUp = false
-	}
-}
-
-func shouldConnect() bool {
-	redisClientsMu.RLock()
-	defer redisClientsMu.RUnlock()
-	return !disableRedis
-}
-
-// Connected returns true if we are connected to redis.
-func Connected() bool {
-	redisClientsMu.RLock()
-	defer redisClientsMu.RUnlock()
-	return redisUp
-}
-
-func singleton(cache bool) redis.UniversalClient {
-	redisClientsMu.RLock()
-	defer redisClientsMu.RUnlock()
-
-	if cache {
-		return singleCachePool
-	}
-	return singlePool
-}
-
-func connectSingleton(cache bool, config *Config) bool {
-	redisClientsMu.Lock()
-	defer redisClientsMu.Unlock()
-
-	if cache && singleCachePool != nil {
-		return true
-	}
-	if !cache && singlePool != nil {
-		return true
-	}
-
-	log.Debug("Connecting to redis cluster")
-	client := NewRedisClusterPool(cache, config)
-	if client == nil {
-		return false
-	}
-	if cache {
-		singleCachePool = client
-	} else {
-		singlePool = client
-	}
-	return true
-}
-
-// CloseRedis closes all process-scoped Redis clients. It is safe to call more
-// than once; subsequent storage operations return ErrRedisIsDown until the
-// lifecycle starts a new connection loop.
-func CloseRedis() error {
-	redisClientsMu.Lock()
-	clients := []redis.UniversalClient{singlePool, singleCachePool}
-	singlePool = nil
-	singleCachePool = nil
-	redisUp = false
-	redisClientsMu.Unlock()
-
-	var errs []error
-	for _, client := range clients {
-		if client == nil {
-			continue
-		}
-		if err := client.Close(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	return stderrors.Join(errs...)
-}
-
 // RedisCluster is a storage manager that uses the redis database.
 type RedisCluster struct {
+	client    *Client
 	KeyPrefix string
 	HashKeys  bool
-	IsCache   bool
+	// IsCache is retained for compatibility. It shares the primary Redis client
+	// until cache-specific configuration is introduced.
+	IsCache bool
 }
 
-func clusterConnectionIsOpen(ctx context.Context, cluster RedisCluster) bool {
-	c := singleton(cluster.IsCache)
-	if c == nil {
-		log.Warn("Redis client has not been initialized")
-
-		return false
+// NewRedisCluster creates a storage facade bound to client. A nil client is
+// permitted for isolated tests and fails closed with ErrRedisIsDown.
+func NewRedisCluster(clients ...*Client) *RedisCluster {
+	var client *Client
+	if len(clients) > 0 {
+		client = clients[0]
 	}
-	testKey := "redis-test-" + uuid.Must(uuid.NewV4(), nil).String()
-	if err := c.Set(ctx, testKey, "test", time.Second).Err(); err != nil {
-		log.Warnf("Error trying to set test key: %s", err.Error())
-		return false
-	}
-	if _, err := c.Get(ctx, testKey).Result(); err != nil {
-		log.Warnf("Error trying to get test key: %s", err.Error())
-
-		return false
-	}
-
-	return true
-}
-
-// ConnectToRedis keeps the Redis dependency status current for the lifetime of
-// ctx. Failures use capped exponential backoff with jitter; healthy clients are
-// probed at a low frequency.
-func ConnectToRedis(ctx context.Context, config *Config) {
-	if err := config.Validate(); err != nil {
-		setRedisUp(false)
-		log.Errorf("invalid Redis configuration: %s", err)
-		return
-	}
-
-	clusters := []RedisCluster{
-		{}, {IsCache: true},
-	}
-	failures := 0
-	delay := time.Duration(0)
-
-	for {
-		if !waitForRedisProbe(ctx, delay) {
-			return
-		}
-
-		if shouldConnect() && redisConnectionIsOpen(ctx, config, clusters) {
-			setRedisUp(true)
-			failures = 0
-			delay = redisHealthyProbeDelay
-			continue
-		}
-
-		setRedisUp(false)
-		failures++
-		delay = redisRetryDelay(failures)
-	}
+	return &RedisCluster{client: client}
 }
 
 func waitForRedisProbe(ctx context.Context, delay time.Duration) bool {
@@ -224,21 +242,6 @@ func waitForRedisProbe(ctx context.Context, delay time.Duration) bool {
 	case <-timer.C:
 		return true
 	}
-}
-
-func setRedisUp(up bool) {
-	redisClientsMu.Lock()
-	defer redisClientsMu.Unlock()
-	redisUp = up
-}
-
-func redisConnectionIsOpen(ctx context.Context, config *Config, clusters []RedisCluster) bool {
-	for _, cluster := range clusters {
-		if !connectSingleton(cluster.IsCache, config) || !clusterConnectionIsOpen(ctx, cluster) {
-			return false
-		}
-	}
-	return true
 }
 
 func redisRetryDelay(failures int) time.Duration {
@@ -259,7 +262,7 @@ func redisRetryDelay(failures int) time.Duration {
 }
 
 // NewRedisClusterPool create a redis cluster pool.
-func NewRedisClusterPool(isCache bool, config *Config) redis.UniversalClient {
+func NewRedisClusterPool(_ bool, config *Config) redis.UniversalClient {
 	if config == nil {
 		return nil
 	}

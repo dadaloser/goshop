@@ -35,9 +35,9 @@ type RedisStore struct {
 	maxSends int
 }
 
-func NewRedisStore() *RedisStore {
+func NewRedisStore(client ...*storage.Client) *RedisStore {
 	return &RedisStore{
-		client:   &storage.RedisCluster{},
+		client:   storage.NewRedisCluster(client...),
 		cooldown: defaultCooldown,
 		window:   defaultWindow,
 		maxSends: defaultMaxSends,
@@ -54,7 +54,7 @@ func (s *RedisStore) Take(ctx context.Context, mobile string, codeType uint) (bo
 		return false, err
 	}
 
-	if !storage.Connected() {
+	if !s.client.Connect() {
 		return false, storage.ErrRedisIsDown
 	}
 	client := s.client.GetClient()

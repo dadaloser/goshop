@@ -15,7 +15,9 @@ type NonceStore interface {
 
 type RedisNonceStore struct{ client *storage.RedisCluster }
 
-func NewRedisNonceStore() *RedisNonceStore { return &RedisNonceStore{client: &storage.RedisCluster{}} }
+func NewRedisNonceStore(client ...*storage.Client) *RedisNonceStore {
+	return &RedisNonceStore{client: storage.NewRedisCluster(client...)}
+}
 
 func (s *RedisNonceStore) Reserve(ctx context.Context, nonce string, ttl time.Duration) (bool, error) {
 	if s == nil || s.client == nil || strings.TrimSpace(nonce) == "" || ttl <= 0 {

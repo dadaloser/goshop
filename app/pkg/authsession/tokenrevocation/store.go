@@ -25,8 +25,8 @@ type RedisStore struct {
 	client *storage.RedisCluster
 }
 
-func NewRedisStore() *RedisStore {
-	return &RedisStore{client: &storage.RedisCluster{}}
+func NewRedisStore(client ...*storage.Client) *RedisStore {
+	return &RedisStore{client: storage.NewRedisCluster(client...)}
 }
 
 func (s *RedisStore) Revoke(ctx context.Context, token string, expiresAt time.Time) error {

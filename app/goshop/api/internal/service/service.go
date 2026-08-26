@@ -12,6 +12,7 @@ import (
 	"goshop/app/goshop/api/internal/smscode"
 	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/options"
+	"goshop/pkg/storage"
 )
 
 // 注意循环引用
@@ -40,6 +41,7 @@ type service struct {
 
 	tokenVersions tokenversion.Store
 	paymentOpts   *options.PaymentOptions
+	redisClient   *storage.Client
 }
 
 func (s *service) Sms() vSms.SmsSrv {
@@ -74,7 +76,7 @@ func (s *service) Users() vUser.UserSrv {
 	if s == nil {
 		return vUser.NewUserService(nil, nil, nil, nil, nil, nil)
 	}
-	return vUser.NewUserServiceWithIPAttemptsAndSMSRegistrationVerification(
+	return vUser.NewUserServiceWithIPAttemptsAndSMSRegistrationVerificationAndRedis(
 		s.data,
 		s.jwtOpts,
 		s.codeStore,
@@ -83,6 +85,7 @@ func (s *service) Users() vUser.UserSrv {
 		s.smsAttempts,
 		s.tokenVersions,
 		s.smsOpts != nil && s.smsOpts.RegistrationVerificationEnabled,
+		s.redisClient,
 	)
 }
 
@@ -101,6 +104,15 @@ func NewService(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *op
 func NewServiceWithPayment(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *options.JwtOptions, paymentOpts *options.PaymentOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) *service {
 	s := NewService(store, smsOpts, jwtOpts, codeStore, loginAttempts, smsAttempts, tokenVersions)
 	s.paymentOpts = paymentOpts
+	return s
+}
+
+// NewServiceWithPaymentAndRedis binds internally created Redis-backed stores
+// to one application-owned client.
+func NewServiceWithPaymentAndRedis(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *options.JwtOptions, paymentOpts *options.PaymentOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store, redisClient *storage.Client) *service {
+	s := NewServiceWithPayment(store, smsOpts, jwtOpts, paymentOpts, codeStore, loginAttempts, smsAttempts, tokenVersions)
+	s.loginIPAttempts = loginattempt.NewIPRedisStore(redisClient)
+	s.redisClient = redisClient
 	return s
 }
 

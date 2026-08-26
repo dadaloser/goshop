@@ -16,9 +16,13 @@ import (
 
 const adminStartupClientDialTimeout = 5 * time.Second
 
-func NewUserHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Server, error) {
+func NewUserHTTPServer(ctx context.Context, cfg *config.Config, clients ...*storage.Client) (*restserver.Server, error) {
 	if ctx == nil {
 		return nil, errors.New("admin HTTP server requires a startup context")
+	}
+	readinessCheck := storage.UnavailableReadinessCheck()
+	if len(clients) > 0 && clients[0] != nil {
+		readinessCheck = clients[0].ReadinessCheck()
 	}
 	enableBuiltInRoutes := cfg.Server.ManagementPort == 0
 	opts := []restserver.ServerOption{
@@ -28,7 +32,7 @@ func NewUserHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Ser
 		restserver.WithErrorResponder(httperror.AbortWithStatus),
 		restserver.WithMiddlewares(cfg.Server.Middlewares),
 		restserver.WithHealthCheck(enableBuiltInRoutes && cfg.Server.EnableHealthCheck),
-		restserver.WithReadinessCheck(storage.ReadinessCheck()),
+		restserver.WithReadinessCheck(readinessCheck),
 		restserver.WithEnableProfiling(enableBuiltInRoutes && cfg.Server.EnableProfiling),
 		restserver.WithProfilingToken(cfg.Server.ProfilingToken),
 		restserver.WithMetricsCollection(cfg.Server.EnableMetrics),
@@ -87,27 +91,31 @@ func NewUserHTTPServer(ctx context.Context, cfg *config.Config) (*restserver.Ser
 		return nil, err
 	}
 
-	if err := initRouterWithBusinessClients(restServer, cfg, userClient, goodsClient, inventoryClient, orderClient); err != nil {
+	if err := initRouterWithBusinessClients(restServer, cfg, userClient, goodsClient, inventoryClient, orderClient, clients...); err != nil {
 		return nil, err
 	}
-	if err := registerAdminReviewRoutes(restServer, cfg, userClient, goodsClient, reviewClient); err != nil {
+	if err := registerAdminReviewRoutes(restServer, cfg, userClient, goodsClient, reviewClient, clients...); err != nil {
 		return nil, err
 	}
 
 	return restServer, nil
 }
 
-func NewAdminManagementServer(cfg *config.Config) *restserver.Server {
+func NewAdminManagementServer(cfg *config.Config, clients ...*storage.Client) *restserver.Server {
 	if cfg == nil || cfg.Server == nil || cfg.Server.ManagementPort <= 0 {
 		return nil
 	}
 
+	readinessCheck := storage.UnavailableReadinessCheck()
+	if len(clients) > 0 && clients[0] != nil {
+		readinessCheck = clients[0].ReadinessCheck()
+	}
 	return restserver.NewServer(
 		restserver.WithPort(cfg.Server.ManagementPort),
 		restserver.WithHost(cfg.Server.Host),
 		restserver.WithServiceName(cfg.Server.Name+"-management"),
 		restserver.WithHealthCheck(cfg.Server.EnableHealthCheck),
-		restserver.WithReadinessCheck(storage.ReadinessCheck()),
+		restserver.WithReadinessCheck(readinessCheck),
 		restserver.WithEnableProfiling(cfg.Server.EnableProfiling),
 		restserver.WithProfilingToken(cfg.Server.ProfilingToken),
 		restserver.WithMetricsCollection(false),

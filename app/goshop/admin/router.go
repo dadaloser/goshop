@@ -17,6 +17,7 @@ import (
 	"goshop/gmicro/server/restserver"
 	"goshop/pkg/errcode"
 	apperrors "goshop/pkg/errors"
+	"goshop/pkg/storage"
 	core "goshop/pkg/transport/httperror"
 
 	"github.com/gin-gonic/gin"
@@ -24,8 +25,8 @@ import (
 )
 
 // 初始化路由
-func initRouterWithBusinessClients(g *restserver.Server, cfg *config.Config, users upbv1.UserClient, goods goodspb.GoodsClient, inventory inventorypb.InventoryClient, orders orderpb.OrderClient) error {
-	return initRouterWithDependencies(g, cfg, users, goods, inventory, orders, tokenrevocation.NewRedisStore(), tokenversion.NewRedisStore())
+func initRouterWithBusinessClients(g *restserver.Server, cfg *config.Config, users upbv1.UserClient, goods goodspb.GoodsClient, inventory inventorypb.InventoryClient, orders orderpb.OrderClient, clients ...*storage.Client) error {
+	return initRouterWithDependencies(g, cfg, users, goods, inventory, orders, tokenrevocation.NewRedisStore(clients...), tokenversion.NewRedisStore(clients...))
 }
 
 func initRouterWithSessionStores(
