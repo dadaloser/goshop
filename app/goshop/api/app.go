@@ -60,7 +60,6 @@ func NewAPIApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 		Username:              cfg.Redis.Username,
 		Password:              cfg.Redis.Password,
 		Database:              cfg.Redis.Database,
-		MaxIdle:               cfg.Redis.MaxIdle,
 		MaxActive:             cfg.Redis.MaxActive,
 		Timeout:               cfg.Redis.Timeout,
 		EnableCluster:         cfg.Redis.EnableCluster,
@@ -72,7 +71,10 @@ func NewAPIApp(ctx context.Context, cfg *config.Config) (*gapp.App, error) {
 	if err := redisConfig.Validate(); err != nil {
 		return nil, err
 	}
-	redisServer := storage.NewServer(redisConfig)
+	redisServer, err := storage.NewServer(redisConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	//生成http服务
 	rpcServer, err := NewAPIHTTPServer(ctx, cfg, redisServer.Client())

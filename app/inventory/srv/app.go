@@ -56,7 +56,6 @@ func NewInventoryApp(ctx context.Context, cfg *config.Config) (*gapp.App, error)
 		Username:              cfg.RedisOptions.Username,
 		Password:              cfg.RedisOptions.Password,
 		Database:              cfg.RedisOptions.Database,
-		MaxIdle:               cfg.RedisOptions.MaxIdle,
 		MaxActive:             cfg.RedisOptions.MaxActive,
 		Timeout:               cfg.RedisOptions.Timeout,
 		EnableCluster:         cfg.RedisOptions.EnableCluster,
@@ -68,7 +67,10 @@ func NewInventoryApp(ctx context.Context, cfg *config.Config) (*gapp.App, error)
 	if err := redisConfig.Validate(); err != nil {
 		return nil, err
 	}
-	redisServer := storage.NewServer(redisConfig)
+	redisServer, err := storage.NewServer(redisConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	//生成rpc服务
 	rpcServer, err := NewInventoryRPCServer(cfg, redisServer.Client())

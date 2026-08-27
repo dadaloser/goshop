@@ -37,15 +37,15 @@ type RedisStore struct {
 	lockTTL     time.Duration
 }
 
-func NewRedisStore(client ...*storage.Client) *RedisStore {
-	return NewRedisStoreWithOptions(defaultMaxFailures, defaultWindow, defaultLockTTL, client...)
+func NewRedisStore(client *storage.Client) *RedisStore {
+	return NewRedisStoreWithOptions(defaultMaxFailures, defaultWindow, defaultLockTTL, client)
 }
 
-func NewIPRedisStore(client ...*storage.Client) *RedisStore {
-	return NewRedisStoreWithOptions(defaultIPFailures, defaultWindow, defaultLockTTL, client...)
+func NewIPRedisStore(client *storage.Client) *RedisStore {
+	return NewRedisStoreWithOptions(defaultIPFailures, defaultWindow, defaultLockTTL, client)
 }
 
-func NewRedisStoreWithOptions(maxFailures int, window, lockTTL time.Duration, client ...*storage.Client) *RedisStore {
+func NewRedisStoreWithOptions(maxFailures int, window, lockTTL time.Duration, client *storage.Client) *RedisStore {
 	if maxFailures <= 0 {
 		maxFailures = defaultMaxFailures
 	}
@@ -56,7 +56,7 @@ func NewRedisStoreWithOptions(maxFailures int, window, lockTTL time.Duration, cl
 		lockTTL = defaultLockTTL
 	}
 	return &RedisStore{
-		client:      storage.NewRedisCluster(client...),
+		client:      storage.NewRedisCluster(client),
 		maxFailures: maxFailures,
 		window:      window,
 		lockTTL:     lockTTL,
@@ -88,22 +88,9 @@ func (s *RedisStore) RecordFailure(ctx context.Context, identifier string) (bool
 		return false, err
 	}
 
-	if !s.client.Connect() {
-		return false, storage.ErrRedisIsDown
-	}
-	client := s.client.GetClient()
-	if client == nil {
-		return false, storage.ErrRedisIsDown
-	}
-
-	failures, err := client.Incr(ctx, key).Result()
+	failures, err := s.client.IncrementWithExpiry(ctx, key, s.window)
 	if err != nil {
 		return false, err
-	}
-	if failures == 1 {
-		if err = client.Expire(ctx, key, s.window).Err(); err != nil {
-			return false, err
-		}
 	}
 
 	if failures >= int64(s.maxFailures) {
@@ -114,7 +101,9 @@ func (s *RedisStore) RecordFailure(ctx context.Context, identifier string) (bool
 		if err = s.client.SetKey(ctx, lock, "1", s.lockTTL); err != nil {
 			return false, err
 		}
-		s.client.DeleteKey(ctx, key)
+		if _, err := s.client.Delete(ctx, key); err != nil {
+			return false, err
+		}
 		return true, nil
 	}
 	return false, nil
@@ -125,14 +114,16 @@ func (s *RedisStore) Reset(ctx context.Context, identifier string) error {
 	if err != nil {
 		return err
 	}
-	s.client.DeleteKey(ctx, key)
+	if _, err := s.client.Delete(ctx, key); err != nil {
+		return err
+	}
 
 	key, err = lockKey(identifier)
 	if err != nil {
 		return err
 	}
-	s.client.DeleteKey(ctx, key)
-	return nil
+	_, err = s.client.Delete(ctx, key)
+	return err
 }
 
 func failKey(identifier string) (string, error) {

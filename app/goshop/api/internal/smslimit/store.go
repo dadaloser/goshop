@@ -35,9 +35,9 @@ type RedisStore struct {
 	maxSends int
 }
 
-func NewRedisStore(client ...*storage.Client) *RedisStore {
+func NewRedisStore(client *storage.Client) *RedisStore {
 	return &RedisStore{
-		client:   storage.NewRedisCluster(client...),
+		client:   storage.NewRedisCluster(client),
 		cooldown: defaultCooldown,
 		window:   defaultWindow,
 		maxSends: defaultMaxSends,
@@ -54,37 +54,26 @@ func (s *RedisStore) Take(ctx context.Context, mobile string, codeType uint) (bo
 		return false, err
 	}
 
-	if !s.client.Connect() {
-		return false, storage.ErrRedisIsDown
-	}
-	client := s.client.GetClient()
-	if client == nil {
-		return false, storage.ErrRedisIsDown
-	}
-
-	exists, err := client.Exists(ctx, cooldownKey).Result()
+	reserved, err := s.client.SetIfAbsent(ctx, cooldownKey, "1", s.cooldown)
 	if err != nil {
 		return false, err
 	}
-	if exists > 0 {
+	if !reserved {
 		return false, nil
 	}
 
-	count, err := client.Incr(ctx, windowKey).Result()
+	count, err := s.client.IncrementWithExpiry(ctx, windowKey, s.window)
 	if err != nil {
-		return false, err
-	}
-	if count == 1 {
-		if err = client.Expire(ctx, windowKey, s.window).Err(); err != nil {
-			return false, err
+		if _, cleanupErr := s.client.DeleteIfValue(ctx, cooldownKey, "1"); cleanupErr != nil {
+			return false, stderrors.Join(err, fmt.Errorf("clear sms cooldown after increment failure: %w", cleanupErr))
 		}
+		return false, err
 	}
 	if count > int64(s.maxSends) {
+		if _, err := s.client.DeleteIfValue(ctx, cooldownKey, "1"); err != nil {
+			return false, err
+		}
 		return false, nil
-	}
-
-	if err = client.Set(ctx, cooldownKey, "1", s.cooldown).Err(); err != nil {
-		return false, err
 	}
 	return true, nil
 }

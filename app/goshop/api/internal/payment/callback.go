@@ -30,10 +30,6 @@ type CallbackHandler struct {
 	now     func() time.Time
 }
 
-func NewCallbackHandler(opts *options.PaymentOptions, service CallbackService) *CallbackHandler {
-	return NewCallbackHandlerWithNonceStore(opts, service, NewRedisNonceStore())
-}
-
 func NewCallbackHandlerWithNonceStore(opts *options.PaymentOptions, service CallbackService, nonces NonceStore) *CallbackHandler {
 	return &CallbackHandler{opts: opts, service: service, nonces: nonces, now: time.Now}
 }

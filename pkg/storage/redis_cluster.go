@@ -16,11 +16,10 @@ import (
 
 	"github.com/redis/go-redis/extra/redisotel/v9"
 
+	"goshop/pkg/log"
+
 	"github.com/redis/go-redis/v9"
 	uuid "github.com/satori/go.uuid"
-	"github.com/spf13/viper"
-
-	"goshop/pkg/log"
 )
 
 /**
@@ -36,7 +35,6 @@ type Config struct {
 	Username              string
 	Password              string
 	Database              int
-	MaxIdle               int
 	MaxActive             int
 	Timeout               int
 	EnableCluster         bool
@@ -46,8 +44,15 @@ type Config struct {
 	Resilience            *resilience.Options
 }
 
-// ErrRedisIsDown is returned when we can't communicate with redis.
-var ErrRedisIsDown = errors.New("storage: Redis is either down or ws not configured")
+var (
+	// ErrRedisIsDown is returned when we can't communicate with redis.
+	ErrRedisIsDown = errors.New("storage: Redis is either down or not configured")
+	// ErrRedisClientClosed is returned after a Client has been closed.
+	ErrRedisClientClosed = errors.New("storage: redis client is closed")
+	// ErrKeyValueMismatch is returned when an atomic consume operation finds a
+	// key with a different value.
+	ErrKeyValueMismatch = errors.New("storage: redis key value mismatch")
+)
 
 const (
 	redisRetryInitialDelay = time.Second
@@ -64,6 +69,7 @@ type Client struct {
 	pool    redis.UniversalClient
 	up      bool
 	stopped bool
+	done    chan struct{}
 }
 
 // NewClient validates config and returns an unconnected Redis client. Start
@@ -75,7 +81,7 @@ func NewClient(config *Config) (*Client, error) {
 
 	configCopy := *config
 	configCopy.Address = append([]string(nil), config.Address...)
-	return &Client{config: configCopy}, nil
+	return &Client{config: configCopy, done: make(chan struct{})}, nil
 }
 
 // Connected reports whether the latest probe succeeded.
@@ -161,7 +167,13 @@ func (c *Client) Start(ctx context.Context) error {
 	failures := 0
 	delay := time.Duration(0)
 	for {
-		if !waitForRedisProbe(ctx, delay) {
+		if c.isStopped() {
+			return ErrRedisClientClosed
+		}
+		if err := waitForRedisProbe(ctx, c.done, delay); err != nil {
+			if stderrors.Is(err, ErrRedisClientClosed) {
+				return ErrRedisClientClosed
+			}
 			return nil
 		}
 		if c.connect() && c.connectionIsOpen(ctx) {
@@ -176,6 +188,12 @@ func (c *Client) Start(ctx context.Context) error {
 	}
 }
 
+func (c *Client) isStopped() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.stopped
+}
+
 // Close permanently stops this client. Once stopped, a concurrent probe loop
 // cannot allocate a replacement pool.
 func (c *Client) Close() error {
@@ -186,7 +204,12 @@ func (c *Client) Close() error {
 	pool := c.pool
 	c.pool = nil
 	c.up = false
-	c.stopped = true
+	if !c.stopped {
+		c.stopped = true
+		if c.done != nil {
+			close(c.done)
+		}
+	}
 	c.mu.Unlock()
 	if pool == nil {
 		return nil
@@ -212,6 +235,14 @@ end
 return value
 `)
 
+var compareAndDeleteScript = redis.NewScript(`
+local current = redis.call("GET", KEYS[1])
+if not current then return 0 end
+if current ~= ARGV[1] then return -1 end
+redis.call("DEL", KEYS[1])
+return 1
+`)
+
 // RedisCluster is a storage manager that uses the redis database.
 type RedisCluster struct {
 	client    *Client
@@ -224,23 +255,21 @@ type RedisCluster struct {
 
 // NewRedisCluster creates a storage facade bound to client. A nil client is
 // permitted for isolated tests and fails closed with ErrRedisIsDown.
-func NewRedisCluster(clients ...*Client) *RedisCluster {
-	var client *Client
-	if len(clients) > 0 {
-		client = clients[0]
-	}
+func NewRedisCluster(client *Client) *RedisCluster {
 	return &RedisCluster{client: client}
 }
 
-func waitForRedisProbe(ctx context.Context, delay time.Duration) bool {
+func waitForRedisProbe(ctx context.Context, done <-chan struct{}, delay time.Duration) error {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 
 	select {
 	case <-ctx.Done():
-		return false
+		return ctx.Err()
+	case <-done:
+		return ErrRedisClientClosed
 	case <-timer.C:
-		return true
+		return nil
 	}
 }
 
@@ -337,9 +366,6 @@ func (c *Config) Validate() error {
 	}
 	if c.MaxActive < 0 {
 		return fmt.Errorf("redis max active must not be negative: %d", c.MaxActive)
-	}
-	if c.MaxIdle < 0 {
-		return fmt.Errorf("redis max idle must not be negative: %d", c.MaxIdle)
 	}
 	if c.Timeout < 0 {
 		return fmt.Errorf("redis timeout must not be negative: %d", c.Timeout)
@@ -495,65 +521,6 @@ func (r *RedisCluster) GetKey(ctx context.Context, keyName string) (string, erro
 	}
 
 	return value, nil
-}
-
-// GetMultiKey gets multiple keys from the database.
-func (r *RedisCluster) GetMultiKey(ctx context.Context, keys []string) ([]string, error) {
-	if err := r.up(); err != nil {
-		return nil, err
-	}
-	cluster := r.singleton()
-	keyNames := make([]string, len(keys))
-	copy(keyNames, keys)
-	for index, val := range keyNames {
-		keyNames[index] = r.fixKey(val)
-	}
-
-	result := make([]string, 0)
-
-	switch v := cluster.(type) {
-	case *redis.ClusterClient:
-		{
-			getCmds := make([]*redis.StringCmd, 0)
-			pipe := v.Pipeline()
-			for _, key := range keyNames {
-				getCmds = append(getCmds, pipe.Get(ctx, key))
-			}
-			_, err := pipe.Exec(ctx)
-			if err != nil && !errors.Is(err, redis.Nil) {
-				log.Debugf("Error trying to get value: %s", err.Error())
-
-				return nil, ErrKeyNotFound
-			}
-			for _, cmd := range getCmds {
-				result = append(result, cmd.Val())
-			}
-		}
-	case *redis.Client:
-		{
-			values, err := cluster.MGet(ctx, keyNames...).Result()
-			if err != nil {
-				log.Debugf("Error trying to get value: %s", err.Error())
-
-				return nil, ErrKeyNotFound
-			}
-			for _, val := range values {
-				strVal := fmt.Sprint(val)
-				if strVal == "<nil>" {
-					strVal = ""
-				}
-				result = append(result, strVal)
-			}
-		}
-	}
-
-	for _, val := range result {
-		if val != "" {
-			return result, nil
-		}
-	}
-
-	return nil, ErrKeyNotFound
 }
 
 // GetKeyTTL return ttl of the given key.
@@ -819,42 +786,6 @@ func (r *RedisCluster) GetKeysAndValues(ctx context.Context) map[string]string {
 	return r.GetKeysAndValuesWithFilter(ctx, "")
 }
 
-// DeleteKey will remove a key from the database.
-func (r *RedisCluster) DeleteKey(ctx context.Context, keyName string) bool {
-	if err := r.up(); err != nil {
-		// log.Debug(err)
-		return false
-	}
-	log.Debug(
-		"Deleting key",
-		log.String("rawKeyHash", redactedRedisKey(keyName)),
-		log.String("fixedKeyHash", redactedRedisKey(r.fixKey(keyName))),
-	)
-	n, err := r.singleton().Del(ctx, r.fixKey(keyName)).Result()
-	if err != nil {
-		log.Errorf("Error trying to delete key: %s", err.Error())
-	}
-
-	return n > 0
-}
-
-// DeleteAllKeys will remove all keys from the database.
-func (r *RedisCluster) DeleteAllKeys(ctx context.Context) bool {
-	if err := r.up(); err != nil {
-		return false
-	}
-	n, err := r.singleton().FlushAll(ctx).Result()
-	if err != nil {
-		log.Errorf("Error trying to delete keys: %s", err.Error())
-	}
-
-	if n == "OK" {
-		return true
-	}
-
-	return false
-}
-
 // DeleteRawKey will remove a key from the database without prefixing, assumes user knows what they are doing.
 func (r *RedisCluster) DeleteRawKey(ctx context.Context, keyName string) bool {
 	if err := r.up(); err != nil {
@@ -1058,39 +989,6 @@ func (r *RedisCluster) Exists(ctx context.Context, keyName string) (bool, error)
 	}
 
 	return false, nil
-}
-
-// AppendToSetPipelined append values to redis pipeline.
-func (r *RedisCluster) AppendToSetPipelined(ctx context.Context, key string, values [][]byte) {
-	if len(values) == 0 {
-		return
-	}
-
-	fixedKey := r.fixKey(key)
-	if err := r.up(); err != nil {
-		log.Debug(err.Error())
-
-		return
-	}
-	client := r.singleton()
-
-	pipe := client.Pipeline()
-	for _, val := range values {
-		pipe.RPush(ctx, fixedKey, val)
-	}
-
-	if _, err := pipe.Exec(ctx); err != nil {
-		log.Errorf("Error trying to append to set keys: %s", err.Error())
-	}
-
-	// if we need to set an expiration time
-	if storageExpTime := int64(viper.GetDuration("analytics.storage-expiration-time")); storageExpTime != int64(-1) {
-		// If there is no expiry on the analytics set, we should set it.
-		exp, _ := r.GetExp(ctx, key)
-		if exp == -1 {
-			_ = r.SetExp(ctx, key, time.Duration(storageExpTime)*time.Second)
-		}
-	}
 }
 
 // GetSet return key set value.

@@ -5,6 +5,8 @@ import (
 
 	"goshop/pkg/errors"
 	"goshop/pkg/log"
+
+	"github.com/redis/go-redis/v9"
 )
 
 /**
@@ -33,10 +35,21 @@ func (r *RedisCluster) StartPubSubHandler(ctx context.Context, channel string, c
 		return err
 	}
 
-	for msg := range pubsub.Channel() {
-		callback(msg)
+	return handlePubSubMessages(ctx, pubsub.Channel(), callback)
+}
+
+func handlePubSubMessages(ctx context.Context, messages <-chan *redis.Message, callback func(interface{})) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case msg, ok := <-messages:
+			if !ok {
+				return nil
+			}
+			callback(msg)
+		}
 	}
-	return nil
 }
 
 // Publish publishes message to channel.

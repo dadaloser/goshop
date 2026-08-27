@@ -2,6 +2,7 @@ package payment
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 )
 
 func TestRedisNonceStoreRejectsInvalidInput(t *testing.T) {
-	store := NewRedisNonceStore()
+	store := NewRedisNonceStore(nil)
 	tests := []struct {
 		name  string
 		nonce string
@@ -30,9 +31,9 @@ func TestRedisNonceStoreRejectsInvalidInput(t *testing.T) {
 }
 
 func TestRedisNonceStoreReportsRedisDown(t *testing.T) {
-	store := NewRedisNonceStore()
+	store := NewRedisNonceStore(nil)
 	reserved, err := store.Reserve(context.Background(), "nonce-1", time.Minute)
-	if err != storage.ErrRedisIsDown || reserved {
+	if !errors.Is(err, storage.ErrRedisIsDown) || reserved {
 		t.Fatalf("Reserve() reserved=%v err=%v, want ErrRedisIsDown", reserved, err)
 	}
 }

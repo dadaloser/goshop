@@ -22,7 +22,11 @@ import (
 )
 
 func registerAdminReviewRoutes(server *restserver.Server, cfg *config.Config, users upb.UserClient, goods goodspb.GoodsClient, reviews rpb.ReviewClient, clients ...*storage.Client) error {
-	return registerAdminReviewRoutesWithStores(server, cfg, users, goods, reviews, tokenrevocation.NewRedisStore(clients...), tokenversion.NewRedisStore(clients...))
+	var client *storage.Client
+	if len(clients) > 0 {
+		client = clients[0]
+	}
+	return registerAdminReviewRoutesWithStores(server, cfg, users, goods, reviews, tokenrevocation.NewRedisStore(client), tokenversion.NewRedisStore(client))
 }
 
 func registerAdminReviewRoutesWithStores(

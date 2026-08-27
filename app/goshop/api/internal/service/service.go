@@ -95,7 +95,7 @@ func NewService(store data.DataFactory, smsOpts *options.SmsOptions, jwtOpts *op
 		jwtOpts:         jwtOpts,
 		codeStore:       codeStore,
 		loginAttempts:   loginAttempts,
-		loginIPAttempts: loginattempt.NewIPRedisStore(),
+		loginIPAttempts: loginattempt.NewIPRedisStore(nil),
 		smsAttempts:     smsAttempts,
 		tokenVersions:   tokenVersions,
 	}

@@ -26,7 +26,11 @@ import (
 
 // 初始化路由
 func initRouterWithBusinessClients(g *restserver.Server, cfg *config.Config, users upbv1.UserClient, goods goodspb.GoodsClient, inventory inventorypb.InventoryClient, orders orderpb.OrderClient, clients ...*storage.Client) error {
-	return initRouterWithDependencies(g, cfg, users, goods, inventory, orders, tokenrevocation.NewRedisStore(clients...), tokenversion.NewRedisStore(clients...))
+	var client *storage.Client
+	if len(clients) > 0 {
+		client = clients[0]
+	}
+	return initRouterWithDependencies(g, cfg, users, goods, inventory, orders, tokenrevocation.NewRedisStore(client), tokenversion.NewRedisStore(client))
 }
 
 func initRouterWithSessionStores(

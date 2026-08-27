@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -187,6 +188,41 @@ func TestClientCloseClearsReadiness(t *testing.T) {
 	}
 }
 
+func TestClientStartReturnsWhenClosed(t *testing.T) {
+	client, err := NewClient(&Config{Host: "127.0.0.1", Port: 6379})
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if err := client.Start(context.Background()); !errors.Is(err, ErrRedisClientClosed) {
+		t.Fatalf("Start() error = %v, want ErrRedisClientClosed", err)
+	}
+}
+
+func TestWaitForRedisProbeReturnsWhenClientCloses(t *testing.T) {
+	client, err := NewClient(&Config{Host: "127.0.0.1", Port: 6379})
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	result := make(chan error, 1)
+	go func() {
+		result <- waitForRedisProbe(context.Background(), client.done, time.Hour)
+	}()
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	select {
+	case err := <-result:
+		if !errors.Is(err, ErrRedisClientClosed) {
+			t.Fatalf("waitForRedisProbe() error = %v, want ErrRedisClientClosed", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("waitForRedisProbe() did not return after Client.Close()")
+	}
+}
+
 func TestClientsOwnIndependentPools(t *testing.T) {
 	first, err := NewClient(&Config{Host: "127.0.0.1", Port: 6379})
 	if err != nil {
@@ -217,10 +253,10 @@ func TestRedisClusterCacheModeSharesPrimaryClient(t *testing.T) {
 	client.pool = pool
 	client.setUp(true)
 
-	if got := NewRedisCluster(client).GetClient(); got != pool {
-		t.Fatalf("primary GetClient() = %p, want %p", got, pool)
+	if !NewRedisCluster(client).Connect() {
+		t.Fatal("primary RedisCluster is unavailable, want shared client readiness")
 	}
-	if got := NewRedisCluster(client).GetClient(); got != pool {
-		t.Fatalf("cache GetClient() = %p, want %p", got, pool)
+	if !NewRedisCluster(client).Connect() {
+		t.Fatal("cache RedisCluster is unavailable, want shared client readiness")
 	}
 }

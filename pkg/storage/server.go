@@ -6,14 +6,16 @@ import (
 
 // Server runs the Redis connection loop under the application lifecycle.
 type Server struct {
-	client  *Client
-	initErr error
+	client *Client
 }
 
 // NewServer creates a lifecycle-managed Redis server.
-func NewServer(config *Config) *Server {
+func NewServer(config *Config) (*Server, error) {
 	client, err := NewClient(config)
-	return &Server{client: client, initErr: err}
+	if err != nil {
+		return nil, err
+	}
+	return &Server{client: client}, nil
 }
 
 // Client returns the Client owned by this lifecycle server.
@@ -28,9 +30,6 @@ func (s *Server) Client() *Client {
 func (s *Server) Start(ctx context.Context) error {
 	if s == nil {
 		return ErrRedisIsDown
-	}
-	if s.initErr != nil {
-		return s.initErr
 	}
 	return s.client.Start(ctx)
 }

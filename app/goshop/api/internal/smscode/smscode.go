@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"goshop/pkg/storage"
-
-	"github.com/redis/go-redis/v9"
 )
 
 /**
@@ -27,7 +25,7 @@ const (
 type Store interface {
 	Get(ctx context.Context, key string) (string, error)
 	Set(ctx context.Context, key, value string, ttl time.Duration) error
-	Delete(ctx context.Context, key string) bool
+	Delete(ctx context.Context, key string) (bool, error)
 	DeleteIfValue(ctx context.Context, key, value string) (bool, error)
 	Consume(ctx context.Context, key, value string) error
 }
@@ -36,8 +34,8 @@ type RedisStore struct {
 	client *storage.RedisCluster
 }
 
-func NewRedisStore(client ...*storage.Client) *RedisStore {
-	return &RedisStore{client: storage.NewRedisCluster(client...)}
+func NewRedisStore(client *storage.Client) *RedisStore {
+	return &RedisStore{client: storage.NewRedisCluster(client)}
 }
 
 func RegisterKey(mobile string) string {
@@ -60,52 +58,18 @@ func (s *RedisStore) Set(ctx context.Context, key, value string, ttl time.Durati
 	return s.client.SetKey(ctx, key, value, ttl)
 }
 
-func (s *RedisStore) Delete(ctx context.Context, key string) bool {
-	return s.client.DeleteKey(ctx, key)
+func (s *RedisStore) Delete(ctx context.Context, key string) (bool, error) {
+	return s.client.Delete(ctx, key)
 }
-
-var deleteIfValueScript = redis.NewScript(`
-local current = redis.call('GET', KEYS[1])
-if current ~= ARGV[1] then return 0 end
-redis.call('DEL', KEYS[1])
-return 1
-`)
 
 func (s *RedisStore) DeleteIfValue(ctx context.Context, key, value string) (bool, error) {
-	client := s.client.GetClient()
-	if client == nil {
-		return false, storage.ErrRedisIsDown
-	}
-	deleted, err := deleteIfValueScript.Run(ctx, client, []string{key}, value).Int()
-	if err != nil {
-		return false, err
-	}
-	return deleted == 1, nil
+	return s.client.DeleteIfValue(ctx, key, value)
 }
 
-var consumeScript = redis.NewScript(`
-local current = redis.call('GET', KEYS[1])
-if not current then return 0 end
-if current ~= ARGV[1] then return -1 end
-redis.call('DEL', KEYS[1])
-return 1
-`)
-
 func (s *RedisStore) Consume(ctx context.Context, key, value string) error {
-	client := s.client.GetClient()
-	if client == nil {
-		return storage.ErrRedisIsDown
-	}
-	result, err := consumeScript.Run(ctx, client, []string{key}, value).Int()
-	if err != nil {
-		return err
-	}
-	switch result {
-	case 1:
-		return nil
-	case -1:
+	err := s.client.ConsumeIfValue(ctx, key, value)
+	if errors.Is(err, storage.ErrKeyValueMismatch) {
 		return ErrCodeMismatch
-	default:
-		return storage.ErrKeyNotFound
 	}
+	return err
 }

@@ -226,9 +226,9 @@ func (f *fakeSmsCodeStore) Set(context.Context, string, string, time.Duration) e
 	return nil
 }
 
-func (f *fakeSmsCodeStore) Delete(context.Context, string) bool {
+func (f *fakeSmsCodeStore) Delete(context.Context, string) (bool, error) {
 	f.deleteCalled = true
-	return true
+	return true, nil
 }
 
 func (f *fakeSmsCodeStore) DeleteIfValue(context.Context, string, string) (bool, error) {

@@ -17,7 +17,6 @@ type RedisOptions struct {
 	Password              string              `mapstructure:"password" json:"password"`
 	Database              int                 `mapstructure:"database" json:"database"`
 	MasterName            string              `mapstructure:"master-name" json:"master-name"`
-	MaxIdle               int                 `mapstructure:"optimisation-max-idle" json:"optimisation-max-idle"`
 	MaxActive             int                 `mapstructure:"optimisation-max-active" json:"optimisation-max-active"`
 	Timeout               int                 `mapstructure:"timeout" json:"timeout"`
 	EnableCluster         bool                `mapstructure:"enable-cluster" json:"enable-cluster"`
@@ -37,7 +36,6 @@ func NewRedisOptions() *RedisOptions {
 		Password:              "",
 		Database:              0,
 		MasterName:            "",
-		MaxIdle:               2000,
 		MaxActive:             4000,
 		Timeout:               0,
 		EnableCluster:         false,
@@ -90,11 +88,6 @@ func (o *RedisOptions) AddFlags(fs *pflag.FlagSet) {
 		"As such, if you have --redis.enable-cluster=true, then this value should be omitted or explicitly set to 0.")
 
 	fs.StringVar(&o.MasterName, "redis.master-name", o.MasterName, "The name of master redis instance.")
-
-	fs.IntVar(&o.MaxIdle, "redis.optimisation-max-idle", o.MaxIdle, ""+
-		"This setting will configure how many connections are maintained in the pool when idle (no traffic). "+
-		"Set the --redis.optimisation-max-active to something large, we usually leave it at around 2000 for "+
-		"HA deployments.")
 
 	fs.IntVar(&o.MaxActive, "redis.optimisation-max-active", o.MaxActive, ""+
 		"In order to not over commit connections to the Redis server, we may limit the total "+

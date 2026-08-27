@@ -73,7 +73,7 @@ type userService struct {
 }
 
 func NewUserService(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) UserSrv {
-	return NewUserServiceWithIPAttempts(data, jwtOpts, codeStore, loginAttempts, loginattempt.NewIPRedisStore(), smsAttempts, tokenVersions)
+	return NewUserServiceWithIPAttempts(data, jwtOpts, codeStore, loginAttempts, loginattempt.NewIPRedisStore(nil), smsAttempts, tokenVersions)
 }
 
 func NewUserServiceWithIPAttempts(data data.DataFactory, jwtOpts *options.JwtOptions, codeStore smscode.Store, loginAttempts, loginIPAttempts loginattempt.Store, smsAttempts smsattempt.Store, tokenVersions tokenversion.Store) UserSrv {
@@ -242,8 +242,10 @@ func (us *userService) SmsLogin(ctx context.Context, mobile, smsCode string) (*U
 		return nil, err
 	}
 
-	if ok := us.codeStore.Delete(ctx, key); !ok {
-		log.Warn("delete sms login code failed")
+	if deleted, err := us.codeStore.Delete(ctx, key); err != nil {
+		return nil, err
+	} else if !deleted {
+		return nil, errors.NewSpec(bizcode.SMSCodeNotExistSpec, "sms verification code was not found")
 	}
 
 	token, expiresAt, refreshToken, refreshExpiresAt, sessionID, err := us.createToken(ctx, user)
