@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	appclient "goshop/app/pkg/client"
-	appoptions "goshop/app/pkg/options"
 	"goshop/gmicro/registry/consul"
 	"goshop/gmicro/server/rpcserver"
 
@@ -34,7 +32,7 @@ import (
 func TestRunContextConsulDiscoveryMTLSClosedLoop(t *testing.T) {
 	t.Parallel()
 
-	policy := newSmokeSecurityPolicy(t, "goshop.internal")
+	policy := newSmokeSecurityPolicy(t, "service.example.test")
 	rpcServer, err := rpcserver.NewServer(
 		rpcserver.WithAddress("127.0.0.1:0"),
 		rpcserver.WithServerSecurityPolicy(policy),
@@ -51,7 +49,7 @@ func TestRunContextConsulDiscoveryMTLSClosedLoop(t *testing.T) {
 	registry := consul.New(consulClient, consul.WithHealthCheck(true), consul.WithHeartbeat(false))
 
 	smokeApp := New(
-		WithName("smoke-user-srv"),
+		WithName("test-service"),
 		WithRPCServer(rpcServer),
 		WithRegistrar(registry),
 		WithRegistrarTimeout(3*time.Second),
@@ -75,15 +73,11 @@ func TestRunContextConsulDiscoveryMTLSClosedLoop(t *testing.T) {
 		t.Fatalf("registered checks = %+v, want secure grpc health check", registered.Checks)
 	}
 
-	registryOptions := &appoptions.RegistryOptions{
-		Address: fakeConsul.server.URL,
-		Scheme:  "http",
-	}
-	conn, err := appclient.DialService(
+	conn, err := rpcserver.DialDiscovery(
 		context.Background(),
-		registryOptions,
-		policy,
-		"smoke-user-srv",
+		rpcserver.WithEndpoint("discovery:///test-service"),
+		rpcserver.WithDiscovery(registry),
+		rpcserver.WithClientSecurityPolicy(policy),
 		rpcserver.WithConnectTimeout(2*time.Second),
 		rpcserver.WithClientTimeout(2*time.Second),
 	)

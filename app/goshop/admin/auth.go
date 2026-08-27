@@ -12,6 +12,7 @@ import (
 
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/admin/config"
+	"goshop/app/pkg/authclaims"
 	"goshop/app/pkg/authresponse"
 	"goshop/app/pkg/authsession/tokenrevocation"
 	"goshop/app/pkg/authsession/tokenversion"
@@ -260,7 +261,7 @@ func (h *staffAuthHandler) BootstrapSession(ctx *gin.Context) {
 	now := time.Now()
 	correlationID := uuid.NewString()
 	keyID := h.adminAuth.EffectiveBreakGlassKeyID()
-	token, err := middlewares.NewJWT(h.jwtOpts.Key).CreateToken(middlewares.CustomClaims{
+	token, err := middlewares.NewJWT(h.jwtOpts.Key).CreateToken(authclaims.Claims{
 		PrincipalType: string(authz.PrincipalAdminBootstrap),
 		AccountStatus: string(authz.AccountStatusActive),
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -384,10 +385,10 @@ func (h *staffAuthHandler) createToken(ctx context.Context, authUser *upbv1.User
 		return "", 0, err
 	}
 	now := time.Now()
-	token, err := middlewares.NewJWT(h.jwtOpts.Key).CreateToken(middlewares.CustomClaims{
+	token, err := middlewares.NewJWT(h.jwtOpts.Key).CreateToken(authclaims.Claims{
 		ID:              uint(authUser.GetUser().GetId()),
 		NickName:        authUser.GetUser().GetNickName(),
-		AuthorityId:     uint(authUser.GetLegacyRole()),
+		AuthorityID:     uint(authUser.GetLegacyRole()),
 		Roles:           append([]string(nil), authUser.GetStaffRoles()...),
 		PrincipalType:   string(authz.PrincipalStaff),
 		AccountStatus:   authUser.GetUser().GetStatus(),

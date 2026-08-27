@@ -10,8 +10,11 @@ import (
 
 func TestJWTRejectsNonHS256TokensAcrossParserPaths(t *testing.T) {
 	const key = "01234567890123456789012345678901"
-	claims := CustomClaims{
-		ID: 1,
+	claims := struct {
+		Subject string `json:"sub"`
+		jwt.RegisteredClaims
+	}{
+		Subject: "principal-1",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 		},
@@ -34,13 +37,11 @@ func TestJWTRejectsNonHS256TokensAcrossParserPaths(t *testing.T) {
 func TestJWTParseTokenWithOptionsValidatesHS256Token(t *testing.T) {
 	const key = "01234567890123456789012345678901"
 	parser := NewJWT(key)
-	rawToken, err := parser.CreateToken(CustomClaims{
-		ID: 1,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "issuer",
-			Audience:  jwt.ClaimStrings{"audience"},
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		},
+	rawToken, err := parser.CreateToken(jwt.MapClaims{
+		"sub": "principal-1",
+		"iss": "issuer",
+		"aud": []string{"audience"},
+		"exp": time.Now().Add(time.Hour).Unix(),
 	})
 	if err != nil {
 		t.Fatalf("CreateToken() error = %v", err)
@@ -50,7 +51,7 @@ func TestJWTParseTokenWithOptionsValidatesHS256Token(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseTokenWithOptions() error = %v", err)
 	}
-	if claims.ID != 1 {
-		t.Errorf("ParseTokenWithOptions() user ID = %d, want %d", claims.ID, 1)
+	if claims["sub"] != "principal-1" {
+		t.Errorf("ParseTokenWithOptions() subject = %v, want principal-1", claims["sub"])
 	}
 }

@@ -26,7 +26,7 @@ type inventoryRPCGateway struct {
 func NewInventoryRPCGatewayContext(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	rpcSecurity *rpcserver.SecurityPolicy,
+	rpcSecurity *options.RPCSecurityOptions,
 	rpcResilience *resilience.Options,
 ) (InventoryGateway, error) {
 	if ctx == nil {

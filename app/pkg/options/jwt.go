@@ -24,8 +24,8 @@ const (
 
 func NewJwtOptions(audience ...string) *JwtOptions {
 	opts := &JwtOptions{
-		Realm:      "imooc",
-		Key:        "imooc",
+		Realm:      "xtan",
+		Key:        "xtan",
 		Timeout:    24 * time.Hour,
 		MaxRefresh: 24 * time.Hour,
 	}
@@ -58,7 +58,7 @@ func (s *JwtOptions) ValidateStartup() error {
 	if s.Key == "" {
 		return errors.New("jwt.key is required")
 	}
-	if s.Key == "imooc" {
+	if s.Key == "xtan" {
 		return errors.New("jwt.key must not use the development default")
 	}
 	if s.Audience == "" {

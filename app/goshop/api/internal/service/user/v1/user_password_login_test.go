@@ -9,6 +9,7 @@ import (
 
 	gpb "goshop/api/goods/v1"
 	"goshop/app/goshop/api/internal/data"
+	"goshop/app/pkg/authclaims"
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver/middlewares"
@@ -124,7 +125,8 @@ func TestPasswordLoginResetsFailuresOnSuccess(t *testing.T) {
 	if got.Token == "" {
 		t.Fatal("PasswordLogin() token is empty")
 	}
-	claims, err := middlewares.NewJWT("01234567890123456789012345678901").ParseToken(got.Token)
+	claims := &authclaims.Claims{}
+	err = middlewares.NewJWT("01234567890123456789012345678901").ParseTokenWithClaims(got.Token, claims)
 	if err != nil {
 		t.Fatalf("ParseToken() error = %v", err)
 	}

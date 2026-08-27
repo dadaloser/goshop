@@ -133,7 +133,7 @@ func TestDialSecureRequiresTLSCredentials(t *testing.T) {
 }
 
 func TestDialSecureWithTLSConfigSucceedsWhenEndpointReady(t *testing.T) {
-	serverTLS, clientTLS := newTestMutualTLSConfigs(t, "goshop.internal")
+	serverTLS, clientTLS := newTestMutualTLSConfigs(t, "service.example.test")
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -162,7 +162,7 @@ func TestDialSecureWithTLSConfigSucceedsWhenEndpointReady(t *testing.T) {
 }
 
 func TestDialSecureWithSecurityPolicySucceedsWhenEndpointReady(t *testing.T) {
-	policy := newTestSecurityPolicy(t, "goshop.internal")
+	policy := newTestSecurityPolicy(t, "service.example.test")
 
 	server, err := NewServer(
 		WithAddress("127.0.0.1:0"),

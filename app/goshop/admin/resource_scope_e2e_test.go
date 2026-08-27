@@ -13,9 +13,9 @@ import (
 	orderpb "goshop/api/order/v1"
 	rpb "goshop/api/review/v1"
 	upbv1 "goshop/api/user/v1"
+	"goshop/app/pkg/authclaims"
 	"goshop/app/pkg/authz"
 	"goshop/gmicro/server/restserver"
-	"goshop/gmicro/server/restserver/middlewares"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -75,7 +75,7 @@ func TestAUTH201GoodsScopeNegativeMatrix(t *testing.T) {
 		},
 		{
 			name: "break glass token cannot access staff route group",
-			token: mustCreateAdminTokenWithClaims(t, cfg.Jwt, middlewares.CustomClaims{
+			token: mustCreateAdminTokenWithClaims(t, cfg.Jwt, authclaims.Claims{
 				PrincipalType: string(authz.PrincipalAdminBootstrap),
 				AccountStatus: string(authz.AccountStatusActive),
 			}),

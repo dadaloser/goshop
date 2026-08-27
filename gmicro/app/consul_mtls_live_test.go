@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	appclient "goshop/app/pkg/client"
-	appoptions "goshop/app/pkg/options"
 	"goshop/gmicro/registry/consul"
 	"goshop/gmicro/server/rpcserver"
 
@@ -19,10 +17,13 @@ import (
 )
 
 func TestRunContextRealConsulDiscoveryMTLSClosedLoop(t *testing.T) {
-	consulAddr := getenvDefault("CONSUL_SMOKE_ADDR", "192.168.1.92:8500")
+	consulAddr := strings.TrimSpace(os.Getenv("CONSUL_SMOKE_ADDR"))
+	if consulAddr == "" {
+		t.Skip("CONSUL_SMOKE_ADDR is not configured")
+	}
 	consulScheme := getenvDefault("CONSUL_SMOKE_SCHEME", "http")
 
-	policy := newSmokeSecurityPolicy(t, "goshop.internal")
+	policy := newSmokeSecurityPolicy(t, "service.example.test")
 	rpcServer, err := rpcserver.NewServer(
 		rpcserver.WithAddress("0.0.0.0:0"),
 		rpcserver.WithServerSecurityPolicy(policy),
@@ -46,7 +47,7 @@ func TestRunContextRealConsulDiscoveryMTLSClosedLoop(t *testing.T) {
 		consul.WithHealthCheckInterval(1),
 	)
 
-	serviceName := fmt.Sprintf("smoke-user-srv-%d", time.Now().UnixNano())
+	serviceName := fmt.Sprintf("test-service-%d", time.Now().UnixNano())
 	smokeApp := New(
 		WithName(serviceName),
 		WithRPCServer(rpcServer),
@@ -92,14 +93,11 @@ func TestRunContextRealConsulDiscoveryMTLSClosedLoop(t *testing.T) {
 		t.Fatalf("health checks = %+v, want passing service TTL heartbeat check", entry.Checks)
 	}
 
-	conn, err := appclient.DialService(
+	conn, err := rpcserver.DialDiscovery(
 		context.Background(),
-		&appoptions.RegistryOptions{
-			Address: consulAddr,
-			Scheme:  consulScheme,
-		},
-		policy,
-		serviceName,
+		rpcserver.WithEndpoint("discovery:///"+serviceName),
+		rpcserver.WithDiscovery(register),
+		rpcserver.WithClientSecurityPolicy(policy),
 		rpcserver.WithConnectTimeout(3*time.Second),
 		rpcserver.WithClientTimeout(3*time.Second),
 	)

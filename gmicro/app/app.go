@@ -173,11 +173,6 @@ func waitReady(ctx context.Context, readyChans []<-chan struct{}, timeout time.D
 	return nil
 }
 
-/*
-http basic 认证
-cache： 1. redis 2. memcache 3. local cache
-jwt
-*/
 // 停止服务
 func (a *App) Stop() error {
 	ctx, cancel := contextutil.NewOperation(a.opts.stopTimeout)

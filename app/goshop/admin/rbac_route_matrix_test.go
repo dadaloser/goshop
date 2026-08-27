@@ -13,6 +13,7 @@ import (
 	rpb "goshop/api/review/v1"
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/admin/config"
+	"goshop/app/pkg/authclaims"
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver"
@@ -180,9 +181,9 @@ func mustCreateScopedAdminToken(
 	resourceTeamID string,
 ) string {
 	t.Helper()
-	return mustCreateAdminTokenWithClaims(t, jwtOpts, middlewares.CustomClaims{
+	return mustCreateAdminTokenWithClaims(t, jwtOpts, authclaims.Claims{
 		ID:              userID,
-		AuthorityId:     uint(authz.LegacyUserRoleAdmin),
+		AuthorityID:     uint(authz.LegacyUserRoleAdmin),
 		Roles:           append([]string(nil), roles...),
 		PrincipalType:   string(authz.PrincipalStaff),
 		AccountStatus:   string(authz.AccountStatusActive),
@@ -209,9 +210,9 @@ func mustCreateScopedAdminTokenWithResourceScopes(
 	for _, resourceScope := range resourceScopes {
 		encodedScopes = append(encodedScopes, authz.EncodeResourceScope(resourceScope))
 	}
-	return mustCreateAdminTokenWithClaims(t, jwtOpts, middlewares.CustomClaims{
+	return mustCreateAdminTokenWithClaims(t, jwtOpts, authclaims.Claims{
 		ID:              userID,
-		AuthorityId:     uint(authz.LegacyUserRoleAdmin),
+		AuthorityID:     uint(authz.LegacyUserRoleAdmin),
 		Roles:           append([]string(nil), roles...),
 		PrincipalType:   string(authz.PrincipalStaff),
 		AccountStatus:   string(authz.AccountStatusActive),
@@ -226,7 +227,7 @@ func mustCreateScopedAdminTokenWithResourceScopes(
 func mustCreateAdminTokenWithClaims(
 	t *testing.T,
 	jwtOpts *options.JwtOptions,
-	claims middlewares.CustomClaims,
+	claims authclaims.Claims,
 ) string {
 	t.Helper()
 	if claims.PrincipalType == "" {
@@ -235,10 +236,10 @@ func mustCreateAdminTokenWithClaims(
 	if claims.AccountStatus == "" {
 		claims.AccountStatus = string(authz.AccountStatusActive)
 	}
-	token, err := middlewares.NewJWT(jwtOpts.Key).CreateToken(middlewares.CustomClaims{
+	token, err := middlewares.NewJWT(jwtOpts.Key).CreateToken(authclaims.Claims{
 		ID:              claims.ID,
 		NickName:        claims.NickName,
-		AuthorityId:     claims.AuthorityId,
+		AuthorityID:     claims.AuthorityID,
 		Roles:           append([]string(nil), claims.Roles...),
 		PrincipalType:   claims.PrincipalType,
 		AccountStatus:   claims.AccountStatus,

@@ -17,11 +17,11 @@ func TestContextCopiesLogCorrelationValues(t *testing.T) {
 	c.Set(log.KeyUserID, uint64(42))
 
 	ctx := Context(c)
-	if got := ctx.Value(log.KeyRequestID); got != "req-123" {
+	if got := log.RequestIDFromContext(ctx); got != "req-123" {
 		t.Errorf("Context() request ID = %v, want %q", got, "req-123")
 	}
-	if got := ctx.Value(log.KeyUserID); got != uint64(42) {
-		t.Errorf("Context() user ID = %v, want %d", got, uint64(42))
+	if got := log.UserIDFromContext(ctx); got != "42" {
+		t.Errorf("Context() user ID = %v, want %q", got, "42")
 	}
 }
 

@@ -67,26 +67,24 @@ func SpecFromGRPC(err error) (apperrors.Spec, bool) {
 		return spec, true
 	}
 
-	spec := apperrors.Spec{}
 	switch grpcStatus.Code() {
 	case codes.InvalidArgument, codes.FailedPrecondition, codes.OutOfRange:
-		spec = apperrors.SpecForCode(errcode.ErrValidation)
+		return apperrors.SpecForCode(errcode.ErrValidation), true
 	case codes.NotFound:
-		spec = apperrors.SpecForCode(errcode.ErrPageNotFound)
+		return apperrors.SpecForCode(errcode.ErrPageNotFound), true
 	case codes.Aborted, codes.AlreadyExists:
-		spec = apperrors.SpecForCode(errcode.ErrConflict)
+		return apperrors.SpecForCode(errcode.ErrConflict), true
 	case codes.PermissionDenied:
-		spec = apperrors.SpecForCode(errcode.ErrPermissionDenied)
+		return apperrors.SpecForCode(errcode.ErrPermissionDenied), true
 	case codes.Unauthenticated:
-		spec = apperrors.SpecForCode(errcode.ErrTokenInvalid)
+		return apperrors.SpecForCode(errcode.ErrTokenInvalid), true
 	case codes.DeadlineExceeded:
-		spec = apperrors.SpecForCode(errcode.ErrTimeout)
+		return apperrors.SpecForCode(errcode.ErrTimeout), true
 	case codes.Unavailable:
-		spec = apperrors.SpecForCode(errcode.ErrServiceUnavailable)
+		return apperrors.SpecForCode(errcode.ErrServiceUnavailable), true
 	default:
 		return apperrors.Spec{}, false
 	}
-	return spec, true
 }
 
 func statusForKind(kind apperrors.Kind) int {

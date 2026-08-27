@@ -350,7 +350,7 @@ func TestWithTimeoutOnlyConfiguresUnaryRPCs(t *testing.T) {
 }
 
 func TestNewServerMarksTLSEnabled(t *testing.T) {
-	serverTLS, _ := newTestMutualTLSConfigs(t, "goshop.internal")
+	serverTLS, _ := newTestMutualTLSConfigs(t, "service.example.test")
 
 	srv, err := NewServer(
 		WithAddress("127.0.0.1:0"),
@@ -371,7 +371,7 @@ func TestNewServerMarksTLSEnabled(t *testing.T) {
 }
 
 func TestNewServerWithServerSecurityPolicyMarksTLSEnabled(t *testing.T) {
-	policy := newTestSecurityPolicy(t, "goshop.internal")
+	policy := newTestSecurityPolicy(t, "service.example.test")
 
 	srv, err := NewServer(
 		WithAddress("127.0.0.1:0"),

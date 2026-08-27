@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,9 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
-
-// AuthzAudience defines the value of jwt audience field.
-const AuthzAudience = "goshop.imooc.com"
 
 // JWTStrategy defines jwt bearer authentication strategy.
 type JWTStrategy struct {
@@ -54,7 +50,7 @@ func (j JWTStrategy) AuthFunc() gin.HandlerFunc {
 			return
 		}
 
-		payload := claimsToMap(*claims)
+		payload := map[string]any(claims)
 		c.Set(middlewares.JWTTokenKey, tokenString)
 		c.Set(middlewares.JWTPayloadKey, payload)
 		identity := payload[j.identityKey]
@@ -123,7 +119,7 @@ func ExtractClaims(c *gin.Context) map[string]any {
 	return claims
 }
 
-func (j JWTStrategy) parseToken(tokenString string) (*middlewares.CustomClaims, error) {
+func (j JWTStrategy) parseToken(tokenString string) (jwt.MapClaims, error) {
 	parserOptions := []jwt.ParserOption{}
 	if strings.TrimSpace(j.realm) != "" {
 		parserOptions = append(parserOptions, jwt.WithIssuer(j.realm))
@@ -133,14 +129,4 @@ func (j JWTStrategy) parseToken(tokenString string) (*middlewares.CustomClaims, 
 	}
 
 	return middlewares.NewJWTWithSigningKey(j.key).ParseTokenWithOptions(tokenString, parserOptions...)
-}
-
-func claimsToMap(claims middlewares.CustomClaims) map[string]any {
-	payload := make(map[string]any)
-	data, err := json.Marshal(claims)
-	if err != nil {
-		return payload
-	}
-	_ = json.Unmarshal(data, &payload)
-	return payload
 }

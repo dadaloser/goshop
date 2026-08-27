@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"goshop/app/goshop/api/internal/data"
+	"goshop/app/pkg/authclaims"
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/bizcode"
 	"goshop/gmicro/server/restserver/middlewares"
@@ -178,10 +179,10 @@ func (us *userService) issueAccessToken(ctx context.Context, user data.UserAuth,
 		return "", 0, errors.NewSpec(bizcode.UserAccountInactiveSpec, "user account is inactive")
 	}
 	j := middlewares.NewJWT(us.jwtOpts.Key)
-	claims := middlewares.CustomClaims{
+	claims := authclaims.Claims{
 		ID:            uint(user.ID),
 		NickName:      user.NickName,
-		AuthorityId:   uint(user.LegacyRole),
+		AuthorityID:   uint(user.LegacyRole),
 		PrincipalType: string(authz.PrincipalCustomer),
 		AccountStatus: string(status),
 		Scope:         authz.CustomerScopes(),

@@ -7,23 +7,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type CustomClaims struct {
-	ID              uint     `json:"user_id"`
-	NickName        string   `json:"nick_name,omitempty"`
-	AuthorityId     uint     `json:"authority_id,omitempty"`
-	Roles           []string `json:"roles,omitempty"`
-	PrincipalType   string   `json:"principal_type,omitempty"`
-	AccountStatus   string   `json:"status,omitempty"`
-	Scope           []string `json:"scope,omitempty"`
-	TokenVersion    uint64   `json:"token_version"`
-	SessionID       string   `json:"session_id,omitempty"`
-	ResourceDomains []string `json:"resource_domains,omitempty"`
-	ResourceStores  []string `json:"resource_stores,omitempty"`
-	ResourceTeams   []string `json:"resource_teams,omitempty"`
-	ResourceScopes  []string `json:"resource_scopes,omitempty"`
-	jwt.RegisteredClaims
-}
-
 type JWT struct {
 	SigningKey []byte
 }
@@ -51,32 +34,40 @@ func NewJWTWithSigningKey(signingKey []byte) *JWT {
 	}
 }
 
-// 创建一个token
-func (j *JWT) CreateToken(claims CustomClaims) (string, error) {
+// CreateToken signs application-defined claims with HS256.
+func (j *JWT) CreateToken(claims jwt.Claims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(j.SigningKey)
 }
 
 // ParseTokenWithOptions parses an HS256 token and applies the supplied claim validation options.
-func (j *JWT) ParseTokenWithOptions(tokenString string, options ...jwt.ParserOption) (*CustomClaims, error) {
-	parserOptions := append([]jwt.ParserOption{
-		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
-	}, options...)
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(*jwt.Token) (any, error) {
-		return j.SigningKey, nil
-	}, parserOptions...)
-	if err != nil {
+func (j *JWT) ParseTokenWithOptions(tokenString string, options ...jwt.ParserOption) (jwt.MapClaims, error) {
+	claims := jwt.MapClaims{}
+	if err := j.ParseTokenWithClaims(tokenString, claims, options...); err != nil {
 		return nil, err
-	}
-	claims, ok := token.Claims.(*CustomClaims)
-	if !ok || !token.Valid {
-		return nil, ErrTokenInvalid
 	}
 	return claims, nil
 }
 
+// ParseTokenWithClaims parses into claims owned by the caller.
+func (j *JWT) ParseTokenWithClaims(tokenString string, claims jwt.Claims, options ...jwt.ParserOption) error {
+	parserOptions := append([]jwt.ParserOption{
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+	}, options...)
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(*jwt.Token) (any, error) {
+		return j.SigningKey, nil
+	}, parserOptions...)
+	if err != nil {
+		return err
+	}
+	if !token.Valid {
+		return ErrTokenInvalid
+	}
+	return nil
+}
+
 // ParseToken parses an HS256 token.
-func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
+func (j *JWT) ParseToken(tokenString string) (jwt.MapClaims, error) {
 	claims, err := j.ParseTokenWithOptions(tokenString)
 	if errors.Is(err, jwt.ErrTokenMalformed) {
 		return nil, ErrTokenMalformed
@@ -100,6 +91,6 @@ func (j *JWT) RefreshToken(tokenString string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Hour))
-	return j.CreateToken(*claims)
+	claims["exp"] = time.Now().Add(time.Hour).Unix()
+	return j.CreateToken(claims)
 }

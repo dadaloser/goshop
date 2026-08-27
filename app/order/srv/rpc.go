@@ -56,7 +56,7 @@ func newOrderRPCServerWithFactory(cfg *config.Config, orderSrvFactory v13.Servic
 		rpcserver.WithApplicationUnaryConcurrency(cfg.Server.RPCMaxConcurrentUnary),
 		rpcserver.WithStreamMaxLifetime(cfg.Server.RPCStreamMaxLifetime),
 		rpcserver.WithApplicationStreamConcurrency(cfg.Server.RPCMaxConcurrentStreams),
-		rpcserver.WithServerSecurityPolicy(cfg.RPC),
+		rpcserver.WithServerSecurityPolicy(cfg.RPC.ToPolicy()),
 	)
 	if err != nil {
 		return nil, err

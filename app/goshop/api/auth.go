@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"goshop/app/goshop/api/internal/data"
+	"goshop/app/pkg/authclaims"
 	"goshop/app/pkg/authresponse"
 	"goshop/app/pkg/authsession/tokenrevocation"
 	"goshop/app/pkg/authsession/tokenversion"
@@ -44,7 +45,8 @@ func newJWTAuth(opts *options.JwtOptions, revokedTokens tokenrevocation.Store, t
 			}
 		}
 
-		claims, err := parser.ParseToken(token)
+		claims := &authclaims.Claims{}
+		err := parser.ParseTokenWithClaims(token, claims)
 		if err != nil {
 			log.Errorf("parse jwt claims failed: %v", err)
 			return false

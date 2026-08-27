@@ -13,23 +13,21 @@ import (
 
 func TestJWTStrategyRequiresConfiguredAudience(t *testing.T) {
 	const key = "01234567890123456789012345678901"
-	rawToken, err := middlewares.NewJWT(key).CreateToken(middlewares.CustomClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Audience:  jwt.ClaimStrings{"goshop-api"},
-			Issuer:    "test",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		},
+	rawToken, err := middlewares.NewJWT(key).CreateToken(jwt.MapClaims{
+		"aud": []string{"api.example.test"},
+		"iss": "test",
+		"exp": time.Now().Add(time.Hour).Unix(),
 	})
 	if err != nil {
 		t.Fatalf("CreateToken() error = %v, want nil", err)
 	}
 
-	apiStrategy := NewJWTStrategy([]byte(key), "test", "goshop-api", middlewares.KeyUserID, nil)
+	apiStrategy := NewJWTStrategy([]byte(key), "test", "api.example.test", middlewares.KeyUserID, nil)
 	if _, err := apiStrategy.parseToken(rawToken); err != nil {
 		t.Errorf("parseToken() API audience error = %v, want nil", err)
 	}
 
-	adminStrategy := NewJWTStrategy([]byte(key), "test", "goshop-admin", middlewares.KeyUserID, nil)
+	adminStrategy := NewJWTStrategy([]byte(key), "test", "admin.example.test", middlewares.KeyUserID, nil)
 	if _, err := adminStrategy.parseToken(rawToken); err == nil {
 		t.Error("parseToken() cross-audience error = nil, want audience rejection")
 	}
@@ -37,13 +35,11 @@ func TestJWTStrategyRequiresConfiguredAudience(t *testing.T) {
 
 func TestJWTStrategyRejectsNonHS256Token(t *testing.T) {
 	const key = "01234567890123456789012345678901"
-	strategy := NewJWTStrategy([]byte(key), "test", "goshop-api", middlewares.KeyUserID, nil)
-	token := jwt.NewWithClaims(jwt.SigningMethodHS384, middlewares.CustomClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Audience:  jwt.ClaimStrings{"goshop-api"},
-			Issuer:    "test",
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		},
+	strategy := NewJWTStrategy([]byte(key), "test", "api.example.test", middlewares.KeyUserID, nil)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS384, jwt.MapClaims{
+		"aud": []string{"api.example.test"},
+		"iss": "test",
+		"exp": time.Now().Add(time.Hour).Unix(),
 	})
 	rawToken, err := token.SignedString([]byte(key))
 	if err != nil {

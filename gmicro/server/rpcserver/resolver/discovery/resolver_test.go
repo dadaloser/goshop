@@ -102,7 +102,7 @@ func TestUpdateUsesMetadataTLSServerNameOverride(t *testing.T) {
 			Name:      "goods-srv",
 			Endpoints: []string{"grpc://127.0.0.1:9000?isSecure=true"},
 			Metadata: map[string]string{
-				"tls_server_name": "goshop.internal",
+				"tls_server_name": "service.example.test",
 			},
 		},
 	})
@@ -111,8 +111,8 @@ func TestUpdateUsesMetadataTLSServerNameOverride(t *testing.T) {
 	if len(states) != 1 || len(states[0].Addresses) != 1 {
 		t.Fatalf("UpdateState addresses = %v, want one address", states)
 	}
-	if got := states[0].Addresses[0].ServerName; got != "goshop.internal" {
-		t.Fatalf("resolver address server name = %q, want goshop.internal", got)
+	if got := states[0].Addresses[0].ServerName; got != "service.example.test" {
+		t.Fatalf("resolver address server name = %q, want service.example.test", got)
 	}
 }
 

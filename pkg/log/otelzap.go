@@ -199,8 +199,8 @@ func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, f
 		return fields
 	}
 
-	requestID := contextStringValue(ctx, KeyRequestID, "requestID")
-	userID := contextStringValue(ctx, KeyUserID, "userid", "username")
+	requestID := RequestIDFromContext(ctx)
+	userID := UserIDFromContext(ctx)
 	if requestID != "" {
 		fields = append(fields, zap.String(KeyRequestID, requestID))
 	}
@@ -243,9 +243,15 @@ func (l *Logger) logFields(ctx context.Context, lvl zapcore.Level, msg string, f
 	return fields
 }
 
-func contextStringValue(ctx context.Context, keys ...string) string {
+func contextStringValue(ctx context.Context, keys ...any) string {
+	if ctx == nil {
+		return ""
+	}
 	for _, key := range keys {
-		if key == "" || ctx == nil {
+		if key == nil {
+			continue
+		}
+		if s, ok := key.(string); ok && s == "" {
 			continue
 		}
 		value := ctx.Value(key)

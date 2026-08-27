@@ -17,7 +17,7 @@ import (
 func DialService(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	security *rpcserver.SecurityPolicy,
+	security *options.RPCSecurityOptions,
 	service string,
 	opts ...rpcserver.ClientOption,
 ) (*grpc.ClientConn, error) {
@@ -32,7 +32,7 @@ func DialService(
 	dialOpts := []rpcserver.ClientOption{
 		rpcserver.WithEndpoint(ServiceEndpoint(service)),
 		rpcserver.WithDiscovery(discovery),
-		rpcserver.WithClientSecurityPolicy(security),
+		rpcserver.WithClientSecurityPolicy(security.ToPolicy()),
 	}
 	dialOpts = append(dialOpts, opts...)
 	conn, err := rpcserver.DialDiscovery(ctx, dialOpts...)
@@ -42,7 +42,7 @@ func DialService(
 	return conn, nil
 }
 
-func NewReviewClient(ctx context.Context, registry *options.RegistryOptions, security *rpcserver.SecurityPolicy, opts ...rpcserver.ClientOption) (reviewpb.ReviewClient, *grpc.ClientConn, error) {
+func NewReviewClient(ctx context.Context, registry *options.RegistryOptions, security *options.RPCSecurityOptions, opts ...rpcserver.ClientOption) (reviewpb.ReviewClient, *grpc.ClientConn, error) {
 	conn, err := DialService(ctx, registry, security, ServiceReview, opts...)
 	if err != nil {
 		return nil, nil, err
@@ -53,7 +53,7 @@ func NewReviewClient(ctx context.Context, registry *options.RegistryOptions, sec
 func NewGoodsClient(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	security *rpcserver.SecurityPolicy,
+	security *options.RPCSecurityOptions,
 	opts ...rpcserver.ClientOption,
 ) (goodspb.GoodsClient, *grpc.ClientConn, error) {
 	conn, err := DialService(ctx, registry, security, ServiceGoods, opts...)
@@ -66,7 +66,7 @@ func NewGoodsClient(
 func NewInventoryClient(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	security *rpcserver.SecurityPolicy,
+	security *options.RPCSecurityOptions,
 	opts ...rpcserver.ClientOption,
 ) (inventorypb.InventoryClient, *grpc.ClientConn, error) {
 	conn, err := DialService(ctx, registry, security, ServiceInventory, opts...)
@@ -79,7 +79,7 @@ func NewInventoryClient(
 func NewOrderClient(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	security *rpcserver.SecurityPolicy,
+	security *options.RPCSecurityOptions,
 	opts ...rpcserver.ClientOption,
 ) (orderpb.OrderClient, *grpc.ClientConn, error) {
 	conn, err := DialService(ctx, registry, security, ServiceOrder, opts...)
@@ -92,7 +92,7 @@ func NewOrderClient(
 func NewUserClient(
 	ctx context.Context,
 	registry *options.RegistryOptions,
-	security *rpcserver.SecurityPolicy,
+	security *options.RPCSecurityOptions,
 	opts ...rpcserver.ClientOption,
 ) (userpb.UserClient, *grpc.ClientConn, error) {
 	conn, err := DialService(ctx, registry, security, ServiceUser, opts...)

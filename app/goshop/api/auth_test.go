@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"goshop/app/goshop/api/internal/data"
+	"goshop/app/pkg/authclaims"
 	"goshop/app/pkg/authsession/tokenrevocation"
 	"goshop/app/pkg/authsession/tokenversion"
 	"goshop/app/pkg/authz"
@@ -42,7 +43,7 @@ func TestJWTAuthorizerRejectsTokenVersionMismatch(t *testing.T) {
 		t.Fatalf("strategy type = %T, want auth.JWTStrategy", strategy)
 	}
 
-	token, err := middlewares.NewJWT("01234567890123456789012345678901").CreateToken(middlewares.CustomClaims{
+	token, err := middlewares.NewJWT("01234567890123456789012345678901").CreateToken(authclaims.Claims{
 		ID:           1,
 		TokenVersion: 1,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -93,7 +94,7 @@ func TestJWTAuthorizerChecksCurrentAccountStatus(t *testing.T) {
 				t.Fatalf("newJWTAuth() error = %v", err)
 			}
 			jwtStrategy := strategy.(auth.JWTStrategy)
-			token, err := middlewares.NewJWT(key).CreateToken(middlewares.CustomClaims{
+			token, err := middlewares.NewJWT(key).CreateToken(authclaims.Claims{
 				ID: 1, TokenVersion: 1,
 				RegisteredClaims: jwt.RegisteredClaims{
 					NotBefore: jwt.NewNumericDate(time.Now()),
@@ -122,7 +123,7 @@ func TestJWTAuthorizerRejectsRevokedDeviceSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newJWTAuth() error = %v", err)
 	}
-	token, err := middlewares.NewJWT(key).CreateToken(middlewares.CustomClaims{ID: 1, TokenVersion: 1, SessionID: "device-session", RegisteredClaims: jwt.RegisteredClaims{NotBefore: jwt.NewNumericDate(time.Now()), ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)), Issuer: "test"}})
+	token, err := middlewares.NewJWT(key).CreateToken(authclaims.Claims{ID: 1, TokenVersion: 1, SessionID: "device-session", RegisteredClaims: jwt.RegisteredClaims{NotBefore: jwt.NewNumericDate(time.Now()), ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)), Issuer: "test"}})
 	if err != nil {
 		t.Fatalf("CreateToken() error = %v", err)
 	}

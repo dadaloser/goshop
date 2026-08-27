@@ -59,7 +59,7 @@ func NewReviewRPCServer(cfg *config.Config, reviewService *Service) (*rpcserver.
 		rpcserver.WithApplicationUnaryConcurrency(cfg.Server.RPCMaxConcurrentUnary),
 		rpcserver.WithStreamMaxLifetime(cfg.Server.RPCStreamMaxLifetime),
 		rpcserver.WithApplicationStreamConcurrency(cfg.Server.RPCMaxConcurrentStreams),
-		rpcserver.WithServerSecurityPolicy(cfg.RPC),
+		rpcserver.WithServerSecurityPolicy(cfg.RPC.ToPolicy()),
 	)
 	if err != nil {
 		return nil, err

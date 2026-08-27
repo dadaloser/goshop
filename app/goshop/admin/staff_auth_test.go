@@ -11,6 +11,7 @@ import (
 
 	upbv1 "goshop/api/user/v1"
 	"goshop/app/goshop/admin/config"
+	"goshop/app/pkg/authclaims"
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/options"
 	"goshop/gmicro/server/restserver"
@@ -108,9 +109,9 @@ func TestInitRouterAllowsStaffJWTOnUserList(t *testing.T) {
 		t.Fatalf("initRouter() error = %v", err)
 	}
 
-	token, err := middlewares.NewJWT(cfg.Jwt.Key).CreateToken(middlewares.CustomClaims{
+	token, err := middlewares.NewJWT(cfg.Jwt.Key).CreateToken(authclaims.Claims{
 		ID:            7,
-		AuthorityId:   uint(authz.LegacyUserRoleAdmin),
+		AuthorityID:   uint(authz.LegacyUserRoleAdmin),
 		Roles:         []string{string(authz.StaffRoleAdmin)},
 		PrincipalType: string(authz.PrincipalStaff),
 		AccountStatus: string(authz.AccountStatusActive),
@@ -287,9 +288,9 @@ func TestInitRouterAllowsStatusUpdateAndInvalidatesSessions(t *testing.T) {
 		t.Fatalf("initRouter() error = %v", err)
 	}
 
-	token, err := middlewares.NewJWT(cfg.Jwt.Key).CreateToken(middlewares.CustomClaims{
+	token, err := middlewares.NewJWT(cfg.Jwt.Key).CreateToken(authclaims.Claims{
 		ID:            9,
-		AuthorityId:   uint(authz.LegacyUserRoleAdmin),
+		AuthorityID:   uint(authz.LegacyUserRoleAdmin),
 		Roles:         []string{string(authz.StaffRoleAdmin)},
 		PrincipalType: string(authz.PrincipalStaff),
 		AccountStatus: string(authz.AccountStatusActive),
@@ -936,9 +937,9 @@ func TestInitRouterRejectsCrossDomainCustomStaffRoleDeletion(t *testing.T) {
 
 func mustCreateAdminToken(t *testing.T, jwtOpts *options.JwtOptions, userID uint, roles, scope []string) string {
 	t.Helper()
-	token, err := middlewares.NewJWT(jwtOpts.Key).CreateToken(middlewares.CustomClaims{
+	token, err := middlewares.NewJWT(jwtOpts.Key).CreateToken(authclaims.Claims{
 		ID:            userID,
-		AuthorityId:   uint(authz.LegacyUserRoleAdmin),
+		AuthorityID:   uint(authz.LegacyUserRoleAdmin),
 		Roles:         append([]string(nil), roles...),
 		PrincipalType: string(authz.PrincipalStaff),
 		AccountStatus: string(authz.AccountStatusActive),

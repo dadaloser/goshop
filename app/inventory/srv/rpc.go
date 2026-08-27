@@ -48,7 +48,7 @@ func NewInventoryRPCServer(cfg *config.Config, clients ...*storage.Client) (*rpc
 		rpcserver.WithApplicationUnaryConcurrency(cfg.Server.RPCMaxConcurrentUnary),
 		rpcserver.WithStreamMaxLifetime(cfg.Server.RPCStreamMaxLifetime),
 		rpcserver.WithApplicationStreamConcurrency(cfg.Server.RPCMaxConcurrentStreams),
-		rpcserver.WithServerSecurityPolicy(cfg.RPC),
+		rpcserver.WithServerSecurityPolicy(cfg.RPC.ToPolicy()),
 		rpcserver.WithReadinessCheck(readinessCheck),
 	)
 	if err != nil {

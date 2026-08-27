@@ -32,11 +32,10 @@ func RetryUntilTimeout(ctx *context.Context, interval time.Duration, timeout tim
 		timeout = 10 * time.Second
 	}
 	runCtx := contextutil.Root()
-	cancel := func() {}
 	if ctx != nil && *ctx != nil {
 		runCtx = *ctx
 	}
-	runCtx, cancel = context.WithTimeout(runCtx, timeout)
+	runCtx, cancel := context.WithTimeout(runCtx, timeout)
 	defer cancel()
 
 	ticker := time.NewTicker(interval)

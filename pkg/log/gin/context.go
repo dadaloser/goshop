@@ -10,12 +10,17 @@ import (
 	gingonic "github.com/gin-gonic/gin"
 )
 
-var contextKeys = []string{
-	log.KeyRequestID,
-	log.KeyUserID,
-	"requestID",
-	"userid",
-	"username",
+type correlationKey struct {
+	ginKey string
+	with   func(context.Context, any) context.Context
+}
+
+var contextKeys = []correlationKey{
+	{ginKey: log.KeyRequestID, with: log.WithRequestID},
+	{ginKey: log.KeyUserID, with: log.WithUserID},
+	{ginKey: "requestID", with: log.WithRequestID},
+	{ginKey: "userid", with: log.WithUserID},
+	{ginKey: "username", with: log.WithUserID},
 }
 
 // Context returns the request context enriched with log correlation values
@@ -27,8 +32,8 @@ func Context(c *gingonic.Context) context.Context {
 
 	ctx := c.Request.Context()
 	for _, key := range contextKeys {
-		if value, ok := c.Get(key); ok {
-			ctx = context.WithValue(ctx, key, value)
+		if value, ok := c.Get(key.ginKey); ok {
+			ctx = key.with(ctx, value)
 		}
 	}
 	return ctx

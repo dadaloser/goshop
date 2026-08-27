@@ -15,9 +15,9 @@ import (
 )
 
 func TestUnaryClientIdentityInterceptorAuthorizesExactURISAN(t *testing.T) {
-	ctx := peerContextWithCertificate(t, "spiffe://goshop/api", nil)
+	ctx := peerContextWithCertificate(t, "spiffe://example.test/client", nil)
 	called := false
-	_, err := UnaryClientIdentityInterceptor([]string{"spiffe://goshop/api"})(ctx, nil, nil,
+	_, err := UnaryClientIdentityInterceptor([]string{"spiffe://example.test/client"})(ctx, nil, nil,
 		func(context.Context, interface{}) (interface{}, error) { called = true; return nil, nil })
 	if err != nil {
 		t.Fatalf("UnaryClientIdentityInterceptor(allowed URI) error = %v, want nil", err)
@@ -28,20 +28,20 @@ func TestUnaryClientIdentityInterceptorAuthorizesExactURISAN(t *testing.T) {
 }
 
 func TestUnaryClientIdentityInterceptorRejectsMissingAndUnauthorizedIdentity(t *testing.T) {
-	interceptor := UnaryClientIdentityInterceptor([]string{"spiffe://goshop/api"})
+	interceptor := UnaryClientIdentityInterceptor([]string{"spiffe://example.test/client"})
 	if _, err := interceptor(context.Background(), nil, nil, func(context.Context, interface{}) (interface{}, error) { return nil, nil }); status.Code(err) != codes.Unauthenticated {
 		t.Fatalf("missing certificate code = %v, want Unauthenticated", status.Code(err))
 	}
-	ctx := peerContextWithCertificate(t, "spiffe://goshop/order", nil)
+	ctx := peerContextWithCertificate(t, "spiffe://example.test/other", nil)
 	if _, err := interceptor(ctx, nil, nil, func(context.Context, interface{}) (interface{}, error) { return nil, nil }); status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("unauthorized certificate code = %v, want PermissionDenied", status.Code(err))
 	}
 }
 
 func TestStreamClientIdentityInterceptorAuthorizesExactDNSSAN(t *testing.T) {
-	ctx := peerContextWithCertificate(t, "", []string{"goshop-api.internal"})
+	ctx := peerContextWithCertificate(t, "", []string{"client.example.test"})
 	called := false
-	err := StreamClientIdentityInterceptor([]string{"goshop-api.internal"})(nil, testServerStream{ctx: ctx}, nil,
+	err := StreamClientIdentityInterceptor([]string{"client.example.test"})(nil, testServerStream{ctx: ctx}, nil,
 		func(interface{}, grpc.ServerStream) error { called = true; return nil })
 	if err != nil {
 		t.Fatalf("StreamClientIdentityInterceptor(allowed DNS) error = %v, want nil", err)

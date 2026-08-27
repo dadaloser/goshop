@@ -57,7 +57,7 @@ func NewNacosDataSource(opts *options.NacosOptions) (*nacos.NacosDataSource, err
 	return nds, nil
 }
 
-func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.ServerOptions, nacosOpts *options.NacosOptions, rpcSecurity *rpcserver.SecurityPolicy, uServer upb.UserServer) (*rpcserver.Server, error) {
+func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.ServerOptions, nacosOpts *options.NacosOptions, rpcSecurity *options.RPCSecurityOptions, uServer upb.UserServer) (*rpcserver.Server, error) {
 	if telemetry == nil {
 		return nil, fmt.Errorf("telemetry options are required")
 	}
@@ -87,7 +87,7 @@ func NewUserRPCServer(telemetry *options.TelemetryOptions, serverOpts *options.S
 	opts = append(opts, rpcserver.WithApplicationUnaryConcurrency(serverOpts.RPCMaxConcurrentUnary))
 	opts = append(opts, rpcserver.WithStreamMaxLifetime(serverOpts.RPCStreamMaxLifetime))
 	opts = append(opts, rpcserver.WithApplicationStreamConcurrency(serverOpts.RPCMaxConcurrentStreams))
-	opts = append(opts, rpcserver.WithServerSecurityPolicy(rpcSecurity))
+	opts = append(opts, rpcserver.WithServerSecurityPolicy(rpcSecurity.ToPolicy()))
 	if serverOpts.EnableLimit {
 		log.Infof("initializing sentinel limit rules from nacos")
 		dataNacos, err := NewNacosDataSource(nacosOpts)
