@@ -4,6 +4,7 @@ package gin
 import (
 	"context"
 
+	"goshop/pkg/common/util/contextutil"
 	"goshop/pkg/log"
 
 	gingonic "github.com/gin-gonic/gin"
@@ -21,7 +22,7 @@ var contextKeys = []string{
 // stored in the Gin context.
 func Context(c *gingonic.Context) context.Context {
 	if c == nil || c.Request == nil {
-		return context.Background()
+		return contextutil.Root()
 	}
 
 	ctx := c.Request.Context()

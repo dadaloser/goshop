@@ -207,8 +207,8 @@ func (f *fakeSmsCodeStore) Set(_ context.Context, key, value string, ttl time.Du
 	return nil
 }
 
-func (f *fakeSmsCodeStore) Delete(context.Context, string) bool {
-	return true
+func (f *fakeSmsCodeStore) Delete(context.Context, string) (bool, error) {
+	return true, nil
 }
 
 func (f *fakeSmsCodeStore) DeleteIfValue(context.Context, string, string) (bool, error) {

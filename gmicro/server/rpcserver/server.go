@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"sync"
+	"time"
 
 	"goshop/gmicro/server/rpcserver/resolver/discovery"
 	srvintc "goshop/gmicro/server/rpcserver/serverinterceptors"
+	"goshop/pkg/common/util/contextutil"
 	"goshop/pkg/host"
 	"goshop/pkg/log"
-	"net"
-	"net/url"
-	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -28,6 +29,8 @@ var (
 	errServerAlreadyStarted = errors.New("grpc server already started")
 	errServerStopped        = errors.New("grpc server is stopped")
 )
+
+const defaultStopTimeout = 10 * time.Second
 
 type Server struct {
 	*grpc.Server
@@ -365,9 +368,8 @@ func (s *Server) listenAndEndpoint() error {
 
 // Start binds the configured address and begins serving gRPC requests.
 func (s *Server) Start(ctx context.Context) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx, releaseCtx := contextutil.OrProcess(ctx)
+	defer releaseCtx()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -375,7 +377,12 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
-		_ = s.Stop(context.Background())
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), defaultStopTimeout)
+		stopErr := s.Stop(cleanupCtx)
+		cancel()
+		if stopErr != nil {
+			return errors.Join(err, fmt.Errorf("stop grpc server after canceled start: %w", stopErr))
+		}
 		return err
 	}
 	log.Infof("[grpc] server listening on: %s", s.lis.Addr().String())
@@ -413,7 +420,9 @@ func (s *Server) updateReadiness() {
 
 func (s *Server) Stop(ctx context.Context) error {
 	if ctx == nil {
-		ctx = context.Background()
+		var cancel context.CancelFunc
+		ctx, cancel = contextutil.NewOperation(defaultStopTimeout)
+		defer cancel()
 	}
 	s.lifecycleMu.Lock()
 	if s.stopped {
