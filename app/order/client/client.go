@@ -2,18 +2,18 @@ package main
 
 import (
 	"fmt"
-	"goshop/pkg/common/util/contextutil"
+	"math/rand"
+	"time"
 
 	"google.golang.org/grpc"
 
 	v1 "goshop/api/order/v1"
 	appclient "goshop/app/pkg/client"
 	"goshop/app/pkg/options"
+	"goshop/gmicro/contextutil"
 	rpc "goshop/gmicro/server/rpcserver"
 	"goshop/gmicro/server/rpcserver/selector"
 	"goshop/gmicro/server/rpcserver/selector/random"
-	"math/rand"
-	"time"
 )
 
 func generateOrderSn(userId int32) string {
@@ -22,17 +22,17 @@ func generateOrderSn(userId int32) string {
 		年月日时分秒+用户id+2位随机数
 	*/
 	now := time.Now()
-	rand.New(rand.NewSource(time.Now().UnixNano()))
-	rand.New(rand.NewSource(time.Now().UnixNano()))
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	orderSn := fmt.Sprintf("%d%d%d%d%d%d%d%d",
 		now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), now.Nanosecond(),
-		userId, rand.Intn(90)+10,
+		userId, rng.Intn(90)+10,
 	)
 	return orderSn
 }
 
 func main() {
 	ctx, cancel := contextutil.NewOperation(10 * time.Second)
+
 	defer cancel()
 	//设置全局的负载均衡策略
 	selector.SetGlobalSelector(random.NewBuilder())

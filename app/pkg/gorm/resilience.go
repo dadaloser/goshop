@@ -3,8 +3,7 @@ package gorm
 import (
 	"context"
 	"errors"
-
-	"goshop/pkg/resilience"
+	"goshop/gmicro/resilience"
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
 	gormio "gorm.io/gorm"

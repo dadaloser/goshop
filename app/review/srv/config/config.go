@@ -2,12 +2,12 @@ package config
 
 import (
 	"encoding/json"
+	"goshop/gmicro/resilience"
 
 	"goshop/app/pkg/options"
 	"goshop/pkg/app"
 	cliflag "goshop/pkg/common/cli/flag"
 	"goshop/pkg/log"
-	"goshop/pkg/resilience"
 )
 
 type Config struct {

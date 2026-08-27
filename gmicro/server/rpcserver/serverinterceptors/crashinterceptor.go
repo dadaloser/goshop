@@ -3,13 +3,13 @@ package serverinterceptors
 import (
 	"context"
 	"goshop/gmicro/core/metric"
+	"goshop/gmicro/logging"
+	"log/slog"
 	"runtime/debug"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"goshop/pkg/log"
 )
 
 var metricServerPanicTotal = metric.NewCounterVec(&metric.CounterVecOpts{
@@ -24,7 +24,11 @@ func StreamCrashInterceptor(svr interface{}, stream grpc.ServerStream, info *grp
 	handler grpc.StreamHandler) (err error) {
 	defer handleCrash(func(r interface{}) {
 		metricServerPanicTotal.Inc(info.FullMethod)
-		log.Errorf("%+v\n \n %s", r, debug.Stack())
+		logging.Error("rpc stream panic recovered",
+			slog.Any("panic", r),
+			slog.String("method", info.FullMethod),
+			slog.String("stack", string(debug.Stack())),
+		)
 		err = status.Error(codes.Internal, "internal server error")
 	})
 
@@ -36,7 +40,11 @@ func UnaryCrashInterceptor(ctx context.Context, req interface{}, info *grpc.Unar
 	handler grpc.UnaryHandler) (resp interface{}, err error) {
 	defer handleCrash(func(r interface{}) {
 		metricServerPanicTotal.Inc(info.FullMethod)
-		log.Errorf("%+v\n \n %s", r, debug.Stack())
+		logging.ErrorContext(ctx, "rpc unary panic recovered",
+			slog.Any("panic", r),
+			slog.String("method", info.FullMethod),
+			slog.String("stack", string(debug.Stack())),
+		)
 		resp = nil
 		err = status.Error(codes.Internal, "internal server error")
 	})

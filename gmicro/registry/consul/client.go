@@ -3,7 +3,9 @@ package consul
 import (
 	"context"
 	"fmt"
-	"goshop/pkg/common/util/contextutil"
+	"goshop/gmicro/contextutil"
+	"goshop/gmicro/logging"
+	"log/slog"
 	"net"
 	"net/url"
 	"strconv"
@@ -11,7 +13,6 @@ import (
 	"time"
 
 	"goshop/gmicro/registry"
-	"goshop/pkg/log"
 
 	"github.com/hashicorp/consul/api"
 )
@@ -242,7 +243,7 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 				cancel()
 				if heartbeatErr != nil {
 					failures++
-					log.Errorf("[Consul] update ttl heartbeat to consul failed: %v", heartbeatErr)
+					logging.Error("consul ttl heartbeat update failed", slog.Any("err", heartbeatErr))
 					if failures >= heartbeatFailureThreshold {
 						//失败重新注册
 						registerCtx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
@@ -252,10 +253,10 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 						)
 						cancel()
 						if registerErr != nil {
-							log.Errorf("[Consul] re-register service failed: %v", registerErr)
+							logging.Error("consul service re-register failed", slog.Any("err", registerErr))
 							return
 						}
-						log.Infof("[Consul] re-register service success: %s", svc.ID)
+						logging.Info("consul service re-register succeeded", slog.String("service_id", svc.ID))
 						failures = 0
 					}
 					return

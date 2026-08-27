@@ -2,7 +2,7 @@ package middlewares
 
 import (
 	"context"
-	"goshop/pkg/errors"
+	"errors"
 	"net/http"
 	"time"
 

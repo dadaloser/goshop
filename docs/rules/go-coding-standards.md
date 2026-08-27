@@ -34,6 +34,10 @@ These standards apply to all Go code in `goshop`.
 - Do not store `context.Context` in structs.
 - Do not use `context.Background()` inside request, service, data, or boundary
   paths.
+- Use `gmicro/contextutil.NewOperation` for bounded startup or compatibility
+  operations that have no caller context, and call the returned cancel function.
+- Use `gmicro/contextutil.NewProcess` only when a component owner explicitly
+  controls the process lifetime and cancellation.
 - Use `context.TODO()` only as a temporary compatibility placeholder when a
   legacy function cannot yet accept a context.
 - Always call cancel functions returned by `WithCancel`, `WithTimeout`, or
@@ -55,6 +59,10 @@ These standards apply to all Go code in `goshop`.
 
 ## Logging
 
+- Framework code under `gmicro/` uses `gmicro/logging`, which exposes a
+  standard `log/slog` facade and does not import `pkg/log`.
+- Business code uses `pkg/log`; `pkg/log` may install a `slog` adapter into
+  `gmicro/logging` during application startup.
 - Use the project logger instead of `fmt.Println` for operational logs.
 - Log messages should be stable strings; put request IDs, user IDs, order IDs,
   counts, and durations in structured fields where available.

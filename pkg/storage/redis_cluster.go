@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	stderrors "errors"
 	"fmt"
+	"goshop/gmicro/resilience"
 	"math/rand"
 	"net"
 	"strconv"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"goshop/pkg/errors"
-	"goshop/pkg/resilience"
 
 	"github.com/redis/go-redis/extra/redisotel/v9"
 

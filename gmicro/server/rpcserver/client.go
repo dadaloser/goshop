@@ -3,13 +3,13 @@ package rpcserver
 import (
 	"context"
 	"fmt"
-	"goshop/pkg/common/util/contextutil"
+	"goshop/gmicro/contextutil"
+	"goshop/gmicro/resilience"
 	"time"
 
 	"goshop/gmicro/registry"
 	"goshop/gmicro/server/rpcserver/clientinterceptors"
 	"goshop/gmicro/server/rpcserver/resolver/discovery"
-	"goshop/pkg/resilience"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"

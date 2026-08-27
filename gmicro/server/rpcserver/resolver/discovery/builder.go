@@ -2,7 +2,7 @@ package discovery
 
 import (
 	"errors"
-	"goshop/pkg/common/util/contextutil"
+	"goshop/gmicro/contextutil"
 	"strings"
 	"time"
 

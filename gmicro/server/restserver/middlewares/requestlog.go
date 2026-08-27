@@ -1,15 +1,16 @@
 package middlewares
 
 import (
+	"context"
+	"goshop/gmicro/contextutil"
+	"goshop/gmicro/logging"
+	"log/slog"
 	"net/http"
 	"runtime/debug"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-
-	"goshop/pkg/log"
-	ginlog "goshop/pkg/log/gin"
 )
 
 const requestIDHeader = "X-Request-ID"
@@ -26,7 +27,7 @@ func RequestLogger() gin.HandlerFunc {
 		if requestID == "" || len(requestID) > 128 {
 			requestID = uuid.NewString()
 		}
-		c.Set(log.KeyRequestID, requestID)
+		c.Set(logging.KeyRequestID, requestID)
 		c.Header(requestIDHeader, requestID)
 
 		started := time.Now()
@@ -36,13 +37,13 @@ func RequestLogger() gin.HandlerFunc {
 		if route == "" {
 			route = "__unmatched__"
 		}
-		log.InfoC(ginlog.Context(c), "http request completed",
-			log.String("http_method", c.Request.Method),
-			log.String("http_route", route),
-			log.Int("http_status", c.Writer.Status()),
-			log.Int("response_bytes", c.Writer.Size()),
-			log.Duration("duration", time.Since(started)),
-			log.String("client_ip", c.ClientIP()),
+		logging.InfoContext(ginContext(c), "http request completed",
+			slog.String("http_method", c.Request.Method),
+			slog.String("http_route", route),
+			slog.Int("http_status", c.Writer.Status()),
+			slog.Int("response_bytes", c.Writer.Size()),
+			slog.Duration("duration", time.Since(started)),
+			slog.String("client_ip", c.ClientIP()),
 		)
 	}
 }
@@ -60,10 +61,28 @@ func isLowNoiseManagementPath(path string) bool {
 // diagnostics through the application logger.
 func Recovery(responder StatusResponder) gin.HandlerFunc {
 	return gin.CustomRecovery(func(c *gin.Context, recovered any) {
-		log.ErrorC(ginlog.Context(c), "http request panic recovered",
-			log.PanicDetail(recovered),
-			log.ByteString("stack", debug.Stack()),
+		logging.ErrorContext(ginContext(c), "http request panic recovered",
+			slog.Any("panic", recovered),
+			slog.String("stack", string(debug.Stack())),
 		)
 		Respond(c, responder, http.StatusInternalServerError)
 	})
+}
+
+func ginContext(c *gin.Context) context.Context {
+	if c == nil || c.Request == nil {
+		return contextutil.Root()
+	}
+	ctx := c.Request.Context()
+	for _, key := range []string{logging.KeyRequestID, "requestID"} {
+		if value, ok := c.Get(key); ok {
+			ctx = logging.WithRequestID(ctx, value)
+		}
+	}
+	for _, key := range []string{logging.KeyUserID, "userid", "username"} {
+		if value, ok := c.Get(key); ok {
+			ctx = logging.WithUserID(ctx, value)
+		}
+	}
+	return ctx
 }

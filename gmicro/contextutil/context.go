@@ -1,6 +1,3 @@
-// Package contextutil centralizes the two non-request context boundaries used
-// by production code. Request handlers and RPC implementations must pass their
-// incoming context instead of calling these helpers.
 package contextutil
 
 import (

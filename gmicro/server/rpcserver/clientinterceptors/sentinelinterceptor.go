@@ -3,8 +3,7 @@ package clientinterceptors
 import (
 	"context"
 	"errors"
-
-	"goshop/pkg/resilience"
+	"goshop/gmicro/resilience"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

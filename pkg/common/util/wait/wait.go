@@ -19,7 +19,7 @@ package wait
 import (
 	"context"
 	"errors"
-	"goshop/pkg/common/util/contextutil"
+	"goshop/gmicro/contextutil"
 	"math"
 	"math/rand"
 	"sync"

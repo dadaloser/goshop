@@ -81,6 +81,8 @@ startup context and exit on cancellation.
 - Tracing uses OpenTelemetry configuration from service config.
 - Logs should include stable operation names and useful IDs such as request ID,
   user ID, order SN, service name, and duration.
+- Framework logs are emitted through `gmicro/logging` and are bridged to the
+  configured business logger by `pkg/log.Init`.
 - Outbound gRPC, Redis, and MySQL protection exports
   `dependency_resilience_*` metrics. See `docs/dependency-resilience.md` and
   `monitoring/prometheus/dependency-resilience-alerts.yaml`.

@@ -22,8 +22,8 @@ that changes must preserve.
 | `api/` | Protobuf contracts and generated HTTP/gRPC bindings. |
 | `app/` | Product services and gateways. Service-private code lives under each service's `internal/` tree. |
 | `app/pkg/` | Shared application-level helpers used by multiple services, such as clients, options, codes, Gorm helpers, and translators. |
-| `gmicro/` | Local microservice framework code: app lifecycle, registry, trace, metrics, RPC server, REST server, middleware, and load balancing. |
-| `pkg/` | Reusable lower-level packages. Treat exported APIs here as shared contracts. |
+| `gmicro/` | Local microservice framework code: app lifecycle, registry, trace, metrics, RPC server, REST server, middleware, load balancing, framework logging, context roots, and resilience primitives. |
+| `pkg/` | Reusable application packages. Treat exported APIs here as shared contracts, but do not let `gmicro/` depend on them. |
 | `configs/` | Local configuration examples and deployment templates. Do not commit production secrets. |
 | `docs/` | Architecture, rules, operations, and hardening notes. |
 | `migrations/` | Database migration scripts. |
@@ -52,8 +52,14 @@ that changes must preserve.
 5. Boundary/client packages own cross-service calls and convert external DTOs
    into local interfaces.
 6. `pkg/` and `gmicro/` must not import service-private `app/*/internal` code.
-7. New reusable code goes to `pkg/` only when it has a stable API responsibility.
-8. Outbound gRPC, Redis, and MySQL operations use `gmicro/resilience` for
+7. `gmicro/` must not import `goshop/pkg/errors`, `goshop/pkg/log`, or
+   `goshop/pkg/resilience`. Framework code uses standard `errors`,
+   `gmicro/logging`, and `gmicro/resilience`.
+8. Business packages may adapt project logging into `gmicro/logging`, but the
+   dependency direction stays one-way: `pkg/log -> gmicro/logging`.
+9. New reusable business code goes to `pkg/` only when it has a stable API
+   responsibility.
+10. Outbound gRPC, Redis, and MySQL operations use `gmicro/resilience` for
    timeout, Sentinel isolation/circuit breaking, fail-fast fallback, and metrics.
 
 ## Request Lifecycle
@@ -92,6 +98,8 @@ cmd/{service}
   handling, deregistration, server stop, and trace shutdown.
 - Startup code must propagate the same context into Redis loops, gRPC dials,
   discovery probes, and other long-running background work.
+- Code that has no caller context must use `gmicro/contextutil` for documented
+  process roots or bounded operation contexts.
 - Cleanup should use bounded contexts derived with `context.WithoutCancel(ctx)`
   and `context.WithTimeout`, so cancellation starts shutdown without preventing
   deregistration or exporter flush.
@@ -111,6 +119,8 @@ cmd/{service}
 | --- | --- |
 | `pkg/app/app.go` | CLI command assembly, config loading, and top-level run callback. |
 | `gmicro/app/app.go` | Service lifecycle, signal handling, registration, shutdown, and trace cleanup. |
+| `gmicro/contextutil/` | Public context root helpers for framework and legacy startup code. |
+| `gmicro/logging/` | Standard-library `slog` facade used by framework packages. |
 | `gmicro/server/restserver/server.go` | Gin HTTP server, health, metrics, pprof, and production startup checks. |
 | `gmicro/server/rpcserver/server.go` | gRPC server startup and shutdown. |
 | `gmicro/resilience/` | Shared dependency policies, Sentinel guards, circuit state listeners, and Prometheus metrics. |

@@ -3,10 +3,9 @@ package options
 import (
 	"errors"
 	"fmt"
+	"goshop/gmicro/resilience"
 	"strconv"
 	"time"
-
-	"goshop/pkg/resilience"
 
 	"github.com/spf13/pflag"
 )

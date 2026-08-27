@@ -19,6 +19,11 @@ if rg -n 'GOSHOP_ADMIN_(ROLE|PERMISSIONS)|admin-auth\.(role|permissions)' app co
   exit 1
 fi
 
+if rg -n '"goshop/pkg/(errors|log|resilience)' gmicro --glob '*.go'; then
+  echo "gmicro must not import business pkg/errors, pkg/log, or pkg/resilience; use std errors, gmicro/logging, and gmicro/resilience" >&2
+  exit 1
+fi
+
 while IFS= read -r file; do
   lines="$(wc -l < "$file" | tr -d ' ')"
   if (( lines > 750 )); then

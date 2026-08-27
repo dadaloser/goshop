@@ -5,10 +5,10 @@ import (
 	v1 "goshop/api/goods/v1"
 	appclient "goshop/app/pkg/client"
 	"goshop/app/pkg/options"
+	"goshop/gmicro/contextutil"
 	rpc "goshop/gmicro/server/rpcserver"
 	"goshop/gmicro/server/rpcserver/selector"
 	"goshop/gmicro/server/rpcserver/selector/random"
-	"goshop/pkg/common/util/contextutil"
 	"time"
 )
 

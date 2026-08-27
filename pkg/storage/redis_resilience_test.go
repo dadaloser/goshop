@@ -3,10 +3,9 @@ package storage
 import (
 	"context"
 	"errors"
+	"goshop/gmicro/resilience"
 	"testing"
 	"time"
-
-	"goshop/pkg/resilience"
 
 	"github.com/redis/go-redis/v9"
 )

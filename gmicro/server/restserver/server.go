@@ -3,7 +3,11 @@ package restserver
 import (
 	"container/list"
 	"context"
+	"errors"
 	"fmt"
+	"goshop/gmicro/internal/host"
+	"goshop/gmicro/logging"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -17,9 +21,6 @@ import (
 
 	mws "goshop/gmicro/server/restserver/middlewares"
 	"goshop/gmicro/server/restserver/pprof"
-	"goshop/pkg/errors"
-	"goshop/pkg/host"
-	"goshop/pkg/log"
 
 	"github.com/gin-gonic/gin"
 	ut "github.com/go-playground/universal-translator"
@@ -203,7 +204,7 @@ func (s *Server) installConfiguredMiddleware(name string) {
 	if !ok {
 		return
 	}
-	log.Infof("install middleware: %s", name)
+	logging.Info("install middleware", slog.String("middleware", name))
 	s.Use(mw)
 }
 
@@ -336,14 +337,19 @@ func (s *Server) Start(ctx context.Context) error {
 	//设置开发模式，打印路由信息
 	gin.SetMode(s.mode)
 	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
-		log.Infof("%-6s %-s --> %s(%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
+		logging.InfoContext(ctx, "gin route registered",
+			slog.String("http_method", httpMethod),
+			slog.String("path", absolutePath),
+			slog.String("handler", handlerName),
+			slog.Int("handlers", nuHandlers),
+		)
 	}
 
 	// Initialize the configured translator before validators and routes start
 	// using it so startup fails fast on invalid i18n configuration.
 	err := s.initTrans(s.transName)
 	if err != nil {
-		log.Errorf("initTrans error %s", err.Error())
+		logging.ErrorContext(ctx, "initialize translator failed", slog.Any("err", err))
 		return err
 	}
 
@@ -361,7 +367,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	s.endpoint = &url.URL{Scheme: "http", Host: addr}
 
-	log.Infof("rest server is running on: %s", lis.Addr().String())
+	logging.InfoContext(ctx, "rest server is running", slog.String("addr", lis.Addr().String()))
 	s.server = &http.Server{
 		Handler:           s.Engine,
 		ReadHeaderTimeout: s.readHeaderTimeout,
@@ -407,17 +413,17 @@ func (s *Server) registerProfilingRoutes() {
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-	log.Infof("rest server is stopping")
+	logging.InfoContext(ctx, "rest server is stopping")
 	s.draining.Store(true)
 	if s.server == nil {
-		log.Info("rest server stopped")
+		logging.InfoContext(ctx, "rest server stopped")
 		return nil
 	}
 	if err := s.server.Shutdown(ctx); err != nil {
-		log.Errorf("rest server shutdown error: %s", err.Error())
+		logging.ErrorContext(ctx, "rest server shutdown failed", slog.Any("err", err))
 		return err
 	}
-	log.Info("rest server stopped")
+	logging.InfoContext(ctx, "rest server stopped")
 	return nil
 }
 

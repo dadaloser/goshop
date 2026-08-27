@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"goshop/gmicro/contextutil"
+	"goshop/gmicro/internal/host"
+	"goshop/gmicro/logging"
+	"log/slog"
 	"net"
 	"net/url"
 	"sync"
@@ -11,9 +15,6 @@ import (
 
 	"goshop/gmicro/server/rpcserver/resolver/discovery"
 	srvintc "goshop/gmicro/server/rpcserver/serverinterceptors"
-	"goshop/pkg/common/util/contextutil"
-	"goshop/pkg/host"
-	"goshop/pkg/log"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -385,7 +386,7 @@ func (s *Server) Start(ctx context.Context) error {
 		}
 		return err
 	}
-	log.Infof("[grpc] server listening on: %s", s.lis.Addr().String())
+	logging.InfoContext(ctx, "grpc server listening", slog.String("addr", s.lis.Addr().String()))
 	s.health.Resume()
 	s.updateReadiness()
 	if s.readinessCheck != nil {
@@ -462,6 +463,6 @@ func (s *Server) Stop(ctx context.Context) error {
 			return fmt.Errorf("close grpc listener: %w", err)
 		}
 	}
-	log.Infof("[grpc] server stopped")
+	logging.InfoContext(ctx, "grpc server stopped")
 	return nil
 }

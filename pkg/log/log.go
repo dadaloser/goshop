@@ -22,6 +22,7 @@ func Init(opts *Options) {
 	mu.Lock()
 	defer mu.Unlock()
 	std = New(opts)
+	installFrameworkLogger(std)
 }
 
 // New create logger by opts which can custmoized by command arguments.

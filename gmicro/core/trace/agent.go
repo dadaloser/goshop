@@ -3,7 +3,9 @@ package trace
 import (
 	"context"
 	"fmt"
-	"goshop/pkg/common/util/contextutil"
+	"goshop/gmicro/contextutil"
+	"goshop/gmicro/logging"
+	"log/slog"
 	"net"
 	"net/url"
 	"strings"
@@ -15,8 +17,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
-
-	"goshop/pkg/log"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 )
@@ -86,7 +86,7 @@ func startAgent(o Options) error {
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
-		log.Errorf("[otel] error: %v", err)
+		logging.Error("otel error", slog.Any("err", err))
 	}))
 	return nil
 }

@@ -2,11 +2,10 @@ package config
 
 import (
 	"encoding/json"
+	"goshop/gmicro/resilience"
 
 	"goshop/app/pkg/options"
 	"goshop/pkg/app"
-	"goshop/pkg/resilience"
-
 	cliflag "goshop/pkg/common/cli/flag"
 	"goshop/pkg/log"
 )

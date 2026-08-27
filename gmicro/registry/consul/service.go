@@ -2,7 +2,7 @@ package consul
 
 import (
 	"context"
-	"goshop/pkg/common/util/contextutil"
+	"goshop/gmicro/contextutil"
 	"sync"
 	"sync/atomic"
 

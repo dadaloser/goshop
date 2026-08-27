@@ -3,8 +3,8 @@ package gin
 
 import (
 	"context"
+	"goshop/gmicro/contextutil"
 
-	"goshop/pkg/common/util/contextutil"
 	"goshop/pkg/log"
 
 	gingonic "github.com/gin-gonic/gin"

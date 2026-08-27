@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"goshop/gmicro/logging"
 	"goshop/gmicro/registry"
-	"goshop/pkg/log"
 
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
@@ -47,7 +48,7 @@ func (r *discoveryResolver) watch() {
 			if errors.Is(err, context.Canceled) {
 				return
 			}
-			log.Errorf("[resolver] Failed to watch discovery endpoint: %v", err)
+			logging.ErrorContext(r.ctx, "resolver watch failed", slog.Any("err", err))
 			time.Sleep(time.Second)
 			continue
 		}
@@ -61,7 +62,7 @@ func (r *discoveryResolver) update(ins []*registry.ServiceInstance) {
 	for _, in := range ins {
 		endpoint, err := ParseEndpoint(in.Endpoints, "grpc", !r.insecure)
 		if err != nil {
-			log.Errorf("[resolver] Failed to parse discovery endpoint: %v", err)
+			logging.ErrorContext(r.ctx, "resolver endpoint parse failed", slog.Any("err", err))
 			continue
 		}
 		if endpoint == "" {
@@ -97,7 +98,7 @@ func (r *discoveryResolver) update(ins []*registry.ServiceInstance) {
 	r.emptyStatePublished = false
 	r.publishStateLocked(resolver.State{Addresses: addrs})
 	b, _ := json.Marshal(ins)
-	log.Infof("[resolver] update instances: %s", b)
+	logging.InfoContext(r.ctx, "resolver instances updated", slog.String("instances", string(b)))
 }
 
 func (r *discoveryResolver) deferEmptyState(ins []*registry.ServiceInstance) {
@@ -112,7 +113,10 @@ func (r *discoveryResolver) deferEmptyState(ins []*registry.ServiceInstance) {
 		gracePeriod = defaultEmptySnapshotGracePeriod
 	}
 	r.emptyStateTimer = time.AfterFunc(gracePeriod, r.publishEmptyState)
-	log.Warnf("[resolver] zero valid endpoint found; retaining the last resolver state for %s, instances: %v", gracePeriod, ins)
+	logging.WarnContext(r.ctx, "resolver retained last state because no valid endpoint was found",
+		slog.Duration("grace_period", gracePeriod),
+		slog.Any("instances", ins),
+	)
 }
 
 func (r *discoveryResolver) publishEmptyState() {
@@ -124,13 +128,13 @@ func (r *discoveryResolver) publishEmptyState() {
 	r.emptyStateTimer = nil
 	r.emptyStatePublished = true
 	r.publishStateLocked(resolver.State{})
-	log.Warn("[resolver] zero valid endpoints persisted past grace period; published empty resolver state")
+	logging.WarnContext(r.ctx, "resolver published empty state after grace period")
 }
 
 func (r *discoveryResolver) publishStateLocked(state resolver.State) {
 	err := r.cc.UpdateState(state)
 	if err != nil {
-		log.Errorf("[resolver] failed to update state: %s", err)
+		logging.ErrorContext(r.ctx, "resolver state update failed", slog.Any("err", err))
 	}
 }
 
@@ -152,7 +156,7 @@ func (r *discoveryResolver) Close() {
 	}
 	if r.w != nil {
 		if err := r.w.Stop(); err != nil {
-			log.Errorf("[resolver] failed to watch top: %s", err)
+			logging.ErrorContext(r.ctx, "resolver watcher stop failed", slog.Any("err", err))
 		}
 	}
 }

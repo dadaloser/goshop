@@ -3,7 +3,9 @@ package app
 import (
 	"context"
 	"fmt"
-	"goshop/pkg/common/util/contextutil"
+	"goshop/gmicro/contextutil"
+	"goshop/gmicro/logging"
+	"log/slog"
 	"net/url"
 	"syscall"
 	"time"
@@ -14,7 +16,6 @@ import (
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/registry"
 	gs "goshop/gmicro/server"
-	"goshop/pkg/log"
 	"os"
 	"os/signal"
 	"sync"
@@ -101,7 +102,7 @@ func (a *App) RunContext(ctx context.Context) (runErr error) {
 		wg.Add(1)
 		eg.Go(func() error {
 			wg.Done()
-			log.Info("start rest server")
+			logging.InfoContext(ctx, "start server")
 			return srv.Start(ctx)
 		})
 	}
@@ -195,11 +196,11 @@ func (a *App) stopContext(ctx context.Context) error {
 	instance, cancelRun := a.takeStopState()
 
 	var stopErr error
-	log.Info("start deregister service")
+	logging.InfoContext(ctx, "start deregister service")
 	if a.opts.registrar != nil && instance != nil {
 		rctx, rcancel := context.WithTimeout(ctx, a.opts.stopTimeout)
 		if err := a.opts.registrar.Deregister(rctx, instance); err != nil {
-			log.Errorf("deregister service error: %s", err)
+			logging.ErrorContext(ctx, "deregister service failed", slog.Any("err", err))
 			stopErr = err
 		}
 		rcancel()

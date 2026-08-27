@@ -3,7 +3,7 @@ package consul
 import (
 	"context"
 	"fmt"
-	"goshop/pkg/common/util/contextutil"
+	"goshop/gmicro/contextutil"
 	"sync"
 	"sync/atomic"
 	"time"
