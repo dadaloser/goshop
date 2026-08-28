@@ -306,6 +306,82 @@ func TestDeregisterUsesContext(t *testing.T) {
 	}
 }
 
+func TestDeregisterStopsOnlyTheMatchingHeartbeat(t *testing.T) {
+	heartbeatUpdates := make(chan string, 4)
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch {
+		case req.Method == http.MethodPut && req.URL.Path == "/v1/agent/service/register":
+			return consulOKResponse(), nil
+		case req.Method == http.MethodPut && strings.HasPrefix(req.URL.Path, "/v1/agent/check/update/"):
+			heartbeatUpdates <- strings.TrimPrefix(req.URL.Path, "/v1/agent/check/update/service:")
+			return consulOKResponse(), nil
+		case req.Method == http.MethodPut && req.URL.Path == "/v1/agent/service/deregister/goods-1":
+			return consulOKResponse(), nil
+		default:
+			t.Fatalf("unexpected request = %s %s", req.Method, req.URL.Path)
+			return nil, nil
+		}
+	})
+	apiClient, err := api.NewClient(&api.Config{
+		Address:    "http://consul.local",
+		HttpClient: &http.Client{Transport: transport},
+	})
+	if err != nil {
+		t.Fatalf("create consul client failed: %v", err)
+	}
+	client := NewClient(apiClient)
+	client.heartbeat = true
+	client.healthcheckInterval = 0
+	t.Cleanup(client.cancel)
+
+	for _, serviceID := range []string{"goods-1", "inventory-1"} {
+		err := client.Register(context.Background(), &registry.ServiceInstance{
+			ID:        serviceID,
+			Name:      serviceID,
+			Version:   "v1",
+			Endpoints: []string{"grpc://127.0.0.1:9000"},
+		}, false)
+		if err != nil {
+			t.Fatalf("Register(%q) error = %v, want nil", serviceID, err)
+		}
+	}
+
+	initialUpdates := make(map[string]struct{}, 2)
+	deadline := time.After(time.Second)
+	for len(initialUpdates) < 2 {
+		select {
+		case serviceID := <-heartbeatUpdates:
+			initialUpdates[serviceID] = struct{}{}
+		case <-deadline:
+			t.Fatalf("initial heartbeat updates = %v, want goods-1 and inventory-1", initialUpdates)
+		}
+	}
+
+	if err := client.Deregister(context.Background(), "goods-1"); err != nil {
+		t.Fatalf("Deregister() error = %v, want nil", err)
+	}
+
+	client.heartbeatMu.Lock()
+	_, goodsHeartbeatRunning := client.heartbeatCancels["goods-1"]
+	_, inventoryHeartbeatRunning := client.heartbeatCancels["inventory-1"]
+	client.heartbeatMu.Unlock()
+	if goodsHeartbeatRunning {
+		t.Fatal("goods heartbeat remains registered after deregistration")
+	}
+	if !inventoryHeartbeatRunning {
+		t.Fatal("inventory heartbeat was stopped when goods was deregistered")
+	}
+
+	select {
+	case serviceID := <-heartbeatUpdates:
+		if serviceID != "inventory-1" {
+			t.Fatalf("heartbeat update after deregistration = %q, want inventory-1", serviceID)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("inventory heartbeat stopped after goods was deregistered")
+	}
+}
+
 func TestRegisterRejectsEndpointWithoutPort(t *testing.T) {
 	apiClient, err := api.NewClient(&api.Config{Address: "http://127.0.0.1:1"})
 	if err != nil {

@@ -42,7 +42,3 @@ var Catalog = errors.Catalog{
 	{Code: ErrOrderConflict, Kind: errors.KindConflict, Message: "订单数据冲突"},
 	{Code: ErrOrderStatusInvalid, Kind: errors.KindConflict, Message: "订单状态无效"},
 }
-
-// RegisterAll explicitly adds every domain error contract to the shared errors
-// catalog. It is safe to call more than once.
-func RegisterAll() { Catalog.RegisterAll() }

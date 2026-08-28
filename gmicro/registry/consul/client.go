@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"goshop/gmicro/registry"
@@ -23,8 +24,11 @@ const consulOperationTimeout = 10 * time.Second
 
 // Client is consul client config
 type Client struct {
-	cli    *api.Client
-	ctx    context.Context
+	client *api.Client
+
+	heartbeatMu      sync.Mutex
+	heartbeatCancels map[string]context.CancelFunc
+	// cancel stops all heartbeats. It is retained for component-level cleanup.
 	cancel context.CancelFunc
 
 	// resolve service entry endpoints
@@ -46,15 +50,16 @@ type Client struct {
 // NewClient creates consul client
 func NewClient(cli *api.Client) *Client {
 	c := &Client{
-		cli:                            cli,
+		client:                         cli,
 		resolver:                       defaultResolver,
 		healthcheckInterval:            10,
 		heartbeat:                      false,
 		heartbeatTimeout:               5 * time.Second,
 		deregisterCriticalServiceAfter: 600,
 		httpHealthCheckPath:            "/readyz",
+		heartbeatCancels:               make(map[string]context.CancelFunc),
 	}
-	c.ctx, c.cancel = contextutil.NewProcess()
+	c.cancel = c.stopAllHeartbeats
 	return c
 }
 
@@ -105,7 +110,7 @@ func (c *Client) Service(ctx context.Context, service string, index uint64, pass
 		WaitTime:  time.Second * 55,
 	}
 	opts = opts.WithContext(ctx)
-	entries, meta, err := c.cli.Health().Service(service, "", passingOnly, opts)
+	entries, meta, err := c.client.Health().Service(service, "", passingOnly, opts)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -225,16 +230,17 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 	// custom checks
 	asr.Checks = append(asr.Checks, c.serviceChecks...)
 
-	err := c.cli.Agent().ServiceRegisterOpts(asr, api.ServiceRegisterOpts{}.WithContext(ctx))
+	err := c.client.Agent().ServiceRegisterOpts(asr, api.ServiceRegisterOpts{}.WithContext(ctx))
 	if err != nil {
 		return err
 	}
 	if c.heartbeat {
-		go func() {
+		heartbeatCtx := c.startHeartbeat(svc.ID)
+		go func(ctx context.Context) {
 			failures := 0
 			updateTTL := func() {
-				heartbeatCtx, cancel := context.WithTimeout(c.ctx, c.heartbeatTimeout)
-				heartbeatErr := c.cli.Agent().UpdateTTLOpts(
+				heartbeatCtx, cancel := context.WithTimeout(ctx, c.heartbeatTimeout)
+				heartbeatErr := c.client.Agent().UpdateTTLOpts(
 					"service:"+svc.ID,
 					"pass",
 					"pass",
@@ -246,8 +252,8 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 					logging.Error("consul ttl heartbeat update failed", slog.Any("err", heartbeatErr))
 					if failures >= heartbeatFailureThreshold {
 						//失败重新注册
-						registerCtx, cancel := context.WithTimeout(c.ctx, 5*time.Second)
-						registerErr := c.cli.Agent().ServiceRegisterOpts(
+						registerCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+						registerErr := c.client.Agent().ServiceRegisterOpts(
 							asr,
 							api.ServiceRegisterOpts{}.WithContext(registerCtx),
 						)
@@ -273,7 +279,7 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 			select {
 			case <-timer.C:
 				updateTTL()
-			case <-c.ctx.Done():
+			case <-ctx.Done():
 				return
 			}
 			tickerInterval := time.Second * time.Duration(c.healthcheckInterval)
@@ -286,13 +292,49 @@ func (c *Client) Register(ctx context.Context, svc *registry.ServiceInstance, en
 				select {
 				case <-ticker.C:
 					updateTTL()
-				case <-c.ctx.Done():
+				case <-ctx.Done():
 					return
 				}
 			}
-		}()
+		}(heartbeatCtx)
 	}
 	return nil
+}
+
+func (c *Client) startHeartbeat(serviceID string) context.Context {
+	ctx, cancel := contextutil.NewProcess()
+
+	c.heartbeatMu.Lock()
+	previous := c.heartbeatCancels[serviceID]
+	c.heartbeatCancels[serviceID] = cancel
+	c.heartbeatMu.Unlock()
+
+	if previous != nil {
+		previous()
+	}
+	return ctx
+}
+
+func (c *Client) stopHeartbeat(serviceID string) {
+	c.heartbeatMu.Lock()
+	cancel := c.heartbeatCancels[serviceID]
+	delete(c.heartbeatCancels, serviceID)
+	c.heartbeatMu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (c *Client) stopAllHeartbeats() {
+	c.heartbeatMu.Lock()
+	cancels := c.heartbeatCancels
+	c.heartbeatCancels = make(map[string]context.CancelFunc)
+	c.heartbeatMu.Unlock()
+
+	for _, cancel := range cancels {
+		cancel()
+	}
 }
 
 func parseEndpointAddress(endpoint *url.URL) (string, uint16, error) {
@@ -348,6 +390,9 @@ func (c *Client) Deregister(ctx context.Context, serviceID string) error {
 		ctx, cancel = contextutil.NewOperation(consulOperationTimeout)
 		defer cancel()
 	}
-	c.cancel()
-	return c.cli.Agent().ServiceDeregisterOpts(serviceID, new(api.QueryOptions).WithContext(ctx))
+	if err := c.client.Agent().ServiceDeregisterOpts(serviceID, new(api.QueryOptions).WithContext(ctx)); err != nil {
+		return err
+	}
+	c.stopHeartbeat(serviceID)
+	return nil
 }
