@@ -4,7 +4,6 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"goshop/app/review/srv/internal/domain"
@@ -175,9 +174,6 @@ func translate(err error) error {
 	}
 	var me *mysql.MySQLError
 	if stderrors.As(err, &me) && me.Number == 1062 {
-		return ErrConflict
-	}
-	if strings.Contains(strings.ToLower(err.Error()), "unique") {
 		return ErrConflict
 	}
 	return err

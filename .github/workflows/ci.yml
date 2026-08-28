@@ -63,6 +63,9 @@ jobs:
       - name: Check architecture boundaries
         run: make architecture-check
 
+      - name: Check error contracts
+        run: make error-contract-check
+
       - name: Check protobuf drift
         run: make proto-check
 

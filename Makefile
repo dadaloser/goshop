@@ -1,4 +1,4 @@
-.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test data-layer-integration-test schema-integration-test test-race-cover coverage-threshold-check format-check vet-check lint-check rpcserver-flake-check release-check ops-check architecture-check context-check
+.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test data-layer-integration-test schema-integration-test test-race-cover coverage-threshold-check format-check vet-check lint-check rpcserver-flake-check release-check ops-check architecture-check context-check error-contract-audit error-contract-check
 
 GOLANGCI_LINT_VERSION ?= v2.12.2
 
@@ -37,6 +37,8 @@ help:
 	@echo "  make ops-check  Validate monitoring, runbooks, Jenkins gates, canary and chaos assets"
 	@echo "  make architecture-check  Enforce formal RBAC and thin API/Admin dependency boundaries"
 	@echo "  make context-check  Reject direct context.Background calls outside documented context boundaries"
+	@echo "  make error-contract-audit  Report legacy database error wrapping and string matching"
+	@echo "  make error-contract-check  Enforce database error wrapping and typed error matching"
 
 proto:
 	go generate ./api
@@ -97,3 +99,9 @@ architecture-check:
 
 context-check:
 	bash ./scripts/context-boundary-check.sh
+
+error-contract-audit:
+	bash ./scripts/error-contract-audit.sh
+
+error-contract-check:
+	bash ./scripts/error-contract-audit.sh --strict

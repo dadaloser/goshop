@@ -53,6 +53,9 @@ These standards apply to all Go code in `goshop`.
   `pkg/errors.WrapCode` or `WrapSpec` so the original cause remains available
   to `errors.Is` and `errors.As`. Use `NewCode` or `NewSpec` only when no
   underlying error exists.
+- Database error classification must use sentinels or typed driver errors, not
+  `err.Error()` string matching. `make error-contract-check` enforces both
+  requirements.
 - Error strings should be lowercase and should not end with punctuation.
 - Handle each error once: either return it or log it at the boundary, not both.
 - Do not panic for expected failures. Panics are limited to programmer errors,
