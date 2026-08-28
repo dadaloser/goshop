@@ -1,4 +1,4 @@
-package db
+package errorcontract
 
 import (
 	stderrors "errors"
@@ -9,15 +9,15 @@ import (
 	apperrors "goshop/pkg/errors"
 )
 
-func TestWrapDatabaseErrorPreservesCauseAndBusinessCode(t *testing.T) {
+func TestWrapDatabasePreservesCauseAndBusinessCode(t *testing.T) {
 	errorcatalog.RegisterAll()
 	wantCause := stderrors.New("database unavailable")
-	err := wrapDatabaseError(wantCause, "list goods")
+	err := WrapDatabase(wantCause, "query orders")
 
 	if !stderrors.Is(err, wantCause) {
-		t.Errorf("wrapDatabaseError() error = %v, want cause %v", err, wantCause)
+		t.Errorf("WrapDatabase() error = %v, want cause %v", err, wantCause)
 	}
 	if !apperrors.IsCode(err, errcode.ErrDatabase) {
-		t.Errorf("wrapDatabaseError() error = %v, want business code %d", err, errcode.ErrDatabase)
+		t.Errorf("WrapDatabase() error = %v, want business code %d", err, errcode.ErrDatabase)
 	}
 }

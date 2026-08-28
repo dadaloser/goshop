@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	stderrors "errors"
+	"goshop/app/pkg/errorcontract"
 	"time"
 
 	dv1 "goshop/app/user/srv/internal/data/v1"
@@ -18,7 +19,7 @@ func (u *users) CreateBreakGlassApproval(ctx context.Context, approval *dv1.Brea
 		return errors.NewCode(errcode.ErrValidation, "break-glass approval is invalid")
 	}
 	if err := u.db.WithContext(ctx).Create(approval).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return nil
 }
@@ -54,7 +55,7 @@ func (u *users) ApproveBreakGlassApproval(ctx context.Context, approvalID string
 		if errors.IsCode(err, errcode.ErrValidation) {
 			return nil, err
 		}
-		return nil, wrapDatabaseError(err, "approve break-glass approval")
+		return nil, errorcontract.WrapDatabase(err, "approve break-glass approval")
 	}
 	return &approval, nil
 }
@@ -82,7 +83,7 @@ func (u *users) ConsumeBreakGlassApproval(ctx context.Context, approvalID string
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(errcode.ErrValidation, "break-glass approval is not usable")
 		}
-		return nil, wrapDatabaseError(err, "consume break-glass approval")
+		return nil, errorcontract.WrapDatabase(err, "consume break-glass approval")
 	}
 	return &approval, nil
 }

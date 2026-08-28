@@ -3,6 +3,7 @@ package mysql
 import (
 	"context"
 	stderrors "errors"
+	"goshop/app/pkg/errorcontract"
 	"strings"
 
 	"goshop/app/inventory/srv/internal/data/v1"
@@ -42,7 +43,7 @@ func (i *inventorys) UpdateStockSellDetailStatus(ctx context.Context, txn *gorm.
 	//所以我们可以根据影响的行数来判断是否更新成功
 	result := db.WithContext(ctx).Model(do.StockSellDetailDO{}).Where("order_sn = ?", ordersn).Update("status", status)
 	if result.Error != nil {
-		return wrapDatabaseError(result.Error, "update inventory sell detail status")
+		return errorcontract.WrapDatabase(result.Error, "update inventory sell detail status")
 	}
 	if result.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrInvSellDetailNotFound, "inventory sell detail not found")
@@ -63,7 +64,7 @@ func (i *inventorys) GetSellDetail(ctx context.Context, txn *gorm.DB, ordersn st
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrInvSellDetailNotFound, err.Error())
 		}
-		return nil, wrapDatabaseError(err, "get inventory sell detail")
+		return nil, errorcontract.WrapDatabase(err, "get inventory sell detail")
 	}
 	return &orderSellDetail, err
 }
@@ -81,7 +82,7 @@ func (i *inventorys) GetSellDetailForUpdate(ctx context.Context, txn *gorm.DB, o
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrInvSellDetailNotFound, err.Error())
 		}
-		return nil, wrapDatabaseError(err, "get inventory sell detail for update")
+		return nil, errorcontract.WrapDatabase(err, "get inventory sell detail for update")
 	}
 	return &orderSellDetail, err
 }
@@ -105,7 +106,7 @@ func (i *inventorys) Reduce(ctx context.Context, txn *gorm.DB, goodsID uint64, n
 			"stocks":    gorm.Expr("stocks - ?", num),
 		})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "reduce inventory")
+		return errorcontract.WrapDatabase(tx.Error, "reduce inventory")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrInvNotEnough, "库存不足")
@@ -132,7 +133,7 @@ func (i *inventorys) Increase(ctx context.Context, txn *gorm.DB, goodsID uint64,
 			"stocks":    gorm.Expr("stocks + ?", num),
 		})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "increase inventory")
+		return errorcontract.WrapDatabase(tx.Error, "increase inventory")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
@@ -158,7 +159,7 @@ func (i *inventorys) ConfirmSell(ctx context.Context, txn *gorm.DB, goodsID uint
 			"sold":   gorm.Expr("sold + ?", num),
 		})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "confirm inventory sale")
+		return errorcontract.WrapDatabase(tx.Error, "confirm inventory sale")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrInventoryNotFound, "inventory not found")
@@ -175,7 +176,7 @@ func (i *inventorys) CreateStockSellDetail(ctx context.Context, txn *gorm.DB, de
 
 	tx := db.WithContext(ctx).Create(detail)
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "create inventory sell detail")
+		return errorcontract.WrapDatabase(tx.Error, "create inventory sell detail")
 	}
 	return nil
 }
@@ -194,7 +195,7 @@ func (i *inventorys) CreateStockSellDetailIfAbsent(ctx context.Context, txn *gor
 		}).
 		Create(detail)
 	if tx.Error != nil {
-		return false, wrapDatabaseError(tx.Error, "create inventory sell detail if absent")
+		return false, errorcontract.WrapDatabase(tx.Error, "create inventory sell detail if absent")
 	}
 	return tx.RowsAffected > 0, nil
 }
@@ -207,7 +208,7 @@ func (i *inventorys) Create(ctx context.Context, inv *do.InventoryDO) error {
 	//设置库存， 如果我要更新库存
 	tx := i.db.WithContext(ctx).Create(inv)
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "create inventory")
+		return errorcontract.WrapDatabase(tx.Error, "create inventory")
 	}
 	return nil
 }
@@ -240,7 +241,7 @@ func (i *inventorys) Adjust(ctx context.Context, inv *do.InventoryDO, audit *do.
 		return tx.Create(audit).Error
 	})
 	if err != nil {
-		return wrapDatabaseError(err, "adjust inventory")
+		return errorcontract.WrapDatabase(err, "adjust inventory")
 	}
 	return nil
 }
@@ -249,11 +250,11 @@ func (i *inventorys) ListAdjustments(ctx context.Context, goodsID uint64, offset
 	query := i.db.WithContext(ctx).Model(&do.InventoryAdjustmentDO{}).Where("goods_id = ?", goodsID)
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, wrapDatabaseError(err, "count inventory adjustments")
+		return nil, 0, errorcontract.WrapDatabase(err, "count inventory adjustments")
 	}
 	items := []do.InventoryAdjustmentDO{}
 	if err := query.Order("id DESC").Offset(offset).Limit(limit).Find(&items).Error; err != nil {
-		return nil, 0, wrapDatabaseError(err, "list inventory adjustments")
+		return nil, 0, errorcontract.WrapDatabase(err, "list inventory adjustments")
 	}
 	return items, total, nil
 }
@@ -271,7 +272,7 @@ func (i *inventorys) ListAdjustmentsByGoods(ctx context.Context, goodsIDs []uint
 		Order("id DESC").
 		Limit(limit).
 		Find(&items).Error; err != nil {
-		return nil, wrapDatabaseError(err, "list inventory adjustments by goods")
+		return nil, errorcontract.WrapDatabase(err, "list inventory adjustments by goods")
 	}
 	return items, nil
 }
@@ -288,7 +289,7 @@ func (i *inventorys) Get(ctx context.Context, goodsID uint64) (*do.InventoryDO, 
 			return nil, errors.NewCode(bizcode.ErrInventoryNotFound, err.Error())
 		}
 
-		return nil, wrapDatabaseError(err, "get inventory")
+		return nil, errorcontract.WrapDatabase(err, "get inventory")
 	}
 
 	inv.Stocks = inv.Available

@@ -4,6 +4,7 @@ import (
 	"context"
 	v1 "goshop/app/order/srv/internal/data/v1"
 	"goshop/app/order/srv/internal/domain/do"
+	"goshop/app/pkg/errorcontract"
 	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 	"strings"
@@ -29,7 +30,7 @@ func (o *orderStatusLogs) Create(ctx context.Context, txn *gorm.DB, entry *do.Or
 		db = txn
 	}
 	if err := db.WithContext(ctx).Create(entry).Error; err != nil {
-		return wrapDatabaseError(err, "database operation")
+		return errorcontract.WrapDatabase(err, "database operation")
 	}
 	return nil
 }
@@ -45,7 +46,7 @@ func (o *orderStatusLogs) ListByOrderSn(ctx context.Context, orderSn string) ([]
 		Where("order_sn = ?", orderSn).
 		Order("add_time asc, id asc").
 		Find(&entries).Error; err != nil {
-		return nil, wrapDatabaseError(err, "database operation")
+		return nil, errorcontract.WrapDatabase(err, "database operation")
 	}
 	return entries, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrors "errors"
 	"goshop/app/pkg/bizcode"
+	"goshop/app/pkg/errorcontract"
 
 	"goshop/pkg/errors"
 
@@ -30,7 +31,7 @@ func (cb *categoryBrands) List(ctx context.Context, opts metav1.ListMeta, orderB
 
 	countQuery := cb.db.WithContext(ctx).Model(&do.GoodsCategoryBrandDO{})
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, wrapDatabaseError(err, "count category brand relations")
+		return nil, errorcontract.WrapDatabase(err, "count category brand relations")
 	}
 
 	query := cb.db.WithContext(ctx).Preload("Category").Preload("Brands")
@@ -43,7 +44,7 @@ func (cb *categoryBrands) List(ctx context.Context, opts metav1.ListMeta, orderB
 	}
 	tx := query.Limit(opts.PageSize).Find(&ret.Items)
 	if tx.Error != nil {
-		return nil, wrapDatabaseError(tx.Error, "list category brand relations")
+		return nil, errorcontract.WrapDatabase(tx.Error, "list category brand relations")
 	}
 	return ret, nil
 }
@@ -56,7 +57,7 @@ func (cb *categoryBrands) ListByCategory(ctx context.Context, categoryID uint64,
 
 	countQuery := cb.db.WithContext(ctx).Model(&do.GoodsCategoryBrandDO{}).Where("category_id = ?", categoryID)
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, wrapDatabaseError(err, "count category brand relations by category")
+		return nil, errorcontract.WrapDatabase(err, "count category brand relations by category")
 	}
 
 	query := cb.db.WithContext(ctx).
@@ -66,7 +67,7 @@ func (cb *categoryBrands) ListByCategory(ctx context.Context, categoryID uint64,
 	query = applyOrderBy(query, orderBy, categoryBrandOrderColumns)
 	tx := query.Find(&ret.Items)
 	if tx.Error != nil {
-		return nil, wrapDatabaseError(tx.Error, "list category brand relations by category")
+		return nil, errorcontract.WrapDatabase(tx.Error, "list category brand relations by category")
 	}
 	return ret, nil
 }
@@ -81,7 +82,7 @@ func (cb *categoryBrands) CountByBrand(ctx context.Context, brandID uint64) (int
 		Where("brands_id = ?", brandID).
 		Count(&count).Error
 	if err != nil {
-		return 0, wrapDatabaseError(err, "count category brand relations by brand")
+		return 0, errorcontract.WrapDatabase(err, "count category brand relations by brand")
 	}
 	return count, nil
 }
@@ -96,7 +97,7 @@ func (cb *categoryBrands) Create(ctx context.Context, txn *gorm.DB, gcb *do.Good
 		db = txn
 	}
 	if err := db.WithContext(ctx).Create(gcb).Error; err != nil {
-		return wrapDatabaseError(err, "create category brand relation")
+		return errorcontract.WrapDatabase(err, "create category brand relation")
 	}
 	return nil
 }
@@ -117,7 +118,7 @@ func (cb *categoryBrands) Update(ctx context.Context, txn *gorm.DB, gcb *do.Good
 			"brands_id":   gcb.BrandsID,
 		})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "update category brand relation")
+		return errorcontract.WrapDatabase(tx.Error, "update category brand relation")
 	}
 	if tx.RowsAffected == 0 {
 		exists, err := cb.exists(ctx, uint64(gcb.ID))
@@ -138,7 +139,7 @@ func (cb *categoryBrands) Delete(ctx context.Context, ID uint64) error {
 
 	tx := cb.db.WithContext(ctx).Where("id = ?", ID).Delete(&do.GoodsCategoryBrandDO{})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "delete category brand relation")
+		return errorcontract.WrapDatabase(tx.Error, "delete category brand relation")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrCategoryBrandNotFound, "category brand relation not found")
@@ -155,7 +156,7 @@ func (cb *categoryBrands) exists(ctx context.Context, id uint64) (bool, error) {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
-		return false, wrapDatabaseError(err, "check category brand relation")
+		return false, errorcontract.WrapDatabase(err, "check category brand relation")
 	}
 	return true, nil
 }

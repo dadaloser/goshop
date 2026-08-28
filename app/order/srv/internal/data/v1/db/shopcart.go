@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrors "errors"
 	"goshop/app/pkg/bizcode"
+	"goshop/app/pkg/errorcontract"
 
 	"goshop/pkg/errors"
 
@@ -59,7 +60,7 @@ func (sc *shopCarts) RestoreCheckedItems(ctx context.Context, txn *gorm.DB, user
 				"checked": true,
 			})
 		if tx.Error != nil {
-			return wrapDatabaseError(tx.Error, "database operation")
+			return errorcontract.WrapDatabase(tx.Error, "database operation")
 		}
 		if tx.RowsAffected > 0 {
 			continue
@@ -72,7 +73,7 @@ func (sc *shopCarts) RestoreCheckedItems(ctx context.Context, txn *gorm.DB, user
 			Checked: true,
 		}).Error
 		if err != nil {
-			return wrapDatabaseError(err, "database operation")
+			return errorcontract.WrapDatabase(err, "database operation")
 		}
 	}
 	return nil
@@ -102,7 +103,7 @@ func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta
 		countQuery = countQuery.Where("checked = ?", true)
 	}
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, wrapDatabaseError(err, "database operation")
+		return nil, errorcontract.WrapDatabase(err, "database operation")
 	}
 
 	//排序
@@ -115,7 +116,7 @@ func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta
 
 	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
-		return nil, wrapDatabaseError(d.Error, "database operation")
+		return nil, errorcontract.WrapDatabase(d.Error, "database operation")
 	}
 	return ret, nil
 }
@@ -127,7 +128,7 @@ func (sc *shopCarts) Create(ctx context.Context, cartItem *do.ShoppingCartDO) er
 
 	tx := sc.db.WithContext(ctx).Create(cartItem)
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "database operation")
+		return errorcontract.WrapDatabase(tx.Error, "database operation")
 	}
 	return nil
 }
@@ -143,7 +144,7 @@ func (sc *shopCarts) Get(ctx context.Context, userID, goodsID uint64) (*do.Shopp
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrShopCartItemNotFound, err.Error())
 		}
-		return nil, wrapDatabaseError(err, "database operation")
+		return nil, errorcontract.WrapDatabase(err, "database operation")
 	}
 	return &shopCart, nil
 }
@@ -160,7 +161,7 @@ func (sc *shopCarts) UpdateNum(ctx context.Context, cartItem *do.ShoppingCartDO)
 			"checked": cartItem.Checked,
 		})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "database operation")
+		return errorcontract.WrapDatabase(tx.Error, "database operation")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
@@ -175,7 +176,7 @@ func (sc *shopCarts) Delete(ctx context.Context, userID, ID uint64) error {
 
 	tx := sc.db.WithContext(ctx).Where("id = ? AND user = ?", ID, userID).Delete(&do.ShoppingCartDO{})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "database operation")
+		return errorcontract.WrapDatabase(tx.Error, "database operation")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
@@ -193,7 +194,7 @@ func (sc *shopCarts) ClearCheck(ctx context.Context, userID uint64) error {
 		Where("user = ? AND checked = ?", userID, true).
 		Update("checked", false)
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "database operation")
+		return errorcontract.WrapDatabase(tx.Error, "database operation")
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"goshop/app/pkg/accountdeletion"
 	"goshop/app/pkg/bizcode"
+	"goshop/app/pkg/errorcontract"
 	"slices"
 	"strings"
 	"time"
@@ -53,7 +54,7 @@ func (u *users) GetByMobile(ctx context.Context, mobile string) (*dv1.UserDO, er
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrUserNotFound, err.Error())
 		}
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return &user, nil
 }
@@ -72,7 +73,7 @@ func (u *users) GetByUsername(ctx context.Context, username string) (*dv1.UserDO
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrUserNotFound, err.Error())
 		}
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return &user, nil
 }
@@ -96,7 +97,7 @@ func (u *users) GetByID(ctx context.Context, id uint64) (*dv1.UserDO, error) {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrUserNotFound, err.Error())
 		}
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return &user, nil
 }
@@ -120,7 +121,7 @@ func (u *users) GetAuthByID(ctx context.Context, id uint64) (*dv1.UserAuthDO, er
 func (u *users) ListRoles(ctx context.Context) ([]dv1.RoleDO, error) {
 	var roles []dv1.RoleDO
 	if err := u.db.WithContext(ctx).Order("name ASC").Find(&roles).Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	definitions := make(map[string]authz.RoleDefinition)
 	for _, definition := range authz.BuiltinRoleDefinitions() {
@@ -162,7 +163,7 @@ func (u *users) CreateRole(ctx context.Context, roleName, description string, pe
 	}
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return nil, wrapDatabaseError(tx.Error, "user database operation")
+		return nil, errorcontract.WrapDatabase(tx.Error, "user database operation")
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -173,7 +174,7 @@ func (u *users) CreateRole(ctx context.Context, roleName, description string, pe
 
 	if err := tx.Create(&role).Error; err != nil {
 		tx.Rollback()
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if err := u.replaceRolePermissionsTx(tx, role.ID, permissions); err != nil {
 		tx.Rollback()
@@ -184,7 +185,7 @@ func (u *users) CreateRole(ctx context.Context, roleName, description string, pe
 		return nil, err
 	}
 	if err := tx.Commit().Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 
 	role.Permissions = append([]string(nil), permissions...)
@@ -203,12 +204,12 @@ func (u *users) UpdateRole(ctx context.Context, roleName, description string, pe
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrUserNotFound, "staff role not found")
 		}
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return nil, wrapDatabaseError(tx.Error, "user database operation")
+		return nil, errorcontract.WrapDatabase(tx.Error, "user database operation")
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -219,7 +220,7 @@ func (u *users) UpdateRole(ctx context.Context, roleName, description string, pe
 
 	if err := tx.Model(&dv1.RoleDO{}).Where("id = ?", role.ID).Update("description", description).Error; err != nil {
 		tx.Rollback()
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if err := u.replaceRolePermissionsTx(tx, role.ID, permissions); err != nil {
 		tx.Rollback()
@@ -230,7 +231,7 @@ func (u *users) UpdateRole(ctx context.Context, roleName, description string, pe
 		return nil, err
 	}
 	if err := tx.Commit().Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 
 	role.Description = description
@@ -254,12 +255,12 @@ func (u *users) DeleteRole(ctx context.Context, roleName string) error {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.NewCode(bizcode.ErrUserNotFound, "staff role not found")
 		}
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 
 	var bindingCount int64
 	if err := u.db.WithContext(ctx).Model(&dv1.UserRoleDO{}).Where("role_id = ?", role.ID).Count(&bindingCount).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if bindingCount > 0 {
 		return errors.NewCode(errcode.ErrValidation, "staff role is still assigned")
@@ -267,7 +268,7 @@ func (u *users) DeleteRole(ctx context.Context, roleName string) error {
 
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "user database operation")
+		return errorcontract.WrapDatabase(tx.Error, "user database operation")
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -278,18 +279,18 @@ func (u *users) DeleteRole(ctx context.Context, roleName string) error {
 
 	if err := tx.Where("role_id = ?", role.ID).Delete(&dv1.RolePermissionDO{}).Error; err != nil {
 		tx.Rollback()
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if err := tx.Where("role_id = ?", role.ID).Delete(&dv1.RoleDomainDO{}).Error; err != nil {
 		tx.Rollback()
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if err := tx.Delete(&dv1.RoleDO{}, role.ID).Error; err != nil {
 		tx.Rollback()
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if err := tx.Commit().Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return nil
 }
@@ -307,7 +308,7 @@ func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames [
 	normalizedRoles := normalizeRoleNames(roleNames)
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return nil, wrapDatabaseError(tx.Error, "user database operation")
+		return nil, errorcontract.WrapDatabase(tx.Error, "user database operation")
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -339,7 +340,7 @@ func (u *users) ReplaceUserRoles(ctx context.Context, userID uint64, roleNames [
 		}
 	}
 	if err = tx.Commit().Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 
 	return u.buildAuthUser(ctx, user)
@@ -359,7 +360,7 @@ func (u *users) Create(ctx context.Context, user *dv1.UserDO) error {
 
 	tx := u.db.WithContext(ctx).Create(user)
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "user database operation")
+		return errorcontract.WrapDatabase(tx.Error, "user database operation")
 	}
 	return nil
 }
@@ -376,7 +377,7 @@ func (u *users) CreateStaff(ctx context.Context, user *dv1.UserDO, roleNames []s
 
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return nil, wrapDatabaseError(tx.Error, "user database operation")
+		return nil, errorcontract.WrapDatabase(tx.Error, "user database operation")
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -392,7 +393,7 @@ func (u *users) CreateStaff(ctx context.Context, user *dv1.UserDO, roleNames []s
 	}
 	if err = tx.Create(user).Error; err != nil {
 		tx.Rollback()
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if err = u.replaceUserRolesTx(tx, user.ID, roles); err != nil {
 		tx.Rollback()
@@ -410,7 +411,7 @@ func (u *users) CreateStaff(ctx context.Context, user *dv1.UserDO, roleNames []s
 		return nil, err
 	}
 	if err = tx.Commit().Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 
 	return u.buildAuthUser(ctx, user)
@@ -442,7 +443,7 @@ func (u *users) Update(ctx context.Context, user *dv1.UserDO) error {
 		Where("id = ?", user.ID).
 		Updates(updates)
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "user database operation")
+		return errorcontract.WrapDatabase(tx.Error, "user database operation")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
@@ -466,7 +467,7 @@ func (u *users) UpdateStatus(ctx context.Context, id uint64, status string, acto
 
 	tx := u.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "user database operation")
+		return errorcontract.WrapDatabase(tx.Error, "user database operation")
 	}
 	defer func() {
 		if r := recover(); r != nil {
@@ -478,7 +479,7 @@ func (u *users) UpdateStatus(ctx context.Context, id uint64, status string, acto
 	result := tx.Model(&dv1.UserDO{}).Where("id = ?", id).Update("account_status", status)
 	if result.Error != nil {
 		tx.Rollback()
-		return wrapDatabaseError(result.Error, "user database operation")
+		return errorcontract.WrapDatabase(result.Error, "user database operation")
 	}
 	if result.RowsAffected == 0 {
 		tx.Rollback()
@@ -496,7 +497,7 @@ func (u *users) UpdateStatus(ctx context.Context, id uint64, status string, acto
 		return err
 	}
 	if err = tx.Commit().Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return nil
 }
@@ -515,7 +516,7 @@ func (u *users) Delete(ctx context.Context, id uint64) error {
 			"account_status": string(authz.AccountStatusDeleted),
 		})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "user database operation")
+		return errorcontract.WrapDatabase(tx.Error, "user database operation")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
@@ -592,7 +593,7 @@ func (u *users) RequestAccountDeletion(ctx context.Context, id uint64, at time.T
 	if errors.IsCode(err, bizcode.ErrUserAccountInactive) {
 		return err
 	}
-	return wrapDatabaseError(err, "user database operation")
+	return errorcontract.WrapDatabase(err, "user database operation")
 }
 
 func (u *users) ListAuditLogs(ctx context.Context, userID uint64, filters dv1.UserAuditLogFilters, opts metav1.ListMeta) (*dv1.UserAuditLogDOList, error) {
@@ -627,10 +628,10 @@ func (u *users) ListAuditLogs(ctx context.Context, userID uint64, filters dv1.Us
 		query = query.Where("add_time <= ?", *filters.CreatedBefore)
 	}
 	if err := query.Count(&ret.TotalCount).Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if err := query.Order("add_time DESC, id DESC").Offset(offset).Limit(limit).Find(&ret.Items).Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return ret, nil
 }
@@ -646,7 +647,7 @@ func (u *users) CreateAdminAuditLog(ctx context.Context, logEntry *dv1.AdminAudi
 		logEntry.ActorPrincipalType = string(authz.PrincipalInternalService)
 	}
 	if err := u.db.WithContext(ctx).Create(logEntry).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return nil
 }
@@ -682,10 +683,10 @@ func (u *users) ListAdminAuditLogs(ctx context.Context, filters dv1.AdminAuditLo
 		query = query.Where("add_time <= ?", *filters.CreatedBefore)
 	}
 	if err := query.Count(&ret.TotalCount).Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if err := query.Order("add_time DESC, id DESC").Offset(offset).Limit(limit).Find(&ret.Items).Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return ret, nil
 }
@@ -719,7 +720,7 @@ func (u *users) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 
 	countQuery := u.db.WithContext(ctx).Model(&dv1.UserDO{})
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 
 	//排序
@@ -728,7 +729,7 @@ func (u *users) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 
 	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
-		return nil, wrapDatabaseError(d.Error, "user database operation")
+		return nil, errorcontract.WrapDatabase(d.Error, "user database operation")
 	}
 	return ret, nil
 }
@@ -748,7 +749,7 @@ func (u *users) buildAuthUser(ctx context.Context, user *dv1.UserDO) (*dv1.UserA
 	}
 	var scopes []dv1.UserResourceScopeDO
 	if err = u.db.WithContext(ctx).Where("user_id = ?", user.ID).Find(&scopes).Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	domainSet := make(map[string]struct{}, len(scopes))
 	storeSet := make(map[string]struct{}, len(scopes))
@@ -803,7 +804,7 @@ func (u *users) ReplaceResourceScopes(ctx context.Context, userID uint64, scopes
 		return nil
 	})
 	if err != nil {
-		return wrapDatabaseError(err, "replace user resource scopes")
+		return errorcontract.WrapDatabase(err, "replace user resource scopes")
 	}
 	return nil
 }
@@ -822,7 +823,7 @@ func (u *users) listStaffRoles(ctx context.Context, userID int32) ([]string, err
 		Order((&dv1.RoleDO{}).TableName()+".name ASC").
 		Pluck((&dv1.RoleDO{}).TableName()+".name", &roles).Error
 	if err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return roles, nil
 }
@@ -842,7 +843,7 @@ func (u *users) listPermissions(ctx context.Context, userID int32) ([]string, er
 		Order((&dv1.RolePermissionDO{}).TableName()+".permission ASC").
 		Pluck((&dv1.RolePermissionDO{}).TableName()+".permission", &permissions).Error
 	if err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return permissions, nil
 }
@@ -859,7 +860,7 @@ func (u *users) listRolePermissions(ctx context.Context, roleID uint64) ([]strin
 		Order("permission ASC").
 		Pluck("permission", &permissions).Error
 	if err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return permissions, nil
 }
@@ -876,7 +877,7 @@ func (u *users) listRoleDomains(ctx context.Context, roleID uint64) ([]string, e
 		Order("domain ASC").
 		Pluck("domain", &domains).Error
 	if err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return domains, nil
 }
@@ -888,7 +889,7 @@ func (u *users) loadRoles(tx *gorm.DB, normalizedRoles []string) ([]dv1.RoleDO, 
 
 	var roles []dv1.RoleDO
 	if err := tx.Where("name IN ?", normalizedRoles).Order("name ASC").Find(&roles).Error; err != nil {
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if len(roles) != len(normalizedRoles) {
 		return nil, errors.NewCode(errcode.ErrValidation, "staff roles contain unknown values")
@@ -906,7 +907,7 @@ func (u *users) loadRoles(tx *gorm.DB, normalizedRoles []string) ([]dv1.RoleDO, 
 
 func (u *users) replaceUserRolesTx(tx *gorm.DB, userID int32, roles []dv1.RoleDO) error {
 	if err := tx.Where("user_id = ?", userID).Delete(&dv1.UserRoleDO{}).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	for _, role := range roles {
 		binding := dv1.UserRoleDO{
@@ -914,7 +915,7 @@ func (u *users) replaceUserRolesTx(tx *gorm.DB, userID int32, roles []dv1.RoleDO
 			RoleID: role.ID,
 		}
 		if err := tx.Create(&binding).Error; err != nil {
-			return wrapDatabaseError(err, "user database operation")
+			return errorcontract.WrapDatabase(err, "user database operation")
 		}
 	}
 	return nil
@@ -922,7 +923,7 @@ func (u *users) replaceUserRolesTx(tx *gorm.DB, userID int32, roles []dv1.RoleDO
 
 func (u *users) replaceRolePermissionsTx(tx *gorm.DB, roleID uint64, permissions []string) error {
 	if err := tx.Where("role_id = ?", roleID).Delete(&dv1.RolePermissionDO{}).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	for _, permission := range permissions {
 		record := dv1.RolePermissionDO{
@@ -930,7 +931,7 @@ func (u *users) replaceRolePermissionsTx(tx *gorm.DB, roleID uint64, permissions
 			Permission: permission,
 		}
 		if err := tx.Create(&record).Error; err != nil {
-			return wrapDatabaseError(err, "user database operation")
+			return errorcontract.WrapDatabase(err, "user database operation")
 		}
 	}
 	return nil
@@ -938,7 +939,7 @@ func (u *users) replaceRolePermissionsTx(tx *gorm.DB, roleID uint64, permissions
 
 func (u *users) replaceRoleDomainsTx(tx *gorm.DB, roleID uint64, domains []string) error {
 	if err := tx.Where("role_id = ?", roleID).Delete(&dv1.RoleDomainDO{}).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	for _, domain := range domains {
 		record := dv1.RoleDomainDO{
@@ -946,7 +947,7 @@ func (u *users) replaceRoleDomainsTx(tx *gorm.DB, roleID uint64, domains []strin
 			Domain: domain,
 		}
 		if err := tx.Create(&record).Error; err != nil {
-			return wrapDatabaseError(err, "user database operation")
+			return errorcontract.WrapDatabase(err, "user database operation")
 		}
 	}
 	return nil
@@ -960,7 +961,7 @@ func (u *users) appendAuditLogTx(tx *gorm.DB, logEntry *dv1.UserAuditLogDO) erro
 		logEntry.ActorPrincipalType = string(authz.PrincipalInternalService)
 	}
 	if err := tx.Create(logEntry).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return nil
 }

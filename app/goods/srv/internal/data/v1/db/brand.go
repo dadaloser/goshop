@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	stderrors "errors"
+	"goshop/app/pkg/errorcontract"
 
 	"goshop/app/pkg/bizcode"
 	"goshop/pkg/errors"
@@ -42,7 +43,7 @@ func (b *brands) Get(ctx context.Context, ID uint64) (*do.BrandsDO, error) {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrBrandNotFound, err.Error())
 		}
-		return nil, wrapDatabaseError(err, "get brand")
+		return nil, errorcontract.WrapDatabase(err, "get brand")
 	}
 	return brand, nil
 }
@@ -55,7 +56,7 @@ func (b *brands) List(ctx context.Context, opts metav1.ListMeta, orderBy []strin
 
 	countQuery := b.db.WithContext(ctx).Model(&do.BrandsDO{})
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, wrapDatabaseError(err, "count brands")
+		return nil, errorcontract.WrapDatabase(err, "count brands")
 	}
 
 	query := b.db.WithContext(ctx).Model(&do.BrandsDO{})
@@ -69,7 +70,7 @@ func (b *brands) List(ctx context.Context, opts metav1.ListMeta, orderBy []strin
 	}
 	tx := query.Limit(opts.PageSize).Find(&ret.Items)
 	if tx.Error != nil {
-		return nil, wrapDatabaseError(tx.Error, "list brands")
+		return nil, errorcontract.WrapDatabase(tx.Error, "list brands")
 	}
 	return ret, nil
 }
@@ -84,7 +85,7 @@ func (b *brands) Create(ctx context.Context, txn *gorm.DB, brands *do.BrandsDO) 
 		db = txn
 	}
 	if err := db.WithContext(ctx).Create(brands).Error; err != nil {
-		return wrapDatabaseError(err, "create brand")
+		return errorcontract.WrapDatabase(err, "create brand")
 	}
 	return nil
 }
@@ -105,7 +106,7 @@ func (b *brands) Update(ctx context.Context, txn *gorm.DB, brands *do.BrandsDO) 
 			"logo": brands.Logo,
 		})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "update brand")
+		return errorcontract.WrapDatabase(tx.Error, "update brand")
 	}
 	if tx.RowsAffected == 0 {
 		if _, err := b.Get(ctx, uint64(brands.ID)); err != nil {
@@ -122,7 +123,7 @@ func (b *brands) Delete(ctx context.Context, ID uint64) error {
 
 	tx := b.db.WithContext(ctx).Where("id = ?", ID).Delete(&do.BrandsDO{})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "delete brand")
+		return errorcontract.WrapDatabase(tx.Error, "delete brand")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrBrandNotFound, "brand not found")

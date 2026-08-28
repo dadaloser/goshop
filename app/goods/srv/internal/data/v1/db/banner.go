@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	stderrors "errors"
+	"goshop/app/pkg/errorcontract"
 
 	"goshop/app/pkg/bizcode"
 	"goshop/pkg/errors"
@@ -33,7 +34,7 @@ func (b *banners) List(ctx context.Context, opts metav1.ListMeta, orderBy []stri
 
 	countQuery := b.db.WithContext(ctx).Model(&do.BannerDO{})
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, wrapDatabaseError(err, "count banners")
+		return nil, errorcontract.WrapDatabase(err, "count banners")
 	}
 
 	query := b.db.WithContext(ctx).Model(&do.BannerDO{})
@@ -46,7 +47,7 @@ func (b *banners) List(ctx context.Context, opts metav1.ListMeta, orderBy []stri
 	}
 	tx := query.Limit(opts.PageSize).Find(&ret.Items)
 	if tx.Error != nil {
-		return nil, wrapDatabaseError(tx.Error, "list banners")
+		return nil, errorcontract.WrapDatabase(tx.Error, "list banners")
 	}
 	return ret, nil
 }
@@ -61,7 +62,7 @@ func (b *banners) Create(ctx context.Context, txn *gorm.DB, banner *do.BannerDO)
 		db = txn
 	}
 	if err := db.WithContext(ctx).Create(banner).Error; err != nil {
-		return wrapDatabaseError(err, "create banner")
+		return errorcontract.WrapDatabase(err, "create banner")
 	}
 	return nil
 }
@@ -83,7 +84,7 @@ func (b *banners) Update(ctx context.Context, txn *gorm.DB, banner *do.BannerDO)
 			"index": banner.Index,
 		})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "update banner")
+		return errorcontract.WrapDatabase(tx.Error, "update banner")
 	}
 	if tx.RowsAffected == 0 {
 		exists, err := b.exists(ctx, uint64(banner.ID))
@@ -104,7 +105,7 @@ func (b *banners) Delete(ctx context.Context, ID uint64) error {
 
 	tx := b.db.WithContext(ctx).Where("id = ?", ID).Delete(&do.BannerDO{})
 	if tx.Error != nil {
-		return wrapDatabaseError(tx.Error, "delete banner")
+		return errorcontract.WrapDatabase(tx.Error, "delete banner")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrBannerNotFound, "banner not found")
@@ -121,7 +122,7 @@ func (b *banners) exists(ctx context.Context, id uint64) (bool, error) {
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
-		return false, wrapDatabaseError(err, "check banner")
+		return false, errorcontract.WrapDatabase(err, "check banner")
 	}
 	return true, nil
 }

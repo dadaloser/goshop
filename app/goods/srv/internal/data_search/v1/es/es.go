@@ -3,8 +3,8 @@ package es
 import (
 	v1 "goshop/app/goods/srv/internal/data_search/v1"
 	"goshop/app/pkg/options"
-	"goshop/pkg/db"
 	"goshop/pkg/errors"
+	"goshop/pkg/es"
 	"sync"
 
 	"github.com/olivere/elastic/v7"
@@ -29,7 +29,7 @@ func GetSearchFactoryOr(opts *options.EsOptions) (v1.SearchFactory, error) {
 	}
 
 	once.Do(func() {
-		esOpt := db.EsOptions{
+		esOpt := es.EsOptions{
 			Host:                  opts.Host,
 			Port:                  opts.Port,
 			Scheme:                opts.Scheme,
@@ -40,7 +40,7 @@ func GetSearchFactoryOr(opts *options.EsOptions) (v1.SearchFactory, error) {
 			SSLInsecureSkipVerify: opts.SSLInsecureSkipVerify,
 			DisableHealthcheck:    opts.DisableHealthcheck,
 		}
-		esClient, err := db.NewEsClient(&esOpt)
+		esClient, err := es.NewEsClient(&esOpt)
 		if err != nil {
 			return
 		}

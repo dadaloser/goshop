@@ -5,6 +5,7 @@ import (
 	"context"
 	stderrors "errors"
 	"goshop/app/pkg/bizcode"
+	"goshop/app/pkg/errorcontract"
 	"goshop/pkg/errcode"
 	"strings"
 	"time"
@@ -25,7 +26,7 @@ func (u *users) RecordLogin(ctx context.Context, id uint64, at time.Time) error 
 		Where("id = ? AND deleted_at IS NULL", id).
 		Update("last_login_at", at.UTC())
 	if result.Error != nil {
-		return wrapDatabaseError(result.Error, "user database operation")
+		return errorcontract.WrapDatabase(result.Error, "user database operation")
 	}
 	if result.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrUserNotFound, "user not found")
@@ -42,13 +43,13 @@ func (u *users) CreateSession(ctx context.Context, session *dv1.UserSessionDO) e
 	}
 	var blocked int64
 	if err := u.db.WithContext(ctx).Model(&dv1.DeviceBlacklistDO{}).Where("user_id = ? AND device_id = ?", session.UserID, session.DeviceID).Count(&blocked).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if blocked > 0 {
 		return errors.NewCode(bizcode.ErrUserAccountInactive, "device is blocked")
 	}
 	if err := u.db.WithContext(ctx).Create(session).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return nil
 }
@@ -66,14 +67,14 @@ func (u *users) ListUserSessions(ctx context.Context, userID uint64, offset, lim
 		if stderrors.Is(err, context.Canceled) || stderrors.Is(err, context.DeadlineExceeded) {
 			return nil, 0, err
 		}
-		return nil, 0, wrapDatabaseError(err, "user database operation")
+		return nil, 0, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	rows := make([]dv1.UserSessionRecordDO, 0, limit)
 	if err := base.Select("id, device_id, device_name, client_ip, location, created_at, last_used_at, expires_at, revoked_at").Order("last_used_at DESC").Offset(offset).Limit(limit).Find(&rows).Error; err != nil {
 		if stderrors.Is(err, context.Canceled) || stderrors.Is(err, context.DeadlineExceeded) {
 			return nil, 0, err
 		}
-		return nil, 0, wrapDatabaseError(err, "user database operation")
+		return nil, 0, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return rows, total, nil
 }
@@ -86,10 +87,10 @@ func (u *users) AddDeviceBlacklist(ctx context.Context, userID int32, deviceID s
 	return u.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		entry := &dv1.DeviceBlacklistDO{UserID: userID, DeviceID: deviceID, CreatedAt: at.UTC()}
 		if err := tx.Clauses(clause.OnConflict{UpdateAll: true}).Create(entry).Error; err != nil {
-			return wrapDatabaseError(err, "user database operation")
+			return errorcontract.WrapDatabase(err, "user database operation")
 		}
 		if err := tx.Model(&dv1.UserSessionDO{}).Where("user_id = ? AND device_id = ? AND revoked_at IS NULL", userID, deviceID).Update("revoked_at", at.UTC()).Error; err != nil {
-			return wrapDatabaseError(err, "user database operation")
+			return errorcontract.WrapDatabase(err, "user database operation")
 		}
 		return nil
 	})
@@ -100,7 +101,7 @@ func (u *users) DeleteDeviceBlacklist(ctx context.Context, userID int32, deviceI
 		return errors.NewCode(errcode.ErrValidation, "user id and device id are required")
 	}
 	if err := u.db.WithContext(ctx).Delete(&dv1.DeviceBlacklistDO{}, "user_id = ? AND device_id = ?", userID, strings.TrimSpace(deviceID)).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return nil
 }
@@ -115,11 +116,11 @@ func (u *users) ListDeviceBlacklist(ctx context.Context, userID int32, offset, l
 	}
 	var total int64
 	if err := base.Count(&total).Error; err != nil {
-		return nil, 0, wrapDatabaseError(err, "user database operation")
+		return nil, 0, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	items := make([]dv1.DeviceBlacklistDO, 0, limit)
 	if err := base.Order("created_at DESC").Offset(offset).Limit(limit).Find(&items).Error; err != nil {
-		return nil, 0, wrapDatabaseError(err, "user database operation")
+		return nil, 0, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return items, total, nil
 }
@@ -147,7 +148,7 @@ func (u *users) RotateSession(ctx context.Context, sessionID string, currentHash
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrUserAccountInactive, "session is not active")
 		}
-		return nil, wrapDatabaseError(err, "user database operation")
+		return nil, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	session.RefreshTokenHash = append([]byte(nil), nextHash...)
 	session.LastUsedAt = usedAt.UTC()
@@ -160,7 +161,7 @@ func (u *users) RevokeSession(ctx context.Context, userID uint64, sessionID stri
 		Where("id = ? AND user_id = ? AND revoked_at IS NULL", sessionID, userID).
 		Update("revoked_at", at.UTC())
 	if result.Error != nil {
-		return wrapDatabaseError(result.Error, "user database operation")
+		return errorcontract.WrapDatabase(result.Error, "user database operation")
 	}
 	return nil
 }
@@ -169,7 +170,7 @@ func (u *users) RevokeAllSessions(ctx context.Context, userID uint64, at time.Ti
 	if err := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).
 		Where("user_id = ? AND revoked_at IS NULL", userID).
 		Update("revoked_at", at.UTC()).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return nil
 }
@@ -180,7 +181,7 @@ func (u *users) SessionActive(ctx context.Context, userID uint64, sessionID stri
 		Where("id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?", sessionID, userID, at.UTC()).
 		Count(&count).Error
 	if err != nil {
-		return false, wrapDatabaseError(err, "user database operation")
+		return false, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return count == 1, nil
 }
@@ -218,7 +219,7 @@ func (u *users) ListStaffSessions(ctx context.Context, filters dv1.StaffSessionF
 	}
 	var total int64
 	if err := base.Count(&total).Error; err != nil {
-		return nil, 0, wrapDatabaseError(err, "user database operation")
+		return nil, 0, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	rows := make([]dv1.StaffSessionRecordDO, 0, filters.Limit)
 	if err := base.Select("id, user_id, principal_type, device_id, device_name, created_at, last_used_at, expires_at, revoked_at").
@@ -226,7 +227,7 @@ func (u *users) ListStaffSessions(ctx context.Context, filters dv1.StaffSessionF
 		Offset(filters.Offset).
 		Limit(filters.Limit).
 		Find(&rows).Error; err != nil {
-		return nil, 0, wrapDatabaseError(err, "user database operation")
+		return nil, 0, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	if len(rows) == 0 {
 		return rows, total, nil
@@ -251,7 +252,7 @@ func (u *users) ListStaffSessions(ctx context.Context, filters dv1.StaffSessionF
 		Where("ur.user_id IN ?", userIDs).
 		Order("r.name ASC").
 		Scan(&roleRows).Error; err != nil {
-		return nil, 0, wrapDatabaseError(err, "user database operation")
+		return nil, 0, errorcontract.WrapDatabase(err, "user database operation")
 	}
 	for _, role := range roleRows {
 		for _, idx := range indexByUser[role.UserID] {
@@ -268,7 +269,7 @@ func (u *users) RevokeStaffSession(ctx context.Context, sessionID string, at tim
 	if err := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).
 		Where("id = ? AND principal_type = ? AND revoked_at IS NULL", sessionID, string(authz.PrincipalStaff)).
 		Update("revoked_at", at.UTC()).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return nil
 }
@@ -280,7 +281,7 @@ func (u *users) RevokeStaffUserSessions(ctx context.Context, userID uint64, at t
 	if err := u.db.WithContext(ctx).Model(&dv1.UserSessionDO{}).
 		Where("user_id = ? AND principal_type = ? AND revoked_at IS NULL", userID, string(authz.PrincipalStaff)).
 		Update("revoked_at", at.UTC()).Error; err != nil {
-		return wrapDatabaseError(err, "user database operation")
+		return errorcontract.WrapDatabase(err, "user database operation")
 	}
 	return nil
 }

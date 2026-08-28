@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"goshop/app/pkg/errorcontract"
 	"strings"
 
 	v1 "goshop/app/goods/srv/internal/data/v1"
@@ -26,7 +27,7 @@ func (o *outbox) CreateInTxn(ctx context.Context, txn *gorm.DB, event *do.Outbox
 		return errors.NewCode(errcode.ErrValidation, "outbox event is required")
 	}
 	if err := txn.WithContext(ctx).Create(event).Error; err != nil {
-		return wrapDatabaseError(err, "create outbox event")
+		return errorcontract.WrapDatabase(err, "create outbox event")
 	}
 	return nil
 }
@@ -43,7 +44,7 @@ func (o *outbox) ClaimPending(ctx context.Context, topic string, limit int, nowU
 			Order("id asc").
 			Limit(limit).
 			Find(&events).Error; err != nil {
-			return wrapDatabaseError(err, "claim pending outbox events")
+			return errorcontract.WrapDatabase(err, "claim pending outbox events")
 		}
 		if len(events) == 0 {
 			return nil
@@ -68,7 +69,7 @@ func (o *outbox) ClaimPending(ctx context.Context, topic string, limit int, nowU
 				"processing_lock": topic,
 				"claimed_at":      nowUnix,
 			}).Error; err != nil {
-			return wrapDatabaseError(err, "mark outbox events processing")
+			return errorcontract.WrapDatabase(err, "mark outbox events processing")
 		}
 		return nil
 	})
@@ -92,7 +93,7 @@ func (o *outbox) ListByStatus(ctx context.Context, topic, status string, limit i
 		query = query.Where("status = ?", status)
 	}
 	if err := query.Find(&events).Error; err != nil {
-		return nil, wrapDatabaseError(err, "list outbox events by status")
+		return nil, errorcontract.WrapDatabase(err, "list outbox events by status")
 	}
 	return events, nil
 }
@@ -103,7 +104,7 @@ func (o *outbox) ListByIDs(ctx context.Context, ids []int32) ([]*do.OutboxEventD
 	}
 	var events []*do.OutboxEventDO
 	if err := o.db.WithContext(ctx).Where("id IN ?", ids).Order("id asc").Find(&events).Error; err != nil {
-		return nil, wrapDatabaseError(err, "list outbox events by id")
+		return nil, errorcontract.WrapDatabase(err, "list outbox events by id")
 	}
 	return events, nil
 }
@@ -118,7 +119,7 @@ func (o *outbox) CountByStatus(ctx context.Context, topic, status string) (int64
 	}
 	var count int64
 	if err := query.Count(&count).Error; err != nil {
-		return 0, wrapDatabaseError(err, "count outbox events by status")
+		return 0, errorcontract.WrapDatabase(err, "count outbox events by status")
 	}
 	return count, nil
 }
@@ -128,7 +129,7 @@ func (o *outbox) RequeueStale(ctx context.Context, topic string, claimedBefore i
 		Where("topic = ? AND status = ? AND claimed_at > 0 AND claimed_at <= ?", topic, do.OutboxStatusProcessing, claimedBefore).
 		Updates(map[string]interface{}{"status": do.OutboxStatusPending, "processing_lock": "", "claimed_at": 0, "next_attempt_at": 0})
 	if result.Error != nil {
-		return 0, wrapDatabaseError(result.Error, "requeue stale outbox events")
+		return 0, errorcontract.WrapDatabase(result.Error, "requeue stale outbox events")
 	}
 	return result.RowsAffected, nil
 }
@@ -179,7 +180,7 @@ func (o *outbox) updateStatus(ctx context.Context, id int32, updates map[string]
 		Model(&do.OutboxEventDO{}).
 		Where("id = ?", id).
 		Updates(updates).Error; err != nil {
-		return wrapDatabaseError(err, "update outbox event status")
+		return errorcontract.WrapDatabase(err, "update outbox event status")
 	}
 	return nil
 }
