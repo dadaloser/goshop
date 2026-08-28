@@ -1,14 +1,14 @@
 package db
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	v1 "goshop/app/order/srv/internal/data/v1"
 	dv1 "goshop/app/order/srv/internal/domain/do"
 	"goshop/app/pkg/bizcode"
 	appgorm "goshop/app/pkg/gorm"
 	"goshop/app/pkg/options"
-	errors2 "goshop/pkg/errors"
+	apperrors "goshop/pkg/errors"
 	"log"
 	"os"
 	"sync"
@@ -42,23 +42,15 @@ func (df *dataFactory) Begin() *gorm.DB {
 var _ v1.DataFactory = &dataFactory{}
 
 var (
-	data v1.DataFactory
-	once sync.Once
+	data               v1.DataFactory
+	dataFactoryInitErr error
+	once               sync.Once
 )
-
-// GormDB returns the validated order database for co-located transactional domains.
-func GormDB() *gorm.DB {
-	if factory, ok := data.(*dataFactory); ok {
-		return factory.db
-	}
-	return nil
-}
 
 func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 	if mysqlOpts == nil && data == nil {
-		return nil, errors.New("failed to get data store factory")
+		return nil, stderrors.New("mysql options are required")
 	}
-	var initErr error
 	once.Do(func() {
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 			mysqlOpts.Username,
@@ -81,17 +73,17 @@ func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 			Logger: newLogger,
 		})
 		if err != nil {
-			initErr = err
+			dataFactoryInitErr = err
 			return
 		}
 		if err = db.Use(appgorm.NewResiliencePlugin(mysqlOpts.Resilience)); err != nil {
-			initErr = err
+			dataFactoryInitErr = err
 			return
 		}
 
 		sqlDB, dbErr := db.DB()
 		if dbErr != nil {
-			initErr = fmt.Errorf("open sql db: %w", dbErr)
+			dataFactoryInitErr = fmt.Errorf("open sql db: %w", dbErr)
 			return
 		}
 		sqlDB.SetMaxOpenConns(mysqlOpts.MaxOpenConnections)
@@ -99,7 +91,7 @@ func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 		sqlDB.SetConnMaxLifetime(mysqlOpts.MaxConnectionLifetime)
 		if err = validateOrderSchema(db); err != nil {
 			_ = sqlDB.Close()
-			initErr = err
+			dataFactoryInitErr = err
 			return
 		}
 
@@ -108,8 +100,11 @@ func GetDataFactoryOr(mysqlOpts *options.MySQLOptions) (v1.DataFactory, error) {
 		}
 	})
 
-	if data == nil || initErr != nil {
-		return nil, errors2.WrapCode(initErr, bizcode.ErrConnectDB, "failed to get data store factory")
+	if dataFactoryInitErr != nil {
+		return nil, apperrors.WrapCode(dataFactoryInitErr, bizcode.ErrConnectDB, "initialize order data store")
+	}
+	if data == nil {
+		return nil, apperrors.NewCode(bizcode.ErrConnectDB, "order data store initialization completed without a factory")
 	}
 	return data, nil
 }

@@ -229,5 +229,6 @@ func splitMySQLAddr(addr string) (string, string, error) {
 
 func resetOrderFactory() {
 	data = nil
+	dataFactoryInitErr = nil
 	once = sync.Once{}
 }

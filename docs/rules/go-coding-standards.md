@@ -49,6 +49,10 @@ These standards apply to all Go code in `goshop`.
 - Never discard returned errors with `_` unless the operation is intentionally
   best-effort and the reason is documented in a nearby comment.
 - Wrap errors with context using `%w`.
+- When assigning an existing technical failure a public business code, use
+  `pkg/errors.WrapCode` or `WrapSpec` so the original cause remains available
+  to `errors.Is` and `errors.As`. Use `NewCode` or `NewSpec` only when no
+  underlying error exists.
 - Error strings should be lowercase and should not end with punctuation.
 - Handle each error once: either return it or log it at the boundary, not both.
 - Do not panic for expected failures. Panics are limited to programmer errors,

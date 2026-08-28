@@ -29,7 +29,7 @@ func (o *orderStatusLogs) Create(ctx context.Context, txn *gorm.DB, entry *do.Or
 		db = txn
 	}
 	if err := db.WithContext(ctx).Create(entry).Error; err != nil {
-		return errors.NewCode(errcode.ErrDatabase, err.Error())
+		return wrapDatabaseError(err, "database operation")
 	}
 	return nil
 }
@@ -45,7 +45,7 @@ func (o *orderStatusLogs) ListByOrderSn(ctx context.Context, orderSn string) ([]
 		Where("order_sn = ?", orderSn).
 		Order("add_time asc, id asc").
 		Find(&entries).Error; err != nil {
-		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
+		return nil, wrapDatabaseError(err, "database operation")
 	}
 	return entries, nil
 }

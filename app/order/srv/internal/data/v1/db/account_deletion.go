@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"strings"
 	"time"
 
@@ -27,7 +28,7 @@ func ReviewAccountDeletion(ctx context.Context, db *gorm.DB, request accountdele
 			decision = &accountdeletion.Decision{RequestID: inbox.RequestID, UserID: uint64(inbox.UserID), Confirmed: inbox.Decision == "CONFIRMED", Reason: inbox.Reason, DecidedAt: inbox.CreatedAt}
 			return nil
 		}
-		if !strings.Contains(err.Error(), "record not found") {
+		if !stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 

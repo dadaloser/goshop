@@ -2,9 +2,9 @@ package db
 
 import (
 	"context"
+	stderrors "errors"
 	"goshop/app/pkg/bizcode"
 
-	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	v1 "goshop/app/order/srv/internal/data/v1"
@@ -59,7 +59,7 @@ func (sc *shopCarts) RestoreCheckedItems(ctx context.Context, txn *gorm.DB, user
 				"checked": true,
 			})
 		if tx.Error != nil {
-			return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+			return wrapDatabaseError(tx.Error, "database operation")
 		}
 		if tx.RowsAffected > 0 {
 			continue
@@ -72,7 +72,7 @@ func (sc *shopCarts) RestoreCheckedItems(ctx context.Context, txn *gorm.DB, user
 			Checked: true,
 		}).Error
 		if err != nil {
-			return errors.NewCode(errcode.ErrDatabase, err.Error())
+			return wrapDatabaseError(err, "database operation")
 		}
 	}
 	return nil
@@ -102,7 +102,7 @@ func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta
 		countQuery = countQuery.Where("checked = ?", true)
 	}
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
+		return nil, wrapDatabaseError(err, "database operation")
 	}
 
 	//排序
@@ -115,7 +115,7 @@ func (sc *shopCarts) List(ctx context.Context, userID uint64, checked bool, meta
 
 	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
-		return nil, errors.NewCode(errcode.ErrDatabase, d.Error.Error())
+		return nil, wrapDatabaseError(d.Error, "database operation")
 	}
 	return ret, nil
 }
@@ -127,7 +127,7 @@ func (sc *shopCarts) Create(ctx context.Context, cartItem *do.ShoppingCartDO) er
 
 	tx := sc.db.WithContext(ctx).Create(cartItem)
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "database operation")
 	}
 	return nil
 }
@@ -140,10 +140,10 @@ func (sc *shopCarts) Get(ctx context.Context, userID, goodsID uint64) (*do.Shopp
 	var shopCart do.ShoppingCartDO
 	err := sc.db.WithContext(ctx).Where("user = ? AND goods = ?", userID, goodsID).First(&shopCart).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrShopCartItemNotFound, err.Error())
 		}
-		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
+		return nil, wrapDatabaseError(err, "database operation")
 	}
 	return &shopCart, nil
 }
@@ -160,7 +160,7 @@ func (sc *shopCarts) UpdateNum(ctx context.Context, cartItem *do.ShoppingCartDO)
 			"checked": cartItem.Checked,
 		})
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "database operation")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
@@ -175,7 +175,7 @@ func (sc *shopCarts) Delete(ctx context.Context, userID, ID uint64) error {
 
 	tx := sc.db.WithContext(ctx).Where("id = ? AND user = ?", ID, userID).Delete(&do.ShoppingCartDO{})
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "database operation")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrShopCartItemNotFound, "shop cart item not found")
@@ -193,7 +193,7 @@ func (sc *shopCarts) ClearCheck(ctx context.Context, userID uint64) error {
 		Where("user = ? AND checked = ?", userID, true).
 		Update("checked", false)
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "database operation")
 	}
 	return nil
 }

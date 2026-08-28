@@ -9,7 +9,6 @@ import (
 	metav1 "goshop/pkg/common/meta/v1"
 	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
-	"goshop/pkg/log"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -177,7 +176,6 @@ func (os *orderServer) SubmitOrder(ctx context.Context, request *pb.OrderRequest
 	}
 	err := os.srv.Orders().Submit(ctx, &orderDTO)
 	if err != nil {
-		log.Errorf("新建订单失败: %v", err)
 		return nil, err
 	}
 	//另外一款解决ioc的库，wire
