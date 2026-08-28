@@ -117,6 +117,15 @@ func New(apiClient *api.Client, opts ...Option) *Registry {
 	return r
 }
 
+// Close stops TTL heartbeats managed by the registry. It does not deregister
+// services; callers can still perform deregistration explicitly when needed.
+func (r *Registry) Close() {
+	if r == nil || r.cli == nil {
+		return
+	}
+	r.cli.Close()
+}
+
 // Register register service
 func (r *Registry) Register(ctx context.Context, svc *registry.ServiceInstance) error {
 	return r.cli.Register(ctx, svc, r.enableHealthCheck)

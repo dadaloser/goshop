@@ -382,6 +382,57 @@ func TestDeregisterStopsOnlyTheMatchingHeartbeat(t *testing.T) {
 	}
 }
 
+func TestRegisterSameServiceReplacesPreviousHeartbeat(t *testing.T) {
+	client := NewClient(nil)
+
+	first := client.startHeartbeat("goods-1")
+	second := client.startHeartbeat("goods-1")
+	t.Cleanup(client.Close)
+
+	select {
+	case <-first.Done():
+	case <-time.After(time.Second):
+		t.Fatal("first heartbeat context was not canceled when the service was registered again")
+	}
+	select {
+	case <-second.Done():
+		t.Fatal("replacement heartbeat context was canceled")
+	default:
+	}
+
+	client.heartbeatMu.Lock()
+	count := len(client.heartbeatCancels)
+	client.heartbeatMu.Unlock()
+	if count != 1 {
+		t.Fatalf("active heartbeat count = %d, want 1", count)
+	}
+}
+
+func TestClientCloseStopsAllHeartbeats(t *testing.T) {
+	client := NewClient(nil)
+	first := client.startHeartbeat("goods-1")
+	second := client.startHeartbeat("inventory-1")
+
+	client.Close()
+
+	for serviceID, heartbeatCtx := range map[string]context.Context{
+		"goods-1":     first,
+		"inventory-1": second,
+	} {
+		select {
+		case <-heartbeatCtx.Done():
+		case <-time.After(time.Second):
+			t.Fatalf("%s heartbeat context was not canceled by Close", serviceID)
+		}
+	}
+	client.heartbeatMu.Lock()
+	count := len(client.heartbeatCancels)
+	client.heartbeatMu.Unlock()
+	if count != 0 {
+		t.Fatalf("active heartbeat count after Close = %d, want 0", count)
+	}
+}
+
 func TestRegisterRejectsEndpointWithoutPort(t *testing.T) {
 	apiClient, err := api.NewClient(&api.Config{Address: "http://127.0.0.1:1"})
 	if err != nil {

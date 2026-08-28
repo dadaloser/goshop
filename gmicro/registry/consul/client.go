@@ -63,6 +63,16 @@ func NewClient(cli *api.Client) *Client {
 	return c
 }
 
+// Close stops every TTL heartbeat owned by the client. It does not deregister
+// services, allowing callers to choose whether shutdown should preserve or
+// remove their Consul registrations.
+func (c *Client) Close() {
+	if c == nil {
+		return
+	}
+	c.stopAllHeartbeats()
+}
+
 func defaultResolver(_ context.Context, entries []*api.ServiceEntry) []*registry.ServiceInstance {
 	services := make([]*registry.ServiceInstance, 0, len(entries))
 	for _, entry := range entries {

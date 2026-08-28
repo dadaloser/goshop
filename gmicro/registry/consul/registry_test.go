@@ -706,3 +706,22 @@ func TestWatcherStopCancelsResolverAfterLastWatcher(t *testing.T) {
 		t.Fatal("resolver long poll was not canceled after last watcher stopped")
 	}
 }
+
+func TestRegistryCloseStopsClientHeartbeats(t *testing.T) {
+	r := New(nil)
+	first := r.cli.startHeartbeat("goods-1")
+	second := r.cli.startHeartbeat("inventory-1")
+
+	r.Close()
+
+	for serviceID, heartbeatCtx := range map[string]context.Context{
+		"goods-1":     first,
+		"inventory-1": second,
+	} {
+		select {
+		case <-heartbeatCtx.Done():
+		case <-time.After(time.Second):
+			t.Fatalf("%s heartbeat context was not canceled by Registry.Close", serviceID)
+		}
+	}
+}
