@@ -18,7 +18,7 @@ func (u *users) CreateBreakGlassApproval(ctx context.Context, approval *dv1.Brea
 		return errors.NewCode(errcode.ErrValidation, "break-glass approval is invalid")
 	}
 	if err := u.db.WithContext(ctx).Create(approval).Error; err != nil {
-		return errors.NewCode(errcode.ErrDatabase, err.Error())
+		return wrapDatabaseError(err, "user database operation")
 	}
 	return nil
 }
@@ -51,7 +51,10 @@ func (u *users) ApproveBreakGlassApproval(ctx context.Context, approvalID string
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(errcode.ErrValidation, "break-glass approval is not approvable")
 		}
-		return nil, err
+		if errors.IsCode(err, errcode.ErrValidation) {
+			return nil, err
+		}
+		return nil, wrapDatabaseError(err, "approve break-glass approval")
 	}
 	return &approval, nil
 }
@@ -79,7 +82,7 @@ func (u *users) ConsumeBreakGlassApproval(ctx context.Context, approvalID string
 		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(errcode.ErrValidation, "break-glass approval is not usable")
 		}
-		return nil, err
+		return nil, wrapDatabaseError(err, "consume break-glass approval")
 	}
 	return &approval, nil
 }

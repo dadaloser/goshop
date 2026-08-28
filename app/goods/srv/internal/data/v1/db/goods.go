@@ -2,9 +2,9 @@ package db
 
 import (
 	"context"
+	stderrors "errors"
 	"goshop/app/pkg/bizcode"
 	metav1 "goshop/pkg/common/meta/v1"
-	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	v1 "goshop/app/goods/srv/internal/data/v1"
@@ -35,7 +35,7 @@ func (g *goods) CreateInTxn(ctx context.Context, txn *gorm.DB, goods *do.GoodsDO
 
 	tx := txn.WithContext(ctx).Create(goods)
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "create goods in transaction")
 	}
 	return nil
 }
@@ -49,7 +49,7 @@ func (g *goods) UpdateInTxn(ctx context.Context, txn *gorm.DB, goods *do.GoodsDO
 		Where("id = ?", goods.ID).
 		Updates(goodsUpdateValues(goods))
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "update goods in transaction")
 	}
 	if tx.RowsAffected == 0 {
 		if _, err := g.Get(ctx, uint64(goods.ID)); err != nil {
@@ -66,7 +66,7 @@ func (g *goods) DeleteInTxn(ctx context.Context, txn *gorm.DB, ID uint64) error 
 
 	tx := txn.WithContext(ctx).Where("id = ?", ID).Delete(&do.GoodsDO{})
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "delete goods in transaction")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrGoodsNotFound, "goods not found")
@@ -97,7 +97,7 @@ func (g *goods) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 
 	countQuery := g.db.WithContext(ctx).Model(&do.GoodsDO{})
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
+		return nil, wrapDatabaseError(err, "count goods")
 	}
 
 	//排序
@@ -106,7 +106,7 @@ func (g *goods) List(ctx context.Context, orderBy []string, opts metav1.ListMeta
 
 	d := query.Offset(offset).Limit(limit).Find(&ret.Items)
 	if d.Error != nil {
-		return nil, errors.NewCode(errcode.ErrDatabase, d.Error.Error())
+		return nil, wrapDatabaseError(d.Error, "list goods")
 	}
 	return ret, nil
 }
@@ -119,10 +119,10 @@ func (g *goods) Get(ctx context.Context, ID uint64) (*do.GoodsDO, error) {
 	good := &do.GoodsDO{}
 	err := g.db.WithContext(ctx).Preload("Category").Preload("Brands").First(good, ID).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrGoodsNotFound, err.Error())
 		}
-		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
+		return nil, wrapDatabaseError(err, "get goods")
 	}
 	return good, nil
 }
@@ -137,7 +137,7 @@ func (g *goods) CountByCategory(ctx context.Context, categoryID uint64) (int64, 
 		Where("category_id = ?", categoryID).
 		Count(&count).Error
 	if err != nil {
-		return 0, errors.NewCode(errcode.ErrDatabase, err.Error())
+		return 0, wrapDatabaseError(err, "count goods by category")
 	}
 	return count, nil
 }
@@ -152,7 +152,7 @@ func (g *goods) CountByBrand(ctx context.Context, brandID uint64) (int64, error)
 		Where("brands_id = ?", brandID).
 		Count(&count).Error
 	if err != nil {
-		return 0, errors.NewCode(errcode.ErrDatabase, err.Error())
+		return 0, wrapDatabaseError(err, "count goods by brand")
 	}
 	return count, nil
 }
@@ -171,7 +171,7 @@ func (g *goods) ListByIDs(ctx context.Context, ids []uint64, orderBy []string) (
 
 	d := query.Where("id in ?", ids).Find(&ret.Items).Count(&ret.TotalCount)
 	if d.Error != nil {
-		return nil, errors.NewCode(errcode.ErrDatabase, d.Error.Error())
+		return nil, wrapDatabaseError(d.Error, "list goods by id")
 	}
 	return ret, nil
 }
@@ -183,7 +183,7 @@ func (g *goods) Create(ctx context.Context, goods *do.GoodsDO) error {
 
 	tx := g.db.WithContext(ctx).Create(goods)
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "create goods")
 	}
 	return nil
 }
@@ -217,7 +217,7 @@ func (g *goods) Update(ctx context.Context, goods *do.GoodsDO) error {
 		Where("id = ?", goods.ID).
 		Updates(goodsUpdateValues(goods))
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "update goods")
 	}
 	if tx.RowsAffected == 0 {
 		if _, err := g.Get(ctx, uint64(goods.ID)); err != nil {
@@ -234,7 +234,7 @@ func (g *goods) Delete(ctx context.Context, ID uint64) error {
 
 	tx := g.db.WithContext(ctx).Where("id = ?", ID).Delete(&do.GoodsDO{})
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "delete goods")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrGoodsNotFound, "goods not found")

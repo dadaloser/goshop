@@ -42,7 +42,7 @@ func (s *accountDeletionOutbox) ClaimPendingDeletionEvents(ctx context.Context, 
 		return tx.Model(&dv1.AccountDeletionOutboxEventDO{}).Where("id IN ? AND status = ?", ids, "PENDING").Updates(map[string]interface{}{"status": "PROCESSING", "locked_at": now.UTC()}).Error
 	})
 	if err != nil {
-		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
+		return nil, wrapDatabaseError(err, "user database operation")
 	}
 	return events, nil
 }
@@ -58,7 +58,7 @@ func (s *accountDeletionOutbox) RetryDeletionEvent(ctx context.Context, eventID 
 func (s *accountDeletionOutbox) RequeueStaleDeletionEvents(ctx context.Context, before time.Time) (int64, error) {
 	result := s.db.WithContext(ctx).Model(&dv1.AccountDeletionOutboxEventDO{}).Where("status = ? AND locked_at <= ?", "PROCESSING", before.UTC()).Updates(map[string]interface{}{"status": "PENDING", "locked_at": nil})
 	if result.Error != nil {
-		return 0, errors.NewCode(errcode.ErrDatabase, result.Error.Error())
+		return 0, wrapDatabaseError(result.Error, "user database operation")
 	}
 	return result.RowsAffected, nil
 }
@@ -68,7 +68,7 @@ func (s *accountDeletionOutbox) update(ctx context.Context, eventID string, valu
 		return errors.NewCode(errcode.ErrValidation, "account deletion event id is required")
 	}
 	if err := s.db.WithContext(ctx).Model(&dv1.AccountDeletionOutboxEventDO{}).Where("id = ?", eventID).Updates(values).Error; err != nil {
-		return errors.NewCode(errcode.ErrDatabase, err.Error())
+		return wrapDatabaseError(err, "user database operation")
 	}
 	return nil
 }

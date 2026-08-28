@@ -278,5 +278,6 @@ func splitMySQLAddr(addr string) (string, string, error) {
 
 func resetUserFactory() {
 	dbFactory = nil
+	dbFactoryInitErr = nil
 	once = sync.Once{}
 }

@@ -1,6 +1,7 @@
 package db
 
 import (
+	stderrors "errors"
 	"fmt"
 	"goshop/app/pkg/authz"
 	"goshop/app/pkg/bizcode"
@@ -18,8 +19,9 @@ import (
 )
 
 var (
-	dbFactory *gorm.DB
-	once      sync.Once
+	dbFactory        *gorm.DB
+	dbFactoryInitErr error
+	once             sync.Once
 )
 
 // 这个方法会返回gorm连接
@@ -27,10 +29,9 @@ var (
 // 这个方法应该返回的是全局的一个变量，如果一开始的时候没有初始化好，那么就初始化一次，后续呢直接拿到这个变量
 func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 	if mysqlOpts == nil && dbFactory == nil {
-		return nil, fmt.Errorf("failed to get mysql store fatory")
+		return nil, stderrors.New("mysql options are required")
 	}
 
-	var err error
 	once.Do(func() {
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 			mysqlOpts.Username,
@@ -40,18 +41,22 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 			mysqlOpts.Database)
 		log.Infof("connecting mysql: host=%s port=%s database=%s user=%s",
 			mysqlOpts.Host, mysqlOpts.Port, mysqlOpts.Database, mysqlOpts.Username)
+		var err error
 		dbFactory, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 		if err != nil {
+			dbFactoryInitErr = err
 			return
 		}
 		if err = dbFactory.Use(appgorm.NewResiliencePlugin(mysqlOpts.Resilience)); err != nil {
 			dbFactory = nil
+			dbFactoryInitErr = err
 			return
 		}
 
 		sqlDB, dbErr := dbFactory.DB()
 		if dbErr != nil {
-			err = dbErr
+			dbFactoryInitErr = dbErr
+			dbFactory = nil
 			return
 		}
 
@@ -62,24 +67,30 @@ func GetDBFactoryOr(mysqlOpts *options.MySQLOptions) (*gorm.DB, error) {
 			if err = migrateUserSchema(dbFactory); err != nil {
 				_ = sqlDB.Close()
 				dbFactory = nil
+				dbFactoryInitErr = err
 				return
 			}
 		}
 		if err = validateUserSchema(dbFactory); err != nil {
 			_ = sqlDB.Close()
 			dbFactory = nil
+			dbFactoryInitErr = err
 			return
 		}
 		if err = seedUserRBAC(dbFactory); err != nil {
 			_ = sqlDB.Close()
 			dbFactory = nil
+			dbFactoryInitErr = err
 			return
 		}
 		log.Infof("mysql connected: host=%s port=%s database=%s", mysqlOpts.Host, mysqlOpts.Port, mysqlOpts.Database)
 	})
 
-	if dbFactory == nil || err != nil {
-		return nil, errors.WrapCode(err, bizcode.ErrConnectDB, "failed to get mysql store factory")
+	if dbFactoryInitErr != nil {
+		return nil, errors.WrapCode(dbFactoryInitErr, bizcode.ErrConnectDB, "initialize user data store")
+	}
+	if dbFactory == nil {
+		return nil, errors.NewCode(bizcode.ErrConnectDB, "user data store initialization completed without a factory")
 	}
 	return dbFactory, nil
 }

@@ -2,9 +2,9 @@ package db
 
 import (
 	"context"
+	stderrors "errors"
 
 	"goshop/app/pkg/bizcode"
-	"goshop/pkg/errcode"
 	"goshop/pkg/errors"
 
 	v1 "goshop/app/goods/srv/internal/data/v1"
@@ -39,10 +39,10 @@ func (b *brands) Get(ctx context.Context, ID uint64) (*do.BrandsDO, error) {
 	brand := &do.BrandsDO{}
 	err := b.db.WithContext(ctx).First(brand, ID).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if stderrors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.NewCode(bizcode.ErrBrandNotFound, err.Error())
 		}
-		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
+		return nil, wrapDatabaseError(err, "get brand")
 	}
 	return brand, nil
 }
@@ -55,7 +55,7 @@ func (b *brands) List(ctx context.Context, opts metav1.ListMeta, orderBy []strin
 
 	countQuery := b.db.WithContext(ctx).Model(&do.BrandsDO{})
 	if err := countQuery.Count(&ret.TotalCount).Error; err != nil {
-		return nil, errors.NewCode(errcode.ErrDatabase, err.Error())
+		return nil, wrapDatabaseError(err, "count brands")
 	}
 
 	query := b.db.WithContext(ctx).Model(&do.BrandsDO{})
@@ -69,7 +69,7 @@ func (b *brands) List(ctx context.Context, opts metav1.ListMeta, orderBy []strin
 	}
 	tx := query.Limit(opts.PageSize).Find(&ret.Items)
 	if tx.Error != nil {
-		return nil, errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return nil, wrapDatabaseError(tx.Error, "list brands")
 	}
 	return ret, nil
 }
@@ -84,7 +84,7 @@ func (b *brands) Create(ctx context.Context, txn *gorm.DB, brands *do.BrandsDO) 
 		db = txn
 	}
 	if err := db.WithContext(ctx).Create(brands).Error; err != nil {
-		return errors.NewCode(errcode.ErrDatabase, err.Error())
+		return wrapDatabaseError(err, "create brand")
 	}
 	return nil
 }
@@ -105,7 +105,7 @@ func (b *brands) Update(ctx context.Context, txn *gorm.DB, brands *do.BrandsDO) 
 			"logo": brands.Logo,
 		})
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "update brand")
 	}
 	if tx.RowsAffected == 0 {
 		if _, err := b.Get(ctx, uint64(brands.ID)); err != nil {
@@ -122,7 +122,7 @@ func (b *brands) Delete(ctx context.Context, ID uint64) error {
 
 	tx := b.db.WithContext(ctx).Where("id = ?", ID).Delete(&do.BrandsDO{})
 	if tx.Error != nil {
-		return errors.NewCode(errcode.ErrDatabase, tx.Error.Error())
+		return wrapDatabaseError(tx.Error, "delete brand")
 	}
 	if tx.RowsAffected == 0 {
 		return errors.NewCode(bizcode.ErrBrandNotFound, "brand not found")
