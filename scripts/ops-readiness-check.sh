@@ -28,7 +28,6 @@ test "$alerts" -eq "$runbooks"
 test -f docs/operations-and-release.md
 test -f docs/production-baseline.md
 test -f performance/k6/core-business.js
-test -f chaos/records/drill-record-template.md
-test -f chaos/records/2026-07-24-review-canary-rollback-drill.md
+rg -q '^## 韧性演练记录模板$' docs/operations-and-release.md
 
 echo "operations readiness check passed"

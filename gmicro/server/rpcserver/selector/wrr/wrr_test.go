@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"goshop/gmicro/server/rpcserver/selector"
+	selector "goshop/gmicro/server/rpcserver/selector"
 )
 
 type testNode struct {
@@ -18,7 +18,7 @@ func (n *testNode) Scheme() string              { return "grpc" }
 func (n *testNode) Address() string             { return n.address }
 func (n *testNode) ServiceName() string         { return "test" }
 func (n *testNode) InitialWeight() *int64       { return nil }
-func (n *testNode) Version() string             { return "v1" }
+func (n *testNode) Version() string             { return "" }
 func (n *testNode) Metadata() map[string]string { return nil }
 func (n *testNode) Raw() selector.Node          { return n }
 func (n *testNode) Weight() float64             { return n.weight }
@@ -26,26 +26,23 @@ func (n *testNode) PickElapsed() time.Duration  { return 0 }
 func (n *testNode) Pick() selector.DoneFunc     { return func(context.Context, selector.DoneInfo) {} }
 
 func TestBalancerPick(t *testing.T) {
-	balancer := &Balancer{currentWeight: make(map[string]float64)}
-	_, _, err := balancer.Pick(context.Background(), nil)
-	if !errors.Is(err, selector.ErrNoAvailable) {
+	balancer := (&Builder{}).Build()
+	if _, _, err := balancer.Pick(t.Context(), nil); !errors.Is(err, selector.ErrNoAvailable) {
 		t.Fatalf("Pick() error = %v, want %v", err, selector.ErrNoAvailable)
 	}
 
-	nodes := []selector.WeightedNode{
-		&testNode{address: "heavy", weight: 5},
-		&testNode{address: "light", weight: 1},
-	}
-	counts := map[string]int{}
-	for range 6 {
-		got, done, err := balancer.Pick(context.Background(), nodes)
+	light := &testNode{address: "light", weight: 1}
+	heavy := &testNode{address: "heavy", weight: 3}
+	picks := map[string]int{}
+	for range 4 {
+		node, done, err := balancer.Pick(t.Context(), []selector.WeightedNode{light, heavy})
 		if err != nil {
 			t.Fatalf("Pick() error = %v", err)
 		}
-		counts[got.Address()]++
-		done(context.Background(), selector.DoneInfo{})
+		picks[node.Address()]++
+		done(t.Context(), selector.DoneInfo{})
 	}
-	if counts["heavy"] != 5 || counts["light"] != 1 {
-		t.Fatalf("weighted picks = %#v, want heavy=5 light=1", counts)
+	if picks["light"] != 1 || picks["heavy"] != 3 {
+		t.Fatalf("weighted picks = %#v, want light=1 heavy=3", picks)
 	}
 }

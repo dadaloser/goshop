@@ -14,6 +14,7 @@ declare -a GATES=(
   "order:70:goshop/app/goshop/api/internal/service/order/v1/"
   "payment:70:goshop/app/goshop/api/internal/payment/"
   "session:70:goshop/app/user/srv/internal/service/v1/session.go|goshop/app/user/srv/internal/controller/user/session.go|goshop/app/user/srv/internal/data/v1/session.go"
+  "gmicro-rpc-selector:55:goshop/gmicro/server/rpcserver/selector/"
 )
 
 status=0

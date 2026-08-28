@@ -1,4 +1,4 @@
-.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test data-layer-integration-test schema-integration-test test-race-cover coverage-threshold-check format-check vet-check lint-check rpcserver-flake-check release-check ops-check architecture-check context-check error-contract-audit error-contract-check
+.PHONY: help proto proto-check proto-tools panic-check migration-check config-secret-check startup-validation-check inventory-integration-test data-layer-integration-test schema-integration-test test-race-cover coverage-threshold-check format-check vet-check lint-check rpcserver-flake-check gmicro-resilience-check release-check ops-check architecture-check context-check error-contract-audit error-contract-check
 
 GOLANGCI_LINT_VERSION ?= v2.12.2
 
@@ -31,6 +31,7 @@ help:
 	@echo "  make vet-check  Run go vet with an approved murmur3 exception policy"
 	@echo "  make lint-check  Run pinned golangci-lint version"
 	@echo "  make rpcserver-flake-check  Run rpcserver tests with -count=50"
+	@echo "  make gmicro-resilience-check  Run local gmicro registration, readiness, shutdown, and resolver resilience checks"
 	@echo "  make release-check  Run the trusted release baseline gate"
 	@echo "  make inventory-integration-test  Run inventory real-DB integration tests"
 	@echo "  make data-layer-integration-test  Run goods/inventory real-DB data tests and coverage gates"
@@ -72,6 +73,9 @@ lint-check:
 
 rpcserver-flake-check:
 	env GOCACHE=/tmp/goshop-gocache go test -count=50 ./gmicro/server/rpcserver
+
+gmicro-resilience-check:
+	bash ./scripts/gmicro-resilience-check.sh
 
 release-check:
 	GOLANGCI_LINT_VERSION=$(GOLANGCI_LINT_VERSION) bash ./scripts/release-check.sh

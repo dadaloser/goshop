@@ -72,6 +72,9 @@ jobs:
       - name: Run tests
         run: make test-race-cover
 
+      - name: Run gmicro resilience checks
+        run: make gmicro-resilience-check
+
       - name: Enforce core coverage thresholds
         run: make coverage-threshold-check
 
