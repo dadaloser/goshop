@@ -1,7 +1,7 @@
 package auth
 
 import (
-	stdErrors "errors"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,17 +9,17 @@ import (
 
 var (
 	// ErrMissingCredentials indicates that no authentication credentials were supplied.
-	ErrMissingCredentials = stdErrors.New("authentication credentials are missing")
+	ErrMissingCredentials = errors.New("authentication credentials are missing")
 	// ErrInvalidAuthorization indicates that the Authorization header is malformed.
-	ErrInvalidAuthorization = stdErrors.New("authorization header is invalid")
+	ErrInvalidAuthorization = errors.New("authorization header is invalid")
 	// ErrInvalidCredentials indicates that supplied credentials could not be verified.
-	ErrInvalidCredentials = stdErrors.New("authentication credentials are invalid")
+	ErrInvalidCredentials = errors.New("authentication credentials are invalid")
 	// ErrInvalidToken indicates that the bearer token could not be verified.
-	ErrInvalidToken = stdErrors.New("authentication token is invalid")
+	ErrInvalidToken = errors.New("authentication token is invalid")
 	// ErrExpiredCredentials indicates that otherwise valid credentials have expired.
-	ErrExpiredCredentials = stdErrors.New("authentication credentials have expired")
+	ErrExpiredCredentials = errors.New("authentication credentials have expired")
 	// ErrUnauthorized indicates that the configured authorization callback rejected the identity.
-	ErrUnauthorized = stdErrors.New("authentication identity is unauthorized")
+	ErrUnauthorized = errors.New("authentication identity is unauthorized")
 )
 
 // FailureResponder writes an HTTP response for an authentication failure.

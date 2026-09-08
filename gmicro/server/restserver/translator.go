@@ -15,8 +15,8 @@ import (
 
 	"goshop/gmicro/server/restserver/validation"
 
-	en_translations "github.com/go-playground/validator/v10/translations/en"
-	zh_translations "github.com/go-playground/validator/v10/translations/zh"
+	en_trans "github.com/go-playground/validator/v10/translations/en"
+	zh_trans "github.com/go-playground/validator/v10/translations/zh"
 )
 
 var globalTranslations struct {
@@ -66,11 +66,11 @@ func initGlobalTranslations() {
 		globalTranslations.err = fmt.Errorf("get en translator")
 		return
 	}
-	if err := zh_translations.RegisterDefaultTranslations(v, zhTranslator); err != nil {
+	if err := zh_trans.RegisterDefaultTranslations(v, zhTranslator); err != nil {
 		globalTranslations.err = err
 		return
 	}
-	if err := en_translations.RegisterDefaultTranslations(v, enTranslator); err != nil {
+	if err := en_trans.RegisterDefaultTranslations(v, enTranslator); err != nil {
 		globalTranslations.err = err
 		return
 	}

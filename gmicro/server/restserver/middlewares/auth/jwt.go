@@ -17,20 +17,20 @@ type JWTStrategy struct {
 	realm            string
 	audience         string
 	identityKey      string
-	authorizator     func(interface{}, *gin.Context) bool
+	authorizer       func(interface{}, *gin.Context) bool
 	failureResponder FailureResponder
 }
 
 var _ middlewares.AuthStrategy = &JWTStrategy{}
 
 // NewJWTStrategy creates a jwt bearer strategy backed by golang-jwt/jwt/v5.
-func NewJWTStrategy(key []byte, realm, audience, identityKey string, authorizator func(interface{}, *gin.Context) bool, options ...Option) JWTStrategy {
+func NewJWTStrategy(key []byte, realm, audience, identityKey string, authorizer func(interface{}, *gin.Context) bool, options ...Option) JWTStrategy {
 	return JWTStrategy{
 		key:              key,
 		realm:            realm,
 		audience:         audience,
 		identityKey:      identityKey,
-		authorizator:     authorizator,
+		authorizer:       authorizer,
 		failureResponder: resolveFailureResponder(options),
 	}
 }
@@ -72,10 +72,10 @@ func (j JWTStrategy) AuthFunc() gin.HandlerFunc {
 
 // Authorizator evaluates the configured authorization callback.
 func (j JWTStrategy) Authorizator(identity interface{}, c *gin.Context) bool {
-	if j.authorizator == nil {
+	if j.authorizer == nil {
 		return true
 	}
-	return j.authorizator(identity, c)
+	return j.authorizer(identity, c)
 }
 
 // GetToken extracts a bearer token from the Authorization header or cookie.

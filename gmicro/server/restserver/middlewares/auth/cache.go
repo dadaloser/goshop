@@ -1,7 +1,7 @@
 package auth
 
 import (
-	stdErrors "errors"
+	"errors"
 	"strings"
 	"time"
 
@@ -13,8 +13,8 @@ import (
 
 // Defined errors.
 var (
-	ErrMissingKID    = stdErrors.New("invalid token format: missing kid field in claims")
-	ErrMissingSecret = stdErrors.New("cannot obtain secret information from cache")
+	ErrMissingKID    = errors.New("invalid token format: missing kid field in claims")
+	ErrMissingSecret = errors.New("cannot obtain secret information from cache")
 )
 
 // Secret contains the basic information of the secret key.

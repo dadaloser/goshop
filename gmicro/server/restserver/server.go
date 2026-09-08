@@ -19,7 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/time/rate"
 
-	mws "goshop/gmicro/server/restserver/middlewares"
+	"goshop/gmicro/server/restserver/middlewares"
 	"goshop/gmicro/server/restserver/pprof"
 
 	"github.com/gin-gonic/gin"
@@ -61,7 +61,7 @@ type Server struct {
 
 	collectMetrics bool
 	exposeMetrics  bool
-	metricsOptions mws.MetricsOptions
+	metricsOptions middlewares.MetricsOptions
 
 	readHeaderTimeout      time.Duration
 	readTimeout            time.Duration
@@ -85,10 +85,10 @@ type Server struct {
 
 	//中间件
 	middlewares         []string
-	corsOptions         *mws.CorsOptions
+	corsOptions         *middlewares.CorsOptions
 	customMiddlewares   map[string]gin.HandlerFunc
 	middlewareConfigErr error
-	errorResponder      mws.StatusResponder
+	errorResponder      middlewares.StatusResponder
 
 	//jwt配置信息
 	jwt           *JwtInfo
@@ -145,22 +145,22 @@ func NewServer(opts ...ServerOption) *Server {
 	var metricsHandler gin.HandlerFunc
 	if srv.collectMetrics {
 		var err error
-		metricsHandler, err = mws.NewMetrics(srv.serviceName, srv.metricsOptions)
+		metricsHandler, err = middlewares.NewMetrics(srv.serviceName, srv.metricsOptions)
 		if err != nil {
 			srv.middlewareConfigErr = fmt.Errorf("configure HTTP metrics: %w", err)
 		}
 	}
 
-	srv.Use(mws.TracingHandler(srv.serviceName), mws.RequestLogger(), mws.Recovery(srv.errorResponder))
+	srv.Use(middlewares.TracingHandler(srv.serviceName), middlewares.RequestLogger(), middlewares.Recovery(srv.errorResponder))
 	if metricsHandler != nil {
 		srv.Use(metricsHandler)
 	}
 	srv.installConfiguredMiddlewares(true)
 	if srv.maxRequestBodyBytes > 0 {
-		srv.Use(mws.RequestBodyLimit(srv.maxRequestBodyBytes, srv.errorResponder))
+		srv.Use(middlewares.RequestBodyLimit(srv.maxRequestBodyBytes, srv.errorResponder))
 	}
 	if srv.handlerTimeout > 0 {
-		srv.Use(mws.RequestDeadline(srv.handlerTimeout, srv.errorResponder))
+		srv.Use(middlewares.RequestDeadline(srv.handlerTimeout, srv.errorResponder))
 	}
 	if srv.maxConcurrentReqs > 0 {
 		srv.Use(maxConcurrentRequestsMiddleware(srv.maxConcurrentReqs, srv.errorResponder))
@@ -214,12 +214,12 @@ func isEarlyResponseMiddleware(name string) bool {
 
 func (s *Server) middleware(name string) (gin.HandlerFunc, bool) {
 	if name == "cors" && s.corsOptions != nil {
-		return mws.CorsWithOptions(*s.corsOptions), true
+		return middlewares.CorsWithOptions(*s.corsOptions), true
 	}
 	if middleware, ok := s.customMiddlewares[name]; ok {
 		return middleware, true
 	}
-	return mws.Lookup(name)
+	return middlewares.Lookup(name)
 }
 
 // ValidateStartupConfig validates server configuration before startup.
@@ -299,7 +299,7 @@ func (s *Server) validateProductionConfig() error {
 	return nil
 }
 
-func hasProductionCorsOrigins(opts *mws.CorsOptions) bool {
+func hasProductionCorsOrigins(opts *middlewares.CorsOptions) bool {
 	if opts == nil || len(opts.AllowOrigins) == 0 {
 		return false
 	}
@@ -437,11 +437,11 @@ func bearerTokenMiddleware(token string) gin.HandlerFunc {
 	}
 }
 
-func globalRateLimitMiddleware(limiter *rate.Limiter, responder mws.StatusResponder) gin.HandlerFunc {
+func globalRateLimitMiddleware(limiter *rate.Limiter, responder middlewares.StatusResponder) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !limiter.Allow() {
 			c.Header("Retry-After", "1")
-			mws.Respond(c, responder, http.StatusTooManyRequests)
+			middlewares.Respond(c, responder, http.StatusTooManyRequests)
 			return
 		}
 		c.Next()
@@ -501,7 +501,7 @@ func (l *clientRouteLimiter) evictOldest() {
 	l.recent.Remove(element)
 }
 
-func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter, responder mws.StatusResponder) gin.HandlerFunc {
+func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter, responder middlewares.StatusResponder) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		route := c.FullPath()
 		if route == "" {
@@ -514,14 +514,14 @@ func clientRouteRateLimitMiddleware(limiter *clientRouteLimiter, responder mws.S
 		key := clientIP + "|" + c.Request.Method + "|" + route
 		if !limiter.allow(key, time.Now()) {
 			c.Header("Retry-After", "1")
-			mws.Respond(c, responder, http.StatusTooManyRequests)
+			middlewares.Respond(c, responder, http.StatusTooManyRequests)
 			return
 		}
 		c.Next()
 	}
 }
 
-func maxConcurrentRequestsMiddleware(limit int, responder mws.StatusResponder) gin.HandlerFunc {
+func maxConcurrentRequestsMiddleware(limit int, responder middlewares.StatusResponder) gin.HandlerFunc {
 	sem := make(chan struct{}, limit)
 	return func(c *gin.Context) {
 		select {
@@ -529,7 +529,7 @@ func maxConcurrentRequestsMiddleware(limit int, responder mws.StatusResponder) g
 			defer func() { <-sem }()
 			c.Next()
 		default:
-			mws.Respond(c, responder, http.StatusServiceUnavailable)
+			middlewares.Respond(c, responder, http.StatusServiceUnavailable)
 		}
 	}
 }

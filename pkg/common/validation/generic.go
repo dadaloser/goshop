@@ -34,7 +34,7 @@ func IsQualifiedName(value string) []string {
 	switch len(parts) {
 	case 1:
 		name = parts[0]
-	// nolint:gomnd // no need
+	//nolint:mnd // Validation tag priorities are stable API values.
 	case 2:
 		var prefix string
 		prefix, name = parts[0], parts[1]

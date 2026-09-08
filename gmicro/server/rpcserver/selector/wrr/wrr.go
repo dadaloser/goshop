@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	selector2 "goshop/gmicro/server/rpcserver/selector"
+	"goshop/gmicro/server/rpcserver/selector"
 	"goshop/gmicro/server/rpcserver/selector/node/direct"
 )
 
@@ -13,7 +13,7 @@ const (
 	Name = "wrr"
 )
 
-var _ selector2.Balancer = &Balancer{} // Name is balancer name
+var _ selector.Balancer = &Balancer{} // Name is balancer name
 
 // Option is random builder option.
 
@@ -24,17 +24,17 @@ type Balancer struct {
 }
 
 // New random a selector.
-func New() selector2.Selector {
+func New() selector.Selector {
 	return NewBuilder().Build()
 }
 
 // Pick is pick a weighted node.
-func (p *Balancer) Pick(_ context.Context, nodes []selector2.WeightedNode) (selector2.WeightedNode, selector2.DoneFunc, error) {
+func (p *Balancer) Pick(_ context.Context, nodes []selector.WeightedNode) (selector.WeightedNode, selector.DoneFunc, error) {
 	if len(nodes) == 0 {
-		return nil, nil, selector2.ErrNoAvailable
+		return nil, nil, selector.ErrNoAvailable
 	}
 	var totalWeight float64
-	var selected selector2.WeightedNode
+	var selected selector.WeightedNode
 	var selectWeight float64
 
 	// nginx wrr load balancing algorithm: http://blog.csdn.net/zhangskd/article/details/50194069
@@ -58,8 +58,8 @@ func (p *Balancer) Pick(_ context.Context, nodes []selector2.WeightedNode) (sele
 }
 
 // NewBuilder returns a selector builder with wrr balancer
-func NewBuilder() selector2.Builder {
-	return &selector2.DefaultBuilder{
+func NewBuilder() selector.Builder {
+	return &selector.DefaultBuilder{
 		Balancer: &Builder{},
 		Node:     &direct.Builder{},
 	}
@@ -69,6 +69,6 @@ func NewBuilder() selector2.Builder {
 type Builder struct{}
 
 // Build creates Balancer
-func (b *Builder) Build() selector2.Balancer {
+func (b *Builder) Build() selector.Balancer {
 	return &Balancer{currentWeight: make(map[string]float64)}
 }

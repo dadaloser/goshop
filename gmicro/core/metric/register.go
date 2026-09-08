@@ -2,7 +2,7 @@ package metric
 
 import (
 	"errors"
-	stdlog "log"
+	"log"
 
 	prom "github.com/prometheus/client_golang/prometheus"
 )
@@ -20,7 +20,7 @@ func registerCounterVec(vec *prom.CounterVec) *prom.CounterVec {
 			}
 		}
 
-		stdlog.Printf("metric: failed to register counter vec: %v", err)
+		log.Printf("metric: failed to register counter vec: %v", err)
 		return nil
 	}
 
@@ -40,7 +40,7 @@ func registerGaugeVec(vec *prom.GaugeVec) *prom.GaugeVec {
 			}
 		}
 
-		stdlog.Printf("metric: failed to register gauge vec: %v", err)
+		log.Printf("metric: failed to register gauge vec: %v", err)
 		return nil
 	}
 
@@ -60,7 +60,7 @@ func registerHistogramVec(vec *prom.HistogramVec) *prom.HistogramVec {
 			}
 		}
 
-		stdlog.Printf("metric: failed to register histogram vec: %v", err)
+		log.Printf("metric: failed to register histogram vec: %v", err)
 		return nil
 	}
 

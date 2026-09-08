@@ -5,7 +5,7 @@ import (
 	"slices"
 	"time"
 
-	mws "goshop/gmicro/server/restserver/middlewares"
+	"goshop/gmicro/server/restserver/middlewares"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
@@ -87,7 +87,7 @@ func WithNamedMiddleware(name string, middleware gin.HandlerFunc) ServerOption {
 			s.middlewareConfigErr = fmt.Errorf("duplicate named middleware %q", name)
 			return
 		}
-		if _, builtIn := mws.Lookup(name); builtIn {
+		if _, builtIn := middlewares.Lookup(name); builtIn {
 			s.middlewareConfigErr = fmt.Errorf("middleware name %q is built in", name)
 			return
 		}
@@ -95,7 +95,7 @@ func WithNamedMiddleware(name string, middleware gin.HandlerFunc) ServerOption {
 	}
 }
 
-func WithCorsOptions(opts mws.CorsOptions) ServerOption {
+func WithCorsOptions(opts middlewares.CorsOptions) ServerOption {
 	return func(s *Server) {
 		s.corsOptions = &opts
 	}
@@ -140,13 +140,13 @@ func WithMetrics(enable bool) ServerOption {
 // metrics. A nil registerer uses Prometheus's default process registry.
 func WithMetricsRegistry(registerer prometheus.Registerer, namespace string) ServerOption {
 	return func(s *Server) {
-		s.metricsOptions = mws.MetricsOptions{Registerer: registerer, Namespace: namespace}
+		s.metricsOptions = middlewares.MetricsOptions{Registerer: registerer, Namespace: namespace}
 	}
 }
 
 // WithErrorResponder configures the application's public protocol for
 // framework-generated failures such as overload, timeout, and panic recovery.
-func WithErrorResponder(responder mws.StatusResponder) ServerOption {
+func WithErrorResponder(responder middlewares.StatusResponder) ServerOption {
 	return func(s *Server) { s.errorResponder = responder }
 }
 

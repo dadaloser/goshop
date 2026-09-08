@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	selector2 "goshop/gmicro/server/rpcserver/selector"
+	"goshop/gmicro/server/rpcserver/selector"
 	"goshop/gmicro/server/rpcserver/selector/node/ewma"
 )
 
@@ -17,10 +17,10 @@ const (
 	Name = "p2c"
 )
 
-var _ selector2.Balancer = &Balancer{}
+var _ selector.Balancer = &Balancer{}
 
 // New creates a p2c selector.
-func New() selector2.Selector {
+func New() selector.Selector {
 	return NewBuilder().Build()
 }
 
@@ -32,7 +32,7 @@ type Balancer struct {
 }
 
 // choose two distinct nodes.
-func (s *Balancer) prePick(nodes []selector2.WeightedNode) (nodeA selector2.WeightedNode, nodeB selector2.WeightedNode) {
+func (s *Balancer) prePick(nodes []selector.WeightedNode) (nodeA selector.WeightedNode, nodeB selector.WeightedNode) {
 	s.mu.Lock()
 	a := s.r.Intn(len(nodes))
 	b := s.r.Intn(len(nodes) - 1)
@@ -45,16 +45,16 @@ func (s *Balancer) prePick(nodes []selector2.WeightedNode) (nodeA selector2.Weig
 }
 
 // Pick pick a node.
-func (s *Balancer) Pick(ctx context.Context, nodes []selector2.WeightedNode) (selector2.WeightedNode, selector2.DoneFunc, error) {
+func (s *Balancer) Pick(ctx context.Context, nodes []selector.WeightedNode) (selector.WeightedNode, selector.DoneFunc, error) {
 	if len(nodes) == 0 {
-		return nil, nil, selector2.ErrNoAvailable
+		return nil, nil, selector.ErrNoAvailable
 	}
 	if len(nodes) == 1 {
 		done := nodes[0].Pick()
 		return nodes[0], done, nil
 	}
 
-	var pc, upc selector2.WeightedNode
+	var pc, upc selector.WeightedNode
 	nodeA, nodeB := s.prePick(nodes)
 	// meta.Weight is the weight set by the service publisher in discovery
 	if nodeB.Weight() > nodeA.Weight() {
@@ -74,8 +74,8 @@ func (s *Balancer) Pick(ctx context.Context, nodes []selector2.WeightedNode) (se
 }
 
 // NewBuilder returns a selector builder with p2c balancer
-func NewBuilder() selector2.Builder {
-	return &selector2.DefaultBuilder{
+func NewBuilder() selector.Builder {
+	return &selector.DefaultBuilder{
 		Balancer: &Builder{},
 		Node:     &ewma.Builder{},
 	}
@@ -85,6 +85,6 @@ func NewBuilder() selector2.Builder {
 type Builder struct{}
 
 // Build creates Balancer
-func (b *Builder) Build() selector2.Balancer {
+func (b *Builder) Build() selector.Balancer {
 	return &Balancer{r: rand.New(rand.NewSource(time.Now().UnixNano()))}
 }

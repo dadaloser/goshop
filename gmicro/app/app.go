@@ -15,7 +15,7 @@ import (
 
 	"goshop/gmicro/core/trace"
 	"goshop/gmicro/registry"
-	gs "goshop/gmicro/server"
+	"goshop/gmicro/server"
 	"os"
 	"os/signal"
 	"sync"
@@ -33,8 +33,8 @@ type readyServer interface {
 	Ready() <-chan struct{}
 }
 
-func (a *App) servers() []gs.Server {
-	servers := make([]gs.Server, 0, len(a.opts.servers)+2)
+func (a *App) servers() []server.Server {
+	servers := make([]server.Server, 0, len(a.opts.servers)+2)
 	servers = append(servers, a.opts.servers...)
 	if a.opts.restServer != nil {
 		servers = append(servers, a.opts.restServer)

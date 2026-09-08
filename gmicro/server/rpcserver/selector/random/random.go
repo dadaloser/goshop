@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/rand"
 
-	selector2 "goshop/gmicro/server/rpcserver/selector"
+	"goshop/gmicro/server/rpcserver/selector"
 	"goshop/gmicro/server/rpcserver/selector/node/direct"
 )
 
@@ -13,20 +13,20 @@ const (
 	Name = "random"
 )
 
-var _ selector2.Balancer = &Balancer{} // Name is balancer name
+var _ selector.Balancer = &Balancer{} // Name is balancer name
 
 // Balancer is a random balancer.
 type Balancer struct{}
 
 // New an random selector.
-func New() selector2.Selector {
+func New() selector.Selector {
 	return NewBuilder().Build()
 }
 
 // Pick is pick a weighted node.
-func (p *Balancer) Pick(_ context.Context, nodes []selector2.WeightedNode) (selector2.WeightedNode, selector2.DoneFunc, error) {
+func (p *Balancer) Pick(_ context.Context, nodes []selector.WeightedNode) (selector.WeightedNode, selector.DoneFunc, error) {
 	if len(nodes) == 0 {
-		return nil, nil, selector2.ErrNoAvailable
+		return nil, nil, selector.ErrNoAvailable
 	}
 	cur := rand.Intn(len(nodes))
 	selected := nodes[cur]
@@ -35,8 +35,8 @@ func (p *Balancer) Pick(_ context.Context, nodes []selector2.WeightedNode) (sele
 }
 
 // NewBuilder returns a selector builder with random balancer
-func NewBuilder() selector2.Builder {
-	return &selector2.DefaultBuilder{
+func NewBuilder() selector.Builder {
+	return &selector.DefaultBuilder{
 		Balancer: &Builder{},
 		Node:     &direct.Builder{},
 	}
@@ -46,6 +46,6 @@ func NewBuilder() selector2.Builder {
 type Builder struct{}
 
 // Build creates Balancer
-func (b *Builder) Build() selector2.Balancer {
+func (b *Builder) Build() selector.Balancer {
 	return &Balancer{}
 }

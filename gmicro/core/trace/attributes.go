@@ -3,7 +3,7 @@ package trace
 import (
 	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-	gcodes "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -35,6 +35,6 @@ var (
 )
 
 // StatusCodeAttr returns an attribute.KeyValue that represents the give c.
-func StatusCodeAttr(c gcodes.Code) attribute.KeyValue {
+func StatusCodeAttr(c codes.Code) attribute.KeyValue {
 	return GRPCStatusCodeKey.Int64(int64(c))
 }
