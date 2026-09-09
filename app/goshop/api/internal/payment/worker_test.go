@@ -38,15 +38,38 @@ type fakeOrderClient struct {
 	reconciled   *opb.ReconcilePaymentsRequest
 	reconcileRes *opb.ReconcilePaymentsResponse
 	claimErr     error
+	claimRequest *opb.ClaimRefundJobsRequest
 	completeErr  error
 	reconcileErr error
 }
 
-func (f *fakeOrderClient) ClaimRefundJobs(context.Context, *opb.ClaimRefundJobsRequest, ...grpc.CallOption) (*opb.ClaimRefundJobsResponse, error) {
+func (f *fakeOrderClient) ClaimRefundJobs(_ context.Context, request *opb.ClaimRefundJobsRequest, _ ...grpc.CallOption) (*opb.ClaimRefundJobsResponse, error) {
+	f.claimRequest = request
 	if f.claimErr != nil {
 		return nil, f.claimErr
 	}
 	return &opb.ClaimRefundJobsResponse{Jobs: f.jobs}, nil
+}
+
+func TestWorkerRefundLockOutlivesBatchAndCompletion(t *testing.T) {
+	orders := &fakeOrderClient{}
+	worker := NewWorker(orders, &fakePaymentProvider{}, &options.PaymentOptions{
+		Provider:           "mock",
+		WorkerBatchSize:    10,
+		WorkerBatchTimeout: time.Minute,
+		MaxAttempts:        3,
+		RequestTimeout:     time.Second,
+	})
+	if err := worker.processRefundBatch(context.Background()); err != nil {
+		t.Fatalf("processRefundBatch() error = %v", err)
+	}
+	if orders.claimRequest == nil {
+		t.Fatal("ClaimRefundJobs() was not called")
+	}
+	want := int64((time.Minute + refundJobCompletionTimeout) / time.Second)
+	if got := orders.claimRequest.GetLockTimeoutSeconds(); got != want {
+		t.Fatalf("LockTimeoutSeconds = %d, want %d", got, want)
+	}
 }
 func (f *fakeOrderClient) CompleteRefundJob(_ context.Context, request *opb.CompleteRefundJobRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
 	if f.completeErr != nil {

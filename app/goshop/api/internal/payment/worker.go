@@ -19,6 +19,11 @@ type Worker struct {
 	now      func() time.Time
 }
 
+const (
+	defaultWorkerBatchTimeout  = 2 * time.Minute
+	refundJobCompletionTimeout = 15 * time.Second
+)
+
 func NewWorker(orders opb.OrderClient, provider Provider, opts *options.PaymentOptions) *Worker {
 	return &Worker{orders: orders, provider: provider, opts: opts, now: time.Now}
 }
@@ -49,20 +54,28 @@ func (w *Worker) runRefunds(ctx context.Context) error {
 }
 
 func (w *Worker) processRefundBatch(ctx context.Context) error {
-	claim, err := w.orders.ClaimRefundJobs(ctx, &opb.ClaimRefundJobsRequest{Limit: int32(w.opts.WorkerBatchSize), MaxAttempts: int32(w.opts.MaxAttempts), LockTimeoutSeconds: 120})
+	batchCtx, cancel := context.WithTimeout(ctx, w.workerBatchTimeout())
+	defer cancel()
+	claim, err := w.orders.ClaimRefundJobs(batchCtx, &opb.ClaimRefundJobsRequest{Limit: int32(w.opts.WorkerBatchSize), MaxAttempts: int32(w.opts.MaxAttempts), LockTimeoutSeconds: int64(w.refundJobLockTimeout() / time.Second)})
 	if err != nil {
 		return fmt.Errorf("claim refund jobs: %w", err)
 	}
 	for _, job := range claim.GetJobs() {
-		requestCtx, cancel := context.WithTimeout(ctx, w.opts.RequestTimeout)
+		if err := batchCtx.Err(); err != nil {
+			return err
+		}
+		requestCtx, cancel := context.WithTimeout(batchCtx, w.opts.RequestTimeout)
 		response, refundErr := w.provider.Refund(requestCtx, RefundRequest{RequestID: job.GetCorrelationId(), OrderSN: job.GetOrderSn(), TradeNo: job.GetTradeNo(), AmountFen: job.GetAmountFen(), Reason: job.GetReason()})
 		cancel()
 		complete := &opb.CompleteRefundJobRequest{Id: job.GetId(), Success: refundErr == nil, Provider: w.opts.Provider, ProviderRefundId: response.ProviderRefundID, ProviderStatus: response.Status, MaxAttempts: int32(w.opts.MaxAttempts)}
 		if refundErr != nil {
 			complete.ErrorDetail = refundErr.Error()
 		}
-		if _, err := w.orders.CompleteRefundJob(ctx, complete); err != nil {
-			return fmt.Errorf("complete refund job %d: %w", job.GetId(), err)
+		completionCtx, completionCancel := context.WithTimeout(ctx, refundJobCompletionTimeout)
+		_, completeErr := w.orders.CompleteRefundJob(completionCtx, complete)
+		completionCancel()
+		if completeErr != nil {
+			return fmt.Errorf("complete refund job %d: %w", job.GetId(), completeErr)
 		}
 		result := "succeeded"
 		if refundErr != nil {
@@ -93,7 +106,9 @@ func (w *Worker) runReconciliation(ctx context.Context) error {
 }
 
 func (w *Worker) reconcileWindow(ctx context.Context, from, to time.Time) error {
-	requestCtx, cancel := context.WithTimeout(ctx, w.opts.RequestTimeout)
+	batchCtx, batchCancel := context.WithTimeout(ctx, w.workerBatchTimeout())
+	defer batchCancel()
+	requestCtx, cancel := context.WithTimeout(batchCtx, w.opts.RequestTimeout)
 	transactions, err := w.provider.ListTransactions(requestCtx, from, to)
 	cancel()
 	if err != nil {
@@ -103,7 +118,7 @@ func (w *Worker) reconcileWindow(ctx context.Context, from, to time.Time) error 
 	for _, transaction := range transactions {
 		items = append(items, &opb.ProviderTransaction{EventId: transaction.EventID, OrderSn: transaction.OrderSN, TradeNo: transaction.TradeNo, EventType: transaction.EventType, AmountFen: transaction.AmountFen, OccurredAt: transaction.OccurredAt.Unix()})
 	}
-	resp, err := w.orders.ReconcilePayments(ctx, &opb.ReconcilePaymentsRequest{Provider: w.opts.Provider, WindowStart: from.Unix(), WindowEnd: to.Unix(), Transactions: items})
+	resp, err := w.orders.ReconcilePayments(batchCtx, &opb.ReconcilePaymentsRequest{Provider: w.opts.Provider, WindowStart: from.Unix(), WindowEnd: to.Unix(), Transactions: items})
 	if err != nil {
 		return fmt.Errorf("persist payment reconciliation: %w", err)
 	}
@@ -116,4 +131,15 @@ func (w *Worker) reconcileWindow(ctx context.Context, from, to time.Time) error 
 	}
 	metricPaymentReconciliationRunsTotal.Inc(result)
 	return nil
+}
+
+func (w *Worker) workerBatchTimeout() time.Duration {
+	if w.opts == nil || w.opts.WorkerBatchTimeout <= 0 {
+		return defaultWorkerBatchTimeout
+	}
+	return w.opts.WorkerBatchTimeout
+}
+
+func (w *Worker) refundJobLockTimeout() time.Duration {
+	return w.workerBatchTimeout() + refundJobCompletionTimeout
 }

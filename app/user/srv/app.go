@@ -91,10 +91,12 @@ func run(cfg *config.Config) app.RunFunc {
 			worker := userservice.NewAccountDeletionOutboxWorker(
 				db.NewAccountDeletionOutboxStore(gormDB),
 				userservice.AccountDeletionOutboxConfig{
-					NATSURL:      cfg.AccountDeletionEvents.URL,
-					PollInterval: cfg.AccountDeletionEvents.PollInterval,
-					BatchSize:    cfg.AccountDeletionEvents.BatchSize,
-					MaxRetries:   cfg.AccountDeletionEvents.MaxRetries,
+					NATSURL:        cfg.AccountDeletionEvents.URL,
+					PollInterval:   cfg.AccountDeletionEvents.PollInterval,
+					SweepTimeout:   cfg.AccountDeletionEvents.SweepTimeout,
+					PublishTimeout: cfg.AccountDeletionEvents.PublishTimeout,
+					BatchSize:      cfg.AccountDeletionEvents.BatchSize,
+					MaxRetries:     cfg.AccountDeletionEvents.MaxRetries,
 				},
 			)
 			group.Go(func() error { return worker.Run(groupCtx) })

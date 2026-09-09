@@ -13,6 +13,7 @@ import (
 
 const (
 	orderLifecyclePollInterval = 5 * time.Second
+	orderLifecycleSweepTimeout = 2 * time.Minute
 	orderTimeoutCloseAfter     = 30 * time.Minute
 	orderFinishAfterPayment    = 7 * 24 * time.Hour
 	orderLifecycleBatchSize    = 20
@@ -22,16 +23,22 @@ func (s *service) runLifecycleWorker(ctx context.Context) error {
 	ticker := time.NewTicker(s.lifecycle.PollInterval)
 	defer ticker.Stop()
 
-	s.runLifecycleSweep(ctx)
+	s.runLifecycleSweepWithTimeout(ctx)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			s.runLifecycleSweep(ctx)
+			s.runLifecycleSweepWithTimeout(ctx)
 		}
 	}
+}
+
+func (s *service) runLifecycleSweepWithTimeout(ctx context.Context) {
+	sweepCtx, cancel := context.WithTimeout(ctx, s.lifecycle.SweepTimeout)
+	defer cancel()
+	s.runLifecycleSweep(sweepCtx)
 }
 
 func (s *service) runLifecycleSweep(ctx context.Context) {

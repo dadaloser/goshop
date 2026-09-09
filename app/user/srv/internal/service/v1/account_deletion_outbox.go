@@ -10,16 +10,26 @@ import (
 	"goshop/pkg/log"
 )
 
+const accountDeletionOutboxStateWriteTimeout = 5 * time.Second
+
 type AccountDeletionOutboxConfig struct {
-	NATSURL      string
-	PollInterval time.Duration
-	BatchSize    int
-	MaxRetries   int
+	NATSURL        string
+	PollInterval   time.Duration
+	SweepTimeout   time.Duration
+	PublishTimeout time.Duration
+	BatchSize      int
+	MaxRetries     int
 }
 
 func (c AccountDeletionOutboxConfig) normalized() AccountDeletionOutboxConfig {
 	if c.PollInterval <= 0 {
 		c.PollInterval = 2 * time.Second
+	}
+	if c.SweepTimeout <= 0 {
+		c.SweepTimeout = 2 * time.Minute
+	}
+	if c.PublishTimeout <= 0 {
+		c.PublishTimeout = 5 * time.Second
 	}
 	if c.BatchSize <= 0 {
 		c.BatchSize = 50
@@ -46,7 +56,9 @@ func (w *AccountDeletionOutboxWorker) Run(ctx context.Context) error {
 	ticker := time.NewTicker(w.cfg.PollInterval)
 	defer ticker.Stop()
 	for {
-		w.process(ctx)
+		sweepCtx, cancel := context.WithTimeout(ctx, w.cfg.SweepTimeout)
+		w.process(sweepCtx, ctx)
+		cancel()
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -55,13 +67,13 @@ func (w *AccountDeletionOutboxWorker) Run(ctx context.Context) error {
 	}
 }
 
-func (w *AccountDeletionOutboxWorker) process(ctx context.Context) {
+func (w *AccountDeletionOutboxWorker) process(ctx, stateParent context.Context) {
 	now := time.Now().UTC()
 	if _, err := w.store.RequeueStaleDeletionEvents(ctx, now.Add(-5*time.Minute)); err != nil {
 		log.Errorf("requeue stale account deletion events: %v", err)
 		return
 	}
-	publisher, err := eventbus.Connect(eventbus.Config{URL: w.cfg.NATSURL})
+	publisher, err := eventbus.Connect(eventbus.Config{URL: w.cfg.NATSURL, PublishTimeout: w.cfg.PublishTimeout})
 	if err != nil {
 		log.Warnf("account deletion event bus unavailable: %v", err)
 		return
@@ -73,12 +85,17 @@ func (w *AccountDeletionOutboxWorker) process(ctx context.Context) {
 		return
 	}
 	for _, event := range events {
+		if err := ctx.Err(); err != nil {
+			return
+		}
 		if event == nil {
 			continue
 		}
 		err = publisher.Publish(ctx, eventbus.Event{ID: event.ID, Subject: event.EventType, OccurredAt: event.CreatedAt, Payload: event.Payload, CorrelationID: event.ID})
 		if err == nil {
-			err = w.store.MarkDeletionEventPublished(ctx, event.ID, time.Now().UTC())
+			stateCtx, cancel := accountDeletionOutboxStateContext(stateParent)
+			err = w.store.MarkDeletionEventPublished(stateCtx, event.ID, time.Now().UTC())
+			cancel()
 		}
 		if err == nil {
 			continue
@@ -91,10 +108,20 @@ func (w *AccountDeletionOutboxWorker) process(ctx context.Context) {
 		if retry == w.cfg.MaxRetries {
 			delay = time.Hour
 		}
-		if retryErr := w.store.RetryDeletionEvent(ctx, event.ID, retry, time.Now().UTC().Add(delay), fmt.Sprintf("%v", err)); retryErr != nil {
+		stateCtx, cancel := accountDeletionOutboxStateContext(stateParent)
+		retryErr := w.store.RetryDeletionEvent(stateCtx, event.ID, retry, time.Now().UTC().Add(delay), fmt.Sprintf("%v", err))
+		cancel()
+		if retryErr != nil {
 			log.Errorf("retry account deletion event %s: %v", event.ID, retryErr)
 		}
+		if ctx.Err() != nil {
+			return
+		}
 	}
+}
+
+func accountDeletionOutboxStateContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, accountDeletionOutboxStateWriteTimeout)
 }
 
 func min(a, b int) int {

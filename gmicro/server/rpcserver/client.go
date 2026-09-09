@@ -25,8 +25,9 @@ const selectorBalancerName = "selector"
 type ClientOption func(o *clientOptions)
 
 type clientOptions struct {
-	endpoint string
-	timeout  time.Duration
+	endpoint         string
+	timeout          time.Duration
+	clientTimeoutSet bool
 	// discovery接口
 	discovery          registry.Discovery
 	unaryInts          []grpc.UnaryClientInterceptor
@@ -96,10 +97,13 @@ func WithEndpoint(endpoint string) ClientOption {
 	}
 }
 
-// 设置超时时间
+// WithClientTimeout sets the outbound unary RPC deadline. When used with
+// WithClientResilience, it overrides that option's Timeout while preserving
+// its other resilience settings.
 func WithClientTimeout(timeout time.Duration) ClientOption {
 	return func(o *clientOptions) {
 		o.timeout = timeout
+		o.clientTimeoutSet = true
 	}
 }
 
@@ -203,11 +207,7 @@ func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.Clien
 		applyClientTLSConfig(&options, tlsConfig)
 	}
 
-	resilienceOptions := options.resilience
-	if resilienceOptions == nil {
-		resilienceOptions = resilience.NewOptions()
-		resilienceOptions.Timeout = options.timeout
-	}
+	resilienceOptions := effectiveClientResilienceOptions(options)
 	sentinelInterceptor, err := clientinterceptors.SentinelInterceptor(resilienceOptions)
 	if err != nil {
 		return nil, fmt.Errorf("create rpc resilience interceptor: %w", err)
@@ -281,6 +281,19 @@ func dial(ctx context.Context, insecure bool, opts ...ClientOption) (*grpc.Clien
 	}
 	return conn, nil
 	//return grpc.DialContext(ctx, options.endpoint, grpcOpts...)
+}
+
+func effectiveClientResilienceOptions(options clientOptions) *resilience.Options {
+	if options.resilience == nil {
+		value := resilience.NewOptions()
+		value.Timeout = options.timeout
+		return value
+	}
+	value := *options.resilience
+	if options.clientTimeoutSet {
+		value.Timeout = options.timeout
+	}
+	return &value
 }
 
 func productionClientDialOptions(connectTimeout time.Duration) []grpc.DialOption {

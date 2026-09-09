@@ -15,6 +15,7 @@ const (
 	outboxBatchSize    = 20
 	outboxMaxRetry     = 5
 	outboxClaimTimeout = 5 * time.Minute
+	outboxSweepTimeout = 2 * time.Minute
 )
 
 type goodsOutboxPayload struct {
@@ -67,7 +68,7 @@ func (s *service) runGoodsOutboxWorker(ctx context.Context) error {
 	ticker := time.NewTicker(outboxPollInterval)
 	defer ticker.Stop()
 
-	if err := s.processGoodsOutboxOnce(ctx); err != nil {
+	if err := s.processGoodsOutboxSweep(ctx); err != nil {
 		return err
 	}
 
@@ -76,11 +77,17 @@ func (s *service) runGoodsOutboxWorker(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			if err := s.processGoodsOutboxOnce(ctx); err != nil {
+			if err := s.processGoodsOutboxSweep(ctx); err != nil {
 				return err
 			}
 		}
 	}
+}
+
+func (s *service) processGoodsOutboxSweep(ctx context.Context) error {
+	sweepCtx, cancel := context.WithTimeout(ctx, outboxSweepTimeout)
+	defer cancel()
+	return s.processGoodsOutboxOnce(sweepCtx)
 }
 
 func (s *service) processGoodsOutboxOnce(ctx context.Context) error {

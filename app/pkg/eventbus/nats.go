@@ -19,6 +19,7 @@ type Config struct {
 	URL            string
 	Stream         string
 	ConnectTimeout time.Duration
+	PublishTimeout time.Duration
 }
 
 func (c Config) normalized() Config {
@@ -29,6 +30,9 @@ func (c Config) normalized() Config {
 	}
 	if c.ConnectTimeout <= 0 {
 		c.ConnectTimeout = 5 * time.Second
+	}
+	if c.PublishTimeout <= 0 {
+		c.PublishTimeout = 5 * time.Second
 	}
 	return c
 }
@@ -80,8 +84,9 @@ var (
 // only means JetStream accepted the message; callers must then mark the outbox
 // record delivered in their own database.
 type Publisher struct {
-	nc *nats.Conn
-	js nats.JetStreamContext
+	nc             *nats.Conn
+	js             nats.JetStreamContext
+	publishTimeout time.Duration
 }
 
 func Connect(cfg Config) (*Publisher, error) {
@@ -98,7 +103,7 @@ func Connect(cfg Config) (*Publisher, error) {
 		nc.Close()
 		return nil, err
 	}
-	return &Publisher{nc: nc, js: js}, nil
+	return &Publisher{nc: nc, js: js, publishTimeout: cfg.PublishTimeout}, nil
 }
 
 func (p *Publisher) Close() {
@@ -123,7 +128,12 @@ func (p *Publisher) Publish(ctx context.Context, event Event) error {
 	if !event.OccurredAt.IsZero() {
 		msg.Header.Set("X-Occurred-At", event.OccurredAt.UTC().Format(time.RFC3339Nano))
 	}
-	_, err := p.js.PublishMsg(msg, nats.Context(ctx))
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	publishCtx, cancel := context.WithTimeout(ctx, p.publishTimeout)
+	defer cancel()
+	_, err := p.js.PublishMsg(msg, nats.Context(publishCtx))
 	return err
 }
 

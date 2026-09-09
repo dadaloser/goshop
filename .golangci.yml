@@ -3,9 +3,16 @@ version: "2"
 linters:
   default: none
   enable:
+    - bodyclose
     - errcheck
+    - gocritic
+    - gosec
+    - mnd
     - govet
     - ineffassign
+    - nilerr
+    - nolintlint
+    - revive
     - staticcheck
     - unused
   settings:
@@ -25,6 +32,17 @@ linters:
       - testdata
       - third_party
       - ".*_test\\.go$"
+    rules:
+      # math/rand is appropriate for non-security load-balancer selection.
+      - path: gmicro/server/rpcserver/selector/(p2c|random)/
+        linters:
+          - gosec
+        text: "G404:"
+
+# Apply newly enabled rules to changed code first. This prevents legacy debt
+# from disabling the gate while ensuring every new or modified line meets it.
+issues:
+  new: true
 
 run:
   timeout: 5m

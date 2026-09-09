@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"goshop/gmicro/registry"
+	"goshop/gmicro/resilience"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -34,6 +35,33 @@ func TestWithClientMetricsCanDisableMetrics(t *testing.T) {
 	WithClientMetrics(false)(&opts)
 	if opts.enableMetrics {
 		t.Fatal("enableMetrics = true, want false after WithClientMetrics(false)")
+	}
+}
+
+func TestEffectiveClientResilienceOptionsUsesExplicitClientTimeout(t *testing.T) {
+	original := resilience.NewOptions()
+	original.Timeout = 9 * time.Second
+	options := defaultClientOptions()
+	WithClientResilience(original)(&options)
+	WithClientTimeout(time.Second)(&options)
+
+	got := effectiveClientResilienceOptions(options)
+	if got.Timeout != time.Second {
+		t.Fatalf("Timeout = %s, want 1s", got.Timeout)
+	}
+	if original.Timeout != 9*time.Second {
+		t.Fatalf("original Timeout = %s, want 9s", original.Timeout)
+	}
+	if got == original {
+		t.Fatal("effective options shares caller-owned resilience options")
+	}
+}
+
+func TestEffectiveClientResilienceOptionsUsesDefaultClientTimeout(t *testing.T) {
+	options := defaultClientOptions()
+	WithClientTimeout(3 * time.Second)(&options)
+	if got := effectiveClientResilienceOptions(options); got.Timeout != 3*time.Second {
+		t.Fatalf("Timeout = %s, want 3s", got.Timeout)
 	}
 }
 

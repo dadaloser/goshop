@@ -17,6 +17,7 @@ type ServiceFactory interface {
 
 type LifecycleConfig struct {
 	PollInterval       time.Duration
+	SweepTimeout       time.Duration
 	TimeoutCloseAfter  time.Duration
 	FinishAfterPayment time.Duration
 	BatchSize          int
@@ -60,6 +61,9 @@ func NewService(data v1.DataFactory, dtmopts *options.DtmOptions, goods boundary
 func (c LifecycleConfig) normalize() LifecycleConfig {
 	if c.PollInterval <= 0 {
 		c.PollInterval = orderLifecyclePollInterval
+	}
+	if c.SweepTimeout <= 0 {
+		c.SweepTimeout = orderLifecycleSweepTimeout
 	}
 	if c.TimeoutCloseAfter <= 0 {
 		c.TimeoutCloseAfter = orderTimeoutCloseAfter
