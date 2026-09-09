@@ -460,6 +460,7 @@ func (f fakeSearchFactory) Goods() searchv1.GoodsStore {
 type fakeOutboxStore struct {
 	createInTxn  func(context.Context, *gorm.DB, *do.OutboxEventDO) error
 	claim        func(context.Context, string, int, int64) ([]*do.OutboxEventDO, error)
+	requeue      func(context.Context, string, int64) (int64, error)
 	listByStatus func(context.Context, string, string, int) ([]*do.OutboxEventDO, error)
 	listByIDs    func(context.Context, []int32) ([]*do.OutboxEventDO, error)
 	markDone     func(context.Context, int32) error
@@ -515,6 +516,9 @@ func (f fakeOutboxStore) CountByStatus(ctx context.Context, topic, status string
 }
 
 func (f fakeOutboxStore) RequeueStale(ctx context.Context, topic string, claimedBefore int64) (int64, error) {
+	if f.requeue != nil {
+		return f.requeue(ctx, topic, claimedBefore)
+	}
 	return 0, nil
 }
 

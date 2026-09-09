@@ -19,8 +19,8 @@ func NewStore(db *gorm.DB) *data.Store { return data.NewStore(db) }
 func New(store service.Repository, verifier service.PurchaseVerifier, opts ...service.Option) *Service {
 	return service.New(store, verifier, opts...)
 }
-func WithOutboxWorker(pollInterval time.Duration, batchSize int) service.Option {
-	return service.WithOutboxWorker(pollInterval, batchSize)
+func WithOutboxWorker(pollInterval, sweepTimeout time.Duration, batchSize int) service.Option {
+	return service.WithOutboxWorker(pollInterval, sweepTimeout, batchSize)
 }
 func NewDBOrderVerifier(db *gorm.DB) *service.DBOrderVerifier { return service.NewDBOrderVerifier(db) }
 func NewGRPCServer(value *Service) *GRPCServer                { return service.NewGRPCServer(value) }

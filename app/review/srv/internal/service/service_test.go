@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"goshop/app/review/srv/internal/data"
 	"goshop/app/review/srv/internal/domain"
@@ -111,6 +112,48 @@ func TestReviewRequiresCompletedPurchase(t *testing.T) {
 	svc := New(newMemoryRepo(), verifierFunc(func(context.Context, int32, string, int32) error { return ErrPurchaseRequired }))
 	if _, err := svc.Create(context.Background(), 1, "order-1", 2, 5, "great"); err != ErrPurchaseRequired {
 		t.Fatalf("Create() error=%v", err)
+	}
+}
+
+type deadlineOutboxRepo struct {
+	*memoryRepo
+	processed chan context.Context
+}
+
+func (r *deadlineOutboxRepo) ProcessOutbox(ctx context.Context, _ int) error {
+	r.processed <- ctx
+	return nil
+}
+
+func TestRunOutboxAppliesSweepTimeout(t *testing.T) {
+	repo := &deadlineOutboxRepo{memoryRepo: newMemoryRepo(), processed: make(chan context.Context, 1)}
+	svc := New(repo, nil, WithOutboxWorker(time.Hour, 2*time.Second, 1))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- svc.RunOutbox(ctx) }()
+
+	select {
+	case sweepCtx := <-repo.processed:
+		deadline, ok := sweepCtx.Deadline()
+		if !ok {
+			t.Fatal("ProcessOutbox() context has no deadline")
+		}
+		remaining := time.Until(deadline)
+		if remaining <= 0 || remaining > 2*time.Second {
+			t.Fatalf("ProcessOutbox() deadline remaining = %s, want within (0s, 2s]", remaining)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ProcessOutbox() was not called")
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("RunOutbox() error = %v, want nil", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("RunOutbox() did not stop after cancellation")
 	}
 }
 func TestConcurrentFirstReviewIsIdempotent(t *testing.T) {

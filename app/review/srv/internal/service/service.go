@@ -38,15 +38,17 @@ type Service struct {
 
 type OutboxWorkerConfig struct {
 	PollInterval time.Duration
+	SweepTimeout time.Duration
 	BatchSize    int
 }
 
 type Option func(*Service)
 
-func WithOutboxWorker(pollInterval time.Duration, batchSize int) Option {
+func WithOutboxWorker(pollInterval, sweepTimeout time.Duration, batchSize int) Option {
 	return func(s *Service) {
 		s.outbox = OutboxWorkerConfig{
 			PollInterval: pollInterval,
+			SweepTimeout: sweepTimeout,
 			BatchSize:    batchSize,
 		}.normalize()
 	}
@@ -138,7 +140,10 @@ func (s *Service) RunOutbox(ctx context.Context) error {
 	ticker := time.NewTicker(cfg.PollInterval)
 	defer ticker.Stop()
 	for {
-		if err := s.repo.ProcessOutbox(ctx, cfg.BatchSize); err != nil {
+		sweepCtx, cancel := context.WithTimeout(ctx, cfg.SweepTimeout)
+		err := s.repo.ProcessOutbox(sweepCtx, cfg.BatchSize)
+		cancel()
+		if err != nil && ctx.Err() == nil {
 			log.Errorf("process review rating outbox: %v", err)
 		}
 		select {
@@ -152,6 +157,9 @@ func (s *Service) RunOutbox(ctx context.Context) error {
 func (c OutboxWorkerConfig) normalize() OutboxWorkerConfig {
 	if c.PollInterval <= 0 {
 		c.PollInterval = 2 * time.Second
+	}
+	if c.SweepTimeout <= 0 {
+		c.SweepTimeout = 2 * time.Minute
 	}
 	if c.BatchSize <= 0 {
 		c.BatchSize = 50

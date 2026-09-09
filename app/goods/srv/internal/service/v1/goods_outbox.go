@@ -7,6 +7,7 @@ import (
 	datav1 "goshop/app/goods/srv/internal/data/v1"
 	"goshop/app/goods/srv/internal/domain/do"
 	"goshop/app/goods/srv/internal/domain/dto"
+	"goshop/pkg/log"
 	"time"
 )
 
@@ -68,26 +69,24 @@ func (s *service) runGoodsOutboxWorker(ctx context.Context) error {
 	ticker := time.NewTicker(outboxPollInterval)
 	defer ticker.Stop()
 
-	if err := s.processGoodsOutboxSweep(ctx); err != nil {
-		return err
-	}
+	s.runGoodsOutboxSweep(ctx)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			if err := s.processGoodsOutboxSweep(ctx); err != nil {
-				return err
-			}
+			s.runGoodsOutboxSweep(ctx)
 		}
 	}
 }
 
-func (s *service) processGoodsOutboxSweep(ctx context.Context) error {
+func (s *service) runGoodsOutboxSweep(ctx context.Context) {
 	sweepCtx, cancel := context.WithTimeout(ctx, outboxSweepTimeout)
 	defer cancel()
-	return s.processGoodsOutboxOnce(sweepCtx)
+	if err := s.processGoodsOutboxOnce(sweepCtx); err != nil && ctx.Err() == nil {
+		log.Errorf("process goods outbox sweep: %v", err)
+	}
 }
 
 func (s *service) processGoodsOutboxOnce(ctx context.Context) error {

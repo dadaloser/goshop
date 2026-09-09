@@ -44,7 +44,7 @@ func newReviewService(ctx context.Context, cfg *config.Config) (*Service, error)
 	return New(
 		NewStore(db),
 		service.NewOrderVerifier(orderClient),
-		WithOutboxWorker(workerCfg.PollInterval, workerCfg.BatchSize),
+		WithOutboxWorker(workerCfg.PollInterval, workerCfg.SweepTimeout, workerCfg.BatchSize),
 	), nil
 }
 

@@ -2,11 +2,34 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"goshop/app/goods/srv/internal/domain/do"
 	gorm2 "goshop/app/pkg/gorm"
 )
+
+func TestRunGoodsOutboxWorkerContinuesAfterSweepFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	calls := 0
+	svc := &service{
+		data: fakeGoodsDataFactory{outbox: fakeOutboxStore{
+			requeue: func(context.Context, string, int64) (int64, error) {
+				calls++
+				cancel()
+				return 0, errors.New("search unavailable")
+			},
+		}},
+		dataSearch: fakeSearchFactory{goods: fakeSearchGoodsStore{}},
+	}
+
+	if err := svc.runGoodsOutboxWorker(ctx); err != nil {
+		t.Fatalf("runGoodsOutboxWorker() error = %v, want nil after canceled failed sweep", err)
+	}
+	if calls != 1 {
+		t.Fatalf("RequeueStale() calls = %d, want 1", calls)
+	}
+}
 
 func TestProcessGoodsOutboxEventMarksDoneOnSuccess(t *testing.T) {
 	doneID := int32(0)
